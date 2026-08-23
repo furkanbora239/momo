@@ -4,6 +4,7 @@ import type { CategoriesConfig, GitMasterConfig } from "../config/schema"
 import type { LoadedSkill } from "../features/opencode-skill-loader/types"
 import type { BrowserAutomationProvider } from "../config/schema"
 import { createSisyphusAgent } from "./sisyphus"
+import { createAdvisorAgent, ADVISOR_PROMPT_METADATA } from "./advisor"
 import { createOracleAgent, ORACLE_PROMPT_METADATA } from "./oracle"
 import { createLibrarianAgent, LIBRARIAN_PROMPT_METADATA } from "./librarian"
 import { createExploreAgent, EXPLORE_PROMPT_METADATA } from "./explore"
@@ -42,6 +43,7 @@ const agentSources: Record<BuiltinAgentName, AgentSource> = {
   // because it needs OrchestratorContext, not just a model string
   atlas: createAtlasAgent as AgentFactory,
   "sisyphus-junior": createSisyphusJuniorAgentWithOverrides as AgentFactory,
+  advisor: createAdvisorAgent,
 }
 
 /**
@@ -56,6 +58,7 @@ const agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>> = {
   metis: metisPromptMetadata,
   momus: momusPromptMetadata,
   atlas: atlasPromptMetadata,
+  advisor: ADVISOR_PROMPT_METADATA,
 }
 
 export async function createBuiltinAgents(
@@ -73,6 +76,7 @@ export async function createBuiltinAgents(
   useTaskSystem = false,
   disableOmoEnv = false,
   teamModeEnabled = false,
+  sessionId?: string,
 ): Promise<Record<string, AgentConfig>> {
 
   const connectedProviders = readConnectedProvidersCache()
@@ -117,6 +121,7 @@ export async function createBuiltinAgents(
     disabledSkills,
     teamModeEnabled,
     disableOmoEnv,
+    sessionId,
   })
 
   const sisyphusConfig = maybeCreateSisyphusConfig({

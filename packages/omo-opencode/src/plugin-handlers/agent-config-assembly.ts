@@ -113,26 +113,30 @@ async function createCoreAgentConfig(
   }
 
   if (pluginConfig.sisyphus_agent?.planner_enabled ?? true) {
-    agentConfig.prometheus = await buildPrometheusAgentConfig({
-      configAgentPlan: sources.configAgent?.plan,
-      pluginPrometheusOverride: pluginConfig.agents?.prometheus as
-        | (Record<string, unknown> & { prompt_append?: string })
-        | undefined,
-      userCategories: pluginConfig.categories,
-      currentModel,
-      disabledTools: pluginConfig.disabled_tools,
-    });
+    if (!params.disabledAgentNames.has("prometheus")) {
+      agentConfig.prometheus = await buildPrometheusAgentConfig({
+        configAgentPlan: sources.configAgent?.plan,
+        pluginPrometheusOverride: pluginConfig.agents?.prometheus as
+          | (Record<string, unknown> & { prompt_append?: string })
+          | undefined,
+        userCategories: pluginConfig.categories,
+        currentModel,
+        disabledTools: pluginConfig.disabled_tools,
+      });
+    }
   }
 
   if (builtinAgents.atlas) {
     agentConfig.atlas = builtinAgents.atlas;
   }
 
-  agentConfig["sisyphus-junior"] = createSisyphusJuniorAgentWithOverrides(
-    pluginConfig.agents?.["sisyphus-junior"],
-    (builtinAgents.atlas as { model?: string } | undefined)?.model,
-    useTaskSystem,
-  );
+  if (!params.disabledAgentNames.has("sisyphus-junior")) {
+    agentConfig["sisyphus-junior"] = createSisyphusJuniorAgentWithOverrides(
+      pluginConfig.agents?.["sisyphus-junior"],
+      (builtinAgents.atlas as { model?: string } | undefined)?.model,
+      useTaskSystem,
+    );
+  }
 
   return agentConfig;
 }

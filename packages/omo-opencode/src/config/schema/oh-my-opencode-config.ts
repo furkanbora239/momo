@@ -8,10 +8,12 @@ import { BrowserAutomationConfigSchema } from "./browser-automation"
 import { CategoriesConfigSchema } from "./categories"
 import { ClaudeCodeConfigSchema } from "./claude-code"
 import { CodegraphConfigSchema } from "./codegraph"
+import { CatalogConfigSchema } from "./catalog"
 import { CommentCheckerConfigSchema } from "./comment-checker"
 import { BuiltinCommandNameSchema } from "./commands"
 import { DefaultModeConfigSchema } from "./default-mode"
 import { ExperimentalConfigSchema } from "./experimental"
+import { TokenBurnConfigSchema } from "./token-burn"
 import { GitMasterConfigSchema } from "./git-master"
 import { I18nConfigSchema } from "./i18n"
 import { KeywordDetectorConfigSchema } from "./keyword-detector"
@@ -41,6 +43,13 @@ export const OhMyOpenCodeConfigSchema = z.object({
   /** Paths to external agent definition files (.md or .json) */
   agent_definitions: AgentDefinitionsConfigSchema,
   disabled_mcps: z.array(AnyMcpNameSchema).optional(),
+  /**
+   * Agents to disable. The momo v1 roster keeps the orchestrator, explore,
+   * librarian, task categories and advisor surfaced by default; prometheus,
+   * metis, momus, hephaestus, oracle, atlas, sisyphus-junior and
+   * multimodal-looker are disabled unless re-enabled via config (see
+   * V1_DISABLED_AGENTS_DEFAULT in config/validate.ts).
+   */
   disabled_agents: z.array(z.string()).optional(),
   disabled_skills: z.array(z.string()).optional(),
   disabled_hooks: z.array(z.string()).optional(),
@@ -68,6 +77,8 @@ export const OhMyOpenCodeConfigSchema = z.object({
   sisyphus_agent: SisyphusAgentConfigSchema.optional(),
   comment_checker: CommentCheckerConfigSchema.optional(),
   experimental: ExperimentalConfigSchema.optional(),
+  /** Token-burn pruning gates: heavy chat-injection hooks default-OFF, individually re-enableable. */
+  token_burn: TokenBurnConfigSchema.optional(),
   auto_update: z.boolean().optional(),
   skills: SkillsConfigSchema.optional(),
   goal: GoalConfigSchema.optional(),
@@ -87,6 +98,7 @@ export const OhMyOpenCodeConfigSchema = z.object({
   i18n: I18nConfigSchema.optional(),
   monitor: MonitorConfigSchema.optional(),
   codegraph: CodegraphConfigSchema.optional(),
+  catalog: CatalogConfigSchema,
   team_mode: TeamModeConfigSchema.optional(),
   keyword_detector: KeywordDetectorConfigSchema.optional(),
   babysitting: BabysittingConfigSchema.optional(),

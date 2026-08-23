@@ -83,6 +83,7 @@ export const AgentOverridesSchema = z.object({
   explore: AgentOverrideConfigSchema.optional(),
   "multimodal-looker": AgentOverrideConfigSchema.optional(),
   atlas: AgentOverrideConfigSchema.optional(),
+  advisor: AgentOverrideConfigSchema.optional(),
 }).catchall(AgentOverrideConfigSchema.optional())
 
 export type AgentOverrideConfig = z.infer<typeof AgentOverrideConfigSchema>

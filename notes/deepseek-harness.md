@@ -1,7 +1,8 @@
-# DeepSeek Harness (dsh) — tracking note
+# DeepSeek Harness (dsh) — reference note
 
-> Tracked for periodic review as a possible source of ideas / integration points
-> for this DeepSeek-optimized fork.
+> Retained as a **provider reference** for the momo fork. momo is
+> provider-agnostic (no pinned target model), so this note is one of several
+> possible sources of ideas — not the fork's target or roadmap.
 
 ## What it is
 
@@ -43,8 +44,9 @@ There is no privileged core to patch.
 
 ## Why we track it
 
-1. DeepSeek-native tool-calling / reasoning semantics (V4-Pro / V4-Flash thinking mode)
-   — useful reference for our `sisyphus/deepseek.ts` prompt variant.
+1. DeepSeek-native tool-calling / reasoning semantics (V4-Pro / V4-Flash thinking
+   mode) are a useful reference when authoring per-model orchestrator variants —
+   one of many providers momo can route to.
 2. Plugin composition + append-only event stream are ideas worth borrowing.
 3. Possible future alternative runtime base if upstream omo drifts too far.
 

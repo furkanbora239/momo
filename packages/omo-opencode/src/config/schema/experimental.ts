@@ -2,7 +2,7 @@ import { z } from "zod"
 import { DynamicContextPruningConfigSchema } from "./dynamic-context-pruning"
 
 export const ExperimentalConfigSchema = z.object({
-  aggressive_truncation: z.boolean().optional(),
+  aggressive_truncation: z.boolean().default(true),
   preemptive_compaction: z.boolean().optional(),
   truncate_all_tool_outputs: z.boolean().optional(),
   /** Dynamic context pruning configuration */

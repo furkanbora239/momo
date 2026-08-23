@@ -10,6 +10,7 @@ import { applyOverrides } from "./agent-overrides"
 import { applyEnvironmentContext } from "./environment-context"
 import { applyModelResolution, getFirstFallbackModel } from "./model-resolution"
 import { log } from "../../shared/logger"
+import { getSessionAdvisorBinding } from "../advisor-binding"
 
 export function collectPendingBuiltinAgents(input: {
   agentSources: Record<BuiltinAgentName, import("../agent-builder").AgentSource>
@@ -28,6 +29,7 @@ export function collectPendingBuiltinAgents(input: {
   teamModeEnabled?: boolean
   useTaskSystem?: boolean
   disableOmoEnv?: boolean
+  sessionId?: string
 }): { pendingAgentConfigs: Map<string, AgentConfig>; availableAgents: AvailableAgent[] } {
   const {
     agentSources,
@@ -45,6 +47,7 @@ export function collectPendingBuiltinAgents(input: {
     disabledSkills,
     teamModeEnabled,
     disableOmoEnv = false,
+    sessionId,
   } = input
 
   const availableAgents: AvailableAgent[] = []
@@ -57,11 +60,21 @@ export function collectPendingBuiltinAgents(input: {
     if (agentName === "hephaestus") continue
     if (agentName === "atlas") continue
     if (agentName === "sisyphus-junior") continue
+    if (agentName === "advisor" && !agentOverrides.advisor?.model && !getSessionAdvisorBinding(sessionId ?? "")) continue
     if (disabledAgents.some((name) => name.toLowerCase() === agentName.toLowerCase())) continue
 
     const override = agentOverrides[agentName]
       ?? Object.entries(agentOverrides).find(([key]) => key.toLowerCase() === agentName.toLowerCase())?.[1]
     const requirement = AGENT_MODEL_REQUIREMENTS[agentName]
+
+    // Session-scoped advisor binding takes precedence over the config binding.
+    // Fold it into the effective override so both model resolution and override
+    // application use the session model.
+    const advisorSessionModel = agentName === "advisor" ? getSessionAdvisorBinding(sessionId ?? "") : undefined
+    const effectiveOverride = advisorSessionModel
+      ? { ...(override ?? {}), model: advisorSessionModel }
+      : override
+    const effectiveUserModel = advisorSessionModel ?? override?.model
 
     // Check if agent requires a specific model
     if (requirement?.requiresModel && availableModels) {
@@ -77,8 +90,8 @@ export function collectPendingBuiltinAgents(input: {
     const isPrimaryAgent = isFactory(source) && source.mode === "primary"
 
     let resolution = applyModelResolution({
-      uiSelectedModel: (isPrimaryAgent && override?.model === undefined) ? uiSelectedModel : undefined,
-      userModel: override?.model,
+      uiSelectedModel: (isPrimaryAgent && effectiveUserModel === undefined) ? uiSelectedModel : undefined,
+      userModel: effectiveUserModel,
       requirement,
       availableModels,
       systemDefaultModel,
@@ -116,7 +129,7 @@ export function collectPendingBuiltinAgents(input: {
       config = applyEnvironmentContext(config, directory, { disableOmoEnv })
     }
 
-    config = applyOverrides(config, override, mergedCategories, directory)
+    config = applyOverrides(config, effectiveOverride, mergedCategories, directory)
     config = resolveAgentSkills(config, { gitMasterConfig, browserProvider, disabledSkills, teamModeEnabled })
 
     // Store for later - will be added after sisyphus and hephaestus

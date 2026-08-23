@@ -14,6 +14,7 @@ import { createPluginDispose } from "../plugin-dispose"
 import { createPluginInterface } from "../plugin-interface"
 import { loadPluginConfig } from "../plugin-config"
 import { createModelCacheState } from "../plugin-state"
+import { DEFAULT_OFF_HOOKS, DEFAULT_TOKEN_BURN } from "../config/schema/token-burn"
 import {
   createCompactionAutocontinueHandler,
   createSessionCompactingHandler,
@@ -276,8 +277,16 @@ export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): P
       deps.startTmuxCheck()
     }
     const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
+    const tokenBurn = pluginConfig.token_burn ?? DEFAULT_TOKEN_BURN
 
-    const isHookEnabled = (hookName: HookName): boolean => !disabledHooks.has(hookName)
+    // momo Wave 5: heavy chat-injection hooks are default-OFF; each is
+    // re-enableable via its token_burn flag. Explicit disabled_hooks still wins.
+    const isHookEnabled = (hookName: HookName): boolean => {
+      if (disabledHooks.has(hookName)) return false
+      const optInFlag = DEFAULT_OFF_HOOKS[hookName]
+      if (optInFlag && !tokenBurn[optInFlag]) return false
+      return true
+    }
     const safeHookEnabled = pluginConfig.experimental?.safe_hook_creation ?? true
 
     const firstMessageVariantGate = deps.createFirstMessageVariantGate()

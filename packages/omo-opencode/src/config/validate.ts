@@ -61,10 +61,30 @@ function parseConfigView(path: string, rawConfig: Record<string, unknown>): Load
   }
 }
 
+/**
+ * momo v1 roster: these agents are kept in-tree (code not deleted) but disabled
+ * by default so the orchestrator delegates to the cheaper, surfaced roster
+ * (orchestrator + explore + librarian + task categories + advisor). A user can
+ * re-enable any of them via `disabled_agents` in their config.
+ */
+export const V1_DISABLED_AGENTS_DEFAULT = [
+  "prometheus",
+  "metis",
+  "momus",
+  "hephaestus",
+  "oracle",
+  "atlas",
+  "sisyphus-junior",
+  "multimodal-looker",
+] as const
+
 function mergeViews(views: readonly LoadedConfigView[]): OhMyOpenCodeConfig {
   let config = OhMyOpenCodeConfigSchema.parse({})
   for (const view of views) {
     config = mergeConfigs(config, view.config)
+  }
+  if (config.disabled_agents === undefined) {
+    config = { ...config, disabled_agents: [...V1_DISABLED_AGENTS_DEFAULT] }
   }
   return config
 }

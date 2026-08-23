@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const DynamicContextPruningConfigSchema = z.object({
-  enabled: z.boolean().default(false),
+  enabled: z.boolean().default(true),
   notification: z.enum(["off", "minimal", "detailed"]).default("detailed"),
   /** Turn protection - prevent pruning recent tool outputs */
   turn_protection: z

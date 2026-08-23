@@ -67,7 +67,7 @@ describe("createBuiltinMcps", () => {
     // given
     mockLocalMcps()
     const { createBuiltinMcps } = require("../index") as typeof import("../index")
-    const disabledMcps = ["websearch", "context7", "grep_app", "lsp", "codegraph"]
+    const disabledMcps = ["websearch", "context7", "grep_app", "lsp", "codegraph", "catalog"]
 
     // when
     const result = createBuiltinMcps(disabledMcps)
@@ -79,7 +79,34 @@ describe("createBuiltinMcps", () => {
     expect(remainingMcpNames).not.toContain("grep_app")
     expect(remainingMcpNames).not.toContain("lsp")
     expect(remainingMcpNames).not.toContain("codegraph")
+    expect(remainingMcpNames).not.toContain("catalog")
     expect(remainingMcpNames).toEqual([])
+  })
+
+  test("should register catalog as a local MCP when enabled", () => {
+    // given
+    mockLocalMcps()
+    const { createBuiltinMcps } = require("../index") as typeof import("../index")
+
+    // when
+    const result = createBuiltinMcps([])
+
+    // then
+    expect(result.catalog).toBeDefined()
+    expect(result.catalog?.type).toBe("local")
+    expect(result.catalog?.environment?.OMO_CATALOG_CACHE_FILE).toContain("provider-models.json")
+  })
+
+  test("should omit catalog when listed in disabled_mcps", () => {
+    // given
+    mockLocalMcps()
+    const { createBuiltinMcps } = require("../index") as typeof import("../index")
+
+    // when
+    const result = createBuiltinMcps(["catalog"])
+
+    // then
+    expect(result.catalog).toBeUndefined()
   })
 
   test("should omit codegraph when its config section is disabled", () => {
