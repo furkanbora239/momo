@@ -2,6 +2,10 @@ import { existsSync, mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { homedir } from "node:os"
 import { log } from "../../shared/logger"
+import { spawn } from "../../shared/bun-spawn-shim"
+import { readProcessStream } from "../../shared/process-stream-reader"
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 function getOllamaInstallDir(): string {
   return join(homedir(), ".omo", "ollama")
@@ -29,13 +33,13 @@ export async function installOllama(): Promise<boolean> {
     return false
   }
 
-  const proc = Bun.spawn(["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"], {
+  const proc = spawn(["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"], {
     stdout: "pipe",
     stderr: "pipe",
   })
   const exitCode = await proc.exited
   if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text()
+    const stderr = proc.stderr ? await readProcessStream(proc.stderr) : ""
     log("[local-translator] Ollama install failed", { exitCode, stderr })
     return false
   }
@@ -50,14 +54,14 @@ export async function ensureOllamaRunning(host: string): Promise<boolean> {
 
   log("[local-translator] Starting Ollama daemon...")
 
-  Bun.spawn(["ollama", "serve"], {
+  spawn(["ollama", "serve"], {
     stdout: "pipe",
     stderr: "pipe",
     stdin: "ignore",
   })
 
   for (let i = 0; i < 30; i++) {
-    await Bun.sleep(1000)
+    await sleep(1000)
     if (await checkOllamaHealth(host)) {
       log("[local-translator] Ollama daemon ready")
       return true
@@ -67,3 +71,4 @@ export async function ensureOllamaRunning(host: string): Promise<boolean> {
   log("[local-translator] Ollama daemon did not start within 30s")
   return false
 }
+
