@@ -1,112 +1,129 @@
 # momo — My Oh My Openagent
 
-> **MODIFIED SOFTWARE NOTICE** — Bu depo, [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) ("oh-my-opencode" / "oh-my-openagent" upstream) projesinin token tasarrufu odaklı, baştan aşağı modifiye edilmiş bir fork'udur. Orijinal [Sustainable Use License 1.0](./LICENSE.md) (SUL-1.0, **OSI open source değildir**) lisansı altında dağıtılmaktadır. Orijinal upstream README dosyası [README.upstream.md](./README.upstream.md) olarak korunmuştur.
+> **MODIFIED SOFTWARE NOTICE** — This repository is a token-efficient, substantially modified fork of [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) ("oh-my-opencode" / "oh-my-openagent" upstream). It is distributed under the original [Sustainable Use License 1.0](./LICENSE.md) (SUL-1.0, **not** OSI open source). The original upstream README is preserved at [README.upstream.md](./README.upstream.md).
 
-**momo**, OpenCode için tasarlanmış token verimliliği yüksek, **ucuz-sağlayıcı-öncelikli (cheap-provider-first)** bir yapay zeka ajan (agent) yöneticisidir. `opencode-go` + `neuralwatt` gibi uygun maliyetli sağlayıcılar için optimize edilmiştir; ancak sınırsız sayıda sağlayıcıyı destekler.
-
----
-
-## 🎯 Amacı ve Felsefesi (Neden Var, Nereye Gidiyor?)
-
-Upstream (orijinal) proje; 11 ajan, 54+ yaşam döngüsü kancası (hook), her zaman açık MCP'ler ve modele özel devasa sistem prompt'larıyla çalışır. Bu yapı, basit işler için bile pahalı modellere aşırı yüklenir ve ciddi bir token israfına (token burn) yol açar.
-
-**momo'nun "Kuzey Yıldızı" (North Star) Felsefesi:**
-> **Ucuz bir orkestratör (yönetici ajan) plan yapar, işleri agresif bir şekilde daha ucuz alt ajanlara (subagents) devreder, alt ajanların modellerini canlı bir katalogdan o anki göreve göre seçer ve mümkün olan en az çıktıyı üretir. Büyük/Pahalı modeller asla varsayılan olarak çalışmaz, sadece "istek üzerine bağlanan (bound-on-demand)" birer danışman (advisor) olarak görev yaparlar.**
-
-- **Uygulama değil, Delegasyon:** Orkestratör bir yazılımcı değil, bir yöneticidir.
-- **Yeterli olan en ucuz model:** Alt ajan modelleri, görevin türüne göre (hız, vizyon, muhakeme) canlı bir katalogdan seçilir.
-- **Token Disiplini:** Minimum orkestratör çıktısı, gereksiz kancaların (hooks) kapatılması, ihtiyaç anında çağrılan MCP'ler ve varsayılan olarak kapalı telemetri.
-- **Sıfır Konfigürasyon:** Sadece kur, `/models` üzerinden bir model seç ve başla. Gelişmiş kullanıcılar `~/.omo/omo.jsonc` ile her şeyi ezebilir (override).
+**momo** is a token-efficient, **cheap-provider-first** agent harness and plugin for OpenCode. Optimized with out-of-the-box defaults for `opencode-go` + `neuralwatt`, while supporting any number of connected AI providers.
 
 ---
 
-## ✨ Öne Çıkan Özellikler (Neler Yapıldı?)
+## 🎯 Purpose & Philosophy (Where It Came From & Where It's Going)
 
-### 1. Local Prompt Translator (Ollama İle Ne İşi Var?)
-Kullanıcının yazdığı her mesajı (Türkçe veya başka bir dil) OpenCode'a gitmeden önce araya girerek (`experimental.chat.messages.transform` kancası ile) **yerel bir Ollama modeline** (Varsayılan: `qwen2.5:1.5b`) gönderir. 
-- **Ne Yapar?** Mesajı İngilizceye çevirir ve "Caveman" (Mağara adamı) tarzında sıkıştırır (Gereksiz bağlaçları, kibarlık ifadelerini atar, sadece teknik terimleri, kodları ve yolları birebir bırakır).
-- **Neden?** İngilizce, LLM'ler için çok daha "token-yoğun" bir dildir (daha az token harcar). Ayrıca gereksiz kelimelerin atılması, asıl pahalı olan ana modele giden girdi (input) token'larını ciddi şekilde düşürür.
-- **Ollama Entegrasyonu:** Bu eklenti, eğer sisteminizde Ollama yoksa **otomatik olarak kurar**, `qwen2.5:1.5b` modelini indirir (terminalde progress bar ile) ve arka planda çalıştırır. Tüm çeviri I/O logları, gelecekte bu işe özel daha küçük bir modelin eğitilmesi (finetuning) amacıyla `~/.omo/local-translator-logs/` altına kaydedilir.
+The upstream project is tuned for a heavy roster of flagship frontier models: 11 distinct agents, 54+ lifecycle hooks, always-on MCPs, and extensive per-model orchestrator prompts. For everyday coding and iterative workflows, that architecture tends to over-delegate simple reasoning to expensive models and burns excessive tokens.
 
-### 2. Ponytail / Caveman Prompt Optimizasyonu
-Sistem prompt'ları (her turda modele tekrar tekrar gönderilen talimatlar) baştan aşağı yeniden yazıldı.
-- **Caveman (Sıkıştırma):** Promptlardaki uzun açıklamalar, gereksiz edatlar ve hikayeleştirmeler silindi. Kurallar tamamen teknik ve kısa cümleler/maddeler haline getirildi.
-- **Ponytail YAGNI Merdiveni:** Modele her zaman en tembel (lazy) çözümü bulması emredildi. (Buna gerçekten gerek var mı? -> Kodda zaten var mı? -> Standart kütüphanede var mı? -> Tek satırda çözülür mü? -> En son çare kod yaz).
+**The momo "North Star":**
+> **A cheap orchestrator that plans, delegates aggressively to cheaper subagents, picks subagent models at runtime from a live catalog, and emits as few output tokens as possible. Big models act as bound-on-demand advisors, never default executors.**
 
-### 3. Model Catalog MCP (Dinamik Model Seçimi)
-Bağlı olan tüm sağlayıcıları (providers) tarayan yerleşik bir MCP. Orkestratör ajan, alt ajanları görevlendirirken bu kataloga danışır ve görevin gereksinimine en uygun ve en ucuz modeli (`catalog_pick`) seçer.
-
-### 4. Advisor (Danışman) Rolü
-Büyük ve pahalı modeller (Örn: Claude Opus, GPT-4) asla varsayılan olarak kod yazmaz. Sadece tıkandığınızda veya mimari bir karar alırken `/advisor neuralwatt/glm-5.2` komutuyla o oturum için bir danışman bağlarsınız. Danışmana tüm sohbet geçmişi gitmez; sadece hedefin, denenenlerin ve hatanın özetlendiği kısa bir metin gider ve kısa direktifler vermesi beklenir.
-
-### 5. Repo-map Auto-injector
-Aider benzeri bir yaklaşımla, projenizdeki `.codegraph` indeksini okur ve dosya ağacı ile en önemli (centrality) sembollerin imzalarını sıkıştırılmış bir harita olarak oturumun ilk mesajına gizlice ekler. Ajanların projeyi keşfetmek için harcayacağı onlarca arama/grep token'ından tasarruf sağlar.
+- **Delegation over implementation** — The orchestrator acts as a director, not a raw coder.
+- **Cheapest adequate model** — Subagent models are selected per task (speed, vision, reasoning, cost) from a live provider catalog.
+- **Strict token discipline** — Minimal orchestrator verbosity, pruned hooks, MCPs loaded on-demand, and telemetry disabled by default.
+- **Zero-config start** — Install, choose your model via `/models`, and go. Power users can configure fine-grained overrides in `~/.omo/omo.jsonc`.
+- **No surprise billing** — Expensive frontier models are never silently auto-selected; they are bound on demand.
 
 ---
 
-## 🚀 Nasıl Kurulur?
+## ✨ Key Features & Enhancements
 
-**Zorunlu Bağımlılıklar:**
-- [Bun](https://bun.sh/) (Sadece `bun` desteklenir; npm, yarn, pnpm kullanılmaz).
-- [OpenCode CLI](https://opencode.ai/)
+### 1. Local Prompt Translator (Ollama Integration)
+Every incoming user prompt (Turkish, English, or any language) is intercepted before reaching the primary model via the `experimental.chat.messages.transform` hook and routed to a **local Ollama model** (default: `qwen2.5:1.5b`).
 
-**Kurulum Adımları:**
+- **What it does:** Translates prompts to English and compresses them into a concise "Caveman" style (stripping filler, pleasantries, and articles while preserving technical terms, code snippets, file paths, and URLs verbatim).
+- **Why it matters:** English is significantly more token-dense in LLM tokenizers. Compressing the prompt dramatically lowers input token consumption across every conversation turn.
+- **Automated Ollama Lifecycle:** If Ollama is not present, momo automatically installs Ollama, pulls `qwen2.5:1.5b` (with terminal download progress), and spins up the local daemon.
+- **Finetuning Pipeline:** All translation I/O (inputs, outputs, model tag, latency) is logged locally to `~/.omo/local-translator-logs/<date>.jsonl` to build a curation dataset for specialized future small models.
 
-1. **Repoyu Klonlayın ve Bağımlılıkları Yükleyin:**
+### 2. Ponytail / Caveman System Prompt Optimization
+The shared prompt builders and system instructions have been restructured:
+- **Caveman Style:** Redundant conversational prose and lengthy examples have been compressed into crisp, directive bullet points.
+- **Ponytail YAGNI Ladder:** Enforces the principle *"Lazy about the solution, never about reading"*. Models climb a strict priority ladder:
+  1. Does this need to exist? (YAGNI)
+  2. Already in this codebase? (Reuse)
+  3. Standard library covers it?
+  4. Native platform feature?
+  5. Installed dependency?
+  6. Can it be done in one line?
+  7. Only then: minimal code that works.
+
+### 3. Live Model Catalog MCP (`catalog`)
+A built-in Tier-1 stdio MCP server providing real-time provider model discovery:
+- `catalog_list`: Discovers connected models across all configured providers along with metadata (cost, context window, modalities).
+- `catalog_pick`: Local heuristic matcher (no LLM call) resolving the cheapest adequate model for a given task requirement (`speed` → flash-tier, `reasoning` → pro/max-tier, `vision` → vision-enabled).
+- `catalog_refresh`: Re-syncs live models per session.
+
+### 4. On-Demand Advisor Role
+Expensive models (e.g. Claude Opus, GPT-4) never execute code by default. When complex architectural decisions or stubborn bugs arise, the user or orchestrator can bind an advisor:
+```bash
+/advisor neuralwatt/glm-5.2   # Bind an advisor for the current session
+/advisor off                  # Unbind advisor
+```
+The advisor receives a distilled brief (goal, attempted solutions, blocker) and outputs short, steering directives rather than voluminous code changes.
+
+### 5. Repo-Map Auto-Injector
+When a project contains a `.codegraph` SQLite index, momo generates an Aider-style compressed codebase summary (file hierarchy + high-centrality symbol signatures) and injects it once into the initial turn. This eliminates dozens of costly exploratory search tool calls.
+
+---
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+- **[Bun](https://bun.sh/)** (Required for building and running the workspace; do not use npm/yarn/pnpm for the root).
+- **[OpenCode CLI](https://opencode.ai/)**
+
+### Steps
+
+1. **Clone the Repository & Install Dependencies:**
    ```bash
-   git clone <repo-url> omo
+   git clone https://github.com/furkanbora239/omo.git
    cd omo
    bun install
    ```
 
-2. **Eklentiyi Derleyin (Build):**
+2. **Build the Plugin Bundle:**
    ```bash
    bun run build
    ```
-   *(Bu işlem TypeScript kodlarını derler, JSON şemalarını oluşturur ve `./dist` klasörünü hazırlar.)*
+   *(This bundles TypeScript modules, generates JSON schemas, and compiles the distribution under `./dist`.)*
 
-3. **Eklentiyi OpenCode'a Kaydedin:**
+3. **Register with OpenCode:**
    ```bash
    opencode plugin . --force
    ```
-   *(Bu komut, bulunduğunuz dizindeki eklentiyi OpenCode'un `.opencode/opencode.json` yapılandırmasına ekler. Artık OpenCode'u başlattığınızda `momo` otomatik olarak yüklenecektir.)*
+   *(This adds momo to your local `.opencode/opencode.json` and `.opencode/tui.json` configurations.)*
 
-4. **Çalıştırın:**
+4. **Launch & Select Model:**
    ```bash
    opencode
    ```
-   OpenCode arayüzünde veya CLI'sında `/models` yazarak bir model seçin. Seçtiğiniz bu model, sıfır konfigürasyon ile doğrudan **Orkestratör** modeliniz olacaktır. İlk mesajınızı yazdığınızda Ollama otomatik olarak kurulacak ve yerel çevirmen devreye girecektir.
+   Run `/models` inside OpenCode to choose your main model. That selection automatically becomes your **orchestrator** with zero extra setup required. On your first prompt, Ollama will be verified and the local translator will activate.
 
 ---
 
-## 🛠️ Geliştirme ve Test Süreçleri
+## 🛠️ Development & Quality Assurance
 
-Projeye katkıda bulunurken veya kodları değiştirirken dikkat edilmesi gereken katı kurallar vardır (Bkz: `AGENTS.md` ve `plan.md`).
+Follow the strict codebase conventions documented in `AGENTS.md` and `plan.md`.
 
-- **Tip Kontrolü (Typecheck):** Projede standart `tsc` yerine `tsgo` (`@typescript/native-preview`) kullanılır.
+- **Typecheck:** Uses `tsgo` (`@typescript/native-preview`):
   ```bash
   bun run typecheck
   ```
-- **Testler:**
+- **Run Tests:**
   ```bash
-  bun test packages/omo-opencode/src   # Hızlı testler
-  bun test                             # Tüm testler
+  bun test packages/omo-opencode/src   # Fast targeted test suite
+  bun test                             # Full root test suite
   ```
 
-### `opencode-qa` (Kalite Güvence ve Hata Ayıklama)
-Bu fork, OpenCode'un kendisini ve eklenti kancalarını (hooks) test etmek için gelişmiş bir `opencode-qa` yeteneğiyle gelir. Canlı veritabanınızı kirletmeden izole bir kum havuzunda (sandbox) çalışır.
-
-- `opencode run` komutlarının davranışını CLI üzerinden test eder.
-- SSE (Server-Sent Events) üzerinden belirli bir kancanın (hook) veya eklenti aksiyonunun gerçekten tetiklenip tetiklenmediğini kanıtlar.
-- TUI (Terminal Arayüzü) smoke testlerini tmux altında otomatik çalıştırır.
-*(Daha fazla detay için: `.agents/skills/opencode-qa/SKILL.md`)*
+### `opencode-qa` Skill
+The repository includes an isolated QA suite under `.agents/skills/opencode-qa/` for verifying runtime behaviour without touching your live OpenCode database:
+- **Case A:** Non-interactive CLI verification (`opencode run --format json`).
+- **Case B:** Server-Sent Events (SSE) hook probes proving plugin hooks trigger.
+- **Case C:** Isolated TUI smoke testing under tmux.
+- **Case D:** Read-only SQLite session inspection and forensic debugging.
 
 ---
 
-## 📜 Lisans
+## 📜 License
 
-Orijinal kodlar © code-yeongyu ve katkıda bulunanlara aittir. 
-Bu proje, orijinaliyle aynı olan **Sustainable Use License 1.0 (SUL-1.0)** altında lisanslanmıştır. 
-- Sadece **ücretsiz, ticari olmayan kullanım ve dağıtıma** izin verilir.
-- Lisans türü değiştirilemez (Örn: MIT yapılamaz).
-- Bu dosyada ve diğer dosyalardaki tüm telif hakkı / modifikasyon uyarıları korunmalıdır.
+Original code © code-yeongyu and contributors.  
+Distributed under the **[Sustainable Use License 1.0 (SUL-1.0)](./LICENSE.md)**:
+- Free for **non-commercial, personal, and educational use and redistribution only**.
+- Not OSI open source; relicensing (e.g. to MIT) is prohibited.
+- All original copyright notices and the modification notice must be preserved.
