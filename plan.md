@@ -23,8 +23,24 @@ Principles:
 
 ## Status
 
-Early work-in-progress. Not affiliated with the upstream project. Licensed SUL-1.0
-(not OSI open source); the upstream license and MODIFIED notice are preserved.
+Phases 0-5 implemented; Phase 6 (docs) mostly done. Waves:
+
+- [x] Wave 1 — Phase 0: momo identity, docs, license audit
+- [x] Wave 2 — Phase 1: Model Catalog MCP (`catalog_list`/`catalog_pick`/`catalog_refresh`)
+- [x] Wave 3 — Phases 2+3: zero-config main model, advisor + delegation gate + `/advisor`
+- [x] Wave 4 — Phases 4A+5: v1 roster (legacy agents disabled by default, code kept),
+      token-burn hook gates, orchestrator prompt rewrite (hard delegation +
+      catalog-first + minimal output)
+- [x] Wave 5 — catalog-first task() model param, plan-mode folding, repo-map
+      auto-injector (Aider-style, from `.codegraph`), doctor + README docs
+- [ ] Deferred — token-burn live chat-session evidence (needs a real provider
+      session; wiring verified by source inspection)
+
+Open follow-up (environment, not fork code): opencode 1.18.25 on this host does
+not invoke external plugin `server()` factories in the run/serve path, so hooks
+are inert in real-harness drives there. Wiring is proven at the in-process
+harness level (createPluginModule + transform-hook tests); see
+`.omo/evidence/20260828-repo-map-injector/`.
 
 ## Workstream
 
