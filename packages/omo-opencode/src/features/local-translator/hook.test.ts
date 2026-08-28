@@ -21,6 +21,7 @@ describe("local-translator hook", () => {
       minLength: 20,
       logTranslations: false,
       ollamaHost: "http://localhost:99999",
+      autoInstall: false,
     })
     const output = { messages: [makeUserMessage("ok")] }
 
@@ -34,6 +35,7 @@ describe("local-translator hook", () => {
       enabled: false,
       logTranslations: false,
       ollamaHost: "http://localhost:99999",
+      autoInstall: false,
     })
     const output = { messages: [makeUserMessage("bu uzun bir test mesaji olmali")] }
 
@@ -49,6 +51,7 @@ describe("local-translator hook", () => {
       enabled: true,
       logTranslations: false,
       ollamaHost: "http://localhost:99999",
+      autoInstall: false,
     })
     const output = {
       messages: [

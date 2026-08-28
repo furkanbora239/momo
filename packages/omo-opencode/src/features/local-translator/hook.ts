@@ -8,7 +8,13 @@ import { ensureModelPulled } from "./model-puller"
 import { checkOllamaHealth } from "./ollama-client"
 
 function resolveConfig(rawConfig: Partial<TranslationConfig> | undefined): TranslationConfig {
-  return { ...DEFAULT_TRANSLATION_CONFIG, ...rawConfig }
+  const resolved: Record<string, unknown> = { ...DEFAULT_TRANSLATION_CONFIG }
+  if (rawConfig) {
+    for (const [key, value] of Object.entries(rawConfig)) {
+      if (value !== undefined) resolved[key] = value
+    }
+  }
+  return resolved as unknown as TranslationConfig
 }
 
 interface MessageWithParts {
@@ -16,40 +22,40 @@ interface MessageWithParts {
   parts: Part[]
 }
 
-let initializationPromise: Promise<boolean> | null = null
-
-async function ensureOllamaReady(config: TranslationConfig): Promise<boolean> {
-  if (initializationPromise) return initializationPromise
-
-  initializationPromise = (async () => {
-    if (await checkOllamaHealth(config.ollamaHost)) {
-      await ensureModelPulled(config.ollamaHost, config.model)
-      return true
-    }
-
-    if (!isOllamaInstalled()) {
-      if (!config.autoInstall) {
-        log("[local-translator] Ollama not installed and auto_install is false")
-        return false
-      }
-      const installed = await installOllama()
-      if (!installed) return false
-    }
-
-    const running = await ensureOllamaRunning(config.ollamaHost)
-    if (!running) return false
-
-    await ensureModelPulled(config.ollamaHost, config.model)
-    return true
-  })()
-
-  return initializationPromise
-}
-
 export function createLocalTranslatorHook(
   rawConfig: Partial<TranslationConfig> | undefined,
 ) {
   const config = resolveConfig(rawConfig)
+
+  let initializationPromise: Promise<boolean> | null = null
+
+  async function ensureOllamaReady(): Promise<boolean> {
+    if (initializationPromise) return initializationPromise
+
+    initializationPromise = (async () => {
+      if (await checkOllamaHealth(config.ollamaHost)) {
+        await ensureModelPulled(config.ollamaHost, config.model)
+        return true
+      }
+
+      if (!isOllamaInstalled()) {
+        if (!config.autoInstall) {
+          log("[local-translator] Ollama not installed and auto_install is false")
+          return false
+        }
+        const installed = await installOllama()
+        if (!installed) return false
+      }
+
+      const running = await ensureOllamaRunning(config.ollamaHost)
+      if (!running) return false
+
+      await ensureModelPulled(config.ollamaHost, config.model)
+      return true
+    })()
+
+    return initializationPromise
+  }
 
   return {
     "experimental.chat.messages.transform": async (
@@ -86,7 +92,7 @@ export function createLocalTranslatorHook(
       const originalText = (textPart as { text: string }).text
       if (!originalText) return
 
-      const ready = await ensureOllamaReady(config)
+      const ready = await ensureOllamaReady()
       if (!ready) {
         log("[local-translator] Ollama not ready, passing through original text")
         return

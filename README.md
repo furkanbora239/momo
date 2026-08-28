@@ -1,155 +1,112 @@
-# omo — My Oh My Openagent
+# momo — My Oh My Openagent
 
-> **MODIFIED SOFTWARE NOTICE** — This repository is a fork of
-> [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent)
-> ("oh-my-opencode" / "oh-my-openagent" upstream) and has been substantially
-> modified. It is distributed under the same
-> [Sustainable Use License 1.0](./LICENSE.md) (SUL-1.0, **not** OSI open source).
-> The original upstream README is preserved at
-> [README.upstream.md](./README.upstream.md).
+> **MODIFIED SOFTWARE NOTICE** — Bu depo, [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) ("oh-my-opencode" / "oh-my-openagent" upstream) projesinin token tasarrufu odaklı, baştan aşağı modifiye edilmiş bir fork'udur. Orijinal [Sustainable Use License 1.0](./LICENSE.md) (SUL-1.0, **OSI open source değildir**) lisansı altında dağıtılmaktadır. Orijinal upstream README dosyası [README.upstream.md](./README.upstream.md) olarak korunmuştur.
 
-A token-efficient, **cheap-provider-first** fork of the OmO agent harness for
-OpenCode. Optimized defaults for `opencode-go` + `neuralwatt`; any number of
-providers supported.
+**momo**, OpenCode için tasarlanmış token verimliliği yüksek, **ucuz-sağlayıcı-öncelikli (cheap-provider-first)** bir yapay zeka ajan (agent) yöneticisidir. `opencode-go` + `neuralwatt` gibi uygun maliyetli sağlayıcılar için optimize edilmiştir; ancak sınırsız sayıda sağlayıcıyı destekler.
 
-## Why this fork exists
+---
 
-The upstream project is tuned for a handful of flagship models: 11 agents,
-54+ lifecycle hooks, always-on MCPs, and per-model orchestrator prompts. That
-shape over-delegates reasoning to expensive models and burns output tokens.
+## 🎯 Amacı ve Felsefesi (Neden Var, Nereye Gidiyor?)
 
-This fork reorients the harness around a single idea:
+Upstream (orijinal) proje; 11 ajan, 54+ yaşam döngüsü kancası (hook), her zaman açık MCP'ler ve modele özel devasa sistem prompt'larıyla çalışır. Bu yapı, basit işler için bile pahalı modellere aşırı yüklenir ve ciddi bir token israfına (token burn) yol açar.
 
-> **A cheap orchestrator that plans, delegates aggressively to cheaper
-> subagents, picks subagent models at runtime from a live catalog, and emits as
-> few output tokens as possible. Big models act as bound-on-demand advisors,
-> never default executors.**
+**momo'nun "Kuzey Yıldızı" (North Star) Felsefesi:**
+> **Ucuz bir orkestratör (yönetici ajan) plan yapar, işleri agresif bir şekilde daha ucuz alt ajanlara (subagents) devreder, alt ajanların modellerini canlı bir katalogdan o anki göreve göre seçer ve mümkün olan en az çıktıyı üretir. Büyük/Pahalı modeller asla varsayılan olarak çalışmaz, sadece "istek üzerine bağlanan (bound-on-demand)" birer danışman (advisor) olarak görev yaparlar.**
 
-Provider-agnostic by design. There is no pinned "target model" — the opencode
-`/models` selection is the main model, and subagents are chosen per task from
-whatever providers you actually have connected.
+- **Uygulama değil, Delegasyon:** Orkestratör bir yazılımcı değil, bir yöneticidir.
+- **Yeterli olan en ucuz model:** Alt ajan modelleri, görevin türüne göre (hız, vizyon, muhakeme) canlı bir katalogdan seçilir.
+- **Token Disiplini:** Minimum orkestratör çıktısı, gereksiz kancaların (hooks) kapatılması, ihtiyaç anında çağrılan MCP'ler ve varsayılan olarak kapalı telemetri.
+- **Sıfır Konfigürasyon:** Sadece kur, `/models` üzerinden bir model seç ve başla. Gelişmiş kullanıcılar `~/.omo/omo.jsonc` ile her şeyi ezebilir (override).
 
-## North star
+---
 
-- **Delegation over implementation** — the orchestrator is a director, not a coder.
-- **Cheapest adequate model** — subagent models are chosen per task from a live
-  catalog (cost, context window, modality aware).
-- **Token discipline** — minimal orchestrator output, pruned hooks, MCPs on
-  demand, telemetry off by default.
-- **Zero config to start** — install, pick a model via `/models`, go. Power users
-  can override everything in `~/.omo/omo.jsonc`.
-- **No surprises** — expensive models are never auto-selected; you bind them on
-  demand.
+## ✨ Öne Çıkan Özellikler (Neler Yapıldı?)
 
-## Status
+### 1. Local Prompt Translator (Ollama İle Ne İşi Var?)
+Kullanıcının yazdığı her mesajı (Türkçe veya başka bir dil) OpenCode'a gitmeden önce araya girerek (`experimental.chat.messages.transform` kancası ile) **yerel bir Ollama modeline** (Varsayılan: `qwen2.5:1.5b`) gönderir. 
+- **Ne Yapar?** Mesajı İngilizceye çevirir ve "Caveman" (Mağara adamı) tarzında sıkıştırır (Gereksiz bağlaçları, kibarlık ifadelerini atar, sadece teknik terimleri, kodları ve yolları birebir bırakır).
+- **Neden?** İngilizce, LLM'ler için çok daha "token-yoğun" bir dildir (daha az token harcar). Ayrıca gereksiz kelimelerin atılması, asıl pahalı olan ana modele giden girdi (input) token'larını ciddi şekilde düşürür.
+- **Ollama Entegrasyonu:** Bu eklenti, eğer sisteminizde Ollama yoksa **otomatik olarak kurar**, `qwen2.5:1.5b` modelini indirir (terminalde progress bar ile) ve arka planda çalıştırır. Tüm çeviri I/O logları, gelecekte bu işe özel daha küçük bir modelin eğitilmesi (finetuning) amacıyla `~/.omo/local-translator-logs/` altına kaydedilir.
 
-Early work-in-progress. Not affiliated with the upstream project. Licensed
-SUL-1.0 (not OSI open source); the upstream license and this MODIFIED notice are
-preserved.
+### 2. Ponytail / Caveman Prompt Optimizasyonu
+Sistem prompt'ları (her turda modele tekrar tekrar gönderilen talimatlar) baştan aşağı yeniden yazıldı.
+- **Caveman (Sıkıştırma):** Promptlardaki uzun açıklamalar, gereksiz edatlar ve hikayeleştirmeler silindi. Kurallar tamamen teknik ve kısa cümleler/maddeler haline getirildi.
+- **Ponytail YAGNI Merdiveni:** Modele her zaman en tembel (lazy) çözümü bulması emredildi. (Buna gerçekten gerek var mı? -> Kodda zaten var mı? -> Standart kütüphanede var mı? -> Tek satırda çözülür mü? -> En son çare kod yaz).
 
-## Fork work (so far)
+### 3. Model Catalog MCP (Dinamik Model Seçimi)
+Bağlı olan tüm sağlayıcıları (providers) tarayan yerleşik bir MCP. Orkestratör ajan, alt ajanları görevlendirirken bu kataloga danışır ve görevin gereksinimine en uygun ve en ucuz modeli (`catalog_pick`) seçer.
 
-The fork's goals and phased plan live in [`plan.md`](./plan.md); engineering and
-agent conventions in [`AGENTS.md`](./AGENTS.md).
+### 4. Advisor (Danışman) Rolü
+Büyük ve pahalı modeller (Örn: Claude Opus, GPT-4) asla varsayılan olarak kod yazmaz. Sadece tıkandığınızda veya mimari bir karar alırken `/advisor neuralwatt/glm-5.2` komutuyla o oturum için bir danışman bağlarsınız. Danışmana tüm sohbet geçmişi gitmez; sadece hedefin, denenenlerin ve hatanın özetlendiği kısa bir metin gider ve kısa direktifler vermesi beklenir.
 
-- [x] momo identity, `README.md` / `AGENTS.md` rewrite (provider-agnostic, SUL-1.0
-  + MODIFIED notice preserved).
-- [x] Model Catalog MCP (`catalog`) — built-in Tier-1, live provider models +
-  `catalog_list` / `catalog_pick` / `catalog_refresh`.
-- [x] Zero-config main model — orchestrator inherits the opencode session model.
-- [x] Advisor role — big model on demand, unbound by default (delegation-gated).
-- [x] Simplified agent topology (Phase A roster: orchestrator + explore/librarian
-  + task categories + advisor; legacy agents disabled by default, code kept).
-- [x] Token-burn pruning — default-off heavy chat-injection hooks.
-- [x] Repo-map auto-injector — Aider-style compressed codebase map from the
-  `.codegraph` index, injected once per session into the first user message
-  (`config.repo_map.enabled: true`; recommended on when `.codegraph` exists,
-  default off).
+### 5. Repo-map Auto-injector
+Aider benzeri bir yaklaşımla, projenizdeki `.codegraph` indeksini okur ve dosya ağacı ile en önemli (centrality) sembollerin imzalarını sıkıştırılmış bir harita olarak oturumun ilk mesajına gizlice ekler. Ajanların projeyi keşfetmek için harcayacağı onlarca arama/grep token'ından tasarruf sağlar.
 
-## Setup
+---
 
-Any number of providers; the defaults assume `opencode-go` + `neuralwatt`, the
-cheap end of the spectrum. `google` is a common third (vision models).
+## 🚀 Nasıl Kurulur?
 
-1. Install the plugin and register it with opencode (per upstream install flow).
-2. Connect providers in opencode (auth for `opencode-go`, `neuralwatt`, or any
-   API you have). The catalog MCP lists whatever is connected, per session.
-3. Start a session and pick the main model with opencode `/models` — that model
-   IS the orchestrator. No other config is required.
+**Zorunlu Bağımlılıklar:**
+- [Bun](https://bun.sh/) (Sadece `bun` desteklenir; npm, yarn, pnpm kullanılmaz).
+- [OpenCode CLI](https://opencode.ai/)
 
-`bunx oh-my-opencode doctor` reports the active roster, catalog state, advisor
-binding, and repo-map state.
+**Kurulum Adımları:**
 
-## Advisor (big model on demand)
+1. **Repoyu Klonlayın ve Bağımlılıkları Yükleyin:**
+   ```bash
+   git clone <repo-url> omo
+   cd omo
+   bun install
+   ```
 
-The `advisor` agent is registered but **unbound by default**: delegating to it
-is rejected until a model is bound. Bind it two ways:
+2. **Eklentiyi Derleyin (Build):**
+   ```bash
+   bun run build
+   ```
+   *(Bu işlem TypeScript kodlarını derler, JSON şemalarını oluşturur ve `./dist` klasörünü hazırlar.)*
 
-- Runtime, session-scoped (nothing written to disk):
+3. **Eklentiyi OpenCode'a Kaydedin:**
+   ```bash
+   opencode plugin . --force
+   ```
+   *(Bu komut, bulunduğunuz dizindeki eklentiyi OpenCode'un `.opencode/opencode.json` yapılandırmasına ekler. Artık OpenCode'u başlattığınızda `momo` otomatik olarak yüklenecektir.)*
 
+4. **Çalıştırın:**
+   ```bash
+   opencode
+   ```
+   OpenCode arayüzünde veya CLI'sında `/models` yazarak bir model seçin. Seçtiğiniz bu model, sıfır konfigürasyon ile doğrudan **Orkestratör** modeliniz olacaktır. İlk mesajınızı yazdığınızda Ollama otomatik olarak kurulacak ve yerel çevirmen devreye girecektir.
+
+---
+
+## 🛠️ Geliştirme ve Test Süreçleri
+
+Projeye katkıda bulunurken veya kodları değiştirirken dikkat edilmesi gereken katı kurallar vardır (Bkz: `AGENTS.md` ve `plan.md`).
+
+- **Tip Kontrolü (Typecheck):** Projede standart `tsc` yerine `tsgo` (`@typescript/native-preview`) kullanılır.
+  ```bash
+  bun run typecheck
   ```
-  /advisor                    # report current binding
-  /advisor neuralwatt/glm-5.2 # bind for this session (validated via catalog)
-  /advisor off                # unbind
+- **Testler:**
+  ```bash
+  bun test packages/omo-opencode/src   # Hızlı testler
+  bun test                             # Tüm testler
   ```
 
-- Persistent: `agents.advisor.model` in `~/.omo/omo.jsonc`. A session binding
-  takes precedence over config.
+### `opencode-qa` (Kalite Güvence ve Hata Ayıklama)
+Bu fork, OpenCode'un kendisini ve eklenti kancalarını (hooks) test etmek için gelişmiş bir `opencode-qa` yeteneğiyle gelir. Canlı veritabanınızı kirletmeden izole bir kum havuzunda (sandbox) çalışır.
 
-While bound, `task(subagent_type="advisor", ...)` sends a distilled brief (goal,
-what was tried, the blocker) and expects short directives — the advisor never
-implements, only steers.
+- `opencode run` komutlarının davranışını CLI üzerinden test eder.
+- SSE (Server-Sent Events) üzerinden belirli bir kancanın (hook) veya eklenti aksiyonunun gerçekten tetiklenip tetiklenmediğini kanıtlar.
+- TUI (Terminal Arayüzü) smoke testlerini tmux altında otomatik çalıştırır.
+*(Daha fazla detay için: `.agents/skills/opencode-qa/SKILL.md`)*
 
-## Cost playbook
+---
 
-- The orchestrator never self-implements beyond trivial edits; it delegates via
-  `task()` and picks the subagent model per task through `catalog_pick`
-  (cheapest adequate: `speed`/`cheap` → flash tier, `reasoning` → pro/max tier,
-  `vision` → vision-capable).
-- Expensive models are never auto-selected: the advisor is delegation-gated
-  until bound, and nothing falls back to a premium model by default.
-- Heavy chat-injection hooks are default-off (`token_burn.*` flags opt them
-  back in). `experimental.aggressive_truncation` + `dynamic_context_pruning`
-  default on. Telemetry off.
-- Repo-map (below) trades one static context block for the first N exploration
-  tool calls of every session.
+## 📜 Lisans
 
-## Notes
-
-- [DeepSeek Harness (dsh) reference note](./notes/deepseek-harness.md) — retained
-  as a provider reference; momo is provider-agnostic, not DeepSeek-specific.
-
-## Repo-map auto-injector (`config.repo_map`)
-
-Replaces the subagent's first few exploration tool calls with one static,
-compressed map of the codebase (file tree + highest-centrality symbol
-signatures), read directly from the local `.codegraph` SQLite index
-(`<projectRoot>/.codegraph/codegraph.db`). Injected once per session into the
-first real user message; a no-op when the index is absent. Default **off**;
-recommended on for projects with a `.codegraph` index:
-
-```jsonc
-// in ~/.omo/omo.jsonc (or <project>/.omo/omo.jsonc)
-"repo_map": {
-  "enabled": true,
-  "token_budget": 1536,   // approximate tokens, chars/4 estimate
-  "rank": "centrality"    // in-degree + out-degree over calls edges
-}
-```
-
-`omo doctor` reports whether the injector is enabled and whether an index was
-found.
-
-## Upstream
-
-- Repository: <https://github.com/code-yeongyu/oh-my-openagent>
-- Original README: [README.upstream.md](./README.upstream.md)
-
-## License
-
-Original code © code-yeongyu and contributors, licensed under the
-[Sustainable Use License 1.0](./LICENSE.md). This fork is distributed under the
-same license. Free non-commercial use and redistribution only; you may not
-relicense (e.g. to MIT). You may use and modify it for non-commercial / personal
-purposes and redistribute it free of charge, provided you keep all notices and
-this modification statement.
+Orijinal kodlar © code-yeongyu ve katkıda bulunanlara aittir. 
+Bu proje, orijinaliyle aynı olan **Sustainable Use License 1.0 (SUL-1.0)** altında lisanslanmıştır. 
+- Sadece **ücretsiz, ticari olmayan kullanım ve dağıtıma** izin verilir.
+- Lisans türü değiştirilemez (Örn: MIT yapılamaz).
+- Bu dosyada ve diğer dosyalardaki tüm telif hakkı / modifikasyon uyarıları korunmalıdır.
