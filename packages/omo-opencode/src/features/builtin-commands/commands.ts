@@ -119,23 +119,29 @@ ${HYPERPLAN_TEMPLATE}
 # /advisor — bind the advisor agent
 
 The advisor is a bound-on-demand senior model. By default it is UNBOUND (zero
-surprise cost). Use this command to bind a model for the current session only
-(session-scoped; nothing is written to disk).
+surprise cost): delegation to it is rejected until a model is bound. Use this
+command to bind a model for the current session only (session-scoped; nothing
+is written to disk).
 
 ## Behavior
 
-- \`/advisor\` with no arguments: report the current binding ("unbound" if none).
-- \`/advisor <model-id>\` (e.g. \`/advisor neuralwatt/glm-5.2\`): bind that model.
-  First call the \`catalog_list\` tool to show the user the connected,
-  catalogued models and let them confirm or pick one; if they passed a model id
-  in the arguments, validate it exists in \`catalog_list\` before binding.
-- \`/advisor off\`: unbind (advisor returns to UNBOUND for the rest of the session).
+Parse $ARGUMENTS and act via the \`advisor\` tool:
+
+- No arguments → call \`advisor\` with action="report" and relay the result.
+- \`off\` / \`unbind\` / \`disable\` → call \`advisor\` with action="off".
+- A model id (e.g. \`neuralwatt/glm-5.2\`) → first call the \`catalog_list\` MCP
+  tool to show the user the connected, catalogued models; if the requested
+  model is not in the catalog, say so and suggest closest matches. Then call
+  \`advisor\` with action="bind" and model="<model-id>" and relay the result.
+
+Do NOT claim a binding changed without a successful \`advisor\` tool result.
 
 ## After binding
 
-When the advisor is needed, delegate to it with the bound model via the normal
-task/delegate path. The orchestrator must never self-implement; the advisor
-returns only short directives.
+When the advisor is needed, delegate to it with subagent_type="advisor" via the
+normal task/delegate path. The session-scoped binding overrides the registered
+model for that delegation. The orchestrator must never self-implement; the
+advisor returns only short directives.
 
 ## Persistent alternative
 

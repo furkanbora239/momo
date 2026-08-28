@@ -1,0 +1,122 @@
+
+ oMoMoMoMo Doctor 
+
+System Information
+────────────────────────────────────────
+  ✓ opencode    1.18.23
+  ✓ oh-my-openagent 5.0.0-beta.12
+  ✓ loaded      5.0.0-beta.12
+  ✓ bun         1.3.14
+  ✓ path        /home/furkanbora/.local/bin/opencode
+
+Configuration
+────────────────────────────────────────
+  ✓ /tmp/momo-qa.bnTeV1/config/opencode/opencode.jsonc (valid)
+
+Tools
+────────────────────────────────────────
+  ✓ LSP         1 server
+                    lsp-tools-mcp (*)
+  ✗ ast-grep CLI not found
+  ✓ comment-checker installed
+  ✗ gh CLI installed
+
+MCPs
+────────────────────────────────────────
+  ✓ websearch
+  ✓ context7
+  ✓ grep_app
+  ✓ lsp
+
+System
+────────────────────────────────────────
+OpenCode: 1.18.23
+Plugin expected: 5.0.0-beta.12
+Plugin loaded: 5.0.0-beta.12
+Bun: 1.3.14
+
+TUI Plugin
+────────────────────────────────────────
+opencode.json: /tmp/momo-qa.bnTeV1/config/opencode/opencode.jsonc
+tui.json: /tmp/momo-qa.bnTeV1/config/opencode/tui.json
+
+Tools
+────────────────────────────────────────
+AST-Grep CLI: no
+Comment checker: yes
+LSP: 1 server(s)
+GH CLI: installed
+MCP: builtin=4, user=0
+
+Models
+────────────────────────────────────────
+═══ Available Models (from cache) ═══
+
+  ⚠ Cache not found. Run 'opencode' to populate.
+
+═══ Configured Models ═══
+
+Agents:
+  ○ sisyphus: anthropic/claude-opus-5 (max) [capabilities: snapshot-backed]
+  ○ hephaestus: openai/gpt-5.6-sol (medium) [capabilities: snapshot-backed]
+  ○ oracle: openai/gpt-5.6-sol (xhigh) [capabilities: snapshot-backed]
+  ○ librarian: openai/gpt-5.6-luna-fast (low) [capabilities: alias-backed]
+  ○ explore: openai/gpt-5.6-luna-fast (low) [capabilities: alias-backed]
+  ○ multimodal-looker: openai/gpt-5.6-sol (low) [capabilities: snapshot-backed]
+  ○ prometheus: anthropic/claude-fable-5 (xhigh) [capabilities: snapshot-backed]
+  ○ metis: anthropic/claude-opus-5 (high) [capabilities: snapshot-backed]
+  ○ momus: openai/gpt-5.6-terra (high) [capabilities: snapshot-backed]
+  ○ atlas: anthropic/claude-sonnet-5 [capabilities: snapshot-backed]
+  ○ sisyphus-junior: anthropic/claude-sonnet-5 [capabilities: snapshot-backed]
+
+Categories:
+  ○ visual-engineering: anthropic/claude-opus-5 (max) [capabilities: snapshot-backed]
+  ○ ultrabrain: openai/gpt-5.6-sol (max) [capabilities: snapshot-backed]
+  ○ deep: openai/gpt-5.6-sol (medium) [capabilities: snapshot-backed]
+  ○ artistry: anthropic/claude-fable-5 (xhigh) [capabilities: snapshot-backed]
+  ○ quick: kimi-for-coding/kimi-for-coding-highspeed [capabilities: snapshot-backed]
+  ○ unspecified-low: xai/grok-4.6 (xhigh) [capabilities: snapshot-backed]
+  ○ unspecified-high: kimi-for-coding/kimi-k3 (max) [capabilities: snapshot-backed]
+  ○ writing: kimi-for-coding/kimi-k3 (low) [capabilities: snapshot-backed]
+
+● = user override, ○ = provider fallback
+
+Telemetry
+────────────────────────────────────────
+PostHog host: https://us.i.posthog.com
+Last daily active date: never
+State file: /tmp/momo-qa.bnTeV1/data/oh-my-opencode/posthog-activity.json
+
+momo Roster & Catalog
+────────────────────────────────────────
+v1 roster (surfaced): sisyphus, explore, librarian, advisor (when bound)
+catalog MCP: enabled (cached models: 3)
+advisor: config-unbound (zero surprise cost)
+disabled agents: prometheus, metis, momus, hephaestus, oracle, atlas, sisyphus-junior, multimodal-looker
+
+Issues
+────────────────────────────────────────
+1. oh-my-openagent is not registered
+   Plugin entry is missing from OpenCode configuration.
+   Fix: Run: bunx oh-my-openagent install
+   Affects: all agents
+
+2. AST-Grep unavailable
+   AST-Grep CLI is not available.
+   Fix: The ast-grep skill resolves sg automatically; run omo doctor or lazycodex-ai doctor to check provisioning.
+   Affects: ast-grep skill
+
+3. GitHub CLI not authenticated
+   gh CLI is installed but not logged in.
+   Fix: Run: gh auth login
+   Affects: GitHub automation
+
+4. Model cache not found
+   OpenCode model cache is missing, so model availability cannot be validated.
+   Fix: Run: opencode models --refresh
+   Affects: model resolution
+
+Summary
+────────────────────────────────────────
+  4 passed, 1 failed, 2 warnings
+  Total: 9 checks in 1220ms

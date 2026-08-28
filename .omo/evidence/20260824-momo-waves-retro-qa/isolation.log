@@ -1,0 +1,4 @@
+after-doctor: 51
+momo-roster hits: 1
+Total checks: Total: 9 checks
+{"agentCount":5,"agentNames":["Sisyphus - ultraworker","build","explore","librarian","plan"],"advisorRegistered":false,"note":"empty sandbox; no session model so advisor is not registered; the delegation-time gate enforces unbound regardless"}after-task3: 51

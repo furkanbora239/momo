@@ -16,6 +16,7 @@ import {
 import {
   createBackgroundTools,
   createCallOmoAgent,
+  createAdvisorTool,
   createDelegateTask,
   createGlobTools,
   createGrepTools,
@@ -36,6 +37,7 @@ import {
 export type ToolRegistryFactories = {
   createBackgroundTools: typeof createBackgroundTools
   createCallOmoAgent: typeof createCallOmoAgent
+  createAdvisorTool: typeof createAdvisorTool
   createLookAt: typeof createLookAt
   createMonitorTools: typeof createMonitorTools
   createSkillMcpTool: typeof createSkillMcpTool
@@ -68,6 +70,7 @@ export type ToolRegistryFactories = {
 export const defaultToolRegistryFactories: ToolRegistryFactories = {
   createBackgroundTools,
   createCallOmoAgent,
+  createAdvisorTool,
   createLookAt,
   createMonitorTools,
   createSkillMcpTool,

@@ -129,6 +129,9 @@ export function createCoreTools(args: {
     ...factories.createSessionManagerTools(ctx),
     ...backgroundTools,
     call_omo_agent: callOmoAgent,
+    advisor: factories.createAdvisorTool({
+      configModel: pluginConfig.agents?.advisor?.model,
+    }),
   }
   if (isMultimodalLookerEnabled) {
     tools.look_at = factories.createLookAt(ctx)

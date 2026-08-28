@@ -86,8 +86,13 @@ The fork's goals live in [`plan.md`](./plan.md). Key touchpoints:
 
 ### Advisor role (big model on demand)
 
-- New `advisor` agent: **unbound by default** (zero surprise cost). User binds at
-  runtime via command (`/advisor` → catalog) or config `agents.advisor.model`.
+- `advisor` agent (`src/agents/advisor.ts`) registers by default, but delegation
+  to it is **gated at task time** (`src/tools/delegate-task/advisor-delegation-gate.ts`):
+  unbound advisor calls are rejected with binding instructions — zero surprise cost.
+- Binding precedence: session binding (native `advisor` tool,
+  `src/tools/advisor/`, driven by the `/advisor` builtin command) >
+  `agents.advisor.model` config. Session bindings live in
+  `src/agents/advisor-binding.ts` (in-memory, per session).
 - Triggers: orchestrator initiative, manual command, plan-review phase. No automatic
   failure-loop escalation in v1.
 - Advisor receives a distilled brief, never the full transcript; output capped to short

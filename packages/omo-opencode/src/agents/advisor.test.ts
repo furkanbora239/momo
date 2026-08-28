@@ -67,7 +67,7 @@ describe("advisor session binding store", () => {
   })
 })
 
-describe("advisor agent session binding", () => {
+describe("advisor agent registration", () => {
   function spies() {
     const fetchSpy = spyOn(shared, "fetchAvailableModels").mockResolvedValue(new Set([TEST_MODEL]))
     spyOn(shared, "readConnectedProvidersCache").mockReturnValue(null)
@@ -75,7 +75,7 @@ describe("advisor agent session binding", () => {
     return fetchSpy
   }
 
-  async function buildAgents(overrides: Record<string, unknown>, sessionId?: string) {
+  async function buildAgents(overrides: Record<string, unknown>) {
     return createBuiltinAgents(
       [],
       overrides,
@@ -91,43 +91,24 @@ describe("advisor agent session binding", () => {
       false,
       false,
       false,
-      sessionId,
     )
   }
 
-  afterEach(() => {
-    clearSessionAdvisorBinding(SESSION)
-  })
-
-  test("session binding binds advisor even without config", async () => {
+  test("registers unconditionally (unbound enforcement lives in the delegation gate)", async () => {
     const fetchSpy = spies()
-    setSessionAdvisorBinding(SESSION, "neuralwatt/glm-5.2")
     try {
-      const agents = await buildAgents({}, SESSION)
+      const agents = await buildAgents({})
       expect(agents.advisor).toBeDefined()
-      expect(agents.advisor.model).toBe("neuralwatt/glm-5.2")
     } finally {
       fetchSpy.mockRestore()
     }
   })
 
-  test("session binding takes precedence over config model", async () => {
-    const fetchSpy = spies()
-    setSessionAdvisorBinding(SESSION, "neuralwatt/glm-5.2")
-    const overrides = { advisor: { model: TEST_MODEL } }
-    try {
-      const agents = await buildAgents(overrides, SESSION)
-      expect(agents.advisor.model).toBe("neuralwatt/glm-5.2")
-    } finally {
-      fetchSpy.mockRestore()
-    }
-  })
-
-  test("unset session + no config stays unbound", async () => {
+  test("config model override applies at registration", async () => {
     const fetchSpy = spies()
     try {
-      const agents = await buildAgents({}, SESSION)
-      expect(agents.advisor).toBeUndefined()
+      const agents = await buildAgents({ advisor: { model: TEST_MODEL } })
+      expect(agents.advisor.model).toBe(TEST_MODEL)
     } finally {
       fetchSpy.mockRestore()
     }

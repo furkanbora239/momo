@@ -1,0 +1,7 @@
+[2026-08-27T12:26:38Z] baseline real DB session count: 51
+[2026-08-27T12:26:38Z] sandbox=/tmp/momo-qa.bnTeV1
+[2026-08-27T12:26:38Z] seeded catalog cache
+[2026-08-27T12:26:38Z] Task3b: bun dist/cli/index.js doctor --verbose
+[2026-08-27T12:26:39Z] Task3a.1: boot dist and list runtime agent map
+[2026-08-27T12:26:42Z] Task3a.2: delegation gate + advisor tool full cycle
+[2026-08-27T12:26:42Z] isolation: final: 51

@@ -76,7 +76,6 @@ export async function createBuiltinAgents(
   useTaskSystem = false,
   disableOmoEnv = false,
   teamModeEnabled = false,
-  sessionId?: string,
 ): Promise<Record<string, AgentConfig>> {
 
   const connectedProviders = readConnectedProvidersCache()
@@ -121,7 +120,6 @@ export async function createBuiltinAgents(
     disabledSkills,
     teamModeEnabled,
     disableOmoEnv,
-    sessionId,
   })
 
   const sisyphusConfig = maybeCreateSisyphusConfig({

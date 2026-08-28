@@ -61,6 +61,11 @@ export function getAllCheckDefinitions(): CheckDefinition[] {
       name: CHECK_NAMES[CHECK_IDS.TEAM_MODE],
       check: checkTeamMode,
     },
+    {
+      id: "momo-roster",
+      name: "momo Roster & Catalog",
+      check: checkMomORoster,
+    },
   ]
 }
 
@@ -81,11 +86,6 @@ export function getCodexCheckDefinitions(): CheckDefinition[] {
       id: "codex-runtime-wrapper",
       name: "codex-runtime-wrapper",
       check: checkCodexRuntimeWrapper,
-    },
-    {
-      id: "momo-roster",
-      name: "momo Roster & Catalog",
-      check: checkMomORoster,
     },
   ]
 }

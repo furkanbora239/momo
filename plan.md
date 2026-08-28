@@ -67,9 +67,10 @@ Early work-in-progress. Not affiliated with the upstream project. Licensed SUL-1
 
 ### Phase 3 — Advisor role (big model on demand)
 
-1. New `advisor` agent: **unbound by default** (zero surprise cost); user binds at
-   runtime via command (`/advisor` → pick from catalog) or config
-   `agents.advisor.model`.
+1. `advisor` agent registers by default; **delegation is gated at task time** —
+   unbound advisor calls are rejected with binding instructions (zero surprise
+   cost). Binding: native `advisor` tool (session-scoped, via `/advisor`
+   command) takes precedence over `agents.advisor.model` config.
 2. Triggers (per user decision): orchestrator initiative (prompt-guided), manual
    command/keyword, plan-review phase. No automatic failure-loop escalation in v1;
    existing retry hooks only *suggest* the advisor.

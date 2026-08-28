@@ -5,6 +5,8 @@ import type { DelegatedModelConfig } from "./types"
 export interface ResolveSubagentExecutionOptions {
   allowSisyphusJuniorDirect?: boolean
   allowPrimaryAgentDelegation?: boolean
+  /** Parent session id — used by the advisor delegation gate to resolve session-scoped bindings. */
+  parentSessionID?: string
 }
 
 export interface ResolveSubagentExecutionResult {

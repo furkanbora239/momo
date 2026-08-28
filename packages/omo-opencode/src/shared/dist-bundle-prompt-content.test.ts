@@ -41,9 +41,18 @@ describe("dist bundle prompt content", () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), "omo-dist-prompt-"))
     const homeDirectory = join(fixtureRoot, "home")
     const projectDirectory = join(fixtureRoot, "project")
+    // Suppress the momo v1 roster default so Prometheus is registered in this
+    // bundle-content probe. The probe asserts on the bundled prompt content,
+    // not on roster policy; opting out of the v1 default inside the isolated
+    // fixture is intentional. The omo config's harness-neutral schema is
+    // strict at the top level, so the OpenCode-specific key lives under the
+    // [opencode] block (which the harness-neutral schema accepts as an opaque
+    // record and OhMyOpenCodeConfigSchema then parses). See config/validate.ts
+    // mergeViews and omo-config-core/src/schema/config.ts.
     await Promise.all([
       Bun.write(join(homeDirectory, ".keep"), ""),
       Bun.write(join(projectDirectory, ".keep"), ""),
+      Bun.write(join(homeDirectory, ".omo", "omo.jsonc"), '{"[opencode]":{"disabled_agents":[]}}'),
     ])
 
     try {

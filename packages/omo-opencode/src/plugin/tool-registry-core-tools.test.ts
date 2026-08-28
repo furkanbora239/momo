@@ -18,6 +18,7 @@ function createFactories(createSkillTool: (options: SkillLoadOptions) => typeof 
   return {
     createBackgroundTools: () => ({}),
     createCallOmoAgent: () => fakeTool,
+    createAdvisorTool: () => fakeTool,
     createLookAt: () => fakeTool,
     createMonitorTools: () => ({}),
     createSkillMcpTool: () => fakeTool,
