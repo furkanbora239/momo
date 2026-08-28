@@ -12,6 +12,7 @@ import {
   buildGrokSisyphusAgentConfig,
 } from "./sisyphus-agent-config";
 import { buildFallbackSisyphusPrompt } from "./sisyphus-dynamic-prompt";
+import { applyGeminiFallbackOverrides } from "./sisyphus-gemini-fallback-overrides";
 import { buildClaudeFable5SisyphusPrompt } from "./sisyphus/claude-fable-5";
 import { buildClaudeOpus47SisyphusPrompt } from "./sisyphus/claude-opus-4-7";
 import { buildClaudeOpus48SisyphusPrompt } from "./sisyphus/claude-opus-4-8";
@@ -23,6 +24,7 @@ import { buildGrok4SisyphusPrompt } from "./sisyphus/grok-4";
 import { buildKimiK26SisyphusPrompt } from "./sisyphus/kimi-k2-6";
 import { buildKimiK27SisyphusPrompt } from "./sisyphus/kimi-k2-7";
 import { buildKimiK3SisyphusPrompt } from "./sisyphus/kimi-k3";
+import { buildMomoOrchestratorPrompt } from "./sisyphus/momo-orchestrator";
 import type { AgentMode } from "./types";
 import {
   isClaudeFable5Model,
@@ -160,7 +162,9 @@ export function createSisyphusAgent(
         buildGrok4SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
     case "fallback": {
-      const prompt = buildFallbackSisyphusPrompt(
+      // momo default: use the momo-orchestrator prompt (hard delegation + catalog-first + minimal output)
+      // This is the default for all models that don't have a specific family variant.
+      const basePrompt = buildMomoOrchestratorPrompt(
         model,
         agents,
         tools,
@@ -168,6 +172,8 @@ export function createSisyphusAgent(
         categories,
         useTaskSystem,
       );
+      // Apply Gemini-specific overrides if this is a Gemini model
+      const prompt = applyGeminiFallbackOverrides(model, basePrompt);
       return isGptModel(model)
         ? buildGptSisyphusAgentConfig(MODE, model, prompt)
         : buildClaudeSisyphusAgentConfig(MODE, model, prompt);
