@@ -18,6 +18,7 @@ export {
   buildFrontendGuidanceSection,
   buildNonClaudePlannerSection,
   buildParallelDelegationSection,
+  buildPonytailLadderSection,
 } from "./dynamic-agent-core-sections"
 
 export { buildCategorySkillsDelegationGuide } from "./dynamic-agent-category-skills-guide"
