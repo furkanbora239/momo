@@ -1,0 +1,8 @@
+export { createLocalTranslatorHook } from "./hook"
+export { checkOllamaHealth, listOllamaModels, chatWithOllama } from "./ollama-client"
+export { isOllamaInstalled, installOllama, ensureOllamaRunning } from "./ollama-installer"
+export { pullModel, ensureModelPulled } from "./model-puller"
+export { translateMessage } from "./translator"
+export { logTranslation } from "./translation-logger"
+export { DEFAULT_TRANSLATION_CONFIG } from "./types"
+export type { TranslationConfig, TranslationResult, LogEntry } from "./types"

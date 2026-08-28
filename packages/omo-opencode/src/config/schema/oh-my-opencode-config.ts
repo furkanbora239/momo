@@ -9,6 +9,7 @@ import { CategoriesConfigSchema } from "./categories"
 import { ClaudeCodeConfigSchema } from "./claude-code"
 import { CodegraphConfigSchema } from "./codegraph"
 import { CatalogConfigSchema } from "./catalog"
+import { LocalTranslatorConfigSchema } from "./local-translator"
 import { CommentCheckerConfigSchema } from "./comment-checker"
 import { BuiltinCommandNameSchema } from "./commands"
 import { DefaultModeConfigSchema } from "./default-mode"
@@ -102,6 +103,8 @@ export const OhMyOpenCodeConfigSchema = z.object({
   /** Aider-style repo-map auto-injector: compressed, ranked codebase map from .codegraph into the first user message (default: off). */
   repo_map: RepoMapConfigSchema.optional(),
   catalog: CatalogConfigSchema,
+  /** Local prompt translator: translates+compresses user messages via local Ollama model. */
+  local_translator: LocalTranslatorConfigSchema,
   team_mode: TeamModeConfigSchema.optional(),
   keyword_detector: KeywordDetectorConfigSchema.optional(),
   babysitting: BabysittingConfigSchema.optional(),

@@ -12046,6 +12046,48 @@
           },
           "additionalProperties": false
         },
+        "local_translator": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "description": "Enable local prompt translator. Default: true.",
+              "type": "boolean"
+            },
+            "model": {
+              "description": "Ollama model tag for translation. Default: qwen2.5:1.5b.",
+              "type": "string"
+            },
+            "ollama_host": {
+              "description": "Ollama API host. Default: http://localhost:11434.",
+              "type": "string"
+            },
+            "timeout_ms": {
+              "description": "Translation timeout in milliseconds. Default: 30000.",
+              "type": "number"
+            },
+            "auto_install": {
+              "description": "Auto-install Ollama if missing. Default: true.",
+              "type": "boolean"
+            },
+            "min_length": {
+              "description": "Skip translation for messages shorter than this (chars). Default: 20.",
+              "type": "number"
+            },
+            "log_translations": {
+              "description": "Log translation I/O to ~/.omo/local-translator-logs/ for finetuning. Default: true.",
+              "type": "boolean"
+            },
+            "num_ctx": {
+              "description": "Ollama context window for translation model. Default: 2048.",
+              "type": "number"
+            },
+            "num_predict": {
+              "description": "Max output tokens for translation. Default: 128.",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
         "team_mode": {
           "type": "object",
           "properties": {
@@ -27361,6 +27403,48 @@
                         }
                       ]
                     }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "local_translator": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "description": "Enable local prompt translator. Default: true.",
+                    "type": "boolean"
+                  },
+                  "model": {
+                    "description": "Ollama model tag for translation. Default: qwen2.5:1.5b.",
+                    "type": "string"
+                  },
+                  "ollama_host": {
+                    "description": "Ollama API host. Default: http://localhost:11434.",
+                    "type": "string"
+                  },
+                  "timeout_ms": {
+                    "description": "Translation timeout in milliseconds. Default: 30000.",
+                    "type": "number"
+                  },
+                  "auto_install": {
+                    "description": "Auto-install Ollama if missing. Default: true.",
+                    "type": "boolean"
+                  },
+                  "min_length": {
+                    "description": "Skip translation for messages shorter than this (chars). Default: 20.",
+                    "type": "number"
+                  },
+                  "log_translations": {
+                    "description": "Log translation I/O to ~/.omo/local-translator-logs/ for finetuning. Default: true.",
+                    "type": "boolean"
+                  },
+                  "num_ctx": {
+                    "description": "Ollama context window for translation model. Default: 2048.",
+                    "type": "number"
+                  },
+                  "num_predict": {
+                    "description": "Max output tokens for translation. Default: 128.",
+                    "type": "number"
                   }
                 },
                 "additionalProperties": false

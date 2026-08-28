@@ -16,6 +16,7 @@ import {
   createContextInjectorMessagesTransformHook,
 } from "../../features/context-injector"
 import { createBtwSideContextInjectorHook } from "../../features/btw-side"
+import { createLocalTranslatorHook } from "../../features/local-translator"
 import { safeCreateHook } from "../../shared/safe-create-hook"
 
 export type TransformHooks = {
@@ -28,6 +29,7 @@ export type TransformHooks = {
   toolPairValidator: ReturnType<typeof createToolPairValidatorHook> | null
   monitorStatusInjector: ReturnType<typeof createMonitorStatusInjectorHook> | null
   repoMapInjector: ReturnType<typeof createRepoMapInjectorHook> | null
+  localTranslator: ReturnType<typeof createLocalTranslatorHook> | null
 }
 
 export function createTransformHooks(args: {
@@ -121,6 +123,27 @@ export function createTransformHooks(args: {
       )
     : null
 
+  const localTranslatorConfig = pluginConfig.local_translator
+  const localTranslatorEnabled = localTranslatorConfig?.enabled !== false
+  const localTranslator = localTranslatorEnabled
+    ? safeCreateHook(
+        "local-translator",
+        () =>
+          createLocalTranslatorHook({
+            enabled: localTranslatorConfig?.enabled !== false,
+            model: localTranslatorConfig?.model,
+            ollamaHost: localTranslatorConfig?.ollama_host,
+            timeoutMs: localTranslatorConfig?.timeout_ms,
+            autoInstall: localTranslatorConfig?.auto_install,
+            minLength: localTranslatorConfig?.min_length,
+            logTranslations: localTranslatorConfig?.log_translations,
+            numCtx: localTranslatorConfig?.num_ctx,
+            numPredict: localTranslatorConfig?.num_predict,
+          }),
+        { enabled: safeHookEnabled },
+      )
+    : null
+
   return {
     claudeCodeHooks,
     keywordDetector,
@@ -131,5 +154,6 @@ export function createTransformHooks(args: {
     toolPairValidator,
     monitorStatusInjector,
     repoMapInjector,
+    localTranslator,
   }
 }

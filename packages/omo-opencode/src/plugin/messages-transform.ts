@@ -30,6 +30,7 @@ type MessageWithParts = {
 
 type MessagesTransformOutput = { messages: MessageWithParts[] }
 type MessagesTransformHooks = {
+  localTranslator?: CreatedHooks["localTranslator"]
   btwSideContextInjector?: CreatedHooks["btwSideContextInjector"]
   contextInjectorMessagesTransform?: CreatedHooks["contextInjectorMessagesTransform"]
   teamModeStatusInjector?: CreatedHooks["teamModeStatusInjector"]
@@ -52,6 +53,7 @@ type ModelIdentifier = {
 }
 
 const MESSAGES_TRANSFORM_HOOKS = [
+  { key: "localTranslator", name: "localTranslator" },
   {
     key: "btwSideContextInjector",
     name: "btwSideContextInjector",
