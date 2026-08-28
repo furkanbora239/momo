@@ -127,6 +127,86 @@ harness level (createPluginModule + transform-hook tests); see
 3. Docs: provider setup (opencode-go, neuralwatt, google), advisor usage, cost
    playbook.
 
+### Phase 7 — Ponytail/Caveman prompt efficiency + local prompt translator
+
+Two independent features that both serve the north star (minimal tokens, cheap
+orchestration). Detailed implementation guide: [`plan-phase2.md`](./plan-phase2.md).
+
+#### 7A — Ponytail/Caveman prompt rewrite
+
+Inspired by [Ponytail](https://github.com/dietrichgebert/ponytail) (YAGNI ladder:
+need to exist? → already in codebase? → stdlib? → native? → dependency? → one
+line? → minimum that works) and [Caveman](https://github.com/juliusbrussee/caveman)
+(terse prose: drop articles/filler/pleasantries, fragments OK, technical content
+exact). These are complementary — Ponytail governs what you build, Caveman governs
+how you talk (Ponytail's own README says so).
+
+Scope: **shared sections + momo/default only** (not every model variant). All
+variants import from the shared builders, so this propagates everywhere.
+
+Files:
+- `dynamic-agent-core-sections.ts` — condense 9 builder functions caveman-style;
+  add new `buildPonytailLadderSection()` shared section.
+- `dynamic-agent-policy-sections.ts` — condense `buildAntiDuplicationSection`
+  (45+ lines → ~12) and `buildToolCallFormatSection`.
+- `momo-orchestrator.ts` — integrate ponytail ladder, condense verbose blocks.
+- `default.ts` — align with the same condense philosophy.
+
+Key constraint (from Ponytail): **lazy about the solution, never about reading.**
+Trace the real flow first, then climb the ladder. Never cut validation at trust
+boundaries, error handling that prevents data loss, security, accessibility.
+
+JetBrains benchmark caveat: Caveman's advertised 65% output-token cut measured
+at ~8.5% on real agentic tasks (output-only). The real win is Ponytail's ~54%
+less code from the YAGNI ladder. Both reduce prompt tokens (system prompt is
+input tokens, re-sent every turn).
+
+#### 7B — Local prompt translator (Qwen 2.5 1.5B via Ollama)
+
+A built-in feature that intercepts every user message via
+`experimental.chat.messages.transform`, sends it to a local Ollama model
+(Qwen 2.5 1.5B by default), which **translates to English + compresses**
+(caveman-style: drop articles/filler, keep technical terms/code/paths exact).
+The compressed English message then goes to the main model. This reduces both
+input tokens (shorter prompt) and output tokens (English is more token-dense
+than Turkish for most tasks, and compression helps further).
+
+**Runtime: Ollama (external process, plugin-managed).** Plugin auto-installs
+Ollama if missing (OS detect + install script), auto-pulls the model on first
+run with a progress bar, and starts the Ollama daemon if not running. Default
+on (`local_translator.enabled` defaults to true; set false to disable).
+
+Model selection (from CPU benchmark research, see `plan-phase2.md` appendix):
+
+| Role | Model | Tag | Disk | Est. tok/s (i5-1155G7 CPU) | Notes |
+|------|-------|-----|------|---------------------------|-------|
+| Default (safe) | Qwen 2.5 1.5B | `qwen2.5:1.5b` | 986 MB | ~6-8 | Good Turkish, reliable instruction-following |
+| Speed (validate) | Gemma 3 1B | `gemma3:1b` | 815 MB | ~13-14 | 2x faster, 140+ langs, needs Turkish eval |
+| Bare speed (no code) | Qwen 2.5 0.5B | `qwen2.5:0.5b` | 398 MB | ~18-21 | 3x faster, code-preservation risky |
+| Quality ceiling | Qwen 2.5 3B | `qwen2.5:3b` | 1.9 GB | ~5-6 | Best quality, slower |
+
+Ollama CPU optimizations (baked into the plugin's Modelfile): `num_ctx=2048`,
+`num_predict=128`, `temperature=0.1`, `keep_alive=-1` (always resident),
+`OLLAMA_NUM_PARALLEL=1`, `OLLAMA_LLM_LIBRARY=cpu_avx2`.
+
+Files (new feature module under `src/features/local-translator/`):
+- `src/config/schema/local-translator.ts` — Zod config schema.
+- `src/features/local-translator/types.ts` — translation result, config types.
+- `src/features/local-translator/ollama-client.ts` — HTTP client (localhost:11434).
+- `src/features/local-translator/ollama-installer.ts` — OS detect + auto-install.
+- `src/features/local-translator/model-puller.ts` — auto-pull with progress bar.
+- `src/features/local-translator/translator.ts` — translation + compress logic.
+- `src/features/local-translator/translation-logger.ts` — JSONL I/O log for finetuning.
+- `src/features/local-translator/hook.ts` — messages.transform hook creator.
+- `src/features/local-translator/index.ts` — barrel exports.
+- Wiring: `create-transform-hooks.ts`, `messages-transform.ts`,
+  `oh-my-opencode-config.ts` (root schema), `build:schema`.
+
+**Translation I/O logging:** Every translation (input + output + model + latency
++ timestamp) is appended to `~/.omo/local-translator-logs/<date>.jsonl`. Good
+outputs can be curated later to finetune a faster/better small model for this
+exact task. Logs are opt-out via `local_translator.log_translations: false`.
+
 ## Execution waves
 
 - **Wave 1:** Phase 0 (docs, identity, license) — QA: `bun run typecheck` + `bun test`
@@ -138,6 +218,10 @@ harness level (createPluginModule + transform-hook tests); see
 - **Wave 4:** Phases 4A + 5 (roster slimming, hook pruning) — QA: orchestrator
   delegation behavior driven via a real harness run.
 - **Wave 5:** Phase 6 + release prep (doctor, docs, schema regen).
+- **Wave 6:** Phase 7A (ponytail/caveman prompt rewrite) — QA: typecheck + test,
+  real-harness evidence that ponytail ladder section appears in prompt.
+- **Wave 7:** Phase 7B (local prompt translator) — QA: typecheck + test, Ollama
+  auto-install + model pull verified, translation I/O logging verified.
 
 ## Verification gate
 
@@ -187,8 +271,16 @@ binary / `sg` resolution) and unrelated to these changes.
   `momo Roster & Catalog` check (catalog status, advisor bound/unbound, active roster);
   schema regenerated. Full provider-setup docs and `omo doctor` narrative not written.
 
-### Not yet done
+### Not yet done (Phase 0-6)
 - `/advisor` command to bind a model from the catalog at runtime.
 - Per-hook token-burn toggles (config-gated default-off heavy hooks).
 - Real-harness `opencode-qa` evidence for catalog MCP + advisor (requires the opencode
   binary, isolated XDG, and connected providers).
+- Codegraph MCP runtime performance (wiring correct per source inspection; MCP tool
+  calls time out at runtime — separate debug task).
+
+### Not yet done (Phase 7)
+- 7A: Ponytail/Caveman prompt rewrite (shared sections + momo/default).
+- 7B: Local prompt translator (Ollama auto-install, model pull, translation hook,
+  I/O logging).
+- See [`plan-phase2.md`](./plan-phase2.md) for the step-by-step implementation guide.
