@@ -132,15 +132,20 @@ Available categories: ${allCategoryNames}`)
     ? configuredPrimaryModel
     : userCategories?.[args.category!]?.model
 
+  // momo catalog-first: args.model (from catalog_pick) takes highest precedence
+  const catalogPickedModel = args.model
+
   if (!requirement) {
-    // Precedence: explicit category model > sisyphus-junior default > category resolved model
+    // Precedence: catalog-picked model > explicit category model > sisyphus-junior default > category resolved model
     // This keeps `sisyphus-junior.model` useful as a global default while allowing
-    // per-category overrides via `categories[category].model`.
-    actualModel = explicitCategoryModel ?? overrideModel ?? categoryResolvedModel
+    // per-category overrides via `categories[category].model`, and catalog_pick overrides everything.
+    actualModel = catalogPickedModel ?? explicitCategoryModel ?? overrideModel ?? categoryResolvedModel
     if (actualModel) {
-      modelInfo = explicitCategoryModel || overrideModel
-        ? { model: actualModel, type: "user-defined", source: "override" }
-        : { model: actualModel, type: "system-default", source: "system-default" }
+      modelInfo = catalogPickedModel
+        ? { model: actualModel, type: "user-defined", source: "catalog-pick" }
+        : explicitCategoryModel || overrideModel
+          ? { model: actualModel, type: "user-defined", source: "override" }
+          : { model: actualModel, type: "system-default", source: "system-default" }
       const parsedModel = parseModelString(actualModel)
       const variantToUse = userCategories?.[args.category!]?.variant ?? resolved.config.variant
       categoryModel = parsedModel
@@ -149,12 +154,12 @@ Available categories: ${allCategoryNames}`)
     }
   } else {
     const resolution = resolveModelForDelegateTask({
-      userModel: explicitCategoryModel ?? overrideModel,
+      userModel: catalogPickedModel ?? explicitCategoryModel ?? overrideModel,
       userFallbackModels: flattenToFallbackModelStrings(normalizedConfiguredFallbackModels),
       categoryDefaultModel: categoryResolvedModel,
-      isUserConfiguredCategoryModel: hasCanonicalModels
+      isUserConfiguredCategoryModel: catalogPickedModel !== undefined || (hasCanonicalModels
         ? configuredPrimaryModel !== undefined
-        : resolved.isUserConfiguredModel,
+        : resolved.isUserConfiguredModel),
       fallbackChain: requirement.fallbackChain,
       availableModels,
       systemDefaultModel,
@@ -162,7 +167,7 @@ Available categories: ${allCategoryNames}`)
 
     if (resolution && "skipped" in resolution) {
       isModelResolutionSkipped = true
-      const userModelOverride = explicitCategoryModel ?? overrideModel
+      const userModelOverride = catalogPickedModel ?? explicitCategoryModel ?? overrideModel
       if (userModelOverride) {
         actualModel = userModelOverride
         const parsedModel = parseModelString(userModelOverride)
@@ -170,7 +175,9 @@ Available categories: ${allCategoryNames}`)
         categoryModel = parsedModel
           ? applyCategoryParams({ ...parsedModel, variant: variantToUse ?? parsedModel.variant }, resolved.config)
           : undefined
-        modelInfo = { model: userModelOverride, type: "user-defined", source: "override" }
+        modelInfo = catalogPickedModel
+          ? { model: userModelOverride, type: "user-defined", source: "catalog-pick" }
+          : { model: userModelOverride, type: "user-defined", source: "override" }
       }
     } else if (resolution) {
       const {
@@ -188,18 +195,22 @@ Available categories: ${allCategoryNames}`)
       }
 
       const type: "user-defined" | "inherited" | "category-default" | "system-default" =
-        (explicitCategoryModel || overrideModel)
+        catalogPickedModel
           ? "user-defined"
-          : (systemDefaultModel && actualModel === systemDefaultModel)
-              ? "system-default"
-              : "category-default"
+          : (explicitCategoryModel || overrideModel)
+              ? "user-defined"
+              : (systemDefaultModel && actualModel === systemDefaultModel)
+                  ? "system-default"
+                  : "category-default"
 
-      const source: "override" | "category-default" | "system-default" =
-        type === "user-defined"
-          ? "override"
-          : type === "system-default"
-              ? "system-default"
-              : "category-default"
+      const source: "catalog-pick" | "override" | "category-default" | "system-default" =
+        catalogPickedModel
+          ? "catalog-pick"
+          : type === "user-defined"
+            ? "override"
+            : type === "system-default"
+                ? "system-default"
+                : "category-default"
 
       modelInfo = { model: actualModel, type, source }
 
@@ -282,7 +293,7 @@ Available categories: ${categoryNames.join(", ")}`)
     modelInfo,
     actualModel,
     isUnstableAgent,
-    // Don't use hardcoded fallback chain when resolution was skipped (cold cache)
-    fallbackChain: configuredFallbackChain ?? ((isModelResolutionSkipped || explicitCategoryModel || overrideModel) ? undefined : requirement?.fallbackChain),
+    // Don't use hardcoded fallback chain when resolution was skipped (cold cache) or when a specific model was picked
+    fallbackChain: configuredFallbackChain ?? ((isModelResolutionSkipped || catalogPickedModel || explicitCategoryModel || overrideModel) ? undefined : requirement?.fallbackChain),
   }
 }

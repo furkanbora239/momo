@@ -76,6 +76,10 @@ const delegateTaskArgsSchema = {
     .optional()
     .describe("Continuation session id (`ses_...`) from task metadata; not a background task id (`bg_...`)."),
   command: tool.schema.string().optional().describe("The command that triggered this task"),
+  model: tool.schema
+    .string()
+    .optional()
+    .describe("Provider/model id overriding the category default (e.g., \"anthropic/claude-sonnet-4-6\"). Use catalog_pick to choose the cheapest adequate model."),
 }
 
 export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefinition {

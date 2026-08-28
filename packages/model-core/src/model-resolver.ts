@@ -14,6 +14,7 @@ export type ModelResolutionInput = {
 
 export type ModelSource =
 	| "override"
+	| "catalog-pick"
 	| "category-default"
 	| "provider-fallback"
 	| "system-default"

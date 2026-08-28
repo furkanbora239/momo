@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { validatePluginConfig } from "../../../config/validate"
 import { getOmoOpenCodeCacheDir } from "../../../shared/data-path"
 import { listSessionAdvisorBindings } from "../../../agents/advisor-binding"
+import { resolveCodegraphDir } from "../../../hooks/repo-map-injector"
 import type { CheckResult } from "../framework/types"
 
 const CATALOG_CACHE_FILE = "provider-models.json"
@@ -32,6 +33,11 @@ export async function checkMomORoster(): Promise<CheckResult> {
   const disabledAgents = config.disabled_agents ?? []
   const sessionBindings = listSessionAdvisorBindings()
 
+  const repoMapConfig = config.repo_map
+  const repoMapEnabled = repoMapConfig?.enabled === true
+  const codegraphDir = resolveCodegraphDir(process.cwd())
+  const codegraphPresent = codegraphDir !== null
+
   const advisorStatus = advisorBound
     ? `config-bound to ${config.agents?.advisor?.model}`
     : "config-unbound"
@@ -43,6 +49,7 @@ export async function checkMomORoster(): Promise<CheckResult> {
     `v1 roster (surfaced): ${V1_ROSTER.join(", ")}`,
     `catalog MCP: ${catalogEnabled ? "enabled" : "disabled"}${catalogEnabled ? ` (cached models: ${modelCount === null ? "no cache yet" : modelCount})` : ""}`,
     `advisor: ${advisorStatus}${sessionBindingNote}`,
+    `repo map injector: ${repoMapEnabled ? "enabled" : "disabled"}${repoMapEnabled ? ` (token budget ${repoMapConfig?.token_budget ?? 1536})` : ""}; .codegraph: ${codegraphPresent ? "present" : "absent"}`,
     `disabled agents: ${disabledAgents.length === 0 ? "none" : disabledAgents.join(", ")}`,
   ]
 
@@ -51,6 +58,13 @@ export async function checkMomORoster(): Promise<CheckResult> {
     issues.push({
       title: "catalog cache empty",
       description: "catalog cache not populated yet — start a session so client.provider.list() runs",
+      severity: "warning",
+    })
+  }
+  if (repoMapEnabled && !codegraphPresent) {
+    issues.push({
+      title: "repo map enabled but no index",
+      description: "repo_map.enabled is true but no .codegraph/codegraph.db was found from the working directory — the injector will no-op until codegraph bootstraps an index",
       severity: "warning",
     })
   }

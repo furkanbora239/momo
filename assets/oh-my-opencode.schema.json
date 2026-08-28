@@ -10173,6 +10173,34 @@
       ],
       "additionalProperties": false
     },
+    "repo_map": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "token_budget": {
+          "default": 1536,
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rank": {
+          "default": "centrality",
+          "type": "string",
+          "enum": [
+            "centrality"
+          ]
+        }
+      },
+      "required": [
+        "enabled",
+        "token_budget",
+        "rank"
+      ],
+      "additionalProperties": false
+    },
     "catalog": {
       "type": "object",
       "properties": {

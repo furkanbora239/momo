@@ -62,6 +62,7 @@ export interface DelegateTaskArgs {
   task_id?: string
   command?: string
   load_skills: string[]
+  model?: string
 }
 
 export interface ToolContextWithMetadata {

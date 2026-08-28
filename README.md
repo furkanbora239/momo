@@ -61,11 +61,36 @@ agent conventions in [`AGENTS.md`](./AGENTS.md).
 - [ ] Simplified agent topology (Phase A roster: orchestrator + explore/librarian
   + task categories + advisor).
 - [ ] Token-burn pruning — default-off heavy chat-injection hooks.
+- [ ] Repo-map auto-injector — Aider-style compressed codebase map from the
+  `.codegraph` index, injected once per session into the first user message
+  (`config.repo_map.enabled: true`; recommended on when `.codegraph` exists,
+  default off).
 
 ## Notes
 
 - [DeepSeek Harness (dsh) reference note](./notes/deepseek-harness.md) — retained
   as a provider reference; momo is provider-agnostic, not DeepSeek-specific.
+
+## Repo-map auto-injector (`config.repo_map`)
+
+Replaces the subagent's first few exploration tool calls with one static,
+compressed map of the codebase (file tree + highest-centrality symbol
+signatures), read directly from the local `.codegraph` SQLite index
+(`<projectRoot>/.codegraph/codegraph.db`). Injected once per session into the
+first real user message; a no-op when the index is absent. Default **off**;
+recommended on for projects with a `.codegraph` index:
+
+```jsonc
+// in ~/.omo/omo.jsonc (or <project>/.omo/omo.jsonc)
+"repo_map": {
+  "enabled": true,
+  "token_budget": 1536,   // approximate tokens, chars/4 estimate
+  "rank": "centrality"    // in-degree + out-degree over calls edges
+}
+```
+
+`omo doctor` reports whether the injector is enabled and whether an index was
+found.
 
 ## Upstream
 

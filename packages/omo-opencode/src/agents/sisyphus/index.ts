@@ -2,8 +2,7 @@
  * Sisyphus agent - multi-model orchestrator.
  *
  * This directory contains model-specific prompt variants:
- * - momo-orchestrator.ts: momo default — hard delegation mandate + catalog-first + minimal output
- * - momo-plan-mode.ts: Plan-mode variant for orchestrator (replaces prometheus planning role)
+ * - momo-orchestrator.ts: momo default — hard delegation mandate + catalog-first + minimal output (includes plan-mode workflow)
  * - default.ts: Base implementation for Claude and general models
  * - claude-opus-4-7.ts: Native Claude Opus 4.7 prompt with literal-instruction tuning
  * - claude-opus-4-8.ts: Native Claude Opus 4.8 prompt with silence-default + autonomy tuning
@@ -20,7 +19,6 @@
 
 export { buildDefaultSisyphusPrompt, buildTaskManagementSection } from "./default";
 export { buildMomoOrchestratorPrompt } from "./momo-orchestrator";
-export { buildMomoPlanModePrompt } from "./momo-plan-mode";
 export { buildClaudeOpus47SisyphusPrompt } from "./claude-opus-4-7";
 export { buildClaudeOpus48SisyphusPrompt } from "./claude-opus-4-8";
 export { buildClaudeOpus5SisyphusPrompt } from "./claude-opus-5";

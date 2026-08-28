@@ -23,4 +23,16 @@ describe("momo doctor check", () => {
     const result = await checkMomORoster()
     expect(result.message).toContain("advisor bound")
   })
+
+  test("reports repo map disabled when not configured", async () => {
+    mockConfig({})
+    const result = await checkMomORoster()
+    expect(result.details.some((detail) => detail.includes("repo map injector: disabled"))).toBe(true)
+  })
+
+  test("reports repo map enabled with budget when configured", async () => {
+    mockConfig({ repo_map: { enabled: true, token_budget: 512 } })
+    const result = await checkMomORoster()
+    expect(result.details.some((detail) => detail.includes("repo map injector: enabled (token budget 512)"))).toBe(true)
+  })
 })

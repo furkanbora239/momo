@@ -1,0 +1,40 @@
+Inspected local DB: /home/furkanbora/code/.codegraph/codegraph.db (via bun:sqlite readonly)
+
+DB file location: <projectRoot>/.codegraph/codegraph.db (walk-up discovery like codegraph CLI)
+projectRoot resolution: OMO store ~/.omo/codegraph/projects/<name>-<sha16>/ + .codegraph symlink at project root (workspace.ts), or in-place .codegraph/ fallback
+
+TABLE edges (419938 rows): id INTEGER, source TEXT, target TEXT, kind TEXT, metadata TEXT, line INTEGER, col INTEGER, provenance TEXT
+TABLE files (21707 rows): path TEXT, content_hash TEXT, language TEXT, size INTEGER, modified_at INTEGER, indexed_at INTEGER, node_count INTEGER, errors TEXT
+TABLE name_segment_vocab (0 rows): segment TEXT, name TEXT
+TABLE nodes (351829 rows): id TEXT, kind TEXT, name TEXT, qualified_name TEXT, file_path TEXT, language TEXT, start_line INTEGER, end_line INTEGER, start_column INTEGER, end_column INTEGER, docstring TEXT, signature TEXT, visibility TEXT, is_exported INTEGER, is_async INTEGER, is_static INTEGER, is_abstract INTEGER, decorators TEXT, type_parameters TEXT, return_type TEXT, updated_at INTEGER
+TABLE project_metadata (1 rows): key TEXT, value TEXT, updated_at INTEGER
+TABLE schema_versions (2 rows): version INTEGER, applied_at INTEGER, description TEXT
+TABLE sqlite_sequence (2 rows): name , seq 
+TABLE unresolved_refs (1436639 rows): id INTEGER, from_node_id TEXT, reference_name TEXT, reference_kind TEXT, line INTEGER, col INTEGER, candidates TEXT, file_path TEXT, language TEXT, status TEXT, name_tail TEXT
+
+Edge kinds (counts):
+  contains: 330307
+  calls: 49311
+  imports: 21675
+  references: 16677
+  instantiates: 1861
+  extends: 68
+  implements: 34
+  decorates: 5
+
+Node kinds (top):
+  import: 95990
+  method: 84481
+  function: 76172
+  file: 21707
+  class: 20460
+  variable: 11177
+  type_alias: 11107
+  constant: 10769
+  enum_member: 8087
+  interface: 4248
+  struct: 3664
+  field: 2393
+  enum: 1494
+  component: 63
+  route: 17

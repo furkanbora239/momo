@@ -36,6 +36,7 @@ type MessagesTransformHooks = {
   teamMailboxInjector?: CreatedHooks["teamMailboxInjector"]
   toolPairValidator?: CreatedHooks["toolPairValidator"]
   monitorStatusInjector?: CreatedHooks["monitorStatusInjector"]
+  repoMapInjector?: CreatedHooks["repoMapInjector"]
   categorySkillReminder?: CreatedHooks["categorySkillReminder"]
 }
 type MessagesTransformHookKey = keyof MessagesTransformHooks
@@ -61,6 +62,7 @@ const MESSAGES_TRANSFORM_HOOKS = [
   { key: "teamMailboxInjector", name: "teamMailboxInjector" },
   { key: "toolPairValidator", name: "toolPairValidator" },
   { key: "monitorStatusInjector", name: "monitorStatusInjector" },
+  { key: "repoMapInjector", name: "repoMapInjector" },
   { key: "categorySkillReminder", name: "categorySkillReminder" },
 ] satisfies readonly MessagesTransformHookEntry[]
 

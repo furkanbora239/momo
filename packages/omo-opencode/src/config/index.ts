@@ -12,6 +12,7 @@ export type {
   HookName,
   BuiltinCommandName,
   CodegraphConfig,
+  RepoMapConfig,
   SisyphusAgentConfig,
   ExperimentalConfig,
   DynamicContextPruningConfig,

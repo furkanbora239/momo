@@ -6,6 +6,7 @@ import {
   createClaudeCodeHooksHook,
   createKeywordDetectorHook,
   createMonitorStatusInjectorHook,
+  createRepoMapInjectorHook,
   createTeamMailboxInjector,
   createTeamModeStatusInjector,
   createToolPairValidatorHook,
@@ -26,6 +27,7 @@ export type TransformHooks = {
   teamMailboxInjector: ReturnType<typeof createTeamMailboxInjector> | null
   toolPairValidator: ReturnType<typeof createToolPairValidatorHook> | null
   monitorStatusInjector: ReturnType<typeof createMonitorStatusInjectorHook> | null
+  repoMapInjector: ReturnType<typeof createRepoMapInjectorHook> | null
 }
 
 export function createTransformHooks(args: {
@@ -110,6 +112,15 @@ export function createTransformHooks(args: {
       )
     : null
 
+  const repoMapConfig = pluginConfig.repo_map
+  const repoMapInjector = repoMapConfig?.enabled === true && isHookEnabled("repo-map-injector")
+    ? safeCreateHook(
+        "repo-map-injector",
+        () => createRepoMapInjectorHook({ directory: ctx.directory }, repoMapConfig),
+        { enabled: safeHookEnabled },
+      )
+    : null
+
   return {
     claudeCodeHooks,
     keywordDetector,
@@ -119,5 +130,6 @@ export function createTransformHooks(args: {
     teamMailboxInjector,
     toolPairValidator,
     monitorStatusInjector,
+    repoMapInjector,
   }
 }

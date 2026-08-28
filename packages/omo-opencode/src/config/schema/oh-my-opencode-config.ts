@@ -21,6 +21,7 @@ import { NotificationConfigSchema } from "./notification"
 import { OpenClawConfigSchema } from "./openclaw"
 import { ModelCapabilitiesConfigSchema } from "./model-capabilities"
 import { GoalConfigSchema } from "./goal"
+import { RepoMapConfigSchema } from "./repo-map"
 import { MonitorConfigSchema } from "./monitor"
 import { RuntimeFallbackConfigSchema } from "./runtime-fallback"
 import { TeamModeConfigSchema } from "./team-mode"
@@ -98,6 +99,8 @@ export const OhMyOpenCodeConfigSchema = z.object({
   i18n: I18nConfigSchema.optional(),
   monitor: MonitorConfigSchema.optional(),
   codegraph: CodegraphConfigSchema.optional(),
+  /** Aider-style repo-map auto-injector: compressed, ranked codebase map from .codegraph into the first user message (default: off). */
+  repo_map: RepoMapConfigSchema.optional(),
   catalog: CatalogConfigSchema,
   team_mode: TeamModeConfigSchema.optional(),
   keyword_detector: KeywordDetectorConfigSchema.optional(),
