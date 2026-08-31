@@ -27,19 +27,23 @@ function createUserMessage(sessionID: string, text: string): TransformMessage {
   }
 }
 
-async function startFakeOllama(host: { port: number }, chatHits: { count: number }) {
+async function startFakeOllama(
+  host: { port: number },
+  hits: { chat: number; tags: number },
+) {
   const server = Bun.serve({
     port: 0,
     hostname: "127.0.0.1",
     async fetch(request) {
       const url = new URL(request.url)
       if (request.method === "GET" && url.pathname === "/api/tags") {
+        hits.tags += 1
         return new Response(JSON.stringify({ models: [{ name: "qwen2.5:1.5b" }] }), {
           headers: { "Content-Type": "application/json" },
         })
       }
       if (request.method === "POST" && url.pathname === "/api/chat") {
-        chatHits.count += 1
+        hits.chat += 1
         return new Response(
           JSON.stringify({
             message: { role: "assistant", content: "COMPRESSED_EN" },
@@ -59,8 +63,8 @@ describe("local translator through the transform wiring", () => {
   it("#given local_translator enabled with a reachable fake Ollama #when the messages transform handler runs #then the user text is replaced with the fake translation", async () => {
     // given
     const host = { port: 0 }
-    const chatHits = { count: 0 }
-    const server = await startFakeOllama(host, chatHits)
+    const hits = { chat: 0, tags: 0 }
+    const server = await startFakeOllama(host, hits)
     try {
       const transformHooks = createTransformHooks({
         ctx: createCtx(process.cwd()),
@@ -87,7 +91,7 @@ describe("local translator through the transform wiring", () => {
       await handler({}, unsafeTestValue(output))
 
       // then
-      expect(chatHits.count).toBe(1)
+      expect(hits.chat).toBe(1)
       expect(output.messages[0]!.parts[0]!.text).toBe("COMPRESSED_EN")
     } finally {
       server.stop(true)
@@ -120,8 +124,8 @@ describe("local translator through the transform wiring", () => {
   it("#given local_translator enabled but the message is below min_length #when the messages transform handler runs #then the message is unchanged and no Ollama call is made", async () => {
     // given
     const host = { port: 0 }
-    const chatHits = { count: 0 }
-    const server = await startFakeOllama(host, chatHits)
+    const hits = { chat: 0, tags: 0 }
+    const server = await startFakeOllama(host, hits)
     try {
       const transformHooks = createTransformHooks({
         ctx: createCtx(process.cwd()),
@@ -147,7 +151,8 @@ describe("local translator through the transform wiring", () => {
       await handler({}, unsafeTestValue(output))
 
       // then
-      expect(chatHits.count).toBe(0)
+      expect(hits.chat).toBe(0)
+      expect(hits.tags).toBe(0)
       expect(output.messages[0]!.parts[0]!.text).toBe("ok")
     } finally {
       server.stop(true)

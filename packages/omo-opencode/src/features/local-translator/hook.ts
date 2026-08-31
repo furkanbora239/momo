@@ -2,7 +2,7 @@ import type { Message, Part } from "@opencode-ai/sdk"
 import { isRealUserMessage, isRealUserTextPart, log } from "../../shared"
 import type { TranslationConfig } from "./types"
 import { DEFAULT_TRANSLATION_CONFIG } from "./types"
-import { translateMessage } from "./translator"
+import { translateMessage, shouldSkipTranslation } from "./translator"
 import { ensureOllamaRunning, isOllamaInstalled, installOllama } from "./ollama-installer"
 import { ensureModelPulled } from "./model-puller"
 import { checkOllamaHealth } from "./ollama-client"
@@ -34,8 +34,7 @@ export function createLocalTranslatorHook(
 
     initializationPromise = (async () => {
       if (await checkOllamaHealth(config.ollamaHost)) {
-        await ensureModelPulled(config.ollamaHost, config.model)
-        return true
+        return await ensureModelPulled(config.ollamaHost, config.model)
       }
 
       if (!isOllamaInstalled()) {
@@ -91,6 +90,8 @@ export function createLocalTranslatorHook(
       const textPart = lastUserMessage.parts[textPartIndex]
       const originalText = (textPart as { text: string }).text
       if (!originalText) return
+
+      if (shouldSkipTranslation(originalText, config.minLength).skip) return
 
       const ready = await ensureOllamaReady()
       if (!ready) {

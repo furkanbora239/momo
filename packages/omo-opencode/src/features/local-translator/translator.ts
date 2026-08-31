@@ -4,7 +4,10 @@ import { logTranslation } from "./translation-logger"
 
 const SYSTEM_PROMPT = `You are a prompt translator. Translate the input to English. Then compress it: drop articles, filler, pleasantries, hedging. Keep technical terms, code blocks, file paths, function names, and URLs exact. Fragments are OK. Short synonyms preferred. Output ONLY the translated and compressed text. No explanations. No preamble.`
 
-function shouldSkip(text: string, minLength: number): { skip: boolean; reason?: string } {
+export function shouldSkipTranslation(
+  text: string,
+  minLength: number,
+): { skip: boolean; reason?: string } {
   const trimmed = text.trim()
   if (trimmed.length < minLength) {
     return { skip: true, reason: "below_min_length" }
@@ -23,7 +26,7 @@ export async function translateMessage(
   text: string,
 ): Promise<TranslationResult> {
   const startTime = Date.now()
-  const skipCheck = shouldSkip(text, config.minLength)
+  const skipCheck = shouldSkipTranslation(text, config.minLength)
 
   if (skipCheck.skip) {
     const result: TranslationResult = {
