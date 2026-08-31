@@ -1,0 +1,20 @@
+== scenario 1: enabled + reachable fake Ollama (real wiring path) ==
+localTranslator wired: true
+user text after handler: Translate then compress: drop filler. Keep code/paths exact. Fragments ok. Output only result.
+fake /api/chat hits: 1
+
+== scenario 2: disabled via config ==
+localTranslator wired: false
+user text after handler: bu mesaj aynen kalacak
+extra chat hits: 0
+
+== scenario 3: short message below min_length (no Ollama call) ==
+user text after handler: ok
+extra chat hits: 0
+extra tags hits: 0
+
+== fake /api/chat request body (system prompt + options) ==
+model: qwen2.5:1.5b
+options: {"temperature":0.1,"num_ctx":2048,"num_predict":128}
+system prompt: You are a prompt translator. Translate the input to English. Then compress it: drop articles, filler, pleasantries, hedg...
+user content: merhaba, bu mesaji ingilizceye cevir ve token verimli hale getir

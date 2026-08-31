@@ -23,7 +23,8 @@ Principles:
 
 ## Status
 
-Phases 0-5 implemented; Phase 6 (docs) mostly done. Waves:
+Phases 0-5 implemented; Phase 6 (docs) mostly done; Phase 7 implemented (code
+level + in-process QA). Waves:
 
 - [x] Wave 1 — Phase 0: momo identity, docs, license audit
 - [x] Wave 2 — Phase 1: Model Catalog MCP (`catalog_list`/`catalog_pick`/`catalog_refresh`)
@@ -33,6 +34,10 @@ Phases 0-5 implemented; Phase 6 (docs) mostly done. Waves:
       catalog-first + minimal output)
 - [x] Wave 5 — catalog-first task() model param, plan-mode folding, repo-map
       auto-injector (Aider-style, from `.codegraph`), doctor + README docs
+- [x] Wave 6 — Phase 7A: ponytail ladder + caveman-condensed shared prompt
+      sections (commits a01431739; evidence `.omo/evidence/20260829-phase7-ponytail-local-translator/`)
+- [x] Wave 7 — Phase 7B: local prompt translator (Ollama translate+compress,
+      I/O logging; commits b2f53faef + 926bc2054 + QA fixes; same evidence dir)
 - [ ] Deferred — token-burn live chat-session evidence (needs a real provider
       session; wiring verified by source inspection)
 
@@ -279,8 +284,19 @@ binary / `sg` resolution) and unrelated to these changes.
 - Codegraph MCP runtime performance (wiring correct per source inspection; MCP tool
   calls time out at runtime — separate debug task).
 
-### Not yet done (Phase 7)
-- 7A: Ponytail/Caveman prompt rewrite (shared sections + momo/default).
-- 7B: Local prompt translator (Ollama auto-install, model pull, translation hook,
-  I/O logging).
-- See [`plan-phase2.md`](./plan-phase2.md) for the step-by-step implementation guide.
+### Phase 7 — done at code level; follow-ups
+
+Implemented and QA-verified (typecheck, 1088 focused tests, in-process wiring
+proof via fake Ollama, prompt content dump). Evidence + QA bug log:
+`.omo/evidence/20260829-phase7-ponytail-local-translator/verification.md`.
+Remaining follow-ups:
+
+- First real-harness Ollama experience (auto-install + model pull + real
+  Qwen latency on CPU) on a machine with network; not possible here (no
+  Ollama installed, opencode 1.18.25 plugin-loading inertness documented
+  in the evidence file).
+- A/B eval `gemma3:1b` vs `qwen2.5:1.5b` on ~20 real Turkish prompts
+  (gemma3 is ~2x faster on CPU; see plan-phase2.md appendix).
+- Curate `~/.omo/local-translator-logs/*.jsonl` outputs into a finetune
+  corpus when enough good samples exist.
+- Per-hook token-burn toggles + `/advisor` (carried from Phase 5/3).

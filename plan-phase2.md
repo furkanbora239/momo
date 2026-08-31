@@ -1,9 +1,45 @@
 # plan-phase2.md — Phase 7 Implementation Guide
 
+> **STATUS: IMPLEMENTED (2026-08-29).** Commits: `a01431739` (7A), `b2f53faef`
+> (7B), `926bc2054` + `0ce7c31a0` (QA fixes: per-hook init state, resolveConfig
+> undefined-skip, pre-readiness skip, installer spawn shims, README). Evidence +
+> QA bug log: `.omo/evidence/20260829-phase7-ponytail-local-translator/verification.md`.
+> The guide below is kept as the design reference; divergences from the original
+> snippets are listed at the bottom.
+
 > Step-by-step, self-contained implementation guide for Phase 7 of the momo fork.
 > A subagent receiving this file should be able to complete both features without
 > asking questions. Read [`plan.md`](./plan.md) and [`AGENTS.md`](./AGENTS.md) first
 > for project context and conventions.
+
+## Implementation divergences from this guide (learned during QA)
+
+1. **`given/when/then` are not globals in this repo** — tests use
+   `describe/it/expect`; the `#given ... #when ... #then ...` naming goes in the
+   `it()` title string (matches `repo-map-injector.wiring.test.ts` style).
+2. **`resolveConfig` must skip `undefined` values** — `create-transform-hooks.ts`
+   passes every optional field explicitly, so `{...DEFAULTS, ...raw}` let
+   `undefined` clobber the model name and Ollama options. Fixed in
+   `hook.ts::resolveConfig`.
+3. **Init state must be per-hook, not module-level** — a module-scope
+   `initializationPromise` leaks across configs (and across test files sharing a
+   process). It now lives inside `createLocalTranslatorHook`.
+4. **Skip rules run BEFORE any network** — `shouldSkipTranslation` (exported from
+   `translator.ts`) is checked in the hook before `ensureOllamaReady`, otherwise
+   short messages trigger health checks and, with default `autoInstall: true`,
+   a real `curl | sh` Ollama install attempt.
+5. **`ensureOllamaReady` returns the pull result** on the healthy branch — never
+   claim ready when the model is missing and the pull failed.
+6. **Hook unit tests must pin `autoInstall: false`** — unreachable-host tests
+   otherwise reach the installer.
+7. **Added a wiring test not in this guide**: `local-translator.wiring.test.ts`
+   drives `createTransformHooks` + `createMessagesTransformHandler` against a
+   fake in-process Ollama (`Bun.serve`), asserting text replacement, disabled
+   no-op, and zero network for skipped messages.
+8. **`bun run build` must be re-run after edits** — `dist/index.js` is the bundle
+   opencode loads; a stale dist silently ships old behavior.
+9. **`.omo/evidence/` is gitignored** (`.omo/*` in `.gitignore`) — evidence dirs
+   need `git add -f` to commit.
 
 ## What we are building
 
