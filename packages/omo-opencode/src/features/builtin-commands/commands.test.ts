@@ -192,3 +192,39 @@ describe("loadBuiltinCommands - team mode gating for refactor", () => {
     expect(commands.refactor.template).toContain("refactor-squad")
   })
 })
+
+describe("loadBuiltinCommands - help", () => {
+  test("should include help command in loaded commands", () => {
+    //#given
+    const disabledCommands: BuiltinCommandName[] = []
+
+    //#when
+    const commands = loadBuiltinCommands(disabledCommands)
+
+    //#then
+    expect(commands.help).toBeDefined()
+    expect(commands.help.name).toBe("help")
+    expect(commands.help.description).toContain("momo")
+  })
+
+  test("should exclude help when disabled", () => {
+    //#given
+    const disabledCommands: BuiltinCommandName[] = ["help"]
+
+    //#when
+    const commands = loadBuiltinCommands(disabledCommands)
+
+    //#then
+    expect(commands.help).toBeUndefined()
+  })
+
+  test("should include HELP_TEMPLATE in template", () => {
+    //#given
+    const commands = loadBuiltinCommands()
+
+    //#when / #then
+    expect(commands.help.template).toContain("momo & OpenCode Plugin Help & Usage Guide")
+    expect(commands.help.template).toContain("$ARGUMENTS")
+  })
+})
+

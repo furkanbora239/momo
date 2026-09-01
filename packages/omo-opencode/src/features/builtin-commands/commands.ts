@@ -8,6 +8,7 @@ import { START_WORK_TEMPLATE } from "./templates/start-work"
 import { HANDOFF_TEMPLATE } from "./templates/handoff"
 import { REMOVE_AI_SLOPS_TEMPLATE, REMOVE_AI_SLOPS_TEAM_MODE_ADDENDUM } from "./templates/remove-ai-slops"
 import { HYPERPLAN_TEMPLATE } from "./templates/hyperplan"
+import { HELP_TEMPLATE } from "./templates/help"
 
 interface LoadBuiltinCommandsOptions {
   useRegisteredAgents?: boolean
@@ -159,6 +160,17 @@ Timestamp: $TIMESTAMP
 $ARGUMENTS
 </user-request>`,
       argumentHint: "<model-id> | off | (no args to report)",
+    },
+    help: {
+      description: "(builtin) Display comprehensive help, command reference, agent roles, and usage guide for momo",
+      template: `<command-instruction>
+${HELP_TEMPLATE}
+</command-instruction>
+
+<user-request>
+$ARGUMENTS
+</user-request>`,
+      argumentHint: "[command | topic | agents | config]",
     },
   }
 }

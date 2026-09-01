@@ -26,6 +26,8 @@ Registry of built-in commands shipped inside the plugin. Each command is a templ
 | `handoff` | `templates/handoff.ts` | Session context summary |
 | `remove-ai-slops` | `templates/remove-ai-slops.ts` | AI code smell cleanup |
 | `hyperplan` | `templates/hyperplan.ts` | Adversarial team-mode planning |
+| `advisor` | `commands.ts` (inline) | Session-scoped advisor model binder |
+| `help` | `templates/help.ts` | Interactive help & command reference |
 
 ## STRUCTURE
 

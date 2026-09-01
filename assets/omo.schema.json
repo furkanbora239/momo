@@ -1871,9 +1871,11 @@
               "refactor",
               "start-work",
               "stop-continuation",
+              "handoff",
               "remove-ai-slops",
               "hyperplan",
-              "advisor"
+              "advisor",
+              "help"
             ]
           }
         },
@@ -17232,9 +17234,11 @@
                     "refactor",
                     "start-work",
                     "stop-continuation",
+                    "handoff",
                     "remove-ai-slops",
                     "hyperplan",
-                    "advisor"
+                    "advisor",
+                    "help"
                   ]
                 }
               },

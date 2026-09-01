@@ -256,15 +256,24 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 ## 💬 Slash Commands & Daily Usage
 
+> 💡 **For full documentation and in-depth guides, see [HELP.md](./HELP.md) (English) or [KULLANIM_KILAVUZU.md](./KULLANIM_KILAVUZU.md) (Türkçe).**
+
 | Command | Description |
 | :--- | :--- |
+| `/help [topic]` | Display comprehensive interactive help, command references, and guides. |
 | `/models` | Select your primary model inside OpenCode (automatically sets the orchestrator). |
-| `/advisor <model>` | Bind an advisor model for the current session (e.g. `/advisor anthropic/claude-opus-5`). |
-| `/advisor off` | Unbind the advisor for the current session. |
-| `/advisor report` | Check current advisor binding status. |
-| `/goal <objective>` | Set a persistent goal for the session; the agent continues until criteria are met. |
-| `/init-deep` | Scan your project and generate structured `AGENTS.md` convention files. |
+| `/advisor <model\|off\|report>` | Bind/unbind an on-demand senior advisor model (e.g. `/advisor anthropic/claude-opus-5`). |
+| `/goal <objective> \| pause \| resume \| clear` | Set or manage a continuous execution loop goal until completion criteria are met. |
+| `/refactor <target>` | Intelligent refactoring with LSP diagnostics, AST-grep, and TDD verification. |
+| `/hyperplan [request]` | Adversarial multi-agent planning with cross-critique across 5 specialist categories. |
+| `/start-work [plan]` | Start executing a planned work session with task breakdown and optional worktrees. |
+| `/handoff [goal]` | Create a detailed context summary to resume work seamlessly in a fresh session. |
+| `/remove-ai-slops` | Clean AI code smells, verbose commentary, and boilerplate code from changes. |
+| `/stop-continuation` | Stop all active continuation mechanisms (goal loops, todo continuation, background tasks). |
+| `/security-research` | Run team-mode security research audit with vulnerability hunters and PoC engineers. |
+| `/remove-deadcode` | Remove unused code across the project with LSP-verified safety. |
 | `omo doctor` | Run CLI diagnostics on connected providers, active models, catalog MCP, and plugin health. |
+
 
 ---
 
