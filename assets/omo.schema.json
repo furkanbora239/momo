@@ -12052,11 +12052,19 @@
           "type": "object",
           "properties": {
             "enabled": {
-              "description": "Enable local prompt translator. Default: true.",
+              "description": "Enable prompt translator. Default: true.",
               "type": "boolean"
             },
+            "mode": {
+              "description": "Translation backend. cloud = free Google Gemma via Gemini API, local = Ollama on this machine. Default: cloud.",
+              "type": "string",
+              "enum": [
+                "cloud",
+                "local"
+              ]
+            },
             "model": {
-              "description": "Ollama model tag for translation. Default: qwen2.5:1.5b.",
+              "description": "Ollama model tag used when mode is local. Default: qwen2.5:1.5b.",
               "type": "string"
             },
             "ollama_host": {
@@ -12068,7 +12076,7 @@
               "type": "number"
             },
             "auto_install": {
-              "description": "Auto-install Ollama if missing. Default: true.",
+              "description": "Auto-install Ollama user-locally under ~/.omo/ollama (no sudo, Linux only) when missing. Default: false.",
               "type": "boolean"
             },
             "min_length": {
@@ -12084,8 +12092,29 @@
               "type": "number"
             },
             "num_predict": {
-              "description": "Max output tokens for translation. Default: 128.",
+              "description": "Max output tokens for Ollama translation. Default: 128.",
               "type": "number"
+            },
+            "cloud": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "description": "Cloud translation provider. Only google (Gemini API) is supported. Default: google.",
+                  "type": "string",
+                  "enum": [
+                    "google"
+                  ]
+                },
+                "model": {
+                  "description": "Cloud model used for translation. Default: gemma-4-31b-it (free tier).",
+                  "type": "string"
+                },
+                "max_output_tokens": {
+                  "description": "Max output tokens per translation call (reasoning tokens included). Default: 1024.",
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
             }
           },
           "additionalProperties": false
@@ -27415,11 +27444,19 @@
                 "type": "object",
                 "properties": {
                   "enabled": {
-                    "description": "Enable local prompt translator. Default: true.",
+                    "description": "Enable prompt translator. Default: true.",
                     "type": "boolean"
                   },
+                  "mode": {
+                    "description": "Translation backend. cloud = free Google Gemma via Gemini API, local = Ollama on this machine. Default: cloud.",
+                    "type": "string",
+                    "enum": [
+                      "cloud",
+                      "local"
+                    ]
+                  },
                   "model": {
-                    "description": "Ollama model tag for translation. Default: qwen2.5:1.5b.",
+                    "description": "Ollama model tag used when mode is local. Default: qwen2.5:1.5b.",
                     "type": "string"
                   },
                   "ollama_host": {
@@ -27431,7 +27468,7 @@
                     "type": "number"
                   },
                   "auto_install": {
-                    "description": "Auto-install Ollama if missing. Default: true.",
+                    "description": "Auto-install Ollama user-locally under ~/.omo/ollama (no sudo, Linux only) when missing. Default: false.",
                     "type": "boolean"
                   },
                   "min_length": {
@@ -27447,8 +27484,29 @@
                     "type": "number"
                   },
                   "num_predict": {
-                    "description": "Max output tokens for translation. Default: 128.",
+                    "description": "Max output tokens for Ollama translation. Default: 128.",
                     "type": "number"
+                  },
+                  "cloud": {
+                    "type": "object",
+                    "properties": {
+                      "provider": {
+                        "description": "Cloud translation provider. Only google (Gemini API) is supported. Default: google.",
+                        "type": "string",
+                        "enum": [
+                          "google"
+                        ]
+                      },
+                      "model": {
+                        "description": "Cloud model used for translation. Default: gemma-4-31b-it (free tier).",
+                        "type": "string"
+                      },
+                      "max_output_tokens": {
+                        "description": "Max output tokens per translation call (reasoning tokens included). Default: 1024.",
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false

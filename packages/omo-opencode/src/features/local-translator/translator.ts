@@ -1,8 +1,21 @@
 import type { TranslationConfig, TranslationResult } from "./types"
 import { chatWithOllama } from "./ollama-client"
+import { chatWithCloud } from "./cloud-client"
 import { logTranslation } from "./translation-logger"
 
 const SYSTEM_PROMPT = `You are a prompt translator. Translate the input to English. Then compress it: drop articles, filler, pleasantries, hedging. Keep technical terms, code blocks, file paths, function names, and URLs exact. Fragments are OK. Short synonyms preferred. Output ONLY the translated and compressed text. No explanations. No preamble.`
+
+const MAX_CACHE_ENTRIES = 50
+
+const translationCache = new Map<string, TranslationResult>()
+
+export function cacheKeyFor(config: TranslationConfig, text: string): string {
+  return `${config.mode}\u0000${resolveTranslationModelLabel(config)}\u0000${text}`
+}
+
+export function _resetTranslationCacheForTesting(): void {
+  translationCache.clear()
+}
 
 export function shouldSkipTranslation(
   text: string,
@@ -21,6 +34,13 @@ export function shouldSkipTranslation(
   return { skip: false }
 }
 
+export function resolveTranslationModelLabel(config: TranslationConfig): string {
+  if (config.mode === "cloud") {
+    return `${config.cloud.provider}/${config.cloud.model}`
+  }
+  return config.model
+}
+
 export async function translateMessage(
   config: TranslationConfig,
   text: string,
@@ -32,7 +52,7 @@ export async function translateMessage(
     const result: TranslationResult = {
       originalText: text,
       translatedText: text,
-      model: config.model,
+      model: resolveTranslationModelLabel(config),
       latencyMs: 0,
       skipped: true,
       skipReason: skipCheck.reason,
@@ -44,15 +64,30 @@ export async function translateMessage(
   }
 
   try {
-    const translated = await chatWithOllama(config, SYSTEM_PROMPT, text)
+    const cacheKey = cacheKeyFor(config, text)
+    const cached = translationCache.get(cacheKey)
+    if (cached && !cached.skipped) {
+      return { ...cached, latencyMs: 0 }
+    }
+
+    const translated =
+      config.mode === "cloud"
+        ? await chatWithCloud(config, SYSTEM_PROMPT, text)
+        : await chatWithOllama(config, SYSTEM_PROMPT, text)
     const latencyMs = Date.now() - startTime
 
     const result: TranslationResult = {
       originalText: text,
       translatedText: translated,
-      model: config.model,
+      model: resolveTranslationModelLabel(config),
       latencyMs,
       skipped: false,
+    }
+
+    translationCache.set(cacheKey, result)
+    if (translationCache.size > MAX_CACHE_ENTRIES) {
+      const oldest = translationCache.keys().next().value
+      if (oldest !== undefined) translationCache.delete(oldest)
     }
 
     if (config.logTranslations) {
@@ -65,7 +100,7 @@ export async function translateMessage(
     const result: TranslationResult = {
       originalText: text,
       translatedText: text,
-      model: config.model,
+      model: resolveTranslationModelLabel(config),
       latencyMs,
       skipped: true,
       skipReason: `error: ${error instanceof Error ? error.message : String(error)}`,

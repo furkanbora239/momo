@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { homedir } from "node:os"
+import { bunWhich } from "../../shared/bun-which-shim"
 import { log } from "../../shared/logger"
 import { spawn } from "../../shared/bun-spawn-shim"
 import { readProcessStream } from "../../shared/process-stream-reader"
@@ -19,28 +20,52 @@ function getOllamaBinPath(): string {
 }
 
 export function isOllamaInstalled(): boolean {
-  return existsSync(getOllamaBinPath())
+  if (existsSync(getOllamaBinPath())) return true
+  return bunWhich("ollama") !== null
+}
+
+export function resolveOllamaBinary(): string {
+  const localBin = getOllamaBinPath()
+  if (existsSync(localBin)) return localBin
+  return bunWhich("ollama") ?? "ollama"
+}
+
+function getLinuxTarballUrl(): string {
+  const arch = process.arch === "arm64" ? "arm64" : "amd64"
+  return `https://ollama.com/download/ollama-linux-${arch}.tgz`
 }
 
 export async function installOllama(): Promise<boolean> {
   const installDir = getOllamaInstallDir()
-  mkdirSync(installDir, { recursive: true })
 
-  log("[local-translator] Installing Ollama...")
-
-  if (process.platform === "win32") {
-    log("[local-translator] Windows: please install Ollama from https://ollama.com/download")
+  if (process.platform !== "linux") {
+    log(
+      `[local-translator] Automatic Ollama install is only supported on Linux. ` +
+        `Install Ollama manually from https://ollama.com/download`,
+    )
     return false
   }
 
-  const proc = spawn(["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"], {
-    stdout: "pipe",
-    stderr: "pipe",
-  })
+  mkdirSync(installDir, { recursive: true })
+  log(`[local-translator] Installing Ollama into ${installDir} (user-local, no sudo)...`)
+
+  const proc = spawn(
+    ["sh", "-c", `curl -fsSL ${getLinuxTarballUrl()} | tar -xzf - -C "${installDir}"`],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "ignore",
+    },
+  )
   const exitCode = await proc.exited
   if (exitCode !== 0) {
     const stderr = proc.stderr ? await readProcessStream(proc.stderr) : ""
     log("[local-translator] Ollama install failed", { exitCode, stderr })
+    return false
+  }
+
+  if (!existsSync(getOllamaBinPath())) {
+    log("[local-translator] Ollama install finished but binary is missing")
     return false
   }
 
@@ -54,7 +79,7 @@ export async function ensureOllamaRunning(host: string): Promise<boolean> {
 
   log("[local-translator] Starting Ollama daemon...")
 
-  spawn(["ollama", "serve"], {
+  spawn([resolveOllamaBinary(), "serve"], {
     stdout: "pipe",
     stderr: "pipe",
     stdin: "ignore",
@@ -71,4 +96,3 @@ export async function ensureOllamaRunning(host: string): Promise<boolean> {
   log("[local-translator] Ollama daemon did not start within 30s")
   return false
 }
-

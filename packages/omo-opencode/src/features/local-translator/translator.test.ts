@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test"
-import { translateMessage } from "./translator"
+import { translateMessage, _resetTranslationCacheForTesting } from "./translator"
 import type { TranslationConfig } from "./types"
 import { DEFAULT_TRANSLATION_CONFIG } from "./types"
+
+const originalFetch = globalThis.fetch
 
 const config: TranslationConfig = {
   ...DEFAULT_TRANSLATION_CONFIG,
@@ -9,7 +11,10 @@ const config: TranslationConfig = {
 }
 
 describe("translator", () => {
+  const originalFetch = globalThis.fetch
+
   it("skips a very short message (below_min_length)", async () => {
+    _resetTranslationCacheForTesting()
     const result = await translateMessage(config, "ok")
     expect(result.skipped).toBe(true)
     expect(result.skipReason).toBe("below_min_length")
@@ -29,9 +34,87 @@ describe("translator", () => {
   })
 
   it("gracefully falls back to original text when Ollama is unreachable", async () => {
-    const badConfig = { ...config, ollamaHost: "http://localhost:99999" }
+    const badConfig = { ...config, mode: "local" as const, ollamaHost: "http://localhost:99999" }
     const result = await translateMessage(badConfig, "Bu bir test mesajidir ve cevirilmeli")
     expect(result.skipped).toBe(true)
     expect(result.translatedText).toBe("Bu bir test mesajidir ve cevirilmeli")
+  })
+
+  it("labels the model with provider and model id in cloud mode", async () => {
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: { parts: [{ thought: true, text: "thoughts" }, { text: "COMPRESSED_EN" }] },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as unknown as typeof fetch
+    try {
+      const cloudConfig: TranslationConfig = { ...config, mode: "cloud" }
+      const result = await translateMessage(cloudConfig, "Bu bir test mesajidir ve cevirilmeli")
+      expect(result.skipped).toBe(false)
+      expect(result.translatedText).toBe("COMPRESSED_EN")
+      expect(result.model).toBe(`google/${DEFAULT_TRANSLATION_CONFIG.cloud.model}`)
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+    }
+  })
+
+  it("falls back to the original text when the cloud call fails", async () => {
+    _resetTranslationCacheForTesting()
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    globalThis.fetch = (async () => new Response("boom", { status: 500 })) as unknown as typeof fetch
+    try {
+      const cloudConfig: TranslationConfig = { ...config, mode: "cloud" }
+      const text = "Bu bir test mesajidir ve cevirilmeli"
+      const result = await translateMessage(cloudConfig, text)
+      expect(result.skipped).toBe(true)
+      expect(result.translatedText).toBe(text)
+      expect(result.skipReason).toContain("error:")
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+      _resetTranslationCacheForTesting()
+    }
+  })
+
+  it("serves a repeat call from cache without a second network round-trip", async () => {
+    _resetTranslationCacheForTesting()
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    let fetchCount = 0
+    globalThis.fetch = (async () => {
+      fetchCount += 1
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: { parts: [{ thought: true, text: "thoughts" }, { text: "COMPRESSED_EN" }] },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as unknown as typeof fetch
+    try {
+      const cloudConfig: TranslationConfig = { ...config, mode: "cloud" }
+      const text = "Bu bir cache test mesajidir ve cevrilmeli"
+      const first = await translateMessage(cloudConfig, text)
+      const second = await translateMessage(cloudConfig, text)
+      expect(first.skipped).toBe(false)
+      expect(second.translatedText).toBe(first.translatedText)
+      expect(second.latencyMs).toBe(0)
+      expect(fetchCount).toBe(1)
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+      _resetTranslationCacheForTesting()
+    }
   })
 })

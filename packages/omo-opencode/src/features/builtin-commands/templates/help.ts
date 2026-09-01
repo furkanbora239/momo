@@ -53,7 +53,7 @@ Present a clear table and brief summaries of all available slash commands:
 
 ### 4. ⚙️ Configuration (\`~/.omo/omo.jsonc\`)
 Highlight key configuration blocks:
-- \`local_translator\`: Local Ollama translation & compression (\`qwen2.5:1.5b\` or \`gemma3:1b\`).
+- \`local_translator\`: Prompt translation + compression before the main model sees it. Default: cloud (free Google Gemma via Gemini API); \`mode: "local"\` uses Ollama (\`qwen2.5:1.5b\`).
 - \`catalog\`: Dynamic runtime model picker via \`catalog_list\` / \`catalog_pick\`.
 - \`agents.advisor.model\`: Persistent advisor model binding.
 - \`categories\`: Routing overrides per category.

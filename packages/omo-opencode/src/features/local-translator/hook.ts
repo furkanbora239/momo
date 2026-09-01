@@ -1,17 +1,26 @@
 import type { Message, Part } from "@opencode-ai/sdk"
 import { isRealUserMessage, isRealUserTextPart, log } from "../../shared"
-import type { TranslationConfig } from "./types"
+import type { TranslationConfig, TranslationConfigInput } from "./types"
 import { DEFAULT_TRANSLATION_CONFIG } from "./types"
 import { translateMessage, shouldSkipTranslation } from "./translator"
+import { isSupportedCloudProvider, resolveGoogleApiKey } from "./cloud-client"
 import { ensureOllamaRunning, isOllamaInstalled, installOllama } from "./ollama-installer"
 import { ensureModelPulled } from "./model-puller"
 import { checkOllamaHealth } from "./ollama-client"
 
-function resolveConfig(rawConfig: Partial<TranslationConfig> | undefined): TranslationConfig {
-  const resolved: Record<string, unknown> = { ...DEFAULT_TRANSLATION_CONFIG }
+function resolveConfig(rawConfig: TranslationConfigInput | undefined): TranslationConfig {
+  const resolved: Record<string, unknown> = {
+    ...DEFAULT_TRANSLATION_CONFIG,
+    cloud: { ...DEFAULT_TRANSLATION_CONFIG.cloud },
+  }
   if (rawConfig) {
     for (const [key, value] of Object.entries(rawConfig)) {
-      if (value !== undefined) resolved[key] = value
+      if (value === undefined) continue
+      if (key === "cloud" && typeof value === "object" && value !== null) {
+        resolved[key] = { ...DEFAULT_TRANSLATION_CONFIG.cloud, ...value }
+      } else {
+        resolved[key] = value
+      }
     }
   }
   return resolved as unknown as TranslationConfig
@@ -23,11 +32,25 @@ interface MessageWithParts {
 }
 
 export function createLocalTranslatorHook(
-  rawConfig: Partial<TranslationConfig> | undefined,
+  rawConfig: TranslationConfigInput | undefined,
 ) {
   const config = resolveConfig(rawConfig)
 
   let initializationPromise: Promise<boolean> | null = null
+
+  async function ensureCloudReady(): Promise<boolean> {
+    if (!isSupportedCloudProvider(config.cloud.provider)) {
+      log(
+        `[local-translator] Unsupported cloud provider "${config.cloud.provider}", passing through original text`,
+      )
+      return false
+    }
+    if (!resolveGoogleApiKey()) {
+      log("[local-translator] No Google API key found (env or opencode auth.json)")
+      return false
+    }
+    return true
+  }
 
   async function ensureOllamaReady(): Promise<boolean> {
     if (initializationPromise) return initializationPromise
@@ -54,6 +77,11 @@ export function createLocalTranslatorHook(
     })()
 
     return initializationPromise
+  }
+
+  async function ensureTranslatorReady(): Promise<boolean> {
+    if (config.mode === "cloud") return ensureCloudReady()
+    return ensureOllamaReady()
   }
 
   return {
@@ -93,9 +121,9 @@ export function createLocalTranslatorHook(
 
       if (shouldSkipTranslation(originalText, config.minLength).skip) return
 
-      const ready = await ensureOllamaReady()
+      const ready = await ensureTranslatorReady()
       if (!ready) {
-        log("[local-translator] Ollama not ready, passing through original text")
+        log("[local-translator] Translator not ready, passing through original text")
         return
       }
 

@@ -36,8 +36,10 @@ level + in-process QA). Waves:
       auto-injector (Aider-style, from `.codegraph`), doctor + README docs
 - [x] Wave 6 — Phase 7A: ponytail ladder + caveman-condensed shared prompt
       sections (commits a01431739; evidence `.omo/evidence/20260829-phase7-ponytail-local-translator/`)
-- [x] Wave 7 — Phase 7B: local prompt translator (Ollama translate+compress,
-      I/O logging; commits b2f53faef + 926bc2054 + QA fixes; same evidence dir)
+- [x] Wave 7 — Phase 7B: prompt translator (Ollama translate+compress,
+      I/O logging; commits b2f53faef + 926bc2054 + QA fixes; same evidence dir;
+      2026-09-01 rework: cloud Gemma default + no-sudo install, evidence
+      `.omo/evidence/20260901-local-translator-cloud/`)
 - [ ] Deferred — token-burn live chat-session evidence (needs a real provider
       session; wiring verified by source inspection)
 
@@ -171,51 +173,53 @@ at ~8.5% on real agentic tasks (output-only). The real win is Ponytail's ~54%
 less code from the YAGNI ladder. Both reduce prompt tokens (system prompt is
 input tokens, re-sent every turn).
 
-#### 7B — Local prompt translator (Qwen 2.5 1.5B via Ollama)
+#### 7B — Prompt translator (2026-09-01: cloud default, no-sudo install)
 
 A built-in feature that intercepts every user message via
-`experimental.chat.messages.transform`, sends it to a local Ollama model
-(Qwen 2.5 1.5B by default), which **translates to English + compresses**
+`experimental.chat.messages.transform`, **translates to English + compresses**
 (caveman-style: drop articles/filler, keep technical terms/code/paths exact).
 The compressed English message then goes to the main model. This reduces both
 input tokens (shorter prompt) and output tokens (English is more token-dense
 than Turkish for most tasks, and compression helps further).
 
-**Runtime: Ollama (external process, plugin-managed).** Plugin auto-installs
-Ollama if missing (OS detect + install script), auto-pulls the model on first
-run with a progress bar, and starts the Ollama daemon if not running. Default
-on (`local_translator.enabled` defaults to true; set false to disable).
+**Backend `mode` (2026-09-01 update):**
+- `cloud` (default): free-tier Google Gemma `gemma-4-31b-it` via the native
+  Gemini API (`:generateContent`). Key from `GOOGLE_API_KEY`/`GEMINI_API_KEY`
+  env or OpenCode `auth.json` `google` entry; no key → graceful pass-through.
+  Reasoning (`thought: true`) parts are dropped; only the final text is used.
+- `local`: Ollama on this machine (`qwen2.5:1.5b` default, opt-in). Detection
+  covers `~/.omo/ollama/bin/ollama` AND system Ollama on PATH.
 
-Model selection (from CPU benchmark research, see `plan-phase2.md` appendix):
+**No sudo, ever.** The original silent `curl | sh` official-installer path is
+removed: it spawned an interactive sudo password prompt over the user's TUI
+(2026-09-01 incident, user typed their sudo password into the chat screen).
+`auto_install` (default **false**) now only downloads the official Linux
+tarball into `~/.omo/ollama` user-locally (`curl | tar`, no root). Per-step
+re-translation is cached (mode+model+text key, 50 entries) — repeat LLM steps
+get the cached translation at 0 ms instead of a 5-8 s round-trip.
 
-| Role | Model | Tag | Disk | Est. tok/s (i5-1155G7 CPU) | Notes |
-|------|-------|-----|------|---------------------------|-------|
-| Default (safe) | Qwen 2.5 1.5B | `qwen2.5:1.5b` | 986 MB | ~6-8 | Good Turkish, reliable instruction-following |
-| Speed (validate) | Gemma 3 1B | `gemma3:1b` | 815 MB | ~13-14 | 2x faster, 140+ langs, needs Turkish eval |
-| Bare speed (no code) | Qwen 2.5 0.5B | `qwen2.5:0.5b` | 398 MB | ~18-21 | 3x faster, code-preservation risky |
-| Quality ceiling | Qwen 2.5 3B | `qwen2.5:3b` | 1.9 GB | ~5-6 | Best quality, slower |
+Translation I/O logging is unchanged: every translation (input + output + model
+label + latency + timestamp) appends to
+`~/.omo/local-translator-logs/<date>.jsonl` for future finetuning; opt out via
+`local_translator.log_translations: false`.
 
-Ollama CPU optimizations (baked into the plugin's Modelfile): `num_ctx=2048`,
-`num_predict=128`, `temperature=0.1`, `keep_alive=-1` (always resident),
-`OLLAMA_NUM_PARALLEL=1`, `OLLAMA_LLM_LIBRARY=cpu_avx2`.
-
-Files (new feature module under `src/features/local-translator/`):
+Files (feature module under `src/features/local-translator/`):
 - `src/config/schema/local-translator.ts` — Zod config schema.
 - `src/features/local-translator/types.ts` — translation result, config types.
+- `src/features/local-translator/cloud-client.ts` — Gemini API client (key
+  resolution, generateContent, thought-part filtering).
 - `src/features/local-translator/ollama-client.ts` — HTTP client (localhost:11434).
-- `src/features/local-translator/ollama-installer.ts` — OS detect + auto-install.
+- `src/features/local-translator/ollama-installer.ts` — system+local detection,
+  no-sudo user-local install, daemon start.
 - `src/features/local-translator/model-puller.ts` — auto-pull with progress bar.
-- `src/features/local-translator/translator.ts` — translation + compress logic.
+- `src/features/local-translator/translator.ts` — mode routing, skip rules,
+  cache, fallback.
 - `src/features/local-translator/translation-logger.ts` — JSONL I/O log for finetuning.
-- `src/features/local-translator/hook.ts` — messages.transform hook creator.
-- `src/features/local-translator/index.ts` — barrel exports.
-- Wiring: `create-transform-hooks.ts`, `messages-transform.ts`,
-  `oh-my-opencode-config.ts` (root schema), `build:schema`.
+- `src/features/local-translator/hook.ts` — messages.transform hook creator (per-mode readiness).
 
-**Translation I/O logging:** Every translation (input + output + model + latency
-+ timestamp) is appended to `~/.omo/local-translator-logs/<date>.jsonl`. Good
-outputs can be curated later to finetune a faster/better small model for this
-exact task. Logs are opt-out via `local_translator.log_translations: false`.
+QA evidence: `.omo/evidence/20260901-local-translator-cloud/` (isolated XDG
+sandbox run on real opencode; cloud translation verified live, cache hit at
+0 ms, no ollama/sudo spawns, real DB untouched).
 
 ## Execution waves
 

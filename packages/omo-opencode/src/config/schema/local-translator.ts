@@ -1,15 +1,38 @@
 import { z } from "zod"
 
+const CloudTranslationSchema = z
+  .object({
+    provider: z
+      .enum(["google"])
+      .optional()
+      .describe("Cloud translation provider. Only google (Gemini API) is supported. Default: google."),
+    model: z
+      .string()
+      .optional()
+      .describe("Cloud model used for translation. Default: gemma-4-31b-it (free tier)."),
+    max_output_tokens: z
+      .number()
+      .optional()
+      .describe("Max output tokens per translation call (reasoning tokens included). Default: 1024."),
+  })
+  .optional()
+
 export const LocalTranslatorConfigSchema = z
   .object({
     enabled: z
       .boolean()
       .optional()
-      .describe("Enable local prompt translator. Default: true."),
+      .describe("Enable prompt translator. Default: true."),
+    mode: z
+      .enum(["cloud", "local"])
+      .optional()
+      .describe(
+        "Translation backend. cloud = free Google Gemma via Gemini API, local = Ollama on this machine. Default: cloud.",
+      ),
     model: z
       .string()
       .optional()
-      .describe("Ollama model tag for translation. Default: qwen2.5:1.5b."),
+      .describe("Ollama model tag used when mode is local. Default: qwen2.5:1.5b."),
     ollama_host: z
       .string()
       .optional()
@@ -21,7 +44,9 @@ export const LocalTranslatorConfigSchema = z
     auto_install: z
       .boolean()
       .optional()
-      .describe("Auto-install Ollama if missing. Default: true."),
+      .describe(
+        "Auto-install Ollama user-locally under ~/.omo/ollama (no sudo, Linux only) when missing. Default: false.",
+      ),
     min_length: z
       .number()
       .optional()
@@ -37,7 +62,8 @@ export const LocalTranslatorConfigSchema = z
     num_predict: z
       .number()
       .optional()
-      .describe("Max output tokens for translation. Default: 128."),
+      .describe("Max output tokens for Ollama translation. Default: 128."),
+    cloud: CloudTranslationSchema,
   })
   .optional()
 

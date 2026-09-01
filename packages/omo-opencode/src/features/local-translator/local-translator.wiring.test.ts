@@ -70,6 +70,7 @@ describe("local translator through the transform wiring", () => {
         ctx: createCtx(process.cwd()),
         pluginConfig: unsafeTestValue({
           local_translator: {
+            mode: "local",
             ollama_host: `http://127.0.0.1:${host.port}`,
             auto_install: false,
             min_length: 5,
@@ -131,6 +132,7 @@ describe("local translator through the transform wiring", () => {
         ctx: createCtx(process.cwd()),
         pluginConfig: unsafeTestValue({
           local_translator: {
+            mode: "local",
             ollama_host: `http://127.0.0.1:${host.port}`,
             auto_install: false,
             min_length: 20,

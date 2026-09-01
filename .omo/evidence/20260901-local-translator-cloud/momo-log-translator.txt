@@ -1,0 +1,10 @@
+[2026-09-01T14:04:37.886Z] [local-translator] Translated user message {"latencyMs":5498,"originalLength":185,"translatedLength":166}
+[2026-09-01T15:01:00.872Z] [local-translator] Model qwen2.5:1.5b already available 
+[2026-09-01T15:38:11.513Z] [local-translator] Translated user message {"latencyMs":8283,"originalLength":47,"translatedLength":27}
+[2026-09-01T15:38:22.850Z] [local-translator] Translated user message {"latencyMs":7528,"originalLength":47,"translatedLength":31}
+[2026-09-01T15:38:32.971Z] [local-translator] Translated user message {"latencyMs":6754,"originalLength":47,"translatedLength":31}
+[2026-09-01T15:38:43.333Z] [local-translator] Translated user message {"latencyMs":6890,"originalLength":47,"translatedLength":27}
+[2026-09-01T15:38:51.745Z] [local-translator] Translated user message {"latencyMs":4680,"originalLength":47,"translatedLength":31}
+[2026-09-01T15:38:58.309Z] [local-translator] Translated user message {"latencyMs":4541,"originalLength":47,"translatedLength":30}
+[2026-09-01T15:44:31.801Z] [local-translator] Translated user message {"latencyMs":7071,"originalLength":47,"translatedLength":31}
+[2026-09-01T15:44:35.428Z] [local-translator] Translated user message {"latencyMs":0,"originalLength":47,"translatedLength":31}
