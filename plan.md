@@ -41,10 +41,15 @@ level + in-process QA). Waves:
 - [ ] Deferred — token-burn live chat-session evidence (needs a real provider
       session; wiring verified by source inspection)
 
-Open follow-up (environment, not fork code): opencode 1.18.25 on this host does
-not invoke external plugin `server()` factories in the run/serve path, so hooks
-are inert in real-harness drives there. Wiring is proven at the in-process
-harness level (createPluginModule + transform-hook tests); see
+CORRECTED (was: "opencode 1.18.25 does not invoke external plugin `server()`
+factories" — wrong). Root cause: opencode injects `OPENCODE_PURE=1` (plus
+`OPENCODE=1`, `OPENCODE_PID`) into nested-session tool shells (e.g. an agent's
+bash tool), and pure mode skips `cfg.plugin_origins` entirely
+(`src/plugin/index.ts`: `plugins = flags.pure ? [] : cfg.plugin_origins`). Any
+`opencode` spawned from inside such a shell runs plugin-less. Unset with
+`env -u OPENCODE_PURE -u OPENCODE -u OPENCODE_PID` and external plugins load
+fine on 1.18.25 (verified 2026-09-01, see HANDOFF.md). In-process wiring proof
+(createPluginModule + transform-hook tests) still stands; see
 `.omo/evidence/20260828-repo-map-injector/`.
 
 ## Workstream
@@ -293,8 +298,8 @@ Remaining follow-ups:
 
 - First real-harness Ollama experience (auto-install + model pull + real
   Qwen latency on CPU) on a machine with network; not possible here (no
-  Ollama installed, opencode 1.18.25 plugin-loading inertness documented
-  in the evidence file).
+  Ollama installed; the earlier "plugin-loading inertness" note was a
+  misdiagnosis of OPENCODE_PURE=1 env poisoning — corrected 2026-09-01).
 - A/B eval `gemma3:1b` vs `qwen2.5:1.5b` on ~20 real Turkish prompts
   (gemma3 is ~2x faster on CPU; see plan-phase2.md appendix).
 - Curate `~/.omo/local-translator-logs/*.jsonl` outputs into a finetune

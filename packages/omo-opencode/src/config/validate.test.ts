@@ -75,6 +75,35 @@ describe("validatePluginConfig", () => {
     })
   })
 
+  it("#given no view declares disabled_agents #when validating #then injects the momo v1 disabled roster", () => {
+    withOmoConfig("v1-roster-injected", (fixture) => {
+      writeUserConfig(fixture, { "[opencode]": { agents: { sisyphus: { model: "user/model" } } } })
+
+      const result = validatePluginConfig(fixture.project)
+
+      expect(result.config.disabled_agents).toEqual([
+        "prometheus",
+        "metis",
+        "momus",
+        "hephaestus",
+        "oracle",
+        "atlas",
+        "sisyphus-junior",
+        "multimodal-looker",
+      ])
+    })
+  })
+
+  it("#given a view declares an explicit disabled_agents list #when validating #then honors the user list instead of the v1 roster", () => {
+    withOmoConfig("v1-roster-overridden", (fixture) => {
+      writeUserConfig(fixture, { "[opencode]": { disabled_agents: ["prometheus"] } })
+
+      const result = validatePluginConfig(fixture.project)
+
+      expect(result.config.disabled_agents).toEqual(["prometheus"])
+    })
+  })
+
   it("#given a project omo harness block #when validating #then loads the opencode view", () => {
     withOmoConfig("project-view", (fixture) => {
       writeProjectConfig(fixture, { "[opencode]": { tui: { sidebar: { enabled: false } } } })

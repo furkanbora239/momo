@@ -83,7 +83,10 @@ function mergeViews(views: readonly LoadedConfigView[]): OhMyOpenCodeConfig {
   for (const view of views) {
     config = mergeConfigs(config, view.config)
   }
-  if (config.disabled_agents === undefined) {
+  // mergeConfigs normalizes disabled_* lists to [] even when no view set them
+  // (mergeUniqueStrings returns [] for undefined inputs), so decide from the
+  // raw views, not from the merged value.
+  if (views.every((view) => view.config.disabled_agents === undefined)) {
     config = { ...config, disabled_agents: [...V1_DISABLED_AGENTS_DEFAULT] }
   }
   return config
