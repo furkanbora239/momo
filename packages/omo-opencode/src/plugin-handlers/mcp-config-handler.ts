@@ -1,6 +1,8 @@
+import { existsSync } from "node:fs"
 import type { OhMyOpenCodeConfig } from "../config";
 import { loadMcpConfigs } from "../features/claude-code-mcp-loader";
 import { createBuiltinMcps } from "../mcp";
+import * as runtimeExecutableModule from "../mcp/runtime-executable";
 import type { PluginComponents } from "./plugin-components-loader";
 import { log } from "../shared";
 
@@ -8,6 +10,21 @@ type McpEntry = Record<string, unknown>;
 
 function isDisabledMcpEntry(value: unknown): value is McpEntry & { enabled: false } {
   return typeof value === "object" && value !== null && (value as McpEntry).enabled === false;
+}
+
+function looksLikeExecutablePath(executable: string): boolean {
+  return executable.includes("/") || executable.includes("\\") || /^[a-zA-Z]:/.test(executable);
+}
+
+function isUnresolvableLocalCommand(entry: unknown): boolean {
+  if (typeof entry !== "object" || entry === null) return false;
+  const record = entry as McpEntry;
+  if (record.type !== "local") return false;
+  const command = record.command;
+  const executable = Array.isArray(command) ? command[0] : command;
+  if (typeof executable !== "string" || executable.length === 0) return false;
+  if (looksLikeExecutablePath(executable)) return !existsSync(executable);
+  return !runtimeExecutableModule.resolveRuntimeExecutable(executable).available;
 }
 
 function captureUserDisabledMcps(
@@ -47,9 +64,20 @@ export async function applyMcpConfig(params: {
     }
   }
 
+  const builtinMcps = createBuiltinMcps(disabledMcps, params.pluginConfig, { cwd: params.ctx.directory });
+
+  const claudeCodeServers: Record<string, unknown> = {};
+  for (const [name, server] of Object.entries(mcpResult.servers)) {
+    if (name in builtinMcps && isUnresolvableLocalCommand(server)) {
+      log(`warning: MCP server "${name}" from Claude Code .mcp.json has an unresolvable command; keeping the built-in "${name}" server`);
+      continue;
+    }
+    claudeCodeServers[name] = server;
+  }
+
   const merged = {
-    ...createBuiltinMcps(disabledMcps, params.pluginConfig, { cwd: params.ctx.directory }),
-    ...mcpResult.servers,
+    ...builtinMcps,
+    ...claudeCodeServers,
     ...(userMcp ?? {}),
     ...params.pluginComponents.mcpServers,
   } as Record<string, McpEntry>;

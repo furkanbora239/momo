@@ -138,4 +138,110 @@ describe("applyMcpConfig collision handling", () => {
       'warning: MCP server "sharedServer" from user config overrides Claude Code .mcp.json'
     )
   })
+
+  test("builtin wins when Claude Code stdio command is a bare name missing from PATH", async () => {
+    //#given
+    createBuiltinMcpsSpy.mockReturnValue({
+      codegraph: { type: "local", command: ["/resolved/codegraph", "serve", "--mcp"], enabled: true },
+    })
+
+    loadMcpConfigsSpy.mockResolvedValue({
+      servers: {
+        codegraph: {
+          type: "local",
+          command: ["omo-missing-codegraph-probe", "serve", "--mcp"],
+          enabled: true,
+        },
+      },
+      loadedServers: [],
+    })
+
+    const config: Record<string, unknown> = { mcp: {} }
+    const pluginConfig = createPluginConfig()
+
+    //#when
+    const { applyMcpConfig } = await importFreshMcpConfigHandlerModule()
+    await applyMcpConfig({ config, ctx: TEST_CTX, pluginConfig, pluginComponents: EMPTY_PLUGIN_COMPONENTS })
+
+    //#then
+    const mergedMcp = config.mcp as Record<string, Record<string, unknown>>
+    expect(mergedMcp.codegraph).toEqual({
+      type: "local",
+      command: ["/resolved/codegraph", "serve", "--mcp"],
+      enabled: true,
+    })
+    expect(logSpy).toHaveBeenCalledWith(
+      'warning: MCP server "codegraph" from Claude Code .mcp.json has an unresolvable command; keeping the built-in "codegraph" server'
+    )
+  })
+
+  test("builtin wins when Claude Code stdio command is a nonexistent path", async () => {
+    //#given
+    createBuiltinMcpsSpy.mockReturnValue({
+      codegraph: { type: "local", command: ["/resolved/codegraph", "serve", "--mcp"], enabled: true },
+    })
+
+    loadMcpConfigsSpy.mockResolvedValue({
+      servers: {
+        codegraph: {
+          type: "local",
+          command: ["/nonexistent/omo-codegraph/bin/codegraph", "serve", "--mcp"],
+          enabled: true,
+        },
+      },
+      loadedServers: [],
+    })
+
+    const config: Record<string, unknown> = { mcp: {} }
+    const pluginConfig = createPluginConfig()
+
+    //#when
+    const { applyMcpConfig } = await importFreshMcpConfigHandlerModule()
+    await applyMcpConfig({ config, ctx: TEST_CTX, pluginConfig, pluginComponents: EMPTY_PLUGIN_COMPONENTS })
+
+    //#then
+    const mergedMcp = config.mcp as Record<string, Record<string, unknown>>
+    expect(mergedMcp.codegraph).toEqual({
+      type: "local",
+      command: ["/resolved/codegraph", "serve", "--mcp"],
+      enabled: true,
+    })
+    expect(logSpy).toHaveBeenCalledWith(
+      'warning: MCP server "codegraph" from Claude Code .mcp.json has an unresolvable command; keeping the built-in "codegraph" server'
+    )
+  })
+
+  test("Claude Code entry wins when its stdio command resolves", async () => {
+    //#given
+    createBuiltinMcpsSpy.mockReturnValue({
+      codegraph: { type: "local", command: ["/resolved/codegraph", "serve", "--mcp"], enabled: true },
+    })
+
+    loadMcpConfigsSpy.mockResolvedValue({
+      servers: {
+        codegraph: {
+          type: "local",
+          command: ["node", "/custom/codegraph-clone.js", "serve", "--mcp"],
+          enabled: true,
+        },
+      },
+      loadedServers: [],
+    })
+
+    const config: Record<string, unknown> = { mcp: {} }
+    const pluginConfig = createPluginConfig()
+
+    //#when
+    const { applyMcpConfig } = await importFreshMcpConfigHandlerModule()
+    await applyMcpConfig({ config, ctx: TEST_CTX, pluginConfig, pluginComponents: EMPTY_PLUGIN_COMPONENTS })
+
+    //#then
+    const mergedMcp = config.mcp as Record<string, Record<string, unknown>>
+    expect(mergedMcp.codegraph).toEqual({
+      type: "local",
+      command: ["node", "/custom/codegraph-clone.js", "serve", "--mcp"],
+      enabled: true,
+    })
+    expect(logSpy).not.toHaveBeenCalledWith(expect.stringContaining("unresolvable command"))
+  })
 })
