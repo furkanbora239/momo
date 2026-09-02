@@ -86,11 +86,23 @@ codegraph MCP timeout debug).
   `~/.omo/omo.jsonc` (top-level `$schema`/`local_translator`/`_migrations`) is
   currently INERT; `[opencode]`-block keys work. Fix queued for next session
   (frankenstein.md F11/F11b-F11d).
-- Working tree clean; everything committed and pushed to origin/dev
-  (HEAD `41b3d274f`).
-- Tests: full plugin suite 8519 tests with ONLY 3 pre-existing
-  codex-components environment failures; model-core 358/358; typecheck 0 errors.
-- `dist/index.js` rebuilt (Eyl 2 21:30) with all fixes; user restarted after.
+- F7 FIXED (2026-09-02 late): `omo doctor` roster check warns when
+  `packages/omo-opencode/src` is newer than `dist/index.js`
+  (`collectStaleDistIssue`, tested) + the same probe at plugin bootstrap
+  (`warnIfStaleDistBundle` in create-plugin-module.ts).
+- F12 FIXED (2026-09-02 late): dist node-compat regression — the dist bundled
+  the CJS `cross-spawn` dep with bun's `__require = import.meta.require` shim
+  (undefined under node); cross-spawn is now a direct dependency (hoisted) and
+  `--external cross-spawn` in `script/build.ts` index node (zod precedent).
+- Working tree: my work fully committed and pushed to origin/dev. NOTE: a
+  concurrent session has uncommitted WIP in the tree (loader.ts F11b
+  diagnostics fix, codex-components test updates, frankenstein.md rewrite,
+  ROADMAP.md/bun.lock) — leave it alone, it is not mine to commit.
+- Tests: full plugin suite 8521 tests, 0 fail in the latest run (the 3
+  codex-components environment failures were cleared by the concurrent
+  session's test updates); model-core 358/358; typecheck 0 errors.
+- `dist/index.js` rebuilt with all fixes + `--external cross-spawn`; restart
+  opencode to load it.
 - `~/.omo/omo.jsonc`: only behavior settings remain (runtime_fallback,
   background_task, team_mode, experimental + top-level local_translator). NO
   model lists anywhere. NOTE (F11): until F11 is fixed, omo.jsonc top-level
@@ -98,10 +110,12 @@ codegraph MCP timeout debug).
 
 ## PENDING TASKS
 
-- FIRST: fix F11 (omo.jsonc strict-layer voiding — frankenstein.md) + collect
-  any remaining W7 evidence follow-ups (`.omo/evidence/20260902-wave-qa/` is
-  complete; qa task bg_a82cded1 finished).
-- Process QA verdicts into frankenstein.md (single-writer).
+- FIRST: coordinate with the concurrent session (they have uncommitted WIP:
+  loader.ts F11b diagnostics fix, codex-components test updates,
+  frankenstein.md rewrite) — then fix F11 proper (omo.jsonc strict-layer
+  voiding — frankenstein.md).
+- QA verdicts: DONE — recorded in frankenstein.md (F4 live-QA note, F11
+  family) and in this file (5/5 PASS).
 - Docs: README/HELP updates for landed waves (MCP opt-in, telemetry default,
   skills.enable_default_off, delegation.managers, thinking budget 10000,
   planner/executor); frankenstein.md F8 (plan.md drift) mostly resolved, finish.
@@ -109,14 +123,15 @@ codegraph MCP timeout debug).
   (≤600 chars + shape test) — follow `notes/claude-code-patterns.md` rules 1-3;
   touch `src/tools/*` descriptions + `mcp/model-catalog-server.ts`
   CATALOG_MCP_TOOLS.
-- Known open issues (frankenstein.md): F7 stale-dist workflow (candidate: doctor
-  warns build-vs-running mismatch), codegraph MCP runtime timeout (-32001,
+- Known open issues (frankenstein.md): F7 stale-dist warning now FIXED (doctor
+  + bootstrap probe); remaining: codegraph MCP runtime timeout (-32001,
   deferred), translator gemma thinkingConfig research (inconclusive; retry
-  covers the failure mode).
+  covers the failure mode), F12 prompt-bloat investigation (concurrent
+  session's entry).
 
 ## KEY FILES
 
-- `frankenstein.md` — issue log F1-F10 (statuses + verification; single-writer)
+- `frankenstein.md` — issue log F1-F12 (statuses + verification; single-writer — currently the concurrent session)
 - `plan.md` — wave statuses + Phase 4B design (Wave 8 source of truth)
 - `packages/omo-opencode/src/tools/delegate-task/subagent-resolver.ts` — explicit model param precedence fix
 - `packages/omo-opencode/src/config/validate.ts` — V1_DISABLED_AGENTS_DEFAULT (junior removed) + V1_DISABLED_COMMANDS_DEFAULT
