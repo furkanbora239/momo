@@ -52,6 +52,14 @@ level + in-process QA). Waves:
       (V1_DISABLED_COMMANDS_DEFAULT + skills default-off via
       `skills.enable_default_off`), translator hardening (retry on
       thinking-model MAX_TOKENS exhaustion + visible failure logging)
+- [x] Wave 10 — Phase 8: catalog MCP rebuilt on the real cache shape
+      (nested capabilities maps, limit.*, cost.*) via model-core runtime
+      readers; catalog rows now carry pricing/cost_tier/context_window/
+      strengths/weaknesses; catalog_pick gains budget_profile +
+      task_complexity; codegraph MCP shadowing guard
+      (mcp-config-handler.ts: unresolvable .mcp.json commands cannot shadow
+      builtins; evidence `.omo/evidence/20260902-codegraph-mcp-shadowing/`,
+      `.omo/evidence/20260902-catalog-cost-aware/`)
 - [ ] Deferred — token-burn live chat-session evidence (needs a real provider
       session; wiring verified by source inspection)
 
@@ -306,6 +314,41 @@ QA evidence: `.omo/evidence/20260901-local-translator-cloud/` (isolated XDG
 sandbox run on real opencode; cloud translation verified live, cache hit at
 0 ms, no ollama/sudo spawns, real DB untouched).
 
+### Phase 8 — Model & agent catalog metadata enrichment + cost-aware routing
+
+Goal: the orchestrator must not drift onto expensive models (e.g. Kimi K3) for trivial
+work. The catalog MCP becomes the cost-aware agent-selector surface: every model row
+carries metrics, and `catalog_pick` accepts explicit cost/complexity criteria.
+
+1. **Catalog row schema (standardized):** `pricing {input_per_m, output_per_m,
+   currency}` (USD per million tokens from the real cache `cost` map),
+   `context_window`, `cost_tier` ("budget" | "balanced" | "premium", derived from
+   blended price: <1.5 budget, <8 balanced, else premium), `strengths[]`,
+   `weaknesses[]` (heuristic from capabilities/tier/cost), `family`, `release_date`.
+   Capability detection must read the REAL cache shape (nested `capabilities.*`
+   boolean maps, `limit.*`) — reuse `model-core` runtime readers instead of the
+   broken top-level assumptions.
+2. **`catalog_pick` filter params:** optional `budget_profile`
+   ("low_cost" | "balanced" | "max_performance") and `task_complexity`
+   ("trivial" | "moderate" | "complex"; complex requires reasoning-capable).
+   Sort contract kept: prefer boost → tier order (profile-driven) → tier rank →
+   provider boost → price (or capability for max_performance).
+3. **Orchestrator cost directive (system prompt, all variants):** simple
+   read/grep/format/scaffold tasks → `budget` tier models; expensive models only
+   for hard debugging, architecture decisions, deep multi-step reasoning.
+4. **Follow-ups (later fazlar):** Faz 2 ToolRegistry + `discover_tools(intent)`
+   lazy tool injection; Faz 3 `pruneSchema()` (strip title/$schema/examples/default,
+   cap descriptions 100-120 chars); Faz 4 `truncateOutput` 8000-char tool result cap.
+
+Files: `packages/omo-opencode/src/mcp/model-catalog-server.ts` (+cli),
+`packages/model-core/src/model-capabilities/runtime-model-readers.ts` (+barrel
+exports: `readRuntimeModelLimitContext`, `readRuntimeModelCost`),
+`packages/omo-opencode/src/agents/sisyphus/*.ts` (cost directive).
+
+QA: `model-catalog-server.test.ts` rewritten against the REAL cache shape;
+live CLI probes against `~/.cache/oh-my-opencode/provider-models.json`;
+evidence `.omo/evidence/20260902-catalog-cost-aware/`.
+
 ## Execution waves
 
 - **Wave 1:** Phase 0 (docs, identity, license) — QA: `bun run typecheck` + `bun test`
@@ -321,6 +364,8 @@ sandbox run on real opencode; cloud translation verified live, cache hit at
   real-harness evidence that ponytail ladder section appears in prompt.
 - **Wave 7:** Phase 7B (local prompt translator) — QA: typecheck + test, Ollama
   auto-install + model pull verified, translation I/O logging verified.
+- **Wave 10:** Phase 8 (catalog metadata enrichment + cost-aware routing + MCP
+  repair wave: codegraph shadowing guard, mcp-config-handler collision tests).
 
 ## Verification gate
 

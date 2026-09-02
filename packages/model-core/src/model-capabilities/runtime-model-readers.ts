@@ -201,3 +201,40 @@ export function readRuntimeModelLimitOutput(
 	// Treat 0 or negative as unknown so ?? fallback to bundled snapshot works
 	return output && output > 0 ? output : undefined
 }
+
+export function readRuntimeModelLimitContext(
+	runtimeModel: Record<string, unknown> | undefined,
+): number | undefined {
+	const limit = isRecord(runtimeModel?.limit)
+		? runtimeModel.limit
+		: readRuntimeModelCapabilities(runtimeModel)?.limit
+
+	if (!isRecord(limit)) {
+		return undefined
+	}
+
+	const context = readNumber(limit.context)
+	return context && context > 0 ? context : undefined
+}
+
+export interface RuntimeModelCost {
+	readonly input: number | undefined
+	readonly output: number | undefined
+}
+
+export function readRuntimeModelCost(
+	runtimeModel: Record<string, unknown> | undefined,
+): RuntimeModelCost | undefined {
+	const cost = isRecord(runtimeModel?.cost)
+		? runtimeModel.cost
+		: readRuntimeModelCapabilities(runtimeModel)?.cost
+
+	if (!isRecord(cost)) {
+		return undefined
+	}
+
+	return {
+		input: readNumber(cost.input),
+		output: readNumber(cost.output),
+	}
+}

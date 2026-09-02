@@ -14,9 +14,18 @@
 import { readFileSync } from "node:fs"
 import type { Readable, Writable } from "node:stream"
 import {
+  readRuntimeModelCost,
+  readRuntimeModelLimitContext,
+  readRuntimeModelLimitOutput,
+  readRuntimeModelModalities,
+  readRuntimeModelReasoningSupport,
+  readRuntimeModelToolCallSupport,
+} from "@oh-my-opencode/model-core"
+import {
   errorResponse,
   isPlainRecord,
   jsonRpcId,
+  pruneToolDescriptors,
   runJsonRpcStdioServer,
   successResponse,
   type JsonRpcId,
@@ -27,25 +36,14 @@ import {
 } from "@oh-my-opencode/mcp-stdio-core"
 
 export const CATALOG_SERVER_NAME = "catalog" as const
-export const CATALOG_SERVER_VERSION = "0.1.0" as const
+export const CATALOG_SERVER_VERSION = "0.2.0" as const
 const DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 
 const CACHE_FILE_ENV = "OMO_CATALOG_CACHE_FILE"
 const PREFER_ENV = "OMO_CATALOG_PREFER"
 const PREFER_PROVIDERS_ENV = "OMO_CATALOG_PREFER_PROVIDERS"
 
-interface ModelEntry {
-  id: string
-  provider?: string
-  name?: string
-  context?: number
-  output?: number
-  modalities?: { input?: string[]; output?: string[] }
-  capabilities?: Record<string, unknown>
-  reasoning?: boolean
-  temperature?: boolean
-  tool_call?: boolean
-}
+type ModelEntry = Record<string, unknown>
 
 interface ProviderModelsCache {
   models: Record<string, ModelEntry[]>
@@ -54,6 +52,13 @@ interface ProviderModelsCache {
 }
 
 type Capability = "vision" | "reasoning" | "tool_call"
+type CostTier = "budget" | "balanced" | "premium"
+
+interface Pricing {
+  input_per_m: number
+  output_per_m: number
+  currency: "USD"
+}
 
 function readCacheFile(cacheFile: string | undefined): ProviderModelsCache | null {
   if (!cacheFile) return null
@@ -67,21 +72,63 @@ function readCacheFile(cacheFile: string | undefined): ProviderModelsCache | nul
 }
 
 function deriveTier(model: ModelEntry): "flash" | "pro" | "max" | "default" {
-  const haystack = `${model.id} ${model.name ?? ""}`.toLowerCase()
+  const haystack = `${String(model.id ?? "")} ${String(model.name ?? "")}`.toLowerCase()
   if (/flash|mini|nano|lite|haiku|light/.test(haystack)) return "flash"
   if (/\bmax\b|ultra/.test(haystack)) return "max"
   if (/pro|opus/.test(haystack)) return "pro"
   return "default"
 }
 
+const PREMIUM_BLENDED_PER_M = 8
+const BUDGET_BLENDED_PER_M = 1.5
+
+function deriveCostTier(pricing: Pricing | null): CostTier | null {
+  if (!pricing) return null
+  const blended = (pricing.input_per_m + pricing.output_per_m) / 2
+  if (blended < BUDGET_BLENDED_PER_M) return "budget"
+  if (blended < PREMIUM_BLENDED_PER_M) return "balanced"
+  return "premium"
+}
+
+function derivePricing(model: ModelEntry): Pricing | null {
+  const cost = readRuntimeModelCost(model)
+  if (!cost || typeof cost.input !== "number" || typeof cost.output !== "number") return null
+  return { input_per_m: cost.input, output_per_m: cost.output, currency: "USD" }
+}
+
+function deriveStrengths(input: {
+  tier: "flash" | "pro" | "max" | "default"
+  costTier: CostTier | null
+  vision: boolean
+  reasoning: boolean
+  toolCall: boolean
+}): { strengths: string[]; weaknesses: string[] } {
+  const strengths: string[] = []
+  const weaknesses: string[] = []
+  if (input.reasoning) strengths.push("complex_reasoning", "multi_step_planning")
+  else weaknesses.push("deep_reasoning")
+  if (input.toolCall) strengths.push("tool_orchestration")
+  else weaknesses.push("long_tool_loops")
+  if (input.vision) strengths.push("visual_analysis")
+  if (input.tier === "flash") strengths.push("fast_iteration")
+  if (input.costTier === "budget") strengths.push("bulk_low_cost_work")
+  if (input.tier === "max" || input.tier === "pro" || input.costTier === "premium") {
+    strengths.push("hard_architecture_decisions")
+    weaknesses.push("high_cost_for_simple_tasks")
+  }
+  return { strengths: strengths.slice(0, 4), weaknesses: weaknesses.slice(0, 3) }
+}
+
 function hasCapability(model: ModelEntry, capability: Capability): boolean {
   switch (capability) {
-    case "vision":
-      return Array.isArray(model.modalities?.input) && model.modalities.input.includes("image")
+    case "vision": {
+      const modalities = readRuntimeModelModalities(model)
+      return modalities?.input?.includes("image") ?? false
+    }
     case "reasoning":
-      return model.reasoning === true
+      return readRuntimeModelReasoningSupport(model) === true
     case "tool_call":
-      return model.tool_call === true
+      return readRuntimeModelToolCallSupport(model) === true
   }
 }
 
@@ -89,12 +136,24 @@ interface CatalogRow {
   id: string
   provider: string
   name: string
+  family: string | null
   tier: "flash" | "pro" | "max" | "default"
-  context: number | null
+  context_window: number | null
   output: number | null
+  pricing: Pricing | null
+  cost_tier: CostTier | null
+  strengths: string[]
+  weaknesses: string[]
   vision: boolean
   reasoning: boolean
   tool_call: boolean
+  text_output: boolean | null
+  release_date: string | null
+}
+
+function readReleaseDate(model: ModelEntry): string | null {
+  const value = model["release_date"]
+  return typeof value === "string" && value.length > 0 ? value : null
 }
 
 function flatten(cache: ProviderModelsCache): CatalogRow[] {
@@ -103,16 +162,32 @@ function flatten(cache: ProviderModelsCache): CatalogRow[] {
     if (!Array.isArray(models)) continue
     for (const model of models) {
       if (typeof model?.id !== "string") continue
+      const tier = deriveTier(model)
+      const pricing = derivePricing(model)
+      const costTier = deriveCostTier(pricing)
+      const vision = hasCapability(model, "vision")
+      const reasoning = hasCapability(model, "reasoning")
+      const toolCall = hasCapability(model, "tool_call")
+      const modalities = readRuntimeModelModalities(model)
+      const textOutput = modalities?.output ? modalities.output.includes("text") : null
+      const { strengths, weaknesses } = deriveStrengths({ tier, costTier, vision, reasoning, toolCall })
       rows.push({
         id: model.id,
-        provider: model.provider ?? provider,
-        name: model.name ?? model.id,
-        tier: deriveTier(model),
-        context: typeof model.context === "number" ? model.context : null,
-        output: typeof model.output === "number" ? model.output : null,
-        vision: hasCapability(model, "vision"),
-        reasoning: hasCapability(model, "reasoning"),
-        tool_call: hasCapability(model, "tool_call"),
+        provider: typeof model.providerID === "string" ? model.providerID : provider,
+        name: typeof model.name === "string" ? model.name : model.id,
+        family: typeof model.family === "string" ? model.family : null,
+        tier,
+        context_window: readRuntimeModelLimitContext(model) ?? null,
+        output: readRuntimeModelLimitOutput(model) ?? null,
+        pricing,
+        cost_tier: costTier,
+        strengths,
+        weaknesses,
+        vision,
+        reasoning,
+        tool_call: toolCall,
+        text_output: textOutput,
+        release_date: readReleaseDate(model),
       })
     }
   }
@@ -165,37 +240,72 @@ function listCatalog(state: CatalogState, params: unknown): { rows: CatalogRow[]
     const provider = typeof params["provider"] === "string" ? params["provider"] : undefined
     const capability = typeof params["capability"] === "string" ? (params["capability"] as Capability) : undefined
     const tier = typeof params["tier"] === "string" ? (params["tier"] as CatalogRow["tier"]) : undefined
+    const costTier = typeof params["cost_tier"] === "string" ? (params["cost_tier"] as CostTier) : undefined
     if (provider) rows = rows.filter((row) => row.provider === provider)
-    if (capability) rows = rows.filter((row) => hasCapability(
-      { id: row.id, modalities: row.vision ? { input: ["image"] } : undefined, reasoning: row.reasoning, tool_call: row.tool_call },
-      capability,
-    ))
+    if (capability) rows = rows.filter((row) => hasCapability(toModelEntry(row), capability))
     if (tier) rows = rows.filter((row) => row.tier === tier)
+    if (costTier) rows = rows.filter((row) => row.cost_tier === costTier)
   }
   return { rows, updatedAt: cache.updatedAt ?? null }
 }
 
+function toModelEntry(row: CatalogRow): ModelEntry {
+  return {
+    id: row.id,
+    name: row.name,
+    capabilities: {
+      reasoning: row.reasoning,
+      toolcall: row.tool_call,
+      input: { image: row.vision },
+    },
+  }
+}
+
 const TIER_RANK: Record<CatalogRow["tier"], number> = { flash: 0, default: 1, pro: 2, max: 3 }
+
+type BudgetProfile = "low_cost" | "balanced" | "max_performance"
+type TaskComplexity = "trivial" | "moderate" | "complex"
+
+function blendedPrice(row: CatalogRow): number {
+  if (!row.pricing) return Number.POSITIVE_INFINITY
+  return (row.pricing.input_per_m + row.pricing.output_per_m) / 2
+}
 
 function pickCatalog(
   state: CatalogState,
   params: unknown,
-): { picks: Array<{ id: string; provider: string; tier: CatalogRow["tier"]; reason: string }> } {
+): { picks: Array<{ id: string; provider: string; tier: CatalogRow["tier"]; cost_tier: CostTier | null; pricing: Pricing | null; reason: string }> } {
   const cache = readCacheFile(state.cacheFile)
   if (!cache) return { picks: [] }
   const need = isPlainRecord(params) && typeof params["need"] === "string" ? params["need"].toLowerCase() : "default"
+  const budgetProfile: BudgetProfile =
+    isPlainRecord(params) && typeof params["budget_profile"] === "string"
+      ? (params["budget_profile"] as BudgetProfile)
+      : "balanced"
+  const taskComplexity: TaskComplexity =
+    isPlainRecord(params) && typeof params["task_complexity"] === "string"
+      ? (params["task_complexity"] as TaskComplexity)
+      : "moderate"
   let rows = flatten(cache)
 
   const tierOrder: CatalogRow["tier"][] =
-    need.includes("speed") || need.includes("fast") || need.includes("cheap")
-      ? ["flash", "default", "pro", "max"]
-      : need.includes("reason")
-        ? ["pro", "max", "default", "flash"]
-        : ["flash", "default", "pro", "max"]
+    budgetProfile === "max_performance" || taskComplexity === "complex"
+      ? ["pro", "max", "default", "flash"]
+      : budgetProfile === "low_cost" || taskComplexity === "trivial"
+        ? ["flash", "default", "pro", "max"]
+        : need.includes("speed") || need.includes("fast") || need.includes("cheap")
+          ? ["flash", "default", "pro", "max"]
+          : need.includes("reason")
+            ? ["pro", "max", "default", "flash"]
+            : ["flash", "default", "pro", "max"]
 
   if (need.includes("vision")) rows = rows.filter((row) => row.vision)
   if (need.includes("reason")) rows = rows.filter((row) => row.reasoning)
   if (need.includes("tool")) rows = rows.filter((row) => row.tool_call)
+  if (taskComplexity === "complex") rows = rows.filter((row) => row.reasoning)
+  const mediaNeed = /image|audio|video|tts|speech|music|voice|embedding|rerank|transcri/.test(need)
+  if (!mediaNeed) rows = rows.filter((row) => row.tool_call)
+  if (!mediaNeed) rows = rows.filter((row) => row.text_output !== false)
 
   const boosted = state.prefer[need]
   const preferBoostSet = Array.isArray(boosted) ? new Set(boosted) : new Set<string>()
@@ -208,18 +318,25 @@ function pickCatalog(
     if (rankDiff !== 0) return rankDiff
     const tierDiff = TIER_RANK[a.tier] - TIER_RANK[b.tier]
     if (tierDiff !== 0) return tierDiff
-    return Number(providerBoostSet.has(b.provider.toLowerCase())) - Number(providerBoostSet.has(a.provider.toLowerCase()))
+    const providerDiff = Number(providerBoostSet.has(b.provider.toLowerCase())) - Number(providerBoostSet.has(a.provider.toLowerCase()))
+    if (providerDiff !== 0) return providerDiff
+    if (budgetProfile === "max_performance") {
+      return Number(b.reasoning) + Number(b.tool_call) - (Number(a.reasoning) + Number(a.tool_call))
+    }
+    return blendedPrice(a) - blendedPrice(b)
   })
 
   const picks = rows.slice(0, 5).map((row) => ({
     id: row.id,
     provider: row.provider,
     tier: row.tier,
+    cost_tier: row.cost_tier,
+    pricing: row.pricing,
     reason: need.includes("vision")
       ? "vision-capable"
-      : need.includes("reason")
+      : need.includes("reason") || taskComplexity === "complex"
         ? "reasoning-capable"
-        : row.tier === "flash"
+        : row.tier === "flash" || taskComplexity === "trivial"
           ? "cheapest adequate"
           : "adequate",
   }))
@@ -230,13 +347,14 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_list",
     description:
-      "List connected provider models with context window, output limit, vision, reasoning and tool_call tags. Optional filters: provider (id), capability (vision|reasoning|tool_call), tier (flash|pro|max|default).",
+      "List connected provider models with pricing (USD per million tokens), cost_tier (budget|balanced|premium), context_window, output limit, vision, reasoning and tool_call tags, strengths and weaknesses. Optional filters: provider (id), capability (vision|reasoning|tool_call), tier (flash|pro|max|default), cost_tier.",
     inputSchema: {
       type: "object",
       properties: {
         provider: { type: "string", description: "Filter by provider id (e.g. 'openai')." },
         capability: { type: "string", enum: ["vision", "reasoning", "tool_call"], description: "Filter by capability." },
         tier: { type: "string", enum: ["flash", "pro", "max", "default"], description: "Filter by model tier." },
+        cost_tier: { type: "string", enum: ["budget", "balanced", "premium"], description: "Filter by cost tier." },
       },
       additionalProperties: false,
     },
@@ -244,11 +362,21 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_pick",
     description:
-      "Rank model ids for a need using local heuristics (no LLM call). need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Honors catalog.prefer boosts, then catalog.prefer_providers within the same tier bucket.",
+      "Rank model ids for a need using local heuristics (no LLM call). need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Agent picks require tool_call-capable models unless the need explicitly asks for media, embedding or rerank work. Optional budget_profile ('low_cost'|'balanced'|'max_performance') and task_complexity ('trivial'|'moderate'|'complex', complex requires reasoning-capable). Honors catalog.prefer boosts, then catalog.prefer_providers, then price.",
     inputSchema: {
       type: "object",
       properties: {
         need: { type: "string", minLength: 1, description: "What the model is needed for." },
+        budget_profile: {
+          type: "string",
+          enum: ["low_cost", "balanced", "max_performance"],
+          description: "Cost preference: low_cost sorts cheapest first, max_performance sorts most capable first.",
+        },
+        task_complexity: {
+          type: "string",
+          enum: ["trivial", "moderate", "complex"],
+          description: "Complex drives reasoning-capable models only; trivial prefers the cheapest tier.",
+        },
       },
       required: ["need"],
       additionalProperties: false,
@@ -288,7 +416,7 @@ export async function handleCatalogRequest(
       protocolVersion: DEFAULT_PROTOCOL_VERSION,
     })
   }
-  if (method === "tools/list") return successResponse(id, { tools: [...CATALOG_MCP_TOOLS] })
+  if (method === "tools/list") return successResponse(id, { tools: pruneToolDescriptors([...CATALOG_MCP_TOOLS]) })
   if (method === "tools/call") return handleToolCall(id, input["params"], state)
 
   return errorResponse(id, -32601, `Method not found: ${String(method)}`)

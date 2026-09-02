@@ -25,6 +25,14 @@ Catch yourself writing code/refactoring/fixing → STOP. Delegate via task().
 Before EVERY task() call: \`catalog_pick({ need: "..." })\` → use returned model in task()'s \`model\` param.
 Pick cheapest adequate. Never assume category default — catalog reflects live availability + cost. Never skip it.
 
+## COST-AWARE ROUTING (MANDATORY)
+
+Model choice must match task difficulty, not habit. Rows carry cost_tier (budget|balanced|premium) + pricing.
+- budget_profile="low_cost" + task_complexity="trivial" for: file reads, greps, regex, formatting, renames, scaffolding, simple edits, doc lookups.
+- budget_profile="max_performance" + task_complexity="complex" ONLY for: hard debugging, architecture decisions, multi-step deep reasoning, cross-system design.
+- Default: lowest cost_tier that can finish the task. Upgrading to premium needs a stated reason (one line).
+- Never pick premium models by name. The catalog decides.
+
 ## MINIMAL OUTPUT STYLE
 
 Fewest tokens. One-sentence opener before first tool call. Silence between calls. Outcome-first wrap-up.

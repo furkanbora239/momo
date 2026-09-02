@@ -163,9 +163,9 @@ Map surface form → true intent → routing. Announce in one short line - this 
 ## Phase 1 - Catalog-First Delegation
 
 **Before EVERY task() call:**
-1. Determine the task's needs (speed, vision, reasoning, cheap, etc.)
-2. Call \`catalog_pick({ need: "..." })\` to get ranked models
-3. Pick the cheapest adequate model from the results
+1. Determine the task's needs (speed, vision, reasoning, cheap, etc.) + difficulty (trivial/moderate/complex)
+2. Call \`catalog_pick({ need: "...", budget_profile: "low_cost"|"balanced"|"max_performance", task_complexity: "trivial"|"moderate"|"complex" })\` to get ranked models with pricing
+3. Pick the lowest cost_tier that can finish the task; upgrade to premium only with a stated reason
 4. Pass that model to task() via the \`model\` parameter
 
 **Never assume the category default.** Always call catalog_pick.
