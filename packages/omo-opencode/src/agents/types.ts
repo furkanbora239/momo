@@ -49,11 +49,12 @@ const CLAUDE_THINKING_BUDGET_TOKENS = 32000;
  */
 export function buildClaudeThinkingConfig(
   model: string,
+  budgetTokens: number = CLAUDE_THINKING_BUDGET_TOKENS,
 ): { thinking: { type: "enabled"; budgetTokens: number } } | Record<string, never> {
   if (isClaudeOpus47OrLaterModel(model) || isClaudeFableOrMythosModel(model)) {
     return {};
   }
-  return { thinking: { type: "enabled", budgetTokens: CLAUDE_THINKING_BUDGET_TOKENS } };
+  return { thinking: { type: "enabled", budgetTokens } };
 }
 
 /**
@@ -159,7 +160,9 @@ export type BuiltinAgentName =
   | "momus"
   | "atlas"
   | "sisyphus-junior"
-  | "advisor";
+  | "advisor"
+  | "planner"
+  | "executor";
 
 export type OverridableAgentName = "build" | BuiltinAgentName;
 

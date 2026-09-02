@@ -85,7 +85,7 @@ export async function runSyncTaskLoop(input: SyncTaskRunnerInput): Promise<strin
     cleanupRetrySession,
     setSyncSessionID,
   } = input
-  const { client, directory, sisyphusAgentConfig } = executorCtx
+  const { client, directory, sisyphusAgentConfig, managersEnabled } = executorCtx
   const hasActiveChildBackgroundTasks = executorCtx.manager?.hasActiveChildTasks?.bind(executorCtx.manager)
   const hasPendingParentWake = executorCtx.manager?.hasPendingParentWake?.bind(executorCtx.manager)
   const deliverableTag = getDeliverableTag(agentToUse)
@@ -111,6 +111,7 @@ export async function runSyncTaskLoop(input: SyncTaskRunnerInput): Promise<strin
       toastManager,
       taskId,
       sisyphusAgentConfig,
+      managersEnabled,
       categoryModel: effectiveCategoryModel,
     })
     if (promptError) {
@@ -129,6 +130,7 @@ export async function runSyncTaskLoop(input: SyncTaskRunnerInput): Promise<strin
             toastManager,
             taskId,
             sisyphusAgentConfig,
+            managersEnabled,
             categoryModel: fallbackModel,
           })
         },

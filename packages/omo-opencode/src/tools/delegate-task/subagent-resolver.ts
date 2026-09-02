@@ -48,6 +48,14 @@ export async function resolveSubagentExecution(
       }
     }
 
+    // Explicit caller-provided model wins over the agent's default chain:
+    // the orchestrator picks subagent models at runtime (catalog-first), so a
+    // task(model=...) call routes to exactly that model.
+    const explicitModel = normalizeModelFormat(args.model)
+    if (explicitModel) {
+      return { agentToUse, categoryModel: explicitModel, fallbackChain: undefined }
+    }
+
     const { categoryModel, fallbackChain } = await resolveSubagentModel(agentToUse, agentMatch.matchedAgent, executorCtx)
     return { agentToUse, categoryModel, fallbackChain }
   } catch (error) {

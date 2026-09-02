@@ -224,11 +224,13 @@ describe("createPluginModule()", () => {
     })
   })
 
-  describe("#given bundled security skills are enabled", () => {
+  describe("#given bundled security skills are re-enabled via skills.enable_default_off", () => {
     it("#then startup exposes them through a runtime skill source URL", async () => {
       // given
       const pluginModule = createTestPluginModule()
-      mockLoadPluginConfig.mockReturnValue({})
+      mockLoadPluginConfig.mockReturnValue({
+        skills: { enable_default_off: ["security-research", "security-review"] },
+      })
 
       // when
       await pluginModule.server({
@@ -247,13 +249,33 @@ describe("createPluginModule()", () => {
       })
     })
 
+    it("#then no runtime skill source starts and no source URL reaches managers", async () => {
+      // given
+      const pluginModule = createTestPluginModule()
+      mockLoadPluginConfig.mockReturnValue({})
+
+      // when
+      await pluginModule.server({
+        directory: "/tmp/project",
+        client: {},
+      } as Parameters<typeof pluginModule.server>[0])
+
+      // then
+      expect(mockCreateRuntimeSkillSourceServer).not.toHaveBeenCalled()
+      expect(mockCreateManagers.mock.calls.at(0)?.[0]).toMatchObject({
+        runtimeSkillSourceUrl: undefined,
+      })
+    })
+
     it("#given the runtime skill source server is unavailable #then startup continues without a source URL", async () => {
       // given
       const pluginModule = createTestPluginModule()
       const consoleWarn = mock(() => {})
       const originalWarn = console.warn
       console.warn = consoleWarn
-      mockLoadPluginConfig.mockReturnValue({})
+      mockLoadPluginConfig.mockReturnValue({
+        skills: { enable_default_off: ["security-research", "security-review"] },
+      })
       mockCreateRuntimeSkillSourceServer.mockImplementationOnce(() => {
         throw new Error("Runtime skill source server requires Bun.serve")
       })
@@ -280,7 +302,9 @@ describe("createPluginModule()", () => {
     it("#then dispose stops the runtime skill source", async () => {
       // given
       const pluginModule = createTestPluginModule()
-      mockLoadPluginConfig.mockReturnValue({})
+      mockLoadPluginConfig.mockReturnValue({
+        skills: { enable_default_off: ["security-research", "security-review"] },
+      })
 
       // when
       const hooks: Awaited<ReturnType<typeof pluginModule.server>> & {
@@ -302,6 +326,7 @@ describe("createPluginModule()", () => {
       const pluginModule = createTestPluginModule()
       mockLoadPluginConfig.mockReturnValue({
         disabled_skills: ["security-research"],
+        skills: { enable_default_off: ["security-review"] },
       })
 
       // when

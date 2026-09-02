@@ -14,8 +14,12 @@ function makeCache(models: Record<string, unknown[]>): string {
   return file
 }
 
-function stateWith(file: string, prefer: Record<string, string[]> = {}): CatalogState {
-  return { cacheFile: file, prefer }
+function stateWith(
+  file: string,
+  prefer: Record<string, string[]> = {},
+  preferProviders: string[] = [],
+): CatalogState {
+  return { cacheFile: file, prefer, preferProviders }
 }
 
 const SAMPLE = {
@@ -25,6 +29,16 @@ const SAMPLE = {
   ],
   google: [
     { id: "google/gemini-flash", name: "Gemini Flash", context: 1000000, modalities: { input: ["image", "text"] }, tool_call: true },
+  ],
+}
+
+const MIXED_TIERS = {
+  openai: [
+    { id: "openai/gpt-flash", name: "GPT Flash", tool_call: true },
+  ],
+  neuralwatt: [
+    { id: "neuralwatt/glm-5.2", name: "GLM 5.2 Pro", reasoning: true, tool_call: true },
+    { id: "neuralwatt/kimi-flash", name: "Kimi Flash", tool_call: true },
   ],
 }
 
@@ -63,6 +77,38 @@ describe("catalog MCP", () => {
     const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "campaign" } })
     const result = JSON.parse((response as any).result.content[0].text)
     expect(result.picks[0].id).toBe("openai/gpt-pro")
+  })
+
+  it("boosts preferred providers ahead within the same tier", async () => {
+    const state = stateWith(makeCache(MIXED_TIERS), {}, ["neuralwatt"])
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "fast" } })
+    const result = JSON.parse((response as any).result.content[0].text)
+    expect(result.picks[0].id).toBe("neuralwatt/kimi-flash")
+    expect(result.picks[1].id).toBe("openai/gpt-flash")
+  })
+
+  it("keeps the provider boost inside the tier bucket", async () => {
+    const state = stateWith(makeCache(MIXED_TIERS), {}, ["neuralwatt"])
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "fast" } })
+    const result = JSON.parse((response as any).result.content[0].text)
+    const pickIds = result.picks.map((pick: { id: string }) => pick.id)
+    expect(pickIds.indexOf("neuralwatt/glm-5.2")).toBeGreaterThan(pickIds.indexOf("openai/gpt-flash"))
+  })
+
+  it("stays neutral when the prefer_providers list is empty", async () => {
+    const state = stateWith(makeCache(MIXED_TIERS))
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "fast" } })
+    const result = JSON.parse((response as any).result.content[0].text)
+    expect(result.picks[0].id).toBe("openai/gpt-flash")
+  })
+
+  it("applies the provider boost after an explicit prefer hint", async () => {
+    const cache = makeCache(MIXED_TIERS)
+    const state = stateWith(cache, { campaign: ["openai/gpt-flash"] }, ["neuralwatt"])
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "campaign" } })
+    const result = JSON.parse((response as any).result.content[0].text)
+    expect(result.picks[0].id).toBe("openai/gpt-flash")
+    expect(result.picks[1].id).toBe("neuralwatt/kimi-flash")
   })
 
   it("refreshes from the cache file", async () => {

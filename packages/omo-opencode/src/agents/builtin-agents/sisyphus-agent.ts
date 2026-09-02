@@ -26,6 +26,7 @@ export function maybeCreateSisyphusConfig(input: {
   userCategories?: CategoriesConfig
   useTaskSystem: boolean
   disableOmoEnv?: boolean
+  thinkingBudgetTokens?: number
 }): AgentConfig | undefined {
   const {
     disabledAgents,
@@ -41,6 +42,7 @@ export function maybeCreateSisyphusConfig(input: {
     directory,
     useTaskSystem,
     disableOmoEnv = false,
+    thinkingBudgetTokens,
   } = input
 
   const sisyphusOverride = agentOverrides["sisyphus"]
@@ -91,6 +93,20 @@ export function maybeCreateSisyphusConfig(input: {
 
   if (sisyphusResolvedVariant) {
     sisyphusConfig = { ...sisyphusConfig, variant: sisyphusResolvedVariant }
+  }
+
+  // Applied before applyOverrides so an explicit agents.sisyphus.thinking
+  // override (or category thinking) still wins over the budget-only setting.
+  const thinkingBlock = sisyphusConfig.thinking
+  if (
+    thinkingBudgetTokens !== undefined &&
+    typeof thinkingBlock === "object" &&
+    thinkingBlock !== null
+  ) {
+    sisyphusConfig = {
+      ...sisyphusConfig,
+      thinking: { ...thinkingBlock, budgetTokens: thinkingBudgetTokens },
+    }
   }
 
   sisyphusConfig = applyOverrides(sisyphusConfig, sisyphusOverride, mergedCategories, directory)

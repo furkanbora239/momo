@@ -197,3 +197,67 @@ describe("buildAvailableSkills - agentName filtering", () => {
     expect(result.map((s) => s.description)).toContain(customDescription)
   })
 })
+
+describe("buildAvailableSkills - momo default-off roster", () => {
+  it("excludes default-off builtin skills from the per-agent table by default", () => {
+    // given
+    const discoveredSkills: DiscoveredSkills = []
+
+    // when
+    const result = buildAvailableSkills(discoveredSkills, undefined, undefined, undefined, "sisyphus")
+
+    // then
+    expect(result.some((skill) => skill.name === "review-work")).toBe(false)
+    expect(result.some((skill) => skill.name === "init-deep")).toBe(false)
+    expect(result.some((skill) => skill.name === "security-research")).toBe(false)
+    expect(result.some((skill) => skill.name === "frontend")).toBe(true)
+    expect(result.some((skill) => skill.name === "git-master")).toBe(true)
+  })
+
+  it("re-includes default-off builtin skills via the enable list", () => {
+    // given
+    const discoveredSkills: DiscoveredSkills = []
+
+    // when
+    const result = buildAvailableSkills(
+      discoveredSkills,
+      undefined,
+      undefined,
+      undefined,
+      "sisyphus",
+      ["review-work"],
+    )
+
+    // then
+    expect(result.some((skill) => skill.name === "review-work")).toBe(true)
+    expect(result.some((skill) => skill.name === "init-deep")).toBe(false)
+  })
+
+  it("keeps a project-scope skill that shadows a default-off name", () => {
+    // given
+    const projectDescription = "Project-shipped review-work"
+    const skills = [makeSkill("review-work", { description: projectDescription, scope: "project" })]
+
+    // when
+    const result = buildAvailableSkills(skills, undefined, undefined, undefined, "sisyphus")
+
+    // then
+    const reviewWork = result.filter((skill) => skill.name === "review-work")
+    expect(reviewWork).toHaveLength(1)
+    expect(reviewWork[0].location).toBe("project")
+  })
+
+  it("filters user-scope discovered skills that share a default-off name", () => {
+    // given
+    const skills = [
+      makeSkill("data-scientist", { scope: "user" }),
+      makeSkill("debugging", { scope: "user" }),
+    ]
+
+    // when
+    const result = buildAvailableSkills(skills)
+
+    // then
+    expect(result.map((skill) => skill.name)).toEqual(["debugging"])
+  })
+})

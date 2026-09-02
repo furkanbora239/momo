@@ -1,6 +1,6 @@
 import type { DelegateTaskArgs } from "./types"
 import { getAgentConfigKey } from "../../shared/agent-display-names"
-import { isCoordinatorAgent, COORDINATOR_AGENT_NAMES, isPlanFamily } from "./constants"
+import { isCoordinatorAgent, isManagerAgent, COORDINATOR_AGENT_NAMES, isPlanFamily } from "./constants"
 import { SISYPHUS_JUNIOR_AGENT } from "./sisyphus-junior-agent"
 import { sanitizeSubagentType } from "./subagent-discovery"
 import type { ResolveSubagentExecutionOptions, SubagentRequestPreflight } from "./subagent-resolution-types"
@@ -51,6 +51,28 @@ export function validateSubagentRequest(
         error: `You are a plan-family agent (plan/prometheus). You cannot delegate to other plan-family agents via task.
 
 Create the work plan directly - that's your job as the planning agent.`,
+      },
+    }
+  }
+
+  if (isManagerAgent(parentAgent) && isManagerAgent(agentName)) {
+    return {
+      kind: "invalid",
+      result: {
+        agentToUse: "",
+        categoryModel: undefined,
+        error: `You are a manager agent (${parentAgent}). You cannot delegate to other manager agents. Delegate to a task category or a worker agent instead.`,
+      },
+    }
+  }
+
+  if (isManagerAgent(parentAgent) && isCoordinatorAgent(agentName)) {
+    return {
+      kind: "invalid",
+      result: {
+        agentToUse: "",
+        categoryModel: undefined,
+        error: `Cannot delegate to coordinator agent "${agentName}" via task(). Manager agents delegate to workers (task categories, explore, librarian), not to coordinators (${COORDINATOR_AGENT_NAMES.join(", ")}).`,
       },
     }
   }

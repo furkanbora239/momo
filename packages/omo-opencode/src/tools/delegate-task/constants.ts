@@ -412,3 +412,37 @@ export function isCoordinatorAgent(agentName: string | undefined): boolean {
   const normalized = getAgentConfigKey(agentName).toLowerCase().trim()
   return COORDINATOR_AGENT_NAMES.some((name) => normalized === name)
 }
+
+/**
+ * Manager-layer agents that can spawn worker tasks via sync `task()` when the
+ * delegation.managers config gate is on. They sit between the orchestrator and
+ * workers in a 3-level hierarchy (owner → manager → worker).
+ */
+export const MANAGER_AGENT_NAMES = ["planner", "executor"] as const
+
+/**
+ * Returns true when the given agent name refers to a manager-layer agent
+ * (planner or executor).
+ */
+export function isManagerAgent(agentName: string | undefined): boolean {
+  if (!agentName) return false
+  const normalized = getAgentConfigKey(agentName).toLowerCase().trim()
+  return MANAGER_AGENT_NAMES.some((name) => normalized === name)
+}
+
+/**
+ * Returns true when the given agent should receive the `task` tool in sync
+ * sessions (i.e., can spawn worker sub-agents). Plan-family agents always can;
+ * when managers are enabled, planner/executor managers also can.
+ *
+ * When `managersEnabled` is false, degrades to today's plan-family-only
+ * behavior — managers are not registered and cannot spawn.
+ */
+export function canSpawnWorkers(
+  agentName: string | undefined,
+  managersEnabled: boolean = true,
+): boolean {
+  if (isPlanFamily(agentName)) return true
+  if (managersEnabled && isManagerAgent(agentName)) return true
+  return false
+}

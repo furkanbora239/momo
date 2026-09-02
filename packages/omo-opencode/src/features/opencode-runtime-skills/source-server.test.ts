@@ -13,7 +13,9 @@ describe("runtime security skill source server", () => {
   test("serves an OpenCode skill index and markdown files with matching frontmatter names", async () => {
     // given
     const source = await createRuntimeSkillSourceServer({
-      skills: selectRuntimeSecuritySkills(),
+      skills: selectRuntimeSecuritySkills({
+        skills: { enable_default_off: ["security-research", "security-review"] },
+      }),
     })
     cleanupServer = source
 
@@ -59,7 +61,9 @@ describe("runtime security skill source server", () => {
     // given
     const source = await createRuntimeSkillSourceServer(
       {
-        skills: selectRuntimeSecuritySkills(),
+        skills: selectRuntimeSecuritySkills({
+          skills: { enable_default_off: ["security-research", "security-review"] },
+        }),
       },
       {},
     )

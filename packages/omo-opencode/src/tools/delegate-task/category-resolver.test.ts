@@ -706,6 +706,64 @@ describe("resolveCategoryExecution", () => {
 		)
 	})
 
+	test("resolves the next chain rung when the category head model is unavailable [wave 4]", async () => {
+		//#given - visual-engineering head (claude-opus-5) is unavailable but a later chain rung is reachable
+		const cacheSpy = spyOn(connectedProvidersCache, "readProviderModelsCache").mockReturnValue({
+			models: { "opencode-go": ["kimi-k3"] },
+			connected: ["opencode-go"],
+			updatedAt: "2026-09-01T00:00:00.000Z",
+		})
+		const args = {
+			category: "visual-engineering",
+			prompt: PROMPT_INPUT_SENTINEL,
+			description: DESCRIPTION_INPUT_SENTINEL,
+			run_in_background: false,
+			load_skills: [],
+			blockedBy: undefined,
+			enableSkillTools: false,
+		}
+		const executorCtx = createMockExecutorContext()
+
+		//#when
+		const result = await resolveCategoryExecution(args, executorCtx, undefined, "anthropic/claude-sonnet-4-6")
+
+		//#then - the category resolves the fallback chain instead of erroring on the head model
+		expect(result.error).toBeUndefined()
+		expect(result.actualModel).toBe("opencode-go/kimi-k3")
+		expect(result.categoryModel?.providerID).toBe("opencode-go")
+		expect(result.categoryModel?.modelID).toBe("kimi-k3")
+		cacheSpy.mockRestore()
+	})
+
+	test("accepts an explicit model override when the category head model is unavailable [wave 4]", async () => {
+		//#given - head model unavailable, no chain rung reachable, explicit model override supplied
+		const cacheSpy = spyOn(connectedProvidersCache, "readProviderModelsCache").mockReturnValue({
+			models: { anthropic: ["claude-opus-4-7"] },
+			connected: ["anthropic"],
+			updatedAt: "2026-09-01T00:00:00.000Z",
+		})
+		const args = {
+			category: "deep",
+			model: "neuralwatt/deepseek-v4-pro",
+			prompt: PROMPT_INPUT_SENTINEL,
+			description: DESCRIPTION_INPUT_SENTINEL,
+			run_in_background: false,
+			load_skills: [],
+			blockedBy: undefined,
+			enableSkillTools: false,
+		}
+		const executorCtx = createMockExecutorContext()
+
+		//#when
+		const result = await resolveCategoryExecution(args, executorCtx, undefined, "anthropic/claude-sonnet-4-6")
+
+		//#then - the explicit override is accepted instead of the requires-model error
+		expect(result.error).toBeUndefined()
+		expect(result.actualModel).toBe("neuralwatt/deepseek-v4-pro")
+		expect(result.modelInfo?.source).toBe("catalog-pick")
+		cacheSpy.mockRestore()
+	})
+
 	test("applyCategoryParams propagates category tools config (issue #5182)", () => {
 		//#given a category with tools restriction
 		const base: DelegatedModelConfig = {

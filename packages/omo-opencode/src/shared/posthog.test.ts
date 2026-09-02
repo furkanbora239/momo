@@ -8,6 +8,7 @@ import type {
   TelemetryTransportFactory,
   TelemetryTransportOptions,
 } from "@oh-my-opencode/telemetry-core"
+import { OhMyOpenCodeConfigSchema } from "../config/schema/oh-my-opencode-config"
 
 type CapturedPostHogMessage = TelemetryCaptureMessage
 type PostHogModule = Awaited<ReturnType<typeof importPostHogModule>>
@@ -258,6 +259,55 @@ describe("posthog disable env var parsing", () => {
 
     // then
     expect(captured).toHaveLength(0)
+  })
+})
+
+describe("posthog telemetry config default", () => {
+  beforeEach(() => {
+    clearTelemetryEnv()
+  })
+
+  afterEach(() => {
+    resetPostHogModuleTestSeams()
+    clearTelemetryEnv()
+  })
+
+  it("treats omitted telemetry config as disabled after schema defaults", async () => {
+    // given
+    const posthogModule = usePostHogModule(await importPostHogModule())
+    const parsedConfig = OhMyOpenCodeConfigSchema.parse({})
+
+    // when
+    const disabled = posthogModule.shouldDisablePostHog(process.env, parsedConfig.telemetry)
+
+    // then
+    expect(parsedConfig.telemetry).toBe(false)
+    expect(disabled).toBe(true)
+  })
+
+  it("keeps schema-default telemetry disabled even when env vars would enable it", async () => {
+    // given
+    enableTelemetryEnv()
+    const posthogModule = usePostHogModule(await importPostHogModule())
+    const parsedConfig = OhMyOpenCodeConfigSchema.parse({})
+
+    // when
+    const disabled = posthogModule.shouldDisablePostHog(process.env, parsedConfig.telemetry)
+
+    // then
+    expect(disabled).toBe(true)
+  })
+
+  it("treats explicitly enabled telemetry as enabled when env is clear", async () => {
+    // given
+    const posthogModule = usePostHogModule(await importPostHogModule())
+    const parsedConfig = OhMyOpenCodeConfigSchema.parse({ telemetry: true })
+
+    // when
+    const disabled = posthogModule.shouldDisablePostHog(process.env, parsedConfig.telemetry)
+
+    // then
+    expect(disabled).toBe(false)
   })
 })
 

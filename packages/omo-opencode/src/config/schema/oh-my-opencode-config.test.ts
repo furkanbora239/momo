@@ -40,7 +40,7 @@ describe("OhMyOpenCodeConfigSchema team_mode", () => {
 })
 
 describe("OhMyOpenCodeConfigSchema telemetry", () => {
-  it("allows telemetry omission", () => {
+  it("defaults telemetry to false when omitted", () => {
     // given
     const rawConfig = {}
 
@@ -50,7 +50,7 @@ describe("OhMyOpenCodeConfigSchema telemetry", () => {
     // then
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.data.telemetry).toBeUndefined()
+      expect(result.data.telemetry).toBe(false)
     }
   })
 
@@ -83,6 +83,61 @@ describe("OhMyOpenCodeConfigSchema telemetry", () => {
 
     // then
     expect(result.success).toBe(false)
+  })
+})
+
+describe("OhMyOpenCodeConfigSchema remote MCP opt-in fields", () => {
+  it("keeps the remote MCP sections optional when omitted", () => {
+    // given
+    const rawConfig = {}
+
+    // when
+    const result = OhMyOpenCodeConfigSchema.safeParse(rawConfig)
+
+    // then
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.websearch).toBeUndefined()
+      expect(result.data.context7).toBeUndefined()
+      expect(result.data.grep_app).toBeUndefined()
+    }
+  })
+
+  it("defaults the remote MCP enabled flags to false for empty sections", () => {
+    // given
+    const rawConfig = { websearch: {}, context7: {}, grep_app: {} }
+
+    // when
+    const result = OhMyOpenCodeConfigSchema.safeParse(rawConfig)
+
+    // then
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.websearch?.enabled).toBe(false)
+      expect(result.data.context7?.enabled).toBe(false)
+      expect(result.data.grep_app?.enabled).toBe(false)
+    }
+  })
+
+  it("accepts explicit enabled flags for the remote MCPs", () => {
+    // given
+    const rawConfig = {
+      websearch: { enabled: true, provider: "tavily" },
+      context7: { enabled: true },
+      grep_app: { enabled: true },
+    }
+
+    // when
+    const result = OhMyOpenCodeConfigSchema.safeParse(rawConfig)
+
+    // then
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.websearch?.enabled).toBe(true)
+      expect(result.data.websearch?.provider).toBe("tavily")
+      expect(result.data.context7?.enabled).toBe(true)
+      expect(result.data.grep_app?.enabled).toBe(true)
+    }
   })
 })
 

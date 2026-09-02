@@ -86,6 +86,7 @@ export async function resolveCategoryExecution(
     inheritedModel,
     systemDefaultModel,
     availableModels,
+    overrideModel: args.model,
   })
 
   if (!resolved) {

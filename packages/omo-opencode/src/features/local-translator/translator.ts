@@ -2,6 +2,11 @@ import type { TranslationConfig, TranslationResult } from "./types"
 import { chatWithOllama } from "./ollama-client"
 import { chatWithCloud } from "./cloud-client"
 import { logTranslation } from "./translation-logger"
+import { log } from "../../shared/logger"
+
+function isBudgetExhaustionError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("finishReason: MAX_TOKENS")
+}
 
 const SYSTEM_PROMPT = `You are a prompt translator. Translate the input to English. Then compress it: drop articles, filler, pleasantries, hedging. Keep technical terms, code blocks, file paths, function names, and URLs exact. Fragments are OK. Short synonyms preferred. Output ONLY the translated and compressed text. No explanations. No preamble.`
 
@@ -70,10 +75,37 @@ export async function translateMessage(
       return { ...cached, latencyMs: 0 }
     }
 
-    const translated =
-      config.mode === "cloud"
-        ? await chatWithCloud(config, SYSTEM_PROMPT, text)
-        : await chatWithOllama(config, SYSTEM_PROMPT, text)
+    let translated: string
+    if (config.mode === "cloud") {
+      try {
+        translated = await chatWithCloud(config, SYSTEM_PROMPT, text)
+      } catch (firstError) {
+        if (!isBudgetExhaustionError(firstError)) throw firstError
+        const doubled = config.cloud.maxOutputTokens * 2
+        log("[local-translator] Retrying cloud translation with doubled maxOutputTokens", {
+          from: config.cloud.maxOutputTokens,
+          to: doubled,
+        })
+        if (config.logTranslations) {
+          logTranslation({
+            timestamp: new Date().toISOString(),
+            originalText: text,
+            translatedText: text,
+            model: resolveTranslationModelLabel(config),
+            latencyMs: Date.now() - startTime,
+            skipped: true,
+            skipReason: `retry: doubled maxOutputTokens to ${doubled} after MAX_TOKENS`,
+          })
+        }
+        const retryConfig: TranslationConfig = {
+          ...config,
+          cloud: { ...config.cloud, maxOutputTokens: doubled },
+        }
+        translated = await chatWithCloud(retryConfig, SYSTEM_PROMPT, text)
+      }
+    } else {
+      translated = await chatWithOllama(config, SYSTEM_PROMPT, text)
+    }
     const latencyMs = Date.now() - startTime
 
     const result: TranslationResult = {

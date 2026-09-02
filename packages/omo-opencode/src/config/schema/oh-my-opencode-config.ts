@@ -9,6 +9,8 @@ import { CategoriesConfigSchema } from "./categories"
 import { ClaudeCodeConfigSchema } from "./claude-code"
 import { CodegraphConfigSchema } from "./codegraph"
 import { CatalogConfigSchema } from "./catalog"
+import { Context7ConfigSchema } from "./context7"
+import { DelegationConfigSchema } from "./delegation"
 import { LocalTranslatorConfigSchema } from "./local-translator"
 import { CommentCheckerConfigSchema } from "./comment-checker"
 import { BuiltinCommandNameSchema } from "./commands"
@@ -16,6 +18,7 @@ import { DefaultModeConfigSchema } from "./default-mode"
 import { ExperimentalConfigSchema } from "./experimental"
 import { TokenBurnConfigSchema } from "./token-burn"
 import { GitMasterConfigSchema } from "./git-master"
+import { GrepAppConfigSchema } from "./grep-app"
 import { I18nConfigSchema } from "./i18n"
 import { KeywordDetectorConfigSchema } from "./keyword-detector"
 import { NotificationConfigSchema } from "./notification"
@@ -69,8 +72,8 @@ export const OhMyOpenCodeConfigSchema = z.object({
   mcp_env_allowlist: z.array(z.string()).optional(),
   /** Enable hashline_edit tool/hook integrations (default: false) */
   hashline_edit: z.boolean().optional(),
-  /** Enable anonymous telemetry. Default: enabled when omitted. Set to false to disable. Independent of codegraph.telemetry. */
-  telemetry: z.boolean().optional().describe("Enable or disable anonymous telemetry. Default: enabled when omitted. Set to false to disable. Independent of codegraph.telemetry."),
+  /** Enable anonymous telemetry (default: false, off). Set to true to enable. Independent of codegraph.telemetry. */
+  telemetry: z.boolean().default(false).describe("Enable or disable anonymous telemetry. Default: false (off). Set to true to enable. Independent of codegraph.telemetry."),
   /** Enable model fallback on API errors (default: false). Set to true to enable automatic model switching when model errors occur. */
   model_fallback: z.boolean().optional(),
   agents: AgentOverridesSchema.optional(),
@@ -103,6 +106,8 @@ export const OhMyOpenCodeConfigSchema = z.object({
   /** Aider-style repo-map auto-injector: compressed, ranked codebase map from .codegraph into the first user message (default: off). */
   repo_map: RepoMapConfigSchema.optional(),
   catalog: CatalogConfigSchema,
+  /** Nested delegation: planner/executor manager agents for 3-level hierarchy (default: managers on). */
+  delegation: DelegationConfigSchema.optional(),
   /** Local prompt translator: translates+compresses user messages via local Ollama model. */
   local_translator: LocalTranslatorConfigSchema,
   team_mode: TeamModeConfigSchema.optional(),
@@ -115,6 +120,8 @@ export const OhMyOpenCodeConfigSchema = z.object({
   }),
   browser_automation_engine: BrowserAutomationConfigSchema.optional(),
   websearch: WebsearchConfigSchema.optional(),
+  context7: Context7ConfigSchema.optional(),
+  grep_app: GrepAppConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
   tui: TuiConfigSchema.default({ sidebar: { enabled: true } }).optional(),
   sisyphus: SisyphusConfigSchema.optional(),

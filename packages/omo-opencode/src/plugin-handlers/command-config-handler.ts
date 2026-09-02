@@ -11,6 +11,10 @@ import {
 } from "../features/claude-code-command-loader";
 import { loadBuiltinCommands } from "../features/builtin-commands";
 import { resolveActiveBuiltinSkills } from "../features/builtin-skills";
+import {
+  getEnableDefaultOffList,
+  isDefaultOffSkillName,
+} from "../features/builtin-skills/default-off-skills";
 import { getSystemMcpServerNames } from "../features/claude-code-mcp-loader";
 import {
   builtinSkillsToCommandDefinitionRecord,
@@ -42,18 +46,18 @@ export async function applyCommandConfig(params: {
   pluginComponents: PluginComponents;
 }): Promise<void> {
   const disabledSkills = collectDisabledSkillAliases(params.pluginConfig);
+  const enableDefaultOffList = getEnableDefaultOffList(params.pluginConfig.skills);
   const builtinCommands = loadBuiltinCommands(params.pluginConfig.disabled_commands, {
     useRegisteredAgents: true,
     teamModeEnabled: params.pluginConfig.team_mode?.enabled ?? false,
   });
-  const builtinSkillCommands = builtinSkillsToCommandDefinitionRecord(
-    resolveActiveBuiltinSkills({
-      browserProvider: params.pluginConfig.browser_automation_engine?.provider ?? "playwright",
-      disabledSkills,
-      teamModeEnabled: params.pluginConfig.team_mode?.enabled ?? false,
-      systemMcpNames: getSystemMcpServerNames(),
-    }),
-  );
+  const activeBuiltinSkills = resolveActiveBuiltinSkills({
+    browserProvider: params.pluginConfig.browser_automation_engine?.provider ?? "playwright",
+    disabledSkills,
+    teamModeEnabled: params.pluginConfig.team_mode?.enabled ?? false,
+    systemMcpNames: getSystemMcpServerNames(),
+  }).filter((skill) => !isDefaultOffSkillName(skill.name, enableDefaultOffList));
+  const builtinSkillCommands = builtinSkillsToCommandDefinitionRecord(activeBuiltinSkills);
   for (const disabledCommand of params.pluginConfig.disabled_commands ?? []) {
     delete builtinSkillCommands[disabledCommand];
   }
@@ -108,10 +112,19 @@ export async function applyCommandConfig(params: {
     ...skillsToCommandDefinitionRecord(filterDisabledLoadedSkills(configSourceSkills, disabledSkills)),
     ...skillsToCommandDefinitionRecord(filterDisabledLoadedSkills(hostConfigSkills, disabledSkills)),
     ...userCommands,
-    ...filterDisabledSkillCommandRecord(userSkills, disabledSkills),
-    ...filterDisabledSkillCommandRecord(globalAgentsSkills, disabledSkills),
+    ...filterDefaultOffSkillCommandRecord(
+      filterDisabledSkillCommandRecord(userSkills, disabledSkills),
+      enableDefaultOffList,
+    ),
+    ...filterDefaultOffSkillCommandRecord(
+      filterDisabledSkillCommandRecord(globalAgentsSkills, disabledSkills),
+      enableDefaultOffList,
+    ),
     ...opencodeGlobalCommands,
-    ...filterDisabledSkillCommandRecord(opencodeGlobalSkills, disabledSkills),
+    ...filterDefaultOffSkillCommandRecord(
+      filterDisabledSkillCommandRecord(opencodeGlobalSkills, disabledSkills),
+      enableDefaultOffList,
+    ),
     ...systemCommands,
     ...projectCommands,
     ...filterDisabledSkillCommandRecord(projectSkills, disabledSkills),
@@ -119,7 +132,10 @@ export async function applyCommandConfig(params: {
     ...opencodeProjectCommands,
     ...filterDisabledSkillCommandRecord(opencodeProjectSkills, disabledSkills),
     ...params.pluginComponents.commands,
-    ...filterDisabledSkillCommandRecord(params.pluginComponents.skills, disabledSkills),
+    ...filterDefaultOffSkillCommandRecord(
+      filterDisabledSkillCommandRecord(params.pluginComponents.skills, disabledSkills),
+      enableDefaultOffList,
+    ),
   };
 
   remapCommandAgentFields(
@@ -145,6 +161,19 @@ function filterDisabledSkillCommandRecord<T>(
   const activeCommands: Record<string, T> = {};
   for (const [name, command] of Object.entries(commands)) {
     if (!isDisabledSkillName(name, disabledSkills)) {
+      activeCommands[name] = command;
+    }
+  }
+  return activeCommands;
+}
+
+function filterDefaultOffSkillCommandRecord<T>(
+  commands: Record<string, T>,
+  enableDefaultOffList: readonly string[] | undefined,
+): Record<string, T> {
+  const activeCommands: Record<string, T> = {};
+  for (const [name, command] of Object.entries(commands)) {
+    if (!isDefaultOffSkillName(name, enableDefaultOffList)) {
       activeCommands[name] = command;
     }
   }

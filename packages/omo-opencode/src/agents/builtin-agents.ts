@@ -14,6 +14,8 @@ import { createAtlasAgent, atlasPromptMetadata } from "./atlas"
 import { createMomusAgent, momusPromptMetadata } from "./momus"
 import { createHephaestusAgent } from "./hephaestus"
 import { createSisyphusJuniorAgentWithOverrides } from "./sisyphus-junior"
+import { createPlannerAgent, PLANNER_PROMPT_METADATA } from "./planner"
+import { createExecutorAgent, EXECUTOR_PROMPT_METADATA } from "./executor"
 import type { AvailableCategory } from "./dynamic-agent-prompt-builder"
 import {
   fetchAvailableModels,
@@ -23,6 +25,7 @@ import {
 import { CATEGORY_DESCRIPTIONS } from "../tools/delegate-task/constants"
 import { mergeCategories } from "../shared/merge-categories"
 import { buildAvailableSkills } from "./builtin-agents/available-skills"
+import { getEnableDefaultOffList } from "../features/builtin-skills/default-off-skills"
 import { collectPendingBuiltinAgents } from "./builtin-agents/general-agents"
 import { maybeCreateSisyphusConfig } from "./builtin-agents/sisyphus-agent"
 import { maybeCreateHephaestusConfig } from "./builtin-agents/hephaestus-agent"
@@ -44,6 +47,8 @@ const agentSources: Record<BuiltinAgentName, AgentSource> = {
   atlas: createAtlasAgent as AgentFactory,
   "sisyphus-junior": createSisyphusJuniorAgentWithOverrides as AgentFactory,
   advisor: createAdvisorAgent,
+  planner: createPlannerAgent,
+  executor: createExecutorAgent,
 }
 
 /**
@@ -59,6 +64,8 @@ const agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>> = {
   momus: momusPromptMetadata,
   atlas: atlasPromptMetadata,
   advisor: ADVISOR_PROMPT_METADATA,
+  planner: PLANNER_PROMPT_METADATA,
+  executor: EXECUTOR_PROMPT_METADATA,
 }
 
 export async function createBuiltinAgents(
@@ -76,6 +83,8 @@ export async function createBuiltinAgents(
   useTaskSystem = false,
   disableOmoEnv = false,
   teamModeEnabled = false,
+  sisyphusThinkingBudgetTokens?: number,
+  enableDefaultOffList?: readonly string[],
 ): Promise<Record<string, AgentConfig>> {
 
   const connectedProviders = readConnectedProvidersCache()
@@ -130,13 +139,14 @@ export async function createBuiltinAgents(
     systemDefaultModel,
     isFirstRunNoCache,
     availableAgents,
-    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "sisyphus"),
+    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "sisyphus", enableDefaultOffList),
     availableCategories,
     mergedCategories,
     directory,
     userCategories: categories,
     useTaskSystem,
     disableOmoEnv,
+    thinkingBudgetTokens: sisyphusThinkingBudgetTokens,
   })
   if (sisyphusConfig) {
     result["sisyphus"] = sisyphusConfig
@@ -149,7 +159,7 @@ export async function createBuiltinAgents(
     systemDefaultModel,
     isFirstRunNoCache,
     availableAgents,
-    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "hephaestus"),
+    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "hephaestus", enableDefaultOffList),
     availableCategories,
     mergedCategories,
     directory,
@@ -172,7 +182,7 @@ export async function createBuiltinAgents(
     availableModels,
     systemDefaultModel,
     availableAgents,
-    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "atlas"),
+    availableSkills: buildAvailableSkills(discoveredSkills, browserProvider, disabledSkills, teamModeEnabled, "atlas", enableDefaultOffList),
     mergedCategories,
     directory,
     userCategories: categories,

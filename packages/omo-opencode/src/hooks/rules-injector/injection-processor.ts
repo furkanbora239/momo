@@ -18,6 +18,7 @@ import {
 import { createMatchDecisionCache } from "./match-decision-cache";
 import { createParsedRuleReader } from "./parsed-rule-cache";
 import { resolveFilePath } from "./path-resolution";
+import { capRuleBodyToLineLimit } from "./rule-line-cap";
 import { getRuleMatchReason } from "./rule-match-reason";
 import type { FindRuleFilesOptions } from "./rule-file-finder";
 import type { RuleScanCache } from "./rule-scan-cache";
@@ -32,6 +33,7 @@ function normalizeRuleRelativePath(relativePath: string): string {
 export type CreateRuleInjectionProcessorDeps = RuleInjectionProcessorDeps & {
 	getSessionRuleScanCache?: (sessionID: string) => RuleScanCache;
 	ruleFinderOptions?: FindRuleFilesOptions;
+	verboseRules?: boolean;
 	readFileSync?: RuleFileReader;
 	statSync?: RuleStatReader;
 	homedir?: typeof homedir;
@@ -58,6 +60,7 @@ export function createRuleInjectionProcessor(
 		getSessionCache,
 		getSessionRuleScanCache,
 		ruleFinderOptions,
+		verboseRules = false,
 		homedir: getHomeDir = homedir,
 		shouldApplyRule: shouldApplyRuleImpl = shouldApplyRule,
 		isDuplicateByRealPath: isDuplicateByRealPathImpl = isDuplicateByRealPath,
@@ -144,7 +147,9 @@ export function createRuleInjectionProcessor(
 				toInject.push({
 					relativePath,
 					matchReason,
-					content: body,
+					content: verboseRules
+						? body
+						: capRuleBodyToLineLimit(body, relativePath),
 					distance: candidate.distance,
 				});
 

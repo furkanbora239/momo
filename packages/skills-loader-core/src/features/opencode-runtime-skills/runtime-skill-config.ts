@@ -16,8 +16,6 @@ export type OpenCodeSkillHostConfig = Record<string, unknown> & {
   skills?: OpenCodeSkillsHostConfig
 }
 
-
-
 function toStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === "string")
@@ -28,12 +26,24 @@ function appendUnique(values: readonly string[], next: string): string[] {
   return [...values, next]
 }
 
+function isEnableDefaultOffListed(skillName: string, skills: unknown): boolean {
+  if (!isPlainRecord(skills)) return false
+  const enableDefaultOff = skills.enable_default_off
+  if (!Array.isArray(enableDefaultOff)) return false
+  const normalized = skillName.toLowerCase()
+  return enableDefaultOff.some((entry) => typeof entry === "string" && entry.toLowerCase() === normalized)
+}
+
 export function selectRuntimeSecuritySkills(
   pluginConfig: RuntimeSkillConfig = {},
 ): RuntimeSkillSourceEntry[] {
   const disabledSkills = collectDisabledSkillAliases(pluginConfig)
-  const includeResearch = !disabledSkills.has("security-research")
-  const includeReview = !disabledSkills.has("security-review")
+  const includeResearch =
+    isEnableDefaultOffListed("security-research", pluginConfig.skills)
+    && !disabledSkills.has("security-research")
+  const includeReview =
+    isEnableDefaultOffListed("security-review", pluginConfig.skills)
+    && !disabledSkills.has("security-review")
   if (!includeResearch && !includeReview) return []
 
   const skills = []

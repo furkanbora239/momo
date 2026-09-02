@@ -50,6 +50,13 @@ const PATTERN_ALIAS_RULES: ReadonlyArray<PatternAliasRule> = [
     canonicalize: (normalizedModelID) => normalizedModelID.slice(0, -"-fast".length),
   },
   {
+    ruleID: "neuralwatt-kimi-k3-fast-service-tier-alias",
+    description: "Normalizes NeuralWatt's Kimi K3 fast service-tier IDs to the canonical snapshot ID.",
+    providerIDs: ["neuralwatt"],
+    match: (normalizedModelID) => /^kimi-k3-fast$/.test(normalizedModelID),
+    canonicalize: () => "kimi-k3",
+  },
+  {
     ruleID: "claude-thinking-legacy-alias",
     description: "Normalizes the legacy claude-opus-4-7-thinking id to the canonical snapshot ID.",
     match: (normalizedModelID) => /^claude-opus-4-7-thinking$/.test(normalizedModelID),

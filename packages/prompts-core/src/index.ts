@@ -12,6 +12,8 @@ export type {
   VariantTable,
 } from "./types"
 export { atlasPromptVariants } from "./atlas-prompts"
+export { executorPromptVariants } from "./executor-prompts"
+export { plannerPromptVariants } from "./planner-prompts"
 export { prometheusPromptVariants } from "./prometheus-prompts"
 export {
   CODEX_ULTRAWORK_PROMPT,

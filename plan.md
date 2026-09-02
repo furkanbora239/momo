@@ -40,8 +40,22 @@ level + in-process QA). Waves:
       I/O logging; commits b2f53faef + 926bc2054 + QA fixes; same evidence dir;
       2026-09-01 rework: cloud Gemma default + no-sudo install, evidence
       `.omo/evidence/20260901-local-translator-cloud/`)
+- [x] Wave 8 — Phase B: nested delegation manager layer (planner + executor
+      agents, sync-only nesting, depth guard, config gate; `delegation.managers`
+      default TRUE per user decision — plan text below said false, overridden)
+- [x] Wave 9 — 2026-09-02 repair wave: category executor registration
+      (Sisyphus-Junior removed from the v1 disabled roster — category tasks died
+      at spawn with "Agent not found"), explicit `task(model=...)` honored on
+      named-agent delegations (subagent-resolver.ts), provider-bias removed
+      (config model lists deleted; neuralwatt-first chain prepends reverted;
+      `catalog.prefer_providers` default []), lean default roster completed
+      (V1_DISABLED_COMMANDS_DEFAULT + skills default-off via
+      `skills.enable_default_off`), translator hardening (retry on
+      thinking-model MAX_TOKENS exhaustion + visible failure logging)
 - [ ] Deferred — token-burn live chat-session evidence (needs a real provider
       session; wiring verified by source inspection)
+
+Issue log for side-agent review: [`frankenstein.md`](./frankenstein.md).
 
 CORRECTED (was: "opencode 1.18.25 does not invoke external plugin `server()`
 factories" — wrong). Root cause: opencode injects `OPENCODE_PURE=1` (plus
@@ -113,9 +127,80 @@ fine on 1.18.25 (verified 2026-09-01, see HANDOFF.md). In-process wiring proof
    code):** prometheus, metis, momus, hephaestus, oracle, atlas, sisyphus-junior,
    multimodal-looker. Fold prometheus planning into an orchestrator **plan mode**
    prompt variant.
-2. **Phase B (v2, only if A under-delegates):** manager layer — `research-manager`
-   owns explore/librarian, `exec-manager` owns task categories; orchestrator talks to
-   ≤3 agents. Hierarchy decided by measured behavior, not up-front.
+2. **Phase B (v2, only if A under-delegates):** manager layer. Status:
+    implemented 2026-09-02 (Wave 8). Three-level hierarchy: orchestrator (owner) →
+    manager agents (`planner`/`executor`) → worker agents (explore/librarian,
+    task categories). Orchestrator stops spawning workers directly for planned
+    work; it reviews and approves between stages. `delegation.managers` defaults
+    TRUE (user decision; the plan text below originally said false).
+
+   Flow:
+
+   ```
+   orchestrator → planner → explore/librarian (sync task())
+                ← structured plan
+   orchestrator reviews the plan: approve, or send back with corrections
+   orchestrator → executor → task-category workers (one per file/symbol:
+                             "write this function", "restructure this dir",
+                             "create this class")
+                ← per-task results + diff/test summary
+   orchestrator reviews results: approve, or send back
+   → summarize to user
+   ```
+
+   Workstream:
+
+   1. `planner` agent (`src/agents/planner/`): plans, never edits. Delegates
+      exploration to explore/librarian via sync `task()`. write/edit denied
+      (metis-style entry in `agent-tool-restrictions.ts`).
+   2. `executor` agent (`src/agents/executor/`): consumes an approved plan,
+      decomposes into per-file/per-symbol worker tasks, delegates to task
+      categories, collects results, reports diff + test evidence back.
+      write/edit denied (workers edit; executor coordinates).
+   3. Manager allowlist for nested `task` (new helper in
+      `delegate-task/constants.ts` next to `COORDINATOR_AGENT_NAMES`):
+      `MANAGER_AGENT_NAMES = ["planner", "executor"]` + `isManagerAgent()` +
+      `canSpawnWorkers(agent)` = planFamily || manager. Touch points:
+      - `buildSyncPromptTools` (`sync-prompt-sender.ts:64`):
+        `task: canSpawnWorkers(agentToUse)` — today only plan-family passes.
+      - `sync-continuation.ts:156` (`allowTask`): same expression.
+      - Background path stays `task: false` (`task-prompt-body.ts:54`,
+        `fallback-agent.ts:36`, `manager.ts:897`): v1 nesting is sync-only to
+        bound parallelism and cost; revisit after measurement.
+      - `agent-tool-restrictions.ts`: planner/executor entries (deny
+        `write`/`edit`; executor also denies `call_omo_agent`).
+   4. Loop protection in `subagent-request-preflight.ts`: forbid
+      manager→manager and manager→coordinator; keep plan→plan block; workers
+      already get `task: false` so no runtime recursion exists below managers.
+   5. Sync depth guard: apply `resolveSubagentSpawnContext` +
+      `getMaxSubagentDepth` (`features/background-agent/subagent-spawn-limits.ts`,
+      currently enforced only in `manager.ts:346-349`) on the sync chain
+      (`sync-task.ts`) so `background_task.maxDepth` (default 3) binds both
+      paths. Owner(0) → manager(1) → worker(2) fits; workers cannot go deeper.
+   6. Config gate: new `delegation` schema (`config/schema/delegation.ts`,
+      root-composed, `bun run build:schema`): `{ managers: boolean (default
+      false until Phase A is measured as under-delegating) }`. When off, the
+      two manager agents stay unregistered and `canSpawnWorkers` degrades to
+      today's plan-family-only behavior. Plumbing: `DelegateTaskToolOptions` →
+      `buildSyncPromptTools` (it currently receives no config).
+   7. Prompts: `packages/prompts-core/prompts/{planner,executor}/default.md`
+      (v1: default only, no per-model variants). Orchestrator variants
+      (`sisyphus/*.ts`) get the review loop: validate plan against user intent
+      (scope, files, risks) → approve or send back; validate executor report
+      (diff summary, test evidence) → approve or send back; never
+      self-implement beyond trivial edits (existing mandate stands).
+   8. Tests (behavior only, never prompt wording): tool-grant matrix per agent
+      (`buildSyncPromptTools`), preflight loop rules, sync depth guard,
+      config-gate on/off, roster ordering with managers inserted.
+   9. QA per src/AGENTS.md mandate: isolated-XDG real-harness drive proving
+      (a) planner's nested explore task fires, (b) executor's worker tasks
+      fire, (c) depth limit blocks at `max_depth`, (d) config gate off =
+      today's behavior. Evidence under
+      `.omo/evidence/<date>-phase-b-nested-delegation/`.
+
+   Estimated surface: ~2 new agent dirs, 1 schema file, 4 touched files in
+   `tools/delegate-task/` + `features/background-agent/`, 2 prompt files,
+   orchestrator variant edits. No new packages.
 3. Orchestrator prompt rewrite (per-model variants auto-selected by model family from
    the session model id): hard delegation mandate (never self-implement beyond trivial
    edits), catalog-first model choice for every `task()` call, use of skills/slash

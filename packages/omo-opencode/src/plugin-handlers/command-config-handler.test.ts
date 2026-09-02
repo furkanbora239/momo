@@ -170,7 +170,7 @@ describe("applyCommandConfig", () => {
     expect(commandConfig["start-work"]?.agent).toBe(getAgentListDisplayName("atlas"));
   });
 
-  test("registers builtin skills like init-deep and security-review as opencode commands", async () => {
+  test("registers default-on builtin skills as commands while default-off ones stay hidden", async () => {
     // given
     const config: Record<string, unknown> = { command: {} };
 
@@ -184,11 +184,33 @@ describe("applyCommandConfig", () => {
 
     // then
     const commandConfig = config.command as Record<string, { description?: string; template?: string }>;
-    expect(commandConfig["init-deep"]?.description).toContain("Initialize hierarchical AGENTS.md");
-    expect(commandConfig["init-deep"]?.template).toContain("<skill-instruction>");
-    expect(commandConfig["init-deep"]?.template).toContain("$ARGUMENTS");
-    expect(commandConfig["security-review"]?.template).toContain("<skill-instruction>");
+    expect(commandConfig["frontend"]?.template).toContain("<skill-instruction>");
+    expect(commandConfig["frontend"]?.template).toContain("$ARGUMENTS");
+    expect(commandConfig["init-deep"]).toBeUndefined();
+    expect(commandConfig["security-review"]).toBeUndefined();
+    expect(commandConfig["security-research"]).toBeUndefined();
     expect(commandConfig["team-mode"]).toBeUndefined();
+  });
+
+  test("re-registers default-off builtin skill commands via skills.enable_default_off", async () => {
+    // given
+    const pluginConfig = createParsedPluginConfig({
+      skills: { enable_default_off: ["init-deep", "security-review"] },
+    });
+    const config: Record<string, unknown> = { command: {} };
+
+    // when
+    await applyCommandConfig({
+      config,
+      pluginConfig,
+      ctx: { directory: "/tmp" },
+      pluginComponents: createPluginComponents(),
+    });
+
+    // then
+    const commandConfig = config.command as Record<string, { template?: string }>;
+    expect(commandConfig["init-deep"]?.template).toContain("<skill-instruction>");
+    expect(commandConfig["security-review"]?.template).toContain("<skill-instruction>");
   });
 
   test("keeps the builtin command definition when a builtin skill shares its name", async () => {
@@ -219,7 +241,7 @@ describe("applyCommandConfig", () => {
     // given
     const pluginConfig: OhMyOpenCodeConfig = {
       ...createPluginConfig(),
-      disabled_skills: ["init-deep"],
+      disabled_skills: ["frontend"],
     };
     const config: Record<string, unknown> = { command: {} };
 
@@ -233,8 +255,8 @@ describe("applyCommandConfig", () => {
 
     // then
     const commandConfig = config.command as Record<string, { template?: string }>;
-    expect(commandConfig["init-deep"]).toBeUndefined();
-    expect(commandConfig["security-review"]?.template).toContain("<skill-instruction>");
+    expect(commandConfig["frontend"]).toBeUndefined();
+    expect(commandConfig["git-master"]?.template).toContain("<skill-instruction>");
   });
 
   test("excludes builtin skills whose MCP servers already exist in the system MCP config", async () => {
@@ -253,15 +275,15 @@ describe("applyCommandConfig", () => {
     // then
     const commandConfig = config.command as Record<string, { template?: string }>;
     expect(commandConfig["playwright"]).toBeUndefined();
-    expect(commandConfig["init-deep"]?.template).toContain("<skill-instruction>");
+    expect(commandConfig["frontend"]?.template).toContain("<skill-instruction>");
   });
 
-  test("#given disabled_commands contains remove-ai-slops #when applying command config #then the skill-backed command does not resurrect", async () => {
+  test("#given remove-ai-slops is re-enabled but disabled_commands lists it #when applying command config #then the skill-backed command does not resurrect", async () => {
     // given
-    const pluginConfig: OhMyOpenCodeConfig = {
-      ...createPluginConfig(),
+    const pluginConfig = createParsedPluginConfig({
+      skills: { enable_default_off: ["remove-ai-slops"] },
       disabled_commands: ["remove-ai-slops"],
-    };
+    });
     const config: Record<string, unknown> = { command: {} };
 
     // when
@@ -279,12 +301,56 @@ describe("applyCommandConfig", () => {
     const controlConfig: Record<string, unknown> = { command: {} };
     await applyCommandConfig({
       config: controlConfig,
-      pluginConfig: createPluginConfig(),
+      pluginConfig: createParsedPluginConfig({
+        skills: { enable_default_off: ["remove-ai-slops"] },
+      }),
       ctx: { directory: "/tmp" },
       pluginComponents: createPluginComponents(),
     });
     const controlCommandConfig = controlConfig.command as Record<string, unknown>;
     expect(controlCommandConfig["remove-ai-slops"]).toBeDefined();
+  });
+
+  test("#given a user-global skill shares a default-off name #when applying command config #then its command record stays hidden until enable-listed", async () => {
+    // given
+    loadUserSkillsSpy.mockResolvedValue({
+      "review-work": {
+        description: "(user - Skill) User-installed review work",
+        template: "template",
+      },
+    });
+    loadProjectSkillsSpy.mockResolvedValue({
+      "init-deep": {
+        description: "(project - Skill) Project-shipped init deep",
+        template: "template",
+      },
+    });
+    const config: Record<string, unknown> = { command: {} };
+
+    // when
+    await applyCommandConfig({
+      config,
+      pluginConfig: createPluginConfig(),
+      ctx: { directory: "/tmp" },
+      pluginComponents: createPluginComponents(),
+    });
+
+    // then
+    const commandConfig = config.command as Record<string, unknown>;
+    expect(commandConfig["review-work"]).toBeUndefined();
+    expect(commandConfig["init-deep"]).toBeDefined();
+
+    const enabledConfig: Record<string, unknown> = { command: {} };
+    await applyCommandConfig({
+      config: enabledConfig,
+      pluginConfig: createParsedPluginConfig({
+        skills: { enable_default_off: ["review-work"] },
+      }),
+      ctx: { directory: "/tmp" },
+      pluginComponents: createPluginComponents(),
+    });
+    const enabledCommandConfig = enabledConfig.command as Record<string, unknown>;
+    expect(enabledCommandConfig["review-work"]).toBeDefined();
   });
 
   test("#given disabled_skills contains debugging #then no /debugging command registers", async () => {

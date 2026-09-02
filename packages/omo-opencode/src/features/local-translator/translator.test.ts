@@ -84,6 +84,87 @@ describe("translator", () => {
     }
   })
 
+  it("#given a thought-only MAX_TOKENS cloud response #when translateMessage runs #then it retries once with doubled maxOutputTokens and succeeds", async () => {
+    _resetTranslationCacheForTesting()
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    const requests: { url: string; body: string }[] = []
+    globalThis.fetch = (async (url: unknown, init?: { body?: unknown }) => {
+      requests.push({ url: String(url), body: String(init?.body ?? "") })
+      if (requests.length === 1) {
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: { parts: [{ thought: true, text: "only reasoning" }] },
+                finishReason: "MAX_TOKENS",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: { parts: [{ text: "RETRY_OK" }] },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as unknown as typeof fetch
+    try {
+      const cloudConfig: TranslationConfig = { ...config, mode: "cloud" }
+      const text = "Bu bir butce testi mesajidir ve cevirilmeli"
+      const result = await translateMessage(cloudConfig, text)
+      expect(result.skipped).toBe(false)
+      expect(result.translatedText).toBe("RETRY_OK")
+      expect(requests.length).toBe(2)
+      const firstBudget = JSON.parse(requests[0]!.body).generationConfig.maxOutputTokens
+      const secondBudget = JSON.parse(requests[1]!.body).generationConfig.maxOutputTokens
+      expect(secondBudget).toBe(firstBudget * 2)
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+      _resetTranslationCacheForTesting()
+    }
+  })
+
+  it("#given repeated thought-only MAX_TOKENS cloud responses #when translateMessage runs #then it falls through to pass-through after the single retry", async () => {
+    _resetTranslationCacheForTesting()
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    let fetchCount = 0
+    globalThis.fetch = (async () => {
+      fetchCount += 1
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: { parts: [{ thought: true, text: "only reasoning" }] },
+              finishReason: "MAX_TOKENS",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as unknown as typeof fetch
+    try {
+      const cloudConfig: TranslationConfig = { ...config, mode: "cloud" }
+      const text = "Bu bir dusus testi mesajidir ve cevirilmeli"
+      const result = await translateMessage(cloudConfig, text)
+      expect(result.skipped).toBe(true)
+      expect(result.translatedText).toBe(text)
+      expect(result.skipReason).toContain("error:")
+      expect(fetchCount).toBe(2)
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+      _resetTranslationCacheForTesting()
+    }
+  })
+
   it("serves a repeat call from cache without a second network round-trip", async () => {
     _resetTranslationCacheForTesting()
     process.env["GOOGLE_API_KEY"] = "test-key"

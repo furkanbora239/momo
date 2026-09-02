@@ -113,7 +113,7 @@ describe("createSisyphusAgent", () => {
       expect(fable5Agent.thinking).toBeUndefined();
       expect(sonnetAgent.thinking).toEqual({
         type: "enabled",
-        budgetTokens: 32000,
+        budgetTokens: 10000,
       });
     });
   });
@@ -209,8 +209,57 @@ describe("createSisyphusAgent", () => {
       expect(agent.prompt).not.toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
       expect(agent.thinking).toEqual({
         type: "enabled",
-        budgetTokens: 32000,
+        budgetTokens: 10000,
       });
+    });
+  });
+
+  describe("#given momo core prompt injection", () => {
+    test("#when creating agents for model-family variants #then momo core sections are appended", () => {
+      // given - one representative model per non-fallback family
+      const models = [
+        "opencode-go/kimi-k3",
+        "opencode-go/kimi-k2.7",
+        "moonshotai/kimi-k2.6",
+        "openai/gpt-5.5",
+        "openai/gpt-5.4",
+        "anthropic/claude-fable-5",
+        "anthropic/claude-opus-5",
+        "anthropic/claude-opus-4-8",
+        "anthropic/claude-opus-4-7",
+        "neuralwatt/glm-5.3",
+        "xai/grok-4.6",
+      ];
+
+      for (const model of models) {
+        // when
+        const prompt = createSisyphusAgent(model).prompt ?? "";
+
+        // then
+        expect(prompt).toContain("<momo_core_behavior>");
+        expect(prompt).toContain("<ponytail_ladder>");
+        expect(prompt).toContain("catalog_pick");
+      }
+    });
+
+    test("#when creating fallback-family agents #then momo core sections appear exactly once", () => {
+      // given - fallback bakes the sections via buildMomoOrchestratorPrompt; the
+      // append path must not run on top of it
+      const models = [
+        "google/gemini-3.1-pro",
+        "minimax-coding-plan/MiniMax-M3",
+        "anthropic/claude-sonnet-4-6",
+      ];
+
+      for (const model of models) {
+        // when
+        const prompt = createSisyphusAgent(model).prompt ?? "";
+
+        // then
+        expect(prompt.split("<momo_core_behavior>").length - 1).toBe(1);
+        expect(prompt).toContain("<ponytail_ladder>");
+        expect(prompt).toContain("catalog_pick");
+      }
     });
   });
 });

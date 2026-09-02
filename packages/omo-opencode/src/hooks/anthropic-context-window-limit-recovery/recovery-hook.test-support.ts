@@ -38,6 +38,7 @@ const pluginConfig = {
     include_co_authored_by: false,
     git_env_prefix: "",
   },
+  telemetry: false,
 } satisfies OhMyOpenCodeConfig
 
 export function createRecoveryHook() {

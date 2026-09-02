@@ -14,12 +14,16 @@ const mockModelCacheState = {
 } satisfies ModelCacheState
 
 describe("createToolGuardHooks", () => {
-  let capturedOptions: { skipClaudeUserRules?: boolean } | undefined
+  let capturedOptions: { skipClaudeUserRules?: boolean; verboseRules?: boolean } | undefined
 
   beforeEach(() => {
     capturedOptions = undefined
     spyOn(hooks, "createRulesInjectorHook").mockImplementation(
-      (_ctx: unknown, _state: unknown, options?: { skipClaudeUserRules?: boolean }) => {
+      (
+        _ctx: unknown,
+        _state: unknown,
+        options?: { skipClaudeUserRules?: boolean; verboseRules?: boolean },
+      ) => {
         capturedOptions = options
         return { name: "rules-injector" } as never
       },
@@ -45,6 +49,28 @@ describe("createToolGuardHooks", () => {
     })
 
     // then
-    expect(capturedOptions).toEqual({ skipClaudeUserRules: true })
+    expect(capturedOptions).toEqual({ skipClaudeUserRules: true, verboseRules: false })
+  })
+
+  it("passes verboseRules true when token_burn.rules_injector_verbose is enabled", () => {
+    // given
+    const pluginConfig = {
+      token_burn: {
+        rules_injector_verbose: true,
+      },
+    } as OhMyOpenCodeConfig
+    const { createToolGuardHooks } = require("./create-tool-guard-hooks")
+
+    // when
+    createToolGuardHooks({
+      ctx: mockContext,
+      pluginConfig,
+      modelCacheState: mockModelCacheState,
+      isHookEnabled: (hookName: string) => hookName === "rules-injector",
+      safeHookEnabled: true,
+    })
+
+    // then
+    expect(capturedOptions).toEqual({ skipClaudeUserRules: false, verboseRules: true })
   })
 })

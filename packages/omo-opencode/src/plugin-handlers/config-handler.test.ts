@@ -234,7 +234,9 @@ describe("MCP env allowlist initialization", () => {
 describe("runtime security skill source registration", () => {
   test("adds the runtime skill source URL to the live OpenCode config", async () => {
     // given
-    const pluginConfig = createPluginConfig({})
+    const pluginConfig = createPluginConfig({
+      skills: { enable_default_off: ["security-research", "security-review"] },
+    })
     const config: Record<string, unknown> = {
       model: "anthropic/claude-opus-4-7",
       agent: {},
@@ -267,6 +269,7 @@ describe("runtime security skill source registration", () => {
     // given
     const pluginConfig = createPluginConfig({
       disabled_skills: ["security-research"],
+      skills: { enable_default_off: ["security-research", "security-review"] },
     })
     const config: Record<string, unknown> = {
       model: "anthropic/claude-opus-4-7",

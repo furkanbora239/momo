@@ -6,6 +6,9 @@ import { createLspMcpConfig, type LocalMcpConfig } from "./lsp"
 import { createCatalogMcpConfig, type CatalogPrefer } from "./model-catalog"
 import type { RuntimeExecutableResolver } from "./runtime-executable"
 import type { CodegraphConfig } from "../config/schema/codegraph"
+import type { Context7ConfigInput } from "../config/schema/context7"
+import type { GrepAppConfigInput } from "../config/schema/grep-app"
+import type { WebsearchConfigInput } from "../config/schema/websearch"
 
 export { McpNameSchema, type McpName } from "./types"
 
@@ -31,25 +34,27 @@ type BuiltinMcpOptions = {
 type BuiltinMcpSourceConfig = {
   readonly codegraph?: Partial<CodegraphConfig>
   readonly disabled_tools?: readonly string[]
-  readonly websearch?: Parameters<typeof createWebsearchConfig>[0]
-  readonly catalog?: { enabled?: boolean; prefer?: CatalogPrefer }
+  readonly websearch?: WebsearchConfigInput
+  readonly context7?: Context7ConfigInput
+  readonly grep_app?: GrepAppConfigInput
+  readonly catalog?: { enabled?: boolean; prefer?: CatalogPrefer; prefer_providers?: readonly string[] }
 }
 
 export function createBuiltinMcps(disabledMcps: string[] = [], config?: BuiltinMcpSourceConfig, options: BuiltinMcpOptions = {}) {
   const mcps: Record<string, BuiltinMcpConfig> = {}
 
-  if (!disabledMcps.includes("websearch")) {
+  if (!disabledMcps.includes("websearch") && config?.websearch?.enabled === true) {
     const websearchConfig = createWebsearchConfig(config?.websearch)
     if (websearchConfig) {
       mcps.websearch = websearchConfig
     }
   }
 
-  if (!disabledMcps.includes("context7")) {
+  if (!disabledMcps.includes("context7") && config?.context7?.enabled === true) {
     mcps.context7 = context7
   }
 
-  if (!disabledMcps.includes("grep_app")) {
+  if (!disabledMcps.includes("grep_app") && config?.grep_app?.enabled === true) {
     mcps.grep_app = grep_app
   }
 
@@ -72,6 +77,7 @@ export function createBuiltinMcps(disabledMcps: string[] = [], config?: BuiltinM
   if (!disabledMcps.includes("catalog") && config?.catalog?.enabled !== false) {
     mcps.catalog = createCatalogMcpConfig({
       prefer: config?.catalog?.prefer,
+      preferProviders: config?.catalog?.prefer_providers,
       resolveExecutable: options.resolveExecutable,
     })
   }

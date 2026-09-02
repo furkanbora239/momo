@@ -183,4 +183,30 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
       { providers: ["opencode"], model: "big-pickle" },
     ],
   },
+  planner: {
+    fallbackChain: [
+      { providers: ["anthropic", "github-copilot", "opencode", "vercel"], model: "claude-sonnet-5" },
+      { providers: ["opencode-go", "vercel"], model: "kimi-k3" },
+      {
+        providers: ["openai", "github-copilot", "opencode", "vercel"],
+        model: "gpt-5.6-sol",
+        variant: "medium",
+      },
+      { providers: ["opencode-go", "vercel"], model: "minimax-m3" },
+      { providers: ["opencode"], model: "big-pickle" },
+    ],
+  },
+  executor: {
+    fallbackChain: [
+      { providers: ["anthropic", "github-copilot", "opencode", "vercel"], model: "claude-sonnet-5" },
+      { providers: ["opencode-go", "vercel"], model: "kimi-k3" },
+      {
+        providers: ["openai", "github-copilot", "opencode", "vercel"],
+        model: "gpt-5.6-sol",
+        variant: "medium",
+      },
+      { providers: ["opencode-go", "vercel"], model: "minimax-m3" },
+      { providers: ["opencode"], model: "big-pickle" },
+    ],
+  },
 };

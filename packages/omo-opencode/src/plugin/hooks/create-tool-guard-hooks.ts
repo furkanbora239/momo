@@ -105,6 +105,7 @@ export function createToolGuardHooks(args: {
     ? safeHook("rules-injector", () =>
         createRulesInjectorHook(ctx, modelCacheState, {
           skipClaudeUserRules,
+          verboseRules: pluginConfig.token_burn?.rules_injector_verbose ?? false,
         }))
     : null
 

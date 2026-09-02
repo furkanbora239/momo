@@ -164,6 +164,28 @@ describe("model-capability-aliases", () => {
     })
   })
 
+  test("normalizes NeuralWatt Kimi K3 fast service-tier aliases", () => {
+    const result = resolveModelIDAlias("kimi-k3-fast", "neuralwatt")
+
+    expect(result).toEqual({
+      requestedModelID: "kimi-k3-fast",
+      canonicalModelID: "kimi-k3",
+      source: "pattern-alias",
+      ruleID: "neuralwatt-kimi-k3-fast-service-tier-alias",
+    })
+  })
+
+  test("does not normalize Kimi K3 fast suffixes for unrelated providers or nearby IDs", () => {
+    expect(resolveModelIDAlias("kimi-k3-fast", "moonshotai")).toMatchObject({
+      canonicalModelID: "kimi-k3-fast",
+      source: "canonical",
+    })
+    expect(resolveModelIDAlias("kimi-k3-fast-preview", "neuralwatt")).toMatchObject({
+      canonicalModelID: "kimi-k3-fast-preview",
+      source: "canonical",
+    })
+  })
+
   test("does not normalize OpenAI subprovider aliases for unrelated top-level providers", () => {
     const result = resolveModelIDAlias("openai/gpt-5.6-sol-fast", "anthropic")
 

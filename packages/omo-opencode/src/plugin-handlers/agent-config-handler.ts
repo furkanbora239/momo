@@ -1,4 +1,5 @@
 import { createBuiltinAgents } from "../agents";
+import { getEnableDefaultOffList } from "../features/builtin-skills/default-off-skills";
 import { collectDisabledSkillAliases } from "../plugin/skill-context";
 import { isTaskSystemEnabled } from "../shared";
 import { AGENT_NAME_MAP } from "../shared/migration";
@@ -22,6 +23,7 @@ export async function applyAgentConfig(
   const disabledSkills = collectDisabledSkillAliases(params.pluginConfig);
   const useTaskSystem = isTaskSystemEnabled(params.pluginConfig);
   const disableOmoEnv = params.pluginConfig.experimental?.disable_omo_env ?? false;
+  const enableDefaultOffList = getEnableDefaultOffList(params.pluginConfig.skills);
   const builtinAgents = await createBuiltinAgents(
     migratedDisabledAgents,
     params.pluginConfig.agents,
@@ -37,6 +39,8 @@ export async function applyAgentConfig(
     useTaskSystem,
     disableOmoEnv,
     params.pluginConfig.team_mode?.enabled ?? false,
+    params.pluginConfig.sisyphus_agent?.thinking_budget_tokens,
+    enableDefaultOffList,
   );
   const disabledAgentNames = new Set(
     (migratedDisabledAgents ?? []).map((agent: string) => agent.toLowerCase()),

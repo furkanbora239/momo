@@ -314,4 +314,83 @@ describe("maybeCreateSisyphusConfig", () => {
       expect(config?.permission).toHaveProperty("apply_patch", "allow");
     });
   });
+
+  describe("#given sisyphus_agent.thinking_budget_tokens configured", () => {
+    test("#when the built config carries a thinking block #then the budget is overridden", () => {
+      // given - sonnet is a thinking-capable sisyphus model
+      const agentOverrides: AgentOverrides = {
+        sisyphus: { model: "anthropic/claude-sonnet-4-6" },
+      };
+      const mergedCategories: Record<string, CategoryConfig> = {};
+
+      // when
+      const config = maybeCreateSisyphusConfig({
+        disabledAgents: [],
+        agentOverrides,
+        availableModels: new Set(["anthropic/claude-sonnet-4-6"]),
+        systemDefaultModel: "anthropic/claude-sonnet-4-6",
+        isFirstRunNoCache: false,
+        availableAgents: [],
+        availableSkills: [],
+        availableCategories: [],
+        mergedCategories,
+        useTaskSystem: false,
+        thinkingBudgetTokens: 16000,
+      });
+
+      // then
+      expect(config?.thinking).toEqual({ type: "enabled", budgetTokens: 16000 });
+    });
+
+    test("#when the built config carries no thinking block #then no thinking is injected", () => {
+      // given - gpt-5.5 sisyphus configs never carry a thinking block
+      const agentOverrides: AgentOverrides = {
+        sisyphus: { model: "openai/gpt-5.5" },
+      };
+      const mergedCategories: Record<string, CategoryConfig> = {};
+
+      // when
+      const config = maybeCreateSisyphusConfig({
+        disabledAgents: [],
+        agentOverrides,
+        availableModels: new Set(["openai/gpt-5.5"]),
+        systemDefaultModel: "openai/gpt-5.5",
+        isFirstRunNoCache: false,
+        availableAgents: [],
+        availableSkills: [],
+        availableCategories: [],
+        mergedCategories,
+        useTaskSystem: false,
+        thinkingBudgetTokens: 16000,
+      });
+
+      // then
+      expect(config?.thinking).toBeUndefined();
+    });
+
+    test("#when no thinking budget is configured #then the sisyphus default stands", () => {
+      // given
+      const agentOverrides: AgentOverrides = {
+        sisyphus: { model: "anthropic/claude-sonnet-4-6" },
+      };
+      const mergedCategories: Record<string, CategoryConfig> = {};
+
+      // when
+      const config = maybeCreateSisyphusConfig({
+        disabledAgents: [],
+        agentOverrides,
+        availableModels: new Set(["anthropic/claude-sonnet-4-6"]),
+        systemDefaultModel: "anthropic/claude-sonnet-4-6",
+        isFirstRunNoCache: false,
+        availableAgents: [],
+        availableSkills: [],
+        availableCategories: [],
+        mergedCategories,
+        useTaskSystem: false,
+      });
+
+      // then
+      expect(config?.thinking).toEqual({ type: "enabled", budgetTokens: 10000 });
+    });
+  });
 });

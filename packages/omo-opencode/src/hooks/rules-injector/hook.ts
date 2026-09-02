@@ -38,7 +38,7 @@ const TRACKED_TOOLS = ["read", "write", "edit", "multiedit"];
 export function createRulesInjectorHook(
 	ctx: PluginInput,
 	modelCacheState?: { anthropicContext1MEnabled: boolean },
-	options?: { skipClaudeUserRules?: boolean },
+	options?: { skipClaudeUserRules?: boolean; verboseRules?: boolean },
 ) {
 	const truncator = createDynamicTruncator(ctx, modelCacheState);
 	const { getSessionCache, clearSessionCache } = createSessionCacheStore();
@@ -53,6 +53,7 @@ export function createRulesInjectorHook(
 		getSessionCache,
 		getSessionRuleScanCache,
 		transcriptHydration,
+		verboseRules: options?.verboseRules ?? false,
 		ruleFinderOptions: options?.skipClaudeUserRules
 			? { skipClaudeUserRules: true }
 			: undefined,

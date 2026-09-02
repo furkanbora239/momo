@@ -1,4 +1,4 @@
-import type { WebsearchConfig } from "../config/schema"
+import type { WebsearchConfigInput } from "../config/schema"
 import { log } from "../shared/logger"
 
 type RemoteMcpConfig = {
@@ -9,7 +9,7 @@ type RemoteMcpConfig = {
   oauth?: false
 }
 
-export function createWebsearchConfig(config?: WebsearchConfig): RemoteMcpConfig | undefined {
+export function createWebsearchConfig(config?: WebsearchConfigInput): RemoteMcpConfig | undefined {
   const provider = config?.provider || "exa"
 
   if (provider === "tavily") {

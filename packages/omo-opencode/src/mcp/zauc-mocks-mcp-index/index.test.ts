@@ -14,7 +14,7 @@ function mockLocalMcps(): void {
 }
 
 describe("createBuiltinMcps", () => {
-  test("should return all MCPs when disabled_mcps is empty", () => {
+  test("registers only local MCPs when remote MCP config is omitted", () => {
     // given
     mockLocalMcps()
     const { createBuiltinMcps } = require("../index") as typeof import("../index")
@@ -24,29 +24,51 @@ describe("createBuiltinMcps", () => {
     const result = createBuiltinMcps(disabledMcps)
 
     // then
-    expect(Object.keys(result).length).toBeGreaterThan(0)
+    expect(Object.keys(result).sort()).toEqual(["catalog", "codegraph", "lsp"])
+    expect(result.websearch).toBeUndefined()
+    expect(result.context7).toBeUndefined()
+    expect(result.grep_app).toBeUndefined()
+  })
+
+  test("registers remote MCPs when their enabled flags are set", () => {
+    // given
+    mockLocalMcps()
+    const { createBuiltinMcps } = require("../index") as typeof import("../index")
+    const config = {
+      websearch: { enabled: true },
+      context7: { enabled: true },
+      grep_app: { enabled: true },
+    }
+
+    // when
+    const result = createBuiltinMcps([], config)
+
+    // then
     expect(result.websearch).toBeDefined()
     expect(result.context7).toBeDefined()
     expect(result.grep_app).toBeDefined()
     expect(result.lsp).toBeDefined()
     expect(result.codegraph).toBeDefined()
+    expect(result.catalog).toBeDefined()
   })
 
-  test("should filter out disabled MCPs", () => {
+  test("omits a remote MCP listed in disabled_mcps even when its enabled flag is set", () => {
     // given
     mockLocalMcps()
     const { createBuiltinMcps } = require("../index") as typeof import("../index")
-    const disabledMcps = ["websearch"]
+    const config = {
+      websearch: { enabled: true },
+      context7: { enabled: true },
+      grep_app: { enabled: true },
+    }
 
     // when
-    const result = createBuiltinMcps(disabledMcps)
+    const result = createBuiltinMcps(["websearch"], config)
 
     // then
     expect(result.websearch).toBeUndefined()
     expect(result.context7).toBeDefined()
     expect(result.grep_app).toBeDefined()
-    expect(result.lsp).toBeDefined()
-    expect(result.codegraph).toBeDefined()
   })
 
   test("should keep lsp when it uses a bootstrap command", () => {
@@ -68,9 +90,14 @@ describe("createBuiltinMcps", () => {
     mockLocalMcps()
     const { createBuiltinMcps } = require("../index") as typeof import("../index")
     const disabledMcps = ["websearch", "context7", "grep_app", "lsp", "codegraph", "catalog"]
+    const config = {
+      websearch: { enabled: true },
+      context7: { enabled: true },
+      grep_app: { enabled: true },
+    }
 
     // when
-    const result = createBuiltinMcps(disabledMcps)
+    const result = createBuiltinMcps(disabledMcps, config)
 
     // then
     const remainingMcpNames = Object.keys(result)
@@ -95,6 +122,30 @@ describe("createBuiltinMcps", () => {
     expect(result.catalog).toBeDefined()
     expect(result.catalog?.type).toBe("local")
     expect(result.catalog?.environment?.OMO_CATALOG_CACHE_FILE).toContain("provider-models.json")
+  })
+
+  test("should pass catalog prefer_providers through to the catalog MCP environment", () => {
+    // given
+    mockLocalMcps()
+    const { createBuiltinMcps } = require("../index") as typeof import("../index")
+
+    // when
+    const result = createBuiltinMcps([], { catalog: { prefer_providers: ["neuralwatt"] } })
+
+    // then
+    expect(result.catalog?.environment?.OMO_CATALOG_PREFER_PROVIDERS).toBe("neuralwatt")
+  })
+
+  test("should default the catalog provider boost env to neutral when unconfigured", () => {
+    // given
+    mockLocalMcps()
+    const { createBuiltinMcps } = require("../index") as typeof import("../index")
+
+    // when
+    const result = createBuiltinMcps([], { catalog: {} })
+
+    // then
+    expect(result.catalog?.environment?.OMO_CATALOG_PREFER_PROVIDERS).toBe("")
   })
 
   test("should omit catalog when listed in disabled_mcps", () => {

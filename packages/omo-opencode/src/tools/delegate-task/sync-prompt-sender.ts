@@ -9,7 +9,7 @@ import { migrateToolsToPermission } from "../../shared/permission-compat"
 import { applySessionPromptParams } from "../../shared/session-prompt-params-helpers"
 import { routePromptRetry } from "../../shared/session-route"
 import { setSessionTools } from "../../shared/session-tools-store"
-import { isPlanFamily } from "./constants"
+import { canSpawnWorkers } from "./constants"
 import { formatDetailedError } from "./error-formatting"
 import { buildTaskPrompt } from "./prompt-builder"
 import type { DelegatedModelConfig, DelegateTaskArgs, OpencodeClient } from "./types"
@@ -53,6 +53,7 @@ function isUnexpectedEofError(error: unknown): boolean {
 export function buildSyncPromptTools(
   agentToUse: string,
   permission?: Record<string, "ask" | "allow" | "deny">,
+  managersEnabled: boolean = true,
 ): Record<string, boolean> {
   const userDenied: Record<string, boolean> = {}
   if (permission) {
@@ -61,7 +62,7 @@ export function buildSyncPromptTools(
     }
   }
   return {
-    task: isPlanFamily(agentToUse),
+    task: canSpawnWorkers(agentToUse, managersEnabled),
     call_omo_agent: true,
     question: false,
     ...userDenied,
@@ -81,6 +82,7 @@ export async function sendSyncPrompt(
     toastManager: { removeTask: (id: string) => void } | null | undefined
     taskId: string | undefined
     sisyphusAgentConfig?: SisyphusAgentConfig
+    managersEnabled?: boolean
   },
   deps: SendSyncPromptDeps = sendSyncPromptDeps
 ): Promise<string | null> {
@@ -89,7 +91,7 @@ export async function sendSyncPrompt(
   const userPermission = input.categoryModel?.tools
     ? migrateToolsToPermission(input.categoryModel.tools)
     : undefined
-  const tools = buildSyncPromptTools(input.agentToUse, userPermission)
+  const tools = buildSyncPromptTools(input.agentToUse, userPermission, input.managersEnabled)
   setSessionTools(input.sessionID, tools)
 
   const loweredReasoning = applySessionPromptParams(input.sessionID, input.categoryModel)

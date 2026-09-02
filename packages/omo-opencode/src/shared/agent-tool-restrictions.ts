@@ -50,6 +50,17 @@ const AGENT_RESTRICTIONS: Record<string, Record<string, boolean>> = {
     edit: false,
   },
 
+  planner: {
+    write: false,
+    edit: false,
+  },
+
+  executor: {
+    write: false,
+    edit: false,
+    call_omo_agent: false,
+  },
+
   "multimodal-looker": {
     read: true,
   },

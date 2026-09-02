@@ -6,6 +6,8 @@ import type { AgentMode } from "./types";
 const SISYPHUS_DESCRIPTION =
   "Powerful AI orchestrator. Plans obsessively with todos, assesses search complexity before exploration, delegates strategically via category+skills combinations. Uses explore for internal code (parallel-friendly), librarian for external docs. (Sisyphus - OhMyOpenCode)";
 
+const SISYPHUS_THINKING_BUDGET_TOKENS = 10000;
+
 function buildSisyphusPermission(model: string): AgentConfig["permission"] {
   return {
     question: "allow",
@@ -72,6 +74,6 @@ export function buildClaudeSisyphusAgentConfig(
 ): AgentConfig {
   return {
     ...buildBaseSisyphusAgentConfig(mode, model, prompt),
-    ...buildClaudeThinkingConfig(model),
+    ...buildClaudeThinkingConfig(model, SISYPHUS_THINKING_BUDGET_TOKENS),
   };
 }

@@ -32,6 +32,7 @@ export const SkillsConfigSchema = z.union([
     sources: z.array(SkillSourceSchema).optional(),
     enable: z.array(z.string()).optional(),
     disable: z.array(z.string()).optional(),
+    enable_default_off: z.array(z.string()).optional(),
   }).catchall(SkillEntrySchema),
 ])
 

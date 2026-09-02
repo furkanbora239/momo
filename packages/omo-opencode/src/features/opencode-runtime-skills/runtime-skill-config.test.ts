@@ -8,7 +8,12 @@ import {
 
 type DisabledSkillName = NonNullable<OhMyOpenCodeConfig["disabled_skills"]>[number]
 
-function createPluginConfig(disabledSkills?: readonly DisabledSkillName[]): OhMyOpenCodeConfig {
+const SECURITY_ENABLE_DEFAULT_OFF = ["security-research", "security-review"] as const
+
+function createPluginConfig(
+  disabledSkills?: readonly DisabledSkillName[],
+  enableDefaultOff: readonly string[] = SECURITY_ENABLE_DEFAULT_OFF,
+): OhMyOpenCodeConfig {
   return {
     git_master: {
       commit_footer: true,
@@ -16,6 +21,9 @@ function createPluginConfig(disabledSkills?: readonly DisabledSkillName[]): OhMy
       git_env_prefix: "GIT_MASTER=1",
     },
     disabled_skills: disabledSkills ? [...disabledSkills] : undefined,
+    skills: enableDefaultOff.length > 0
+      ? { enable_default_off: [...enableDefaultOff] }
+      : undefined,
   }
 }
 

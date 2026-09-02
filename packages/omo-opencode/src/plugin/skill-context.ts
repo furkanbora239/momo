@@ -22,6 +22,7 @@ import {
   readOpencodeConfigSkills,
 } from "../features/opencode-skill-loader"
 import { resolveActiveBuiltinSkills } from "../features/builtin-skills"
+import { applyDefaultOffSkillFilter, getEnableDefaultOffList } from "../features/builtin-skills/default-off-skills"
 import { getSystemMcpServerNames } from "../features/claude-code-mcp-loader"
 import { adaptHostSkillConfig } from "../shared/host-skill-config"
 
@@ -176,18 +177,23 @@ export async function createSkillContext(args: {
     filterProviderGatedSkills(sharedSkills, browserProvider),
     disabledSkills,
   )
-  const mergedSkills = mergeSkills(
-    builtinSkills,
-    pluginConfig.skills,
-    activeConfigSourceSkills,
-    [...activeUserSkills, ...activeAgentsGlobalSkills, ...filteredSharedSkills],
-    activeGlobalSkills,
-    [...activeProjectSkills, ...activeAgentsProjectSkills],
-    activeOpencodeProjectSkills,
-    {
-      configDir: directory,
-      isConfigEntryAllowed: (name) => !isDisabledConfigSkillEntryName(name, disabledSkills),
-    },
+  const enableDefaultOffList = getEnableDefaultOffList(pluginConfig.skills)
+
+  const mergedSkills = applyDefaultOffSkillFilter(
+    mergeSkills(
+      builtinSkills,
+      pluginConfig.skills,
+      activeConfigSourceSkills,
+      [...activeUserSkills, ...activeAgentsGlobalSkills, ...filteredSharedSkills],
+      activeGlobalSkills,
+      [...activeProjectSkills, ...activeAgentsProjectSkills],
+      activeOpencodeProjectSkills,
+      {
+        configDir: directory,
+        isConfigEntryAllowed: (name) => !isDisabledConfigSkillEntryName(name, disabledSkills),
+      },
+    ),
+    enableDefaultOffList,
   )
 
   const availableSkills: AvailableSkill[] = mergedSkills.map((skill) => ({

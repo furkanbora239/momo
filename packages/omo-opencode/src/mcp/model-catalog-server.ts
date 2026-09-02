@@ -7,7 +7,9 @@
 // Data source: the on-disk provider models cache that the plugin maintains via
 // `updateConnectedProvidersCache` (client.provider.list() at session start). The
 // path is supplied through OMO_CATALOG_CACHE_FILE; OMO_CATALOG_PREFER carries the
-// optional `catalog.prefer` hints snapshot. catalog_refresh re-reads the file.
+// optional `catalog.prefer` hints snapshot and OMO_CATALOG_PREFER_PROVIDERS the
+// comma-separated `catalog.prefer_providers` boost list. catalog_refresh re-reads
+// the file.
 
 import { readFileSync } from "node:fs"
 import type { Readable, Writable } from "node:stream"
@@ -30,6 +32,7 @@ const DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 
 const CACHE_FILE_ENV = "OMO_CATALOG_CACHE_FILE"
 const PREFER_ENV = "OMO_CATALOG_PREFER"
+const PREFER_PROVIDERS_ENV = "OMO_CATALOG_PREFER_PROVIDERS"
 
 interface ModelEntry {
   id: string
@@ -119,6 +122,15 @@ function flatten(cache: ProviderModelsCache): CatalogRow[] {
 export interface CatalogState {
   cacheFile: string | undefined
   prefer: Record<string, string[]>
+  readonly preferProviders: string[]
+}
+
+function parsePreferProviders(raw: string | undefined): string[] {
+  if (!raw) return []
+  return raw
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0)
 }
 
 function loadState(): CatalogState {
@@ -138,7 +150,11 @@ function loadState(): CatalogState {
       prefer = {}
     }
   }
-  return { cacheFile, prefer }
+  return {
+    cacheFile,
+    prefer,
+    preferProviders: parsePreferProviders(process.env[PREFER_PROVIDERS_ENV]),
+  }
 }
 
 function listCatalog(state: CatalogState, params: unknown): { rows: CatalogRow[]; updatedAt: string | null } {
@@ -181,17 +197,19 @@ function pickCatalog(
   if (need.includes("reason")) rows = rows.filter((row) => row.reasoning)
   if (need.includes("tool")) rows = rows.filter((row) => row.tool_call)
 
+  const boosted = state.prefer[need]
+  const preferBoostSet = Array.isArray(boosted) ? new Set(boosted) : new Set<string>()
+  const providerBoostSet = new Set(state.preferProviders)
+
   rows.sort((a, b) => {
+    const preferDiff = Number(preferBoostSet.has(b.id)) - Number(preferBoostSet.has(a.id))
+    if (preferDiff !== 0) return preferDiff
     const rankDiff = tierOrder.indexOf(a.tier) - tierOrder.indexOf(b.tier)
     if (rankDiff !== 0) return rankDiff
-    return TIER_RANK[a.tier] - TIER_RANK[b.tier]
+    const tierDiff = TIER_RANK[a.tier] - TIER_RANK[b.tier]
+    if (tierDiff !== 0) return tierDiff
+    return Number(providerBoostSet.has(b.provider.toLowerCase())) - Number(providerBoostSet.has(a.provider.toLowerCase()))
   })
-
-  const boosted = state.prefer[need]
-  if (Array.isArray(boosted) && boosted.length > 0) {
-    const boostSet = new Set(boosted)
-    rows.sort((a, b) => Number(boostSet.has(b.id)) - Number(boostSet.has(a.id)))
-  }
 
   const picks = rows.slice(0, 5).map((row) => ({
     id: row.id,
@@ -226,7 +244,7 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_pick",
     description:
-      "Rank model ids for a need using local heuristics (no LLM call). need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Honors catalog.prefer boosts.",
+      "Rank model ids for a need using local heuristics (no LLM call). need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Honors catalog.prefer boosts, then catalog.prefer_providers within the same tier bucket.",
     inputSchema: {
       type: "object",
       properties: {

@@ -3,6 +3,7 @@ import type { BrowserAutomationProvider } from "../../config/schema"
 import type { LoadedSkill, SkillScope } from "../../features/opencode-skill-loader/types"
 import { isDisabledSkillAlias } from "../../features/opencode-skill-loader"
 import { createBuiltinSkills } from "../../features/builtin-skills"
+import { applyDefaultOffSkillFilter, isDefaultOffSkillName } from "../../features/builtin-skills/default-off-skills"
 
 function mapScopeToLocation(scope: SkillScope): AvailableSkill["location"] {
   if (scope === "user" || scope === "opencode") return "user"
@@ -16,9 +17,12 @@ export function buildAvailableSkills(
   disabledSkills?: Set<string>,
   teamModeEnabled?: boolean,
   agentName?: string,
+  enableDefaultOffList?: readonly string[],
 ): AvailableSkill[] {
-  const builtinSkills = createBuiltinSkills({ browserProvider, disabledSkills, teamModeEnabled })
-  const builtinSkillNames = new Set(builtinSkills.map(s => s.name))
+  const builtinSkills = discoveredSkills.length > 0
+    ? []
+    : createBuiltinSkills({ browserProvider, disabledSkills, teamModeEnabled })
+      .filter((skill) => !isDefaultOffSkillName(skill.name, enableDefaultOffList))
 
   const builtinAvailable: AvailableSkill[] = builtinSkills.map((skill) => ({
     name: skill.name,
@@ -26,11 +30,9 @@ export function buildAvailableSkills(
     location: "plugin" as const,
   }))
 
-  const discoveredAvailable: AvailableSkill[] = discoveredSkills
+  const discoveredAvailable: AvailableSkill[] = applyDefaultOffSkillFilter(discoveredSkills, enableDefaultOffList)
     .filter(s => {
       if (disabledSkills && isDisabledSkillAlias(s, disabledSkills)) return false
-      // If the skill declares an agent restriction and we know the current agent,
-      // exclude skills that don't belong to this agent.
       if (agentName && s.definition.agent && s.definition.agent !== agentName) return false
       return true
     })

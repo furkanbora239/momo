@@ -28,4 +28,5 @@ export type {
   TeamModeConfig,
   KeywordDetectorConfig,
   KeywordType,
+  SkillsConfig,
 } from "./schema"

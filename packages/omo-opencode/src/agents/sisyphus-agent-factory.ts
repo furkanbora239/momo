@@ -25,6 +25,7 @@ import { buildKimiK26SisyphusPrompt } from "./sisyphus/kimi-k2-6";
 import { buildKimiK27SisyphusPrompt } from "./sisyphus/kimi-k2-7";
 import { buildKimiK3SisyphusPrompt } from "./sisyphus/kimi-k3";
 import { buildMomoOrchestratorPrompt } from "./sisyphus/momo-orchestrator";
+import { buildMomoCoreSections } from "./sisyphus/momo-core-sections";
 import type { AgentMode } from "./types";
 import {
   isClaudeFable5Model,
@@ -93,74 +94,87 @@ export function createSisyphusAgent(
   const skills = availableSkills ?? [];
   const categories = availableCategories ?? [];
   const agents = availableAgents ?? [];
+  const family = resolveSisyphusPromptFamily(model);
 
-  switch (resolveSisyphusPromptFamily(model)) {
+  let config: AgentConfig;
+  switch (family) {
     case "kimi-k3":
-      return buildGptSisyphusAgentConfig(
+      config = buildGptSisyphusAgentConfig(
         MODE,
         model,
         buildKimiK3SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "kimi-k2-7":
-      return buildGptSisyphusAgentConfig(
+      config = buildGptSisyphusAgentConfig(
         MODE,
         model,
         buildKimiK27SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "kimi-k2-6":
-      return buildGptSisyphusAgentConfig(
+      config = buildGptSisyphusAgentConfig(
         MODE,
         model,
         buildKimiK26SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "gpt-5-5":
-      return buildGptSisyphusAgentConfig(
+      config = buildGptSisyphusAgentConfig(
         MODE,
         model,
         buildGpt55SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "gpt-5-4":
-      return buildGptSisyphusAgentConfig(
+      config = buildGptSisyphusAgentConfig(
         MODE,
         model,
         buildGpt54SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "claude-fable-5":
-      return buildClaudeSisyphusAgentConfig(
+      config = buildClaudeSisyphusAgentConfig(
         MODE,
         model,
         buildClaudeFable5SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "claude-opus-5":
-      return buildClaudeSisyphusAgentConfig(
+      config = buildClaudeSisyphusAgentConfig(
         MODE,
         model,
         buildClaudeOpus5SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "claude-opus-4-8":
-      return buildClaudeSisyphusAgentConfig(
+      config = buildClaudeSisyphusAgentConfig(
         MODE,
         model,
         buildClaudeOpus48SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "claude-opus-4-7":
-      return buildClaudeSisyphusAgentConfig(
+      config = buildClaudeSisyphusAgentConfig(
         MODE,
         model,
         buildClaudeOpus47SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "glm-5-2":
-      return buildGlmSisyphusAgentConfig(
+      config = buildGlmSisyphusAgentConfig(
         MODE,
         model,
         buildGlm52SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "grok-4":
-      return buildGrokSisyphusAgentConfig(
+      config = buildGrokSisyphusAgentConfig(
         MODE,
         model,
         buildGrok4SisyphusPrompt(model, agents, tools, skills, categories, useTaskSystem),
       );
+      break;
     case "fallback": {
       // momo default: use the momo-orchestrator prompt (hard delegation + catalog-first + minimal output)
       // This is the default for all models that don't have a specific family variant.
@@ -174,10 +188,21 @@ export function createSisyphusAgent(
       );
       // Apply Gemini-specific overrides if this is a Gemini model
       const prompt = applyGeminiFallbackOverrides(model, basePrompt);
-      return isGptModel(model)
+      config = isGptModel(model)
         ? buildGptSisyphusAgentConfig(MODE, model, prompt)
         : buildClaudeSisyphusAgentConfig(MODE, model, prompt);
+      break;
     }
   }
+
+  // Appending unconditionally would double-inject the fallback family, which
+  // already embeds these sections via buildMomoOrchestratorPrompt.
+  if (family !== "fallback") {
+    config = {
+      ...config,
+      prompt: `${config.prompt ?? ""}\n\n${buildMomoCoreSections()}`,
+    };
+  }
+  return config;
 }
 createSisyphusAgent.mode = MODE;

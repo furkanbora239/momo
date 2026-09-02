@@ -5,6 +5,7 @@ import { fuzzyMatchModel, isModelAvailable } from "../../shared/model-availabili
 import { normalizeModel } from "../../shared/model-normalization"
 import { parseModelString } from "../../shared/model-string-parser"
 import { CATEGORY_MODEL_REQUIREMENTS } from "../../shared/model-requirements"
+import { hasReachableFallbackChainRung } from "./model-selection"
 import { log } from "../../shared/logger"
 
 export interface ResolveCategoryConfigOptions {
@@ -12,6 +13,7 @@ export interface ResolveCategoryConfigOptions {
   inheritedModel?: string
   systemDefaultModel?: string
   availableModels?: Set<string>
+  overrideModel?: string
 }
 
 export interface ResolveCategoryConfigResult {
@@ -54,7 +56,7 @@ export function resolveCategoryConfig(
   categoryName: string,
   options: ResolveCategoryConfigOptions
 ): ResolveCategoryConfigResult | null {
-  const { userCategories, inheritedModel: _inheritedModel, systemDefaultModel, availableModels } = options
+  const { userCategories, inheritedModel: _inheritedModel, systemDefaultModel, availableModels, overrideModel } = options
 
   const defaultConfig = DEFAULT_CATEGORIES[categoryName]
   const configuredUserConfig = userCategories?.[categoryName]
@@ -75,8 +77,11 @@ export function resolveCategoryConfig(
 
   const categoryReq = CATEGORY_MODEL_REQUIREMENTS[categoryName]
   const requiredModel = categoryReq?.requiresModel ?? BUILTIN_CATEGORY_REQUIRES_MODEL[categoryName]
-  if (requiredModel && availableModels && !hasExplicitUserConfig) {
-    if (!isModelAvailable(requiredModel, availableModels)) {
+  if (requiredModel && availableModels && !hasExplicitUserConfig && !overrideModel) {
+    if (
+      !isModelAvailable(requiredModel, availableModels) &&
+      !hasReachableFallbackChainRung(categoryReq, availableModels)
+    ) {
       log(`[resolveCategoryConfig] Category ${categoryName} requires ${requiredModel} but not available`)
       return null
     }

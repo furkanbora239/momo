@@ -30,7 +30,7 @@ describe("createSkillContext", () => {
     rmSync(mockGlobalConfigDir, { recursive: true, force: true })
   })
 
-  it("exposes security skills to the OMO skill tool context", async () => {
+  it("keeps security skills off the OMO skill tool context by default", async () => {
     // given
     const discoverConfigSourceSkillsSpy = spyOn(
       skillLoader,
@@ -75,18 +75,74 @@ describe("createSkillContext", () => {
       })
 
       // then
+      expect(result.mergedSkills.some((skill) => skill.name === "security-research")).toBe(false)
+      expect(result.mergedSkills.some((skill) => skill.name === "security-review")).toBe(false)
+      expect(result.availableSkills.some((skill) => skill.name === "security-research")).toBe(false)
+      expect(result.availableSkills.some((skill) => skill.name === "security-review")).toBe(false)
+      expect(result.availableSkills.some((skill) => skill.name === "frontend")).toBe(true)
+    } finally {
+      discoverConfigSourceSkillsSpy.mockRestore()
+      discoverUserClaudeSkillsSpy.mockRestore()
+      discoverProjectClaudeSkillsSpy.mockRestore()
+      discoverOpencodeGlobalSkillsSpy.mockRestore()
+      discoverOpencodeProjectSkillsSpy.mockRestore()
+      discoverProjectAgentsSkillsSpy.mockRestore()
+      discoverGlobalAgentsSkillsSpy.mockRestore()
+      getSystemMcpServerNamesSpy.mockRestore()
+    }
+  })
+
+  it("re-enables default-off security skills via skills.enable_default_off", async () => {
+    // given
+    const discoverConfigSourceSkillsSpy = spyOn(
+      skillLoader,
+      "discoverConfigSourceSkills",
+    ).mockResolvedValue([])
+    const discoverUserClaudeSkillsSpy = spyOn(
+      skillLoader,
+      "discoverUserClaudeSkills",
+    ).mockResolvedValue([])
+    const discoverProjectClaudeSkillsSpy = spyOn(
+      skillLoader,
+      "discoverProjectClaudeSkills",
+    ).mockResolvedValue([])
+    const discoverOpencodeGlobalSkillsSpy = spyOn(
+      skillLoader,
+      "discoverOpencodeGlobalSkills",
+    ).mockResolvedValue([])
+    const discoverOpencodeProjectSkillsSpy = spyOn(
+      skillLoader,
+      "discoverOpencodeProjectSkills",
+    ).mockResolvedValue([])
+    const discoverProjectAgentsSkillsSpy = spyOn(
+      skillLoader,
+      "discoverProjectAgentsSkills",
+    ).mockResolvedValue([])
+    const discoverGlobalAgentsSkillsSpy = spyOn(
+      skillLoader,
+      "discoverGlobalAgentsSkills",
+    ).mockResolvedValue([])
+    const getSystemMcpServerNamesSpy = spyOn(
+      mcpLoader,
+      "getSystemMcpServerNames",
+    ).mockReturnValue(new Set<string>())
+
+    const pluginConfig = OhMyOpenCodeConfigSchema.parse({
+      skills: { enable_default_off: ["security-research", "security-review"] },
+    })
+
+    try {
+      // when
+      const result = await createSkillContext({
+        directory: testDirectory,
+        pluginConfig,
+      })
+
+      // then
       expect(result.mergedSkills.some((skill) => skill.name === "security-research")).toBe(true)
       expect(result.mergedSkills.some((skill) => skill.name === "security-review")).toBe(true)
-      expect(result.availableSkills).toContainEqual({
-        name: "security-research",
-        description: expect.stringContaining("security research"),
-        location: "plugin",
-      })
-      expect(result.availableSkills).toContainEqual({
-        name: "security-review",
-        description: expect.stringContaining("/security-review"),
-        location: "plugin",
-      })
+      expect(result.availableSkills.some((skill) => skill.name === "security-research")).toBe(true)
+      expect(result.availableSkills.some((skill) => skill.name === "security-review")).toBe(true)
     } finally {
       discoverConfigSourceSkillsSpy.mockRestore()
       discoverUserClaudeSkillsSpy.mockRestore()

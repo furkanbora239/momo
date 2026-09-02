@@ -1,9 +1,10 @@
 /**
- * momo orchestrator base prompt — hard delegation mandate + catalog-first + minimal output.
+ * momo orchestrator fallback prompt — hard delegation mandate + catalog-first + minimal output.
  *
- * This is the core momo behavior that all model-family variants extend. The orchestrator
- * is a delegator, not an implementer. It plans, delegates to cheaper subagents, picks
- * models at runtime from the catalog, and emits minimal output tokens.
+ * The momo core behavior sections (momo_core_behavior block, ponytail ladder,
+ * trailing constraints/tone) live in momo-core-sections.ts and are baked here
+ * for the fallback family; every model-family variant gets the same sections
+ * appended by the sisyphus agent factory.
  *
  * Key principles:
  * - HARD DELEGATION MANDATE: Never self-implement beyond trivial edits (typos, formatting).
@@ -29,7 +30,6 @@ import {
   buildDelegationTable,
   buildCategorySkillsDelegationGuide,
   buildOracleSection,
-  buildPonytailLadderSection,
   buildHardBlocksSection,
   buildAntiPatternsSection,
   buildParallelDelegationSection,
@@ -37,6 +37,7 @@ import {
   buildAntiDuplicationSection,
   categorizeTools,
 } from "../dynamic-agent-prompt-builder";
+import { buildMomoCoreSections } from "./momo-core-sections";
 
 export function buildMomoOrchestratorPrompt(
   model: string,
@@ -60,7 +61,6 @@ export function buildMomoOrchestratorPrompt(
   );
   const delegationTable = buildDelegationTable(availableAgents);
   const oracleSection = buildOracleSection(availableAgents);
-  const ponytailLadder = buildPonytailLadderSection();
   const hardBlocks = buildHardBlocksSection();
   const antiPatterns = buildAntiPatternsSection();
   const parallelDelegationSection = buildParallelDelegationSection(model, availableCategories);
@@ -84,33 +84,6 @@ You are **Sisyphus** — the momo orchestrator. You are a **delegator, not an im
 
 **Instruction priority**: User > defaults. Newer > older. Safety/type-safety constraints in <constraints> NEVER yield.
 </Role>
-
-<momo_core_behavior>
-## HARD DELEGATION MANDATE (NON-NEGOTIABLE)
-
-Orchestrator, not implementer.
-1. Understand request 2. Plan (break into tasks) 3. Delegate each via task() to cheapest adequate subagent 4. Verify 5. Report.
-Only work you do directly: typo/formatting fixes, simple questions, reading for context. Everything else → delegate.
-Catch yourself writing code/refactoring/fixing → STOP. Delegate via task().
-
-## CATALOG-FIRST MODEL CHOICE (MANDATORY)
-
-Before EVERY task() call: \`catalog_pick({ need: "..." })\` → use returned model in task()'s \`model\` param.
-Pick cheapest adequate. Never assume category default — catalog reflects live availability + cost. Never skip it.
-
-## MINIMAL OUTPUT STYLE
-
-Fewest tokens. One-sentence opener before first tool call. Silence between calls. Outcome-first wrap-up.
-No narration, no summaries unless asked, no "done!". State the result, not the process.
-BAD: "Let me break this down into tasks and delegate the frontend work..." GOOD: "Delegating frontend. Button added, verified."
-
-## PLAN-MODE VARIANT
-
-Plan + delegate, never implement. Break into atomic tasks; catalog_pick a model per task; present plan + rationale; wait for approval; then delegate.
-Output: numbered list "Task → model (category) — rationale". End with "Approve? (yes/no)". On reject, revise + re-present.
-</momo_core_behavior>
-
-${ponytailLadder}
 
 <self_knowledge>
 Orchestrator = cheap delegator. Never implement; delegate.
@@ -201,9 +174,9 @@ Map surface form → true intent → routing. Announce in one short line - this 
 
 When tasks are independent, delegate them in parallel:
 \`\`\`
-task({ category: "frontend", prompt: "...", model: "neuralwatt/glm-5.2", run_in_background: true })
-task({ category: "backend", prompt: "...", model: "openai/gpt-5-nano", run_in_background: true })
-task({ category: "docs", prompt: "...", model: "anthropic/claude-haiku-4-5", run_in_background: true })
+task({ category: "visual-engineering", prompt: "...", model: "neuralwatt/glm-5.2", run_in_background: true })
+task({ category: "deep", prompt: "...", model: "openai/gpt-5-nano", run_in_background: true })
+task({ category: "writing", prompt: "...", model: "anthropic/claude-haiku-4-5", run_in_background: true })
 \`\`\`
 
 ${parallelDelegationSection}
@@ -238,18 +211,6 @@ ${nonClaudePlannerSection}
 
 ${buildAntiDuplicationSection()}
 
-<Constraints>
-<constraints>
-- **NEVER implement substantive work yourself.** Delegate via task().
-- **NEVER skip catalog_pick before task().** Always choose the model from the catalog.
-- **NEVER narrate.** Be terse. Emit minimal tokens.
-- **NEVER assume category defaults.** Call catalog_pick.
-- **ALWAYS verify results.** Run lsp_diagnostics, tests, etc.
-- **ALWAYS report faithfully.** If tests fail, say so.
-</constraints>
-
-<tone_preference>
-Terse. Outcome-first. No filler. No narration. State the result, not the process.
-</tone_preference>
+${buildMomoCoreSections()}
 `;
 }

@@ -88,7 +88,6 @@ describe("validatePluginConfig", () => {
         "hephaestus",
         "oracle",
         "atlas",
-        "sisyphus-junior",
         "multimodal-looker",
       ])
     })
@@ -101,6 +100,36 @@ describe("validatePluginConfig", () => {
       const result = validatePluginConfig(fixture.project)
 
       expect(result.config.disabled_agents).toEqual(["prometheus"])
+    })
+  })
+
+  it("#given no view declares disabled_commands #when validating #then injects the wave-2 disabled builtin commands", () => {
+    withOmoConfig("wave2-commands-injected", (fixture) => {
+      writeUserConfig(fixture, { "[opencode]": { tui: { sidebar: { enabled: false } } } })
+
+      const result = validatePluginConfig(fixture.project)
+
+      expect(result.config.disabled_commands).toEqual(["refactor", "hyperplan", "remove-ai-slops"])
+    })
+  })
+
+  it("#given a view declares an empty disabled_commands list #when validating #then keeps it empty instead of injecting defaults", () => {
+    withOmoConfig("wave2-commands-empty", (fixture) => {
+      writeUserConfig(fixture, { "[opencode]": { disabled_commands: [] } })
+
+      const result = validatePluginConfig(fixture.project)
+
+      expect(result.config.disabled_commands).toEqual([])
+    })
+  })
+
+  it("#given a view declares an explicit disabled_commands list #when validating #then honors the user list instead of the defaults", () => {
+    withOmoConfig("wave2-commands-overridden", (fixture) => {
+      writeUserConfig(fixture, { "[opencode]": { disabled_commands: ["goal"] } })
+
+      const result = validatePluginConfig(fixture.project)
+
+      expect(result.config.disabled_commands).toEqual(["goal"])
     })
   })
 

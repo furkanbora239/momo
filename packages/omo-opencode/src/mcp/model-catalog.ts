@@ -17,6 +17,7 @@ export type CatalogPrefer = Record<string, string | string[]>
 export type CatalogMcpConfigOptions = {
   readonly cacheFile?: string
   readonly prefer?: CatalogPrefer
+  readonly preferProviders?: readonly string[]
   readonly resolveExecutable?: RuntimeExecutableResolver
   readonly moduleUrl?: string
   readonly exists?: (path: string) => boolean
@@ -62,6 +63,7 @@ export function createCatalogMcpConfig(options: CatalogMcpConfigOptions = {}): L
     environment: {
       OMO_CATALOG_CACHE_FILE: cacheFile,
       OMO_CATALOG_PREFER: JSON.stringify(normalizePrefer(options.prefer)),
+      OMO_CATALOG_PREFER_PROVIDERS: (options.preferProviders ?? []).join(","),
     },
   }
 }
