@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { validatePluginConfig } from "../../../config/validate"
 import { getOmoOpenCodeCacheDir } from "../../../shared/data-path"
@@ -17,6 +17,16 @@ function readCachedModelCount(cacheFile: string): number | null {
     return Object.values(parsed.models).reduce((sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0), 0)
   } catch {
     return null
+  }
+}
+
+export function collectStaleDistIssue(distPath: string, srcPath: string): { title: string; description: string; severity: "warning" } | undefined {
+  if (!existsSync(distPath) || !existsSync(srcPath)) return undefined
+  if (statSync(srcPath).mtimeMs <= statSync(distPath).mtimeMs) return undefined
+  return {
+    title: "stale dist bundle (F7)",
+    description: "packages/omo-opencode/src is newer than dist/index.js! OpenCode loads dist/index.js; run 'bun run build' to apply your latest changes.",
+    severity: "warning",
   }
 }
 
@@ -68,6 +78,12 @@ export async function checkMomORoster(): Promise<CheckResult> {
       severity: "warning",
     })
   }
+
+  const staleDistIssue = collectStaleDistIssue(
+    join(process.cwd(), "dist", "index.js"),
+    join(process.cwd(), "packages", "omo-opencode", "src", "index.ts"),
+  )
+  if (staleDistIssue) issues.push(staleDistIssue)
 
   return {
     name: "momo Roster & Catalog",

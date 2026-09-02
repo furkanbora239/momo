@@ -157,6 +157,20 @@ function startupToastBody(input: {
   return undefined
 }
 
+async function warnIfStaleDistBundle(deps: PluginModuleDeps, directory: string): Promise<void> {
+  try {
+    const fs = await import("node:fs")
+    const path = await import("node:path")
+    const distFile = path.join(directory, "dist", "index.js")
+    const srcFile = path.join(directory, "packages", "omo-opencode", "src", "index.ts")
+    if (fs.existsSync(distFile) && fs.existsSync(srcFile) && fs.statSync(srcFile).mtimeMs > fs.statSync(distFile).mtimeMs) {
+      deps.log("[momo] WARNING: packages/omo-opencode/src is newer than dist/index.js! Running plugin may be stale. Run 'bun run build'.")
+    }
+  } catch (error) {
+    deps.log("[momo] stale-dist probe skipped", { error: error instanceof Error ? error.message : String(error) })
+  }
+}
+
 export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): PluginModule {
   const deps = { ...defaultPluginModuleDeps, ...overrides }
   let startupMigration: ReturnType<PluginModuleDeps["runOpenCodeStartupMigration"]> | undefined
@@ -166,6 +180,7 @@ export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): P
     deps.log("[oh-my-openagent] ENTRY - plugin loading", {
       directory: input.directory,
     })
+    await warnIfStaleDistBundle(deps, input.directory)
     deps.logLegacyPluginStartupWarning()
     deps.migrateLegacyWorkspaceDirectory(input.directory)
     startupMigration ??= deps.runOpenCodeStartupMigration({ cwd: input.directory })
