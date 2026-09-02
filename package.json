@@ -108,6 +108,8 @@
   },
   "scripts": {
     "build": "bun run script/build.ts",
+    "build:fast": "bun build packages/omo-opencode/src/index.ts --outdir dist --target bun --format esm --external zod",
+    "dev": "bun build --watch packages/omo-opencode/src/index.ts --outdir dist --target bun --format esm --external zod",
     "build:cli-node": "bun run script/build-cli-node.ts",
     "build:codex-install": "bun run script/build-codex-install.ts",
     "install:codex-dev": "bun run script/build-codex-install.ts && bun run script/install-codex-dev.ts",
@@ -171,6 +173,7 @@
     "@opentui/keymap": "^0.2.16",
     "@opentui/solid": "^0.2.16",
     "commander": "^14.0.3",
+    "cross-spawn": "7.0.6",
     "detect-libc": "^2.1.2",
     "diff": "^9.0.0",
     "js-yaml": "^4.1.1",
