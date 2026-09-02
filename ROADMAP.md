@@ -1,103 +1,42 @@
-# ROADMAP
+# ROADMAP — momo (My Oh My Openagent)
 
-- [What This Is](#what-this-is)
-- [Current Priority: Package Layering Refactor](#current-priority-package-layering-refactor)
-- [Architecture Direction](#architecture-direction)
-- [Multi-Harness Support (Exploratory)](#multi-harness-support-exploratory)
-- [Why Not OpenCode-Native](#why-not-opencode-native)
-- [Non-Goals](#non-goals)
-- [Decision Principle](#decision-principle)
+**momo** is a token-efficient, cheap-provider-first agent harness for OpenCode.
+Forked from `oh-my-openagent` / `oh-my-opencode`.
 
-## What This Is
+**North Star**: A lightweight orchestrator that plans, delegates aggressively to cheaper subagents, picks subagent models at runtime from a live catalog (`catalog_pick`), and emits as few output tokens as possible. Zero-config start: OpenCode `/models` selection is the main model. Optimized for high-throughput, low-cost model providers (opencode-go, neuralwatt).
 
-Oh-my-opencode is a harness for agents.
+---
 
-The human is not the worker. The agent is the worker. The human says what they want. Then they leave. The agent does the work. The human does not come back to fix details. The human does not come back to clarify. The human does not come back at all.
+## Progress & Phases
 
-OMO does not make agents better at small tasks. OMO makes it possible to hand off big tasks. The kind of tasks where a human would normally stay in the loop for hours. OMO removes that loop.
+### Phase 1: Developer Experience & Fast Build Pipeline (COMPLETED)
+- [x] **Fast Build (`bun run build:fast`)**: Compiles `dist/index.js` in **~150ms** directly from `packages/omo-opencode/src/index.ts`.
+- [x] **Live Rebuilding (`bun run dev`)**: Added `--watch` mode for live bundle recompilation on save.
+- [x] **Build Graph Optimization (`script/build.ts`)**: Bypassed heavy Codex/Senpi nodes during OpenCode builds, dropping full build time from >2 minutes to **15 seconds**.
+- [x] **Stale Dist Alert (F7)**: Added runtime bootstrap warning in `createPluginModule` and diagnostic check in `omo doctor` flagging when source files are newer than `dist/index.js`.
+- [x] **Test Isolation**: Isolated `homeDir` in `codex-components.ts` so machine environment (`~/.omo/runtime/ast-grep`) does not fail doctor unit tests.
+- [x] **Clean Fast Test Suite (`script/test-fast.ts`)**: Removed Senpi from the default fast test group. Full OpenCode suite: **9,063 tests PASS, 0 FAIL**. Monorepo typecheck: **0 ERRORS**.
 
-The agent thinks. The agent decides. The agent executes. The human only initiates.
+### Phase 2: Configuration & Doctor Health (COMPLETED)
+- [x] **Valid User Config (`~/.omo/omo.jsonc`)**: Added `local_translator` to `OmoConfigSchema` and `OmoConfigLayerSchema` so user configs with custom translator/cloud settings pass Zod validation without rejection.
+- [x] **Informative Loader Diagnostics**: Improved `validationDiagnostic` in `loader.ts` so root issues or missing keys print informative descriptions rather than blank error strings.
+- [x] **Local Development Detection**: Updated `system-plugin.ts` and `tui-plugin-config.ts` to recognize `file:///.../momo/dist/index.js` entries in `opencode.json`.
+- [x] **`omo doctor` Health**: Runs all 9 diagnostic checks in 2 seconds and exits 0 with `✓ System OK`.
 
-## Current Priority: Package Layering Refactor
+### Phase 3: Prompt Diet & Orchestrator Streamlining (IN PROGRESS)
+- [ ] **Unified MOMO Orchestrator Prompt**:
+  - Replace monolithic 20KB–32KB per-model prompts (`gpt-5-5.ts`, `claude-opus-5.ts`, `kimi-k3.ts`) with the compact, unified MOMO orchestrator prompt (`sisyphus/momo-orchestrator.ts`).
+  - Strict delegation mandate: The orchestrator *never* self-implements substantive code; it breaks tasks into atomic units and delegates via `task(category=..., model=...)`.
+  - Minimal output style: Emit as few output tokens as possible. No self-narration or verbose conversational filler.
+  - Save ~25,000 prompt tokens per chat turn.
 
-**This is the most urgent work.**
+### Phase 4: Token-Burn Pruning & Tool Overhead (W6 / F13 / F14)
+- [ ] **Default-Off Chat Injection Hooks**:
+  - Keep chat-turn reminders disabled by default (`agentUsageReminder`, `categorySkillReminder`, `todoDescriptionOverride`).
+  - Prune rules injector verbosity to avoid polluting small-context models.
+- [ ] **Tool Schema & Description Trimming (Wave 6)**:
+  - Trim verbose multi-paragraph tool descriptions down to ≤600 characters per `notes/claude-code-patterns.md`.
+  - Reduce JSON Schema payload overhead sent on every API invocation.
 
-The current `packages/` directory mixes launcher packages, web apps, MCP servers, and pure TypeScript logic in one flat namespace. This makes reuse across harnesses impossible and creates duplication across harness-specific repositories.
-
-The refactor splits packages into strict layers by runtime boundary:
-
-| Layer | Contents | Boundary |
-|---|---|---|
-| Core | Pure TypeScript logic: rule discovery, AGENTS.md parsing, config schemas, model capabilities, todo state machines | No harness dependencies. Testable in isolation. |
-| MCP | External tool servers: LSP and other stdio services | stdio process boundary. Host-agnostic. |
-| Skills | Static declarative files (SKILL.md) | Markdown consumed by the agent. No code. |
-| Adapters | Harness-specific glue: OpenCode, Codex, Senpi, and standalone Pi goal/webfetch adapters | Thin wrappers. Import core, wrap in harness API, export. |
-| Platform | Generated Node launcher packages per target | Deployment artifacts. Never imported. |
-| Web | Marketing site | Independent application. |
-
-**Dependency rule:** The intended DAG flows downward: Adapters depend on Core, MCP, and Skills, while Platform and Web are leaves. The source-backed exceptions are the intentional same-layer adapter-support edge `@oh-my-opencode/omo-senpi -> @oh-my-opencode/senpi-task` (`senpi-task` is adapter support consumed by `omo-senpi`) and the transitional adapter-to-adapter edge `@oh-my-opencode/omo-opencode -> @oh-my-opencode/omo-codex` for Codex installer/distribution integration; both are outside the target layering.
-
-**Migration principle:** Existing behavior is preserved. Nothing breaks. Each extraction is a pure move: copy logic into Core, make the original location re-export from Core, verify tests still pass, then delete the duplicate in the other repositories.
-
-**Current extraction status:**
-
-- 19 Core packages are now extracted under `packages/`, including `omo-config-core`: `utils`, `model-core`, `prompts-core`, `rules-engine`, `agents-md-core`, `comment-checker-core`, `hashline-core`, `boulder-state`, `telemetry-core`, `lsp-core`, `mcp-stdio-core`, `tmux-core`, `claude-code-compat-core`, `skills-loader-core`, `mcp-client-core`, `openclaw-core`, `team-core`, `delegate-core`, and `omo-config-core`.
-- `omo` consumes these packages via workspace dependencies, with adapter shims left at original `packages/omo-opencode/src/` locations where OpenCode-facing import paths or runtime wiring still need stable anchors.
-- The `lsp-tools-mcp` and `lsp-daemon` packages are vendored in-tree and now consume `lsp-core` plus `mcp-stdio-core` instead of deep-importing each other's source internals.
-
-Current layering: Core (19 pure-TS packages, including `omo-config-core`) -> MCP packages -> Adapters (OpenCode, Codex, Senpi, standalone Pi goal/webfetch) -> generated platform launcher packages, with the intentional same-layer Senpi adapter-support edge and transitional OpenCode-to-Codex adapter edge documented above. The adapter boundaries keep future harnesses able to consume the same Core layer.
-
-The Pi Engine DI abstraction was deferred. It can be revisited once the adapter migration is complete.
-
-## Architecture Direction
-
-The codebase is built for the agent doing the work, not for the human reading it. If a structure is harder for a human to understand but makes the agent's job easier, we keep it. If a pattern adds friction to the agent's reasoning, we remove it.
-
-The hierarchy of expression is:
-
-1. **Skill** (static knowledge, zero runtime cost)
-2. **MCP** (external tool with process boundary)
-3. **Tool** (first-party runtime capability)
-4. **Hook** (injection into the agent loop itself)
-
-This order is not dogma. If the loop performs better another way, we change it. Agent performance is the only metric.
-
-## Multi-Harness Support (Exploratory)
-
-Codex and Senpi adapters have landed, along with standalone Pi goal and webfetch adapters. Future harnesses such as Claude Code, Amp, Droid, and others remain exploratory and are not confirmed. The current codebase is still strongly coupled to OpenCode in its largest adapter. Extracting the pure logic into a harness-neutral layer remains a useful prerequisite for any future harness.
-
-Most harnesses share common lifecycle hooks: pre-tool-use guards, post-tool-use transforms, system message injection, model parameter overrides. One could abstract these into a unified hook layer. Rule injection could become a harness-agnostic primitive that adapts to each plugin API.
-
-We are skeptical of this abstraction.
-
-The industry changes too fast. Fixed patterns and agreed conventions should be implemented directly. Uncertain parts should not be over-abstracted. If an adapter for a new harness is needed, an agent can write it in one shot. The connection points are a single question away. Premature "adapter pattern" abstraction across unstable interfaces causes more pain than duplication.
-
-We express what each component does in markdown documentation, not in interface definitions.
-
-### Status: omo.json config core (landed senpi-first)
-
-The first concrete step toward a harness-neutral config layer has landed: `omo-config-core` provides an `omo.json` schema, a walked multi-layer loader, and a comment-preserving atomic writer as pure, harness-neutral code, and the Senpi adapter's `task` component reads it in production. This was delivered senpi-first on purpose - Senpi had no existing config surface to preserve, so it was the safe place to prove the schema. The OpenCode edition still reads its own `oh-my-openagent.json` chain, and the two files have zero interaction today. Adopting `omo.json` in the OpenCode edition, and any migration path from `oh-my-openagent.json`, is the next phase. See [`docs/reference/omo-json.md`](docs/reference/omo-json.md).
-
-## Why Not OpenCode-Native
-
-OpenCode is the current host. But its plugin API makes it trivial to break the main agent loop.
-
-Session prompt injection (`session.prompt`, `session.promptAsync`) returns before the prompt is durably accepted. Later failures arrive as `session.error`. Multiple hooks observe the same idle or error edge and inject the same internal message into a live parent session. Duplicate work. Infinite loops. State corruption.
-
-The TUI burns CPU.
-
-Breaking changes are frequent.
-
-These are not OpenCode-specific flaws. Any plugin system that exposes the main loop to arbitrary injection has the same disease. We treat OpenCode as one adapter target among several. Not the center of the architecture.
-
-## Non-Goals
-
-- We will not create a grand unified plugin interface that abstracts every harness.
-- We will not prioritize human-readable file organization over agent loop performance.
-- We will not fill in unspecified human details as a primary objective. The harness completes what was stated, using the model's natural representation.
-
-## Decision Principle
-
-When in doubt, prefer the representation that requires the least reasoning from the agent doing the work.
-
-If that makes the directory structure messy for a human, the directory structure is wrong for humans and right for agents.
+### Phase 5: Safe Repo Decoupling & Inactive Code Parking
+- [ ] Safely park non-OpenCode adapters (`packages/omo-codex`, `packages/omo-senpi`, `packages/senpi-task`, `packages/pi-*`, platform wrappers) into an inert directory without losing prompts, agents, or reference implementations.
