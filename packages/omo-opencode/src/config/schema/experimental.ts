@@ -5,6 +5,8 @@ export const ExperimentalConfigSchema = z.object({
   aggressive_truncation: z.boolean().default(true),
   preemptive_compaction: z.boolean().optional(),
   truncate_all_tool_outputs: z.boolean().optional(),
+  /** Hard character cap applied to every tool output after token-aware truncation (default: 8000; 0 disables the cap) */
+  max_tool_output_chars: z.number().int().min(0).default(8000),
   /** Dynamic context pruning configuration */
   dynamic_context_pruning: DynamicContextPruningConfigSchema.optional(),
   /** Enable experimental task system for Todowrite disabler hook */

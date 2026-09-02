@@ -204,5 +204,74 @@ describe("createToolOutputTruncatorHook", () => {
         })
       })
     })
+
+    describe("#given max_tool_output_chars hard cap", () => {
+      const longOutput = "a".repeat(9000)
+
+      it("#then should cap oversized output on non-listed tools at 8000 chars by default", async () => {
+        const input = createInput("Read")
+        const output = createOutput(longOutput)
+
+        await hook["tool.execute.after"](input, output)
+
+        expect(output.output.startsWith("a".repeat(8000))).toBe(true)
+        expect(output.output).toContain("[output truncated at 8000 characters by momo tool-output cap]")
+        expect(output.output.length).toBeLessThan(8100)
+      })
+
+      it("#then should honor a custom cap value", async () => {
+        hook = createToolOutputTruncatorHook({} as never, {
+          experimental: { max_tool_output_chars: 100 },
+        })
+        const input = createInput("Read")
+        const output = createOutput(longOutput)
+
+        await hook["tool.execute.after"](input, output)
+
+        expect(output.output.startsWith("a".repeat(100))).toBe(true)
+        expect(output.output).toContain("[output truncated at 100 characters by momo tool-output cap]")
+      })
+
+      it("#then should not cap when max_tool_output_chars is 0", async () => {
+        hook = createToolOutputTruncatorHook({} as never, {
+          experimental: { max_tool_output_chars: 0 },
+        })
+        const input = createInput("Read")
+        const output = createOutput(longOutput)
+
+        await hook["tool.execute.after"](input, output)
+
+        expect(output.output).toBe(longOutput)
+      })
+
+      it("#then should leave short outputs untouched", async () => {
+        const input = createInput("Read")
+        const output = createOutput("small output")
+
+        await hook["tool.execute.after"](input, output)
+
+        expect(output.output).toBe("small output")
+      })
+
+      it("#then should cap output even when token-aware truncation fails", async () => {
+        const truncateMock = mock(async () => {
+          throw new Error("truncation failed")
+        })
+        truncateSpy.mockReturnValue({
+          truncate: truncateMock,
+          getUsage: mock(async () => null),
+          truncateSync: mock(() => ({ result: "", truncated: false })),
+        })
+        hook = createToolOutputTruncatorHook({} as never)
+
+        const input = createInput("grep")
+        const output = createOutput(longOutput)
+
+        await hook["tool.execute.after"](input, output)
+
+        expect(output.output.startsWith("a".repeat(8000))).toBe(true)
+        expect(output.output).toContain("momo tool-output cap")
+      })
+    })
   })
 })
