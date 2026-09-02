@@ -1,191 +1,153 @@
-# HANDOFF — momo session (2026-09-02): delegation repair + waves + W7 QA in flight
+# HANDOFF — momo real-harness QA session (2026-09-01)
 
-Handoff context for continuing in a fresh session. Prior session's QA reference
-(2026-09-01) is condensed at the bottom — its lessons (OPENCODE_PURE, dist
-externals, QA config path) remain operational.
+Goal: prove the momo fork (local `dist/index.js`, v5.0.0-beta.12) runs inside real
+opencode 1.18.25 — roster slimming, advisor, catalog MCP, hooks. **DONE: the
+harness runs end to end in both the QA sandbox and the user's real environment.**
+User's normal opencode previously loaded npm `oh-my-openagent@4.19.3` (upstream);
+now switched to the local momo dist.
 
-## USER REQUESTS (AS-IS)
+## Verified findings
 
-- "projeyi analiz et @AGENTS.md , @plan.md gibi dosyarı oku kaldığımız noktayı anla ve geliştirme önerilerinde bulun. @README.md de şuan iyi durumda olmalı özet olarak. amacımız token efficent bir sistem oluşturmak token başına maksimum performansı istiyorum kendi kullanım senaryom için. fakat önemli bir mesele var, bu araç tamamen benim kullanımım için optimize edildi yinede opensource olarak paylaşıyorum repoyu. araç içinde sağda solda sıkıntı olacak bilgiler bırakamayız. sen şimdi repo ya bak daha optimize olmak için neler yapabiliriz adaptif promt lu ajanlar falan düşünmüştüm o gibi seyleri falan değerlendir."
-- "planı hazırla alt ajanlarla uygulamaya başla ayrıca mevcut projemiz olan momo yu nasıl daha sade ve kullanışlı hale getirebiliriz bununla ilgili bir düşün. komutları sadeleştirebiliriz, tool call kısmını daha optimize yapabiliriz claude code da bunun için paylaşılan eklentiler vardı. büyük modeli nasıl en verimli kullanırız. bunları bir düşün bu sistem benim iş akışıma uygun olmalı ben iki opencode go paketi birde neuralwatt aboneliği kullanıyorum bunların kendine özel durumlarını göz önünde bulundurup ona gö¶e alt ajan çağırma işini yapabiliriz mesela. ufak ajanlar araştırma yaparak çok güzel sonuçlar elde edebiliyor bazen ama her zaman değil, bu optimizasyonları bir değerlendirebiliriz. eldeki mcp leri nasıl daha iyi ve optimize yapabiliriz onu bir düşün."
-- "glm 5.2 hangisninde çalışıyorsa durdur şunu hayvan gibi token yakıyor."
-- "glm 5.2 kullanan ajan hangisi bilmiyorum fakat o go paketinin günlük kullanım dolmuş kontrol etsene go paketinin limit dolunca bir sonraki güne kadar bekleme yapabiliyor."
-- "bir şeyi yanlış mı anladın bana mı öyle geliyor. ben liste olmasını istemedim ajan listesi düzenle falan da demedim. tamamen orkestratör tarafından kararlaştırılsın dedim. ben bir orkestratör yazarım hangi ajan hangi modele sahip olacak o seçer. nuralwat first falan bir durum yok ortada."
-- "eski haline getirmen gibi bir talebim yok zaten böyle bir listeye esasen ihtiyacımız yok. direk silebiliriz gereksiz yerleri tutmaya gerek yok."
-- "opencode u tekrar başlattım. bir kaç hatamız var anlaşılan bunları tespit etmeni ve düzeltmeni istiyorum. öncellikle translator adımı düzgün çalışmıyor gibi google api düzgün çalışmıyor olabilir yada hata dönüyordur loglara falan bakım anlamaya çalış. sonrasında @plan.md ye ekleme yaptırdım alt ajanlar kendi ajanlarını çağıramıyor tam istediğim gibi değil yapısı. proje özüne uygun çalışmıyor omo ile karışık frankeshtain gibi bir şey oldu. mcp ile ajan seçme işi düzgün değil gibi onu bir gözetle kendin deneyler yürüt ve karar ver. gerekli yerde alt ajanlar çagır kodu yazdır denetimini yap bana sonra haber ver."
-- "çalıştırdığın ajanı kontrol etsene 25dk oldu sonuç dönmedi."
-- "her ne eksik kaldıysa kendin tamamla plan md yi güncelle hatta paralel çalış fazla uzun bir iş varsa go aboneliklerinden birini kullanarak glm5.3 flash alt ajanı oluştur o yapsın. sen başka iş yap ardından commit push yap toplanmam gerek başka zaman devam edeceğiz."
+1. **OPENCODE_PURE=1 disables all external plugins.** opencode injects
+   `OPENCODE_PURE=1`, `OPENCODE=1`, `OPENCODE_PID` into nested-session tool
+   shells (e.g. an agent's bash tool). Any `opencode` spawned from there runs
+   pure mode and skips `cfg.plugin_origins` entirely
+   (`src/plugin/index.ts`: `plugins = flags.pure ? [] : cfg.plugin_origins`).
+   Unset them with `env -u OPENCODE_PURE -u OPENCODE -u OPENCODE_PID` and
+   plugins load fine on 1.18.25.
+   -> plan.md's old "opencode 1.18.25 does not invoke external plugin server()
+   factories" note was WRONG; it was this env var. CORRECTED in plan.md.
 
-## GOAL
+2. **Real momo bug found + fixed: V1 roster never applied.**
+   `packages/omo-opencode/src/config/validate.ts` `mergeViews()` checked
+   `config.disabled_agents === undefined`, but `mergeConfigs` ->
+   `mergeUniqueStrings(undefined, undefined)` returns `[]`, so after the first
+   view merge the field was always "defined" and the
+   `V1_DISABLED_AGENTS_DEFAULT` injection never fired. Fix: decide from the raw
+   views (`views.every(v => v.config.disabled_agents === undefined)`).
+   Verified live: real-harness log shows `[config-handler] agents loaded
+   {"agentKeys":["Sisyphus - ultraworker","advisor","build","explore",
+   "librarian","plan"]}` — the 6-agent V1 roster, disabled agents absent.
 
-Collect the in-flight W7 real-harness QA evidence (bg_a82cded1, evidence dir
-`.omo/evidence/20260902-wave-qa/`), process PASS/FAIL into frankenstein.md, then
-continue the remaining queue (docs polish, optional W6 tool-description trim,
-codegraph MCP timeout debug).
+3. **QA-sandbox config path trap (cost the previous session its probe).**
+   opencode reads the global config from `$XDG_CONFIG_HOME/opencode/opencode.json`
+   or `.jsonc` — NOT from `$XDG_CONFIG_HOME/opencode.json`. The old QA config
+   sat at `/tmp/opencode/qa-sandbox/config/opencode.json` (ignored) while
+   opencode actually loaded the stub
+   `/tmp/opencode/qa-sandbox/config/opencode/opencode.jsonc` (only `$schema`).
+   Symptoms this produced: defaults everywhere (title + main on
+   `neuralwatt/qwen3.6-35b-fast`), `debug config` showed `plugin: []`.
+   Fixed: full QA config now lives at
+   `/tmp/opencode/qa-sandbox/config/opencode/opencode.jsonc`.
 
-## WORK COMPLETED (2026-09-02 session)
+4. **file:// plugin loading works on 1.18.25 — but the dist bundle needs its
+   external deps resolvable.** The bun bundle leaves runtime externals:
+   `zod` (+ `zod/v3`, `/v4`, `/v4-mini` subpaths), `ajv/dist/runtime/*`,
+   `ajv-formats`. From a bare dist copy with no `node_modules` above it, the
+   import throws `Cannot find package 'zod'` and opencode SILENTLY skips the
+   plugin: the loader publishes the error as a session event during init,
+   before `opencode run` subscribes, so the run output shows nothing and
+   opencode.log has no line either (only post-import shape errors are logged).
+   Fix used in sandbox: copy `zod@4.4.3`, `ajv@8.20.0`, `ajv-formats@3.0.1`
+   into `<plugin-dir>/node_modules/` (done for
+   `/tmp/opencode/qa-sandbox/momo-dist/`). The repo dist needs nothing: the
+   user's real config points at the repo path, where repo node_modules resolve.
+   Debug probes that proved this live in `/tmp/opencode/qa-sandbox/*-probe.js`
+   + `momo-proxy.js` (markers written on import).
 
-- Full analysis: progress vs plan.md, sensitive-info audit, token-efficiency
-  audit, adaptive-prompt evaluation → prioritized backlog; then a 6-wave plan
-  (plan agent) + CC pattern research saved to `notes/claude-code-patterns.md`.
-- Waves executed via background workers + my surgical fixes:
-  - W1: remote MCPs (websearch/context7/grep_app) opt-in, telemetry default OFF,
-    rulesInjector verbosity gate wired (`token_burn.rules_injector_verbose`).
-  - W3: momo-core prompt sections (hard delegation + catalog-first + ponytail
-    ladder + minimal output) injected into ALL model-family variants
-    (`agents/sisyphus/momo-core-sections.ts` + factory append); orchestrator
-    thinking budget 32000→10000 (config `sisyphus_agent.thinking_budget_tokens`);
-    invalid example categories fixed (frontend→visual-engineering etc.).
-  - W5: explore/librarian prompts cut ~45-55% (output contracts kept verbatim).
-  - W2: lean default roster — `V1_DISABLED_COMMANDS_DEFAULT`
-    (refactor/hyperplan/remove-ai-slops), skills default-off roster via
-    `skills.enable_default_off` (`features/builtin-skills/default-off-skills.ts`
-    + chokepoints: command-config-handler, skill-context, available-skills,
-    createPluginModule runtime-security selection).
-  - Wave 8: planner + executor manager agents (`src/agents/{planner,executor}/`,
-    prompts in packages/prompts-core/prompts/{planner,executor}/default.md),
-    MANAGER_AGENT_NAMES + canSpawnWorkers (sync-only nesting), preflight loop
-    rules, tool restrictions, `delegation.managers` gate default TRUE (user
-    override of plan's false), depth guard verified on sync chain.
-  - Translator hardening: retry once with doubled maxOutputTokens on
-    thinking-model MAX_TOKENS exhaustion + visible retry/failure logging.
-- Two systemic delegation bugs fixed by me directly (delegation was broken, so
-  it could not be delegated):
-  - Sisyphus-Junior registered (removed from `V1_DISABLED_AGENTS_DEFAULT` in
-    `config/validate.ts`) — category tasks died at spawn with
-    `Agent "Sisyphus-Junior" not found` (6 ms after session creation).
-  - Explicit `task(model=...)` honored on named-agent delegations
-    (`tools/delegate-task/subagent-resolver.ts` + test) — previously only the
-    category path honored it.
-- Provider-bias removed per user's architecture ruling ("orchestrator decides"):
-  all `agents.*.models`/`categories.*.models` lists deleted from
-  `~/.omo/omo.jsonc`; neuralwatt-first chain prepends reverted (6 model-core
-  files to HEAD); `catalog.prefer_providers` default `[]` (key stays, opt-in).
-- Delegation lanes verified live via DB-checked probes (category + named-agent,
-  both resolving neuralwatt with explicit params, 2 messages = completed).
-- Diagnosed: opencode-go pack has a 5-HOUR rolling limit (not daily; error text
-  verbatim: `5-hour usage limit reached. Resets in 1hr 49min...`);
-  runtime_fallback cycles chain rungs correctly on it; stale dist was the root
-  of the confusion cascade (plugin loads `dist/index.js`; source fixes are
-  inert until `bun run build` + restart).
-- Committed and pushed EVERYTHING: `41b3d274f` on `dev` (98 files,
-  +12635/−6776) → origin. dist rebuilt (Eyl 2 21:30).
-- Created `frankenstein.md` (issue log F1-F10 with statuses/verification;
-  single-writer: orchestrator) and updated `plan.md` (Wave 8/9 done, Phase 4B
-  implemented, delegation.managers default true note).
+5. **CJS plugins are rejected; ESM works.** A `module.exports = async () => {}`
+   plugin fails with `Plugin export is not a function` (logged to opencode.log
+   as `failed to load plugin`). ESM `export default async () => {}` works, both
+   via `plugin` config entries (`file:///abs/path.js`, plain abs path, and
+   `./relative` resolved against the declaring config) and via project
+   auto-discovery `.opencode/plugin/*.js`. V1 shape `{ id, server }` as default
+   export is detected and `server()` is invoked.
 
-## CURRENT STATE
+6. **Sandbox interference source: `~/.opencode/opencode.json`.** opencode
+   ALWAYS walks `$HOME/.opencode/opencode.json` (not gated by
+   `OPENCODE_DISABLE_PROJECT_CONFIG`, ignores XDG isolation). With the real
+   switch (below) it is now empty.
 
-- **W7 QA COMPLETE (2026-09-02 evening): 5/5 PASS** — category e2e (junior spawn
-  + model param), named-agent model param, planner/executor registration +
-  managers gate (works via the `[opencode]` block — see F11), remote MCP opt-in
-  (catalog/codegraph/lsp only), isolation (real DB untouched; +1 delta =
-  user's own live session). Evidence: `.omo/evidence/20260902-wave-qa/`.
-- **NEW HIGH ISSUE (F11)**: the omo.jsonc layer loader (`.strict()`) silently
-  voids the whole file on unknown top-level keys — the real user's
-  `~/.omo/omo.jsonc` (top-level `$schema`/`local_translator`/`_migrations`) is
-  currently INERT; `[opencode]`-block keys work. Fix queued for next session
-  (frankenstein.md F11/F11b-F11d).
-- Working tree clean; everything committed and pushed to origin/dev
-  (HEAD `41b3d274f`).
-- Tests: full plugin suite 8519 tests with ONLY 3 pre-existing
-  codex-components environment failures; model-core 358/358; typecheck 0 errors.
-- `dist/index.js` rebuilt (Eyl 2 21:30) with all fixes; user restarted after.
-- `~/.omo/omo.jsonc`: only behavior settings remain (runtime_fallback,
-  background_task, team_mode, experimental + top-level local_translator). NO
-  model lists anywhere. NOTE (F11): until F11 is fixed, omo.jsonc top-level
-  keys are inert — put overrides inside the `[opencode]` block.
+7. **Real-env 402: the user's `~/.omo/omo.jsonc` sisyphus chain listed
+   `neuralwatt/glm-5.2` FIRST.** momo's chain resolution picked it because
+   neuralwatt appears in `provider.list()` (connected) even with zero credit;
+   `runtime_fallback.retry_on_errors` = [401,403,429,500,502,503,504] excludes
+   402, so no fallback fired and the session died. Fixed the user config:
+   sisyphus chain reordered funded-first (`opencode-go/glm-5.2`, `go-b/glm-5.2`,
+   then neuralwatt entries last) and `team_mode.enabled` -> false (its eligible
+   members atlas/hephaestus/sisyphus-junior are disabled in the V1 roster
+   anyway; momo log confirmed `teamModeEnabled:false, teamToolCount:0` after).
+   Other agent/category chains in omo.jsonc already start with funded
+   providers; prometheus/metis/momus/etc. overrides are inert (agents disabled).
 
-## PENDING TASKS
+8. **neuralwatt is out of credit** (user-confirmed): every `neuralwatt/*` call
+   402s. QA must keep models on funded providers: `opencode-go/*` (real env,
+   auth present) or `go-b/*` (custom provider, `OPENCODE_GO_B_KEY` env).
 
-- FIRST: fix F11 (omo.jsonc strict-layer voiding — frankenstein.md) + collect
-  any remaining W7 evidence follow-ups (`.omo/evidence/20260902-wave-qa/` is
-  complete; qa task bg_a82cded1 finished).
-- Process QA verdicts into frankenstein.md (single-writer).
-- Docs: README/HELP updates for landed waves (MCP opt-in, telemetry default,
-  skills.enable_default_off, delegation.managers, thinking budget 10000,
-  planner/executor); frankenstein.md F8 (plan.md drift) mostly resolved, finish.
-- W6 (optional, user never prioritized): CC-style tool description trim
-  (≤600 chars + shape test) — follow `notes/claude-code-patterns.md` rules 1-3;
-  touch `src/tools/*` descriptions + `mcp/model-catalog-server.ts`
-  CATALOG_MCP_TOOLS.
-- Known open issues (frankenstein.md): F7 stale-dist workflow (candidate: doctor
-  warns build-vs-running mismatch), codegraph MCP runtime timeout (-32001,
-  deferred), translator gemma thinkingConfig research (inconclusive; retry
-  covers the failure mode).
+9. **Bun 1.3.14 proxy-env fetch poisoning (fixed in tests).**
+   Setting `http_proxy`/`https_proxy` then `delete process.env.http_proxy`
+   poisons later in-process `fetch` (ConnectionRefused even to 127.0.0.1).
+   Restoring to `""` instead of deleting avoids it. Fixed in
+   `cli/config-manager/bun-install.test.ts`.
 
-## KEY FILES
+10. **Plugin-relative skills path.** The bundled `dist/skills/*` resolves
+    relative to the plugin file's location. Copy the whole `dist/` tree (the
+    sandbox uses `/tmp/opencode/qa-sandbox/momo-dist/` with skills + node_modules).
 
-- `frankenstein.md` — issue log F1-F10 (statuses + verification; single-writer)
-- `plan.md` — wave statuses + Phase 4B design (Wave 8 source of truth)
-- `packages/omo-opencode/src/tools/delegate-task/subagent-resolver.ts` — explicit model param precedence fix
-- `packages/omo-opencode/src/config/validate.ts` — V1_DISABLED_AGENTS_DEFAULT (junior removed) + V1_DISABLED_COMMANDS_DEFAULT
-- `packages/omo-opencode/src/agents/sisyphus/momo-core-sections.ts` — shared momo-core prompt block (all variants)
-- `packages/omo-opencode/src/agents/{planner,executor}/` — Wave 8 manager agents (+ packages/prompts-core/prompts/{planner,executor}/default.md)
-- `packages/omo-opencode/src/features/builtin-skills/default-off-skills.ts` — W2 lean skill roster
-- `packages/omo-opencode/src/features/local-translator/translator.ts` — thinking-model retry + logging
-- `notes/claude-code-patterns.md` — CC tool/prompt patterns (input for W6)
-- `packages/omo-opencode/dist/index.js` — built plugin the user's opencode loads
+11. **Parallel-agent noise.** Other sessions/agents may run opencode in this
+    repo during QA; don't trust run-log attribution blindly. During this
+    session the user's own TUI was running as PID 8082 with `--pure` (loads no
+    plugins at all) — unaffected by any config edits until restart.
 
-## IMPORTANT DECISIONS
+12. Host quirk (not a momo bug): `inotify_add_watch ... .git failed: No space
+    left on device` (watch limit exhausted on this host) appeared in the momo
+    log during the real run; harness kept running.
 
-- "Orchestrator decides models": NO static provider lists in config, NO
-  provider-first chains in code. Mechanism: catalog_pick (cost/capability
-  neutral) → explicit task(model=...) → honored on both paths. Chains are
-  provider-neutral availability fallbacks.
-- Disable-by-default, never delete (agents, commands, skills).
-- delegation.managers default TRUE (user overrode plan.md's false).
-- frankenstein.md single-writer: workers report via task results; the
-  orchestrator consolidates.
-- Worker lanes: subagent_type=general with explicit model params (neuralwatt:
-  glm-5.2 for implementation, kimi-k3-fast/glm-5.2-fast for small tasks); go
-  packs NOT used for sub-agents (5-hour rolling limits).
-- One comprehensive commit acceptable (precedent dd810b3c8).
+## Real switch (DONE, user consented)
 
-## EXPLICIT CONSTRAINTS
+- `~/.config/opencode/opencode.json`: `plugin` ->
+  `["file:///home/furkanbora/code/ai/momo/dist/index.js"]`
+  (backup: `/tmp/opencode/real-switch-backup/config-opencode.json`).
+- `~/.opencode/opencode.json`: emptied to `{"$schema": ...}` (backup kept).
+- `~/.opencode/tui.json`: emptied to `{}` (backup kept).
+- Removed: `~/.opencode/node_modules/oh-my-openagent{,-linux-x64,-linux-x64-baseline}`,
+  `~/.cache/opencode/packages/oh-my-openagent@*` (npm upstream copies).
+- `~/.omo/omo.jsonc`: sisyphus chain reordered funded-first; `team_mode.enabled`
+  -> false (backup: `/tmp/opencode/real-switch-backup/omo.jsonc`).
 
-- "nuralwat first falan bir durum yok ortada" (no provider-first anything)
-- "tamamen orkestratör tarafından kararlaştırılsın" (model selection fully
-  orchestrator-decided)
-- "direk silebiliriz gereksiz yerleri tutmaya gerek yok" (delete redundant
-  config lists)
-- "ucuz alt ajanlar kullan" + "spesifik bir iş ve promt ayarla boşa para
-  harcama" (cheap sub-agents, precise prompts, no waste)
-- Repo conventions (AGENTS.md): no `as any`/`@ts-ignore`; bun:test
-  given/when/then; NEVER assert authored prompt wording in tests; ~200 LOC soft
-  cap; QA mandate for src/ changes (opencode-qa skill, isolated XDG) before
-  commit.
+## Real-env verification (PASSED)
 
-## CONTEXT FOR CONTINUATION
+`env -u OPENCODE_PURE ... opencode run "Reply with the single word: ready"`
+in the repo (real XDG, real DB):
 
-- CRITICAL: plugin runs from `dist/index.js` — source fixes are INERT until
-  `bun run build` + opencode restart. Build+restart before live verification of
-  any new source change.
-- CRITICAL: restarting opencode kills in-flight background tasks (they live in
-  the server process). Check evidence dirs before restarting.
-- Probing methodology (proven): launch trivial task() with explicit model, then
-  `sqlite3 ~/.local/share/opencode/opencode.db "SELECT model, (SELECT count(*)
-  FROM message m WHERE m.session_id=session.id) FROM session WHERE id='...'"` —
-  model column + message count verifies the lane without burning tokens.
-- opencode log: `~/.local/share/opencode/log/opencode.log` (UTC timestamps).
-  `prompt_async failed` and `stream error` lines are the diagnostic goldmine.
-- The 3 codex-components test failures are pre-existing/environmental (Codex
-  binary + sg resolution) — documented, do not chase.
-- Codegraph MCP times out at runtime (MCP error -32001) — known, deferred; use
-  direct file reads instead.
-- gemma-4-31b-it (translator cloud model) is a THINKING model — thought parts
-  can exhaust max_output_tokens; retry hardening landed; revisit thinkingConfig
-  if Google documents gemma support.
+- Title: `opencode-go/deepseek-v4-flash` (small_model honored, no 402).
+- Main: `opencode-go/glm-5.2`, agent `Sisyphus - ultraworker` (session-model
+  inheritance + omo.jsonc chain fix).
+- Reply `ready`; 30.8k input tokens (orchestrator system prompt injected);
+  cost $0.043.
+- momo log: ENTRY, V1 roster (6 agents), tool registry 14 tools
+  (teamModeEnabled:false), connected-providers cache (5 providers), command
+  count 29.
+- Two run-mode sessions were created in the real DB during QA (one 402-failed
+  probe, one successful smoke test) — acceptable pollution, disclosed here.
 
----
+## Sandbox verification (PASSED)
 
-# PRIOR QA REFERENCE (2026-09-01 session — condensed, still operational)
+Same recipe with isolated XDG + fake HOME (`/tmp/opencode/qa-home`, which has
+`.omo/omo.jsonc` with team_mode disabled):
 
-## QA recipe (CORRECTED — mind the config path)
+- QA config: `/tmp/opencode/qa-sandbox/config/opencode/opencode.jsonc`
+  (model `go-b/glm-5.2`, small_model `go-b/deepseek-v4-flash`, plugin
+  `file:///tmp/opencode/qa-sandbox/momo-dist/index.js`).
+- Orchestrator ran on `go-b/glm-5.2`; title on `go-b/deepseek-v4-flash`;
+  V1 roster; connected-providers cache 4 providers / 98 models;
+  model-capabilities cache 3381 models; ast-grep provisioned to qa-home.
+
+## Working QA recipe (CORRECTED — mind the config path)
 
 ```bash
 # 1. QA config MUST be at $XDG_CONFIG_HOME/opencode/opencode.jsonc
-#    (NOT $XDG_CONFIG_HOME/opencode.json — that path is ignored)
+#    (/tmp/opencode/qa-sandbox/config/opencode/opencode.jsonc)
 # 2. Unset the nested-session env vars so plugins load.
 env -u OPENCODE_PURE -u OPENCODE -u OPENCODE_PID \
   XDG_CONFIG_HOME=/tmp/opencode/qa-sandbox/config \
@@ -196,18 +158,59 @@ env -u OPENCODE_PURE -u OPENCODE -u OPENCODE_PID \
   opencode run "..." --format json
 ```
 
-- Plugin dir for bare copies must ship node_modules (zod, ajv, ajv-formats) or
-  the import fails SILENTLY (loader publishes the error before `opencode run`
-  subscribes). The repo dist needs nothing (repo node_modules resolve).
-- CJS plugins rejected; ESM `export default` works. V1 shape `{ id, server }`
-  detected, `server()` invoked.
-- opencode ALWAYS walks `$HOME/.opencode/opencode.json` (not XDG-isolated).
-- `~/.local/bin/opencode` v1.18.25+; real DB
-  `~/.local/share/opencode/opencode.db`; momo log `/tmp/oh-my-opencode.log`
-  (shared append-only; 500 ms/50-line buffer can lose very short runs' lines).
-- Host quirk: inotify watch-limit warnings (`.git No space left on device`)
-  appear but the harness keeps running.
-- Old session's open items partially superseded: 402 hardening suggestion
-  (add 402 to default retry list / catalog-aware pruning) still open; the
-  sisyphus-chain reorder in omo.jsonc was later replaced by the list deletion
-  (2026-09-02, see F3 above).
+Plugin dir: `/tmp/opencode/qa-sandbox/momo-dist/` (full dist tree +
+node_modules {zod, ajv, ajv-formats}). Diagnostics: `opencode debug config`
+(see merged model/plugin/plugin_origins), `opencode debug v2` (bundled
+providers + small-model map).
+
+## Committed state
+
+- Commit `59b7e8746` on `dev`: validate.ts mergeViews fix + 2 regression tests
+  (no-view / explicit-list), bun-install proxy-restore fix, plan.md
+  OPENCODE_PURE correction.
+- Gates: `bun run typecheck` green; focused suites green (722 pass at handoff
+  time); full suite last known: 8393 pass + 3 known env-dependent
+  `codex-components` doctor fails (documented in plan.md, unrelated).
+- `dist/index.js` rebuilt (contains fix); HANDOFF.md untracked (session doc).
+
+## Open items / next steps
+
+1. **Restart the user's TUI** to pick up the new plugin config (the running
+   instance predates the switch; it uses `--pure` so it never loaded plugins
+   anyway).
+2. **Deployment story for bare dist copies**: any non-repo deployment of
+   `dist/index.js` must ship `node_modules` (zod, ajv, ajv-formats) next to it,
+   or the build should inline them. Consider a `bun run build:portable` that
+   emits dist + the three deps, and a doctor check that warns when externals
+   are unresolvable (the current failure is 100% silent to users).
+3. **Silent plugin-load failure UX**: init-time `publishPluginError` is
+   invisible in `opencode run` output (fires before the run subscribes).
+   Consider a momo-side `session.status`-based self-check, or at minimum a
+   doctor check ("is the plugin actually loaded?") using the momo log ENTRY
+   line.
+4. **402 hardening (momo-side follow-up)**: a chain head on an unfunded
+   provider hard-fails because `runtime_fallback.retry_on_errors` (user
+   config, and possibly momo defaults) excludes 402. Consider adding 402 to
+   the default retry list in `packages/model-core` fallback defaults, and/or
+   catalog-aware chain pruning (drop providers that recently 402'd).
+5. plan.md follow-ups unchanged: token-burn live chat evidence, Ollama
+   real-harness experience, A/B eval, `/advisor`.
+6. Doctor test env fails (`codex-components`, 3 tests) remain environment-
+   dependent (sg/PATH), documented in plan.md.
+
+## Key paths
+
+- Repo: `/home/furkanbora/code/ai/momo`; build entry `dist/index.js`
+  (+ `dist/skills`, relies on repo `node_modules` for zod/ajv/ajv-formats).
+- Plugin log: `/tmp/oh-my-opencode.log` (shared, append-only; check tail by
+  timestamp; the logger buffers 500 ms / 50 lines, so very short-lived runs
+  can lose lines).
+- QA sandbox: `/tmp/opencode/qa-sandbox/{config/opencode/opencode.jsonc,data,
+  state,cache}`; fake HOME `/tmp/opencode/qa-home`; plugin dir
+  `/tmp/opencode/qa-sandbox/momo-dist/`.
+- Config backups: `/tmp/opencode/real-switch-backup/`.
+- opencode: `~/.local/bin/opencode` v1.18.25; user configs:
+  `~/.config/opencode/opencode.json` (global, now momo dist), `~/.opencode/
+  opencode.json` (empty), `~/.omo/omo.jsonc` (omo overrides, sisyphus chain
+  fixed, team_mode off), `~/.local/share/opencode/opencode.db` (real DB —
+  60 sessions at QA start + 2 QA sessions created this session).
