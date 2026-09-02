@@ -54,8 +54,11 @@ function stripResolutionControlKeys(config: OmoConfig): OmoConfig {
   return resolved
 }
 
-function validationDiagnostic(path: string, issues: readonly { readonly path: readonly PropertyKey[] }[]): OmoConfigDiagnostic {
-  const issuePaths = issues.map((issue) => issue.path.map((segment) => String(segment)).join("."))
+function validationDiagnostic(path: string, issues: readonly { readonly path: readonly PropertyKey[]; readonly message?: string }[]): OmoConfigDiagnostic {
+  const issuePaths = issues.map((issue) => {
+    const joined = issue.path.map((segment) => String(segment)).join(".")
+    return joined.length > 0 ? joined : (issue.message ?? "root")
+  })
   return {
     kind: "validation",
     message: `Invalid omo config at ${path}: ${issuePaths.join(", ")}`,

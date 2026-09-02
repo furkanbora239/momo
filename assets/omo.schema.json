@@ -1806,6 +1806,7 @@
       ],
       "additionalProperties": false
     },
+    "local_translator": {},
     "[opencode]": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "$id": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
@@ -12342,6 +12343,12 @@
             "truncate_all_tool_outputs": {
               "type": "boolean"
             },
+            "max_tool_output_chars": {
+              "default": 8000,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
             "dynamic_context_pruning": {
               "type": "object",
               "properties": {
@@ -12487,7 +12494,8 @@
             }
           },
           "required": [
-            "aggressive_truncation"
+            "aggressive_truncation",
+            "max_tool_output_chars"
           ],
           "additionalProperties": false
         },
@@ -18375,6 +18383,7 @@
             },
             "additionalProperties": false
           },
+          "local_translator": {},
           "[opencode]": {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "$id": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
@@ -28911,6 +28920,12 @@
                   "truncate_all_tool_outputs": {
                     "type": "boolean"
                   },
+                  "max_tool_output_chars": {
+                    "default": 8000,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
                   "dynamic_context_pruning": {
                     "type": "object",
                     "properties": {
@@ -29056,7 +29071,8 @@
                   }
                 },
                 "required": [
-                  "aggressive_truncation"
+                  "aggressive_truncation",
+                  "max_tool_output_chars"
                 ],
                 "additionalProperties": false
               },

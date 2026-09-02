@@ -5889,6 +5889,7 @@ var OmoConfigProfileSchema = object({
   models: OmoModelCatalogLayerSchema.optional(),
   memory: OmoMemorySettingsLayerSchema.optional(),
   telemetry: OmoTelemetrySettingsLayerSchema.optional(),
+  local_translator: unknown().optional(),
   "[opencode]": OmoOpenCodeHarnessConfigSchema.optional(),
   "[senpi]": OmoTypedHarnessConfigSchema.optional(),
   "[codex]": OmoTypedHarnessConfigSchema.optional()
@@ -5903,6 +5904,7 @@ var OmoConfigSchema = object({
   models: OmoModelCatalogSchema.optional(),
   memory: OmoMemorySettingsSchema.optional(),
   telemetry: OmoTelemetrySettingsSchema.optional(),
+  local_translator: unknown().optional(),
   "[opencode]": OmoOpenCodeHarnessConfigSchema.optional(),
   "[senpi]": OmoTypedHarnessConfigSchema.optional(),
   "[codex]": OmoTypedHarnessConfigSchema.optional(),
@@ -5920,6 +5922,7 @@ var OmoConfigLayerSchema = object({
   models: OmoModelCatalogLayerSchema.optional(),
   memory: OmoMemorySettingsLayerSchema.optional(),
   telemetry: OmoTelemetrySettingsLayerSchema.optional(),
+  local_translator: unknown().optional(),
   "[opencode]": OmoOpenCodeHarnessConfigSchema.optional(),
   "[senpi]": OmoTypedHarnessConfigSchema.optional(),
   "[codex]": OmoTypedHarnessConfigSchema.optional(),
@@ -7517,7 +7520,10 @@ function stripResolutionControlKeys(config2) {
   return resolved;
 }
 function validationDiagnostic(path, issues) {
-  const issuePaths = issues.map((issue2) => issue2.path.map((segment) => String(segment)).join("."));
+  const issuePaths = issues.map((issue2) => {
+    const joined = issue2.path.map((segment) => String(segment)).join(".");
+    return joined.length > 0 ? joined : issue2.message ?? "root";
+  });
   return {
     kind: "validation",
     message: `Invalid omo config at ${path}: ${issuePaths.join(", ")}`,
