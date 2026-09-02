@@ -17,6 +17,7 @@ export interface CodexComponentsDoctorDeps extends CodexDoctorDeps {
   readonly env?: Record<string, string | undefined>
   readonly platform?: NodeJS.Platform
   readonly arch?: string
+  readonly homeDir?: string
   readonly sgRunVersionProbeSync?: SgResolverOptions["runVersionProbeSync"]
   readonly sgWhich?: SgResolverOptions["which"]
 }
@@ -85,6 +86,7 @@ export async function checkCodexComponents(deps: CodexComponentsDoctorDeps = {})
     arch,
     env,
     platform,
+    homeDir: deps.homeDir ?? (deps.codexHome ? join(deps.codexHome, "..") : undefined),
     runtimeDir: runtimeSgDir,
     ...(deps.sgRunVersionProbeSync === undefined ? {} : { runVersionProbeSync: deps.sgRunVersionProbeSync }),
     ...(deps.sgWhich === undefined ? {} : { which: deps.sgWhich }),

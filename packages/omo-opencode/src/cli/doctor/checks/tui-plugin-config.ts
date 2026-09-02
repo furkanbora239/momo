@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
 import {
   ACCEPTED_PACKAGE_NAMES,
@@ -43,6 +43,12 @@ interface TuiPluginInfo {
 function fileEntryPackageJsonPath(entry: string): string {
   let path = entry.slice("file:".length)
   if (path.startsWith("//")) path = path.slice(2)
+  if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".ts")) {
+    const parent = dirname(path)
+    if (existsSync(join(parent, "package.json"))) return join(parent, "package.json")
+    if (existsSync(join(dirname(parent), "package.json"))) return join(dirname(parent), "package.json")
+    return join(parent, "package.json")
+  }
   return join(path, "package.json")
 }
 

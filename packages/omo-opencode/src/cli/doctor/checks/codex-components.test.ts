@@ -118,6 +118,7 @@ function buildDeps(fixture: Fixture, overrides: Partial<CodexComponentsDoctorDep
   return {
     codexHome: fixture.codexHome,
     binDir: fixture.binDir,
+    homeDir: fixture.root,
     detectCodexInstallation: async () => ({ found: true, source: "cli", path: "/usr/local/bin/codex" }),
     env: {},
     platform: TEST_PLATFORM,
