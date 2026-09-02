@@ -16,8 +16,8 @@ describe("runTestFast", () => {
     const exit = await runTestFast(spawnGroup)
 
     // then
-    expect(testFastGroups().length).toBe(3)
-    expect(order.indexOf("start:senpi")).toBeLessThan(
+    expect(testFastGroups().length).toBe(2)
+    expect(order.indexOf("start:root-rest")).toBeLessThan(
       order.indexOf("exit:opencode-memory"),
     )
     expect(exit).toBe(0)
