@@ -1,7 +1,6 @@
 import type { Command } from "commander"
 
 import { boulder } from "./boulder"
-import { codexUlwLoop } from "./codex-ulw-loop"
 import { refreshModelCapabilities } from "./refresh-model-capabilities"
 import { PLUGIN_NAME } from "../shared"
 import packageJson from "../../../../package.json" with { type: "json" }
@@ -43,16 +42,6 @@ export function configureRuntimeCommands(program: Command): void {
         workId: options.workId,
         json: options.json ?? false,
       })
-      process.exit(exitCode)
-    })
-
-  program
-    .command("ulw-loop [args...]")
-    .allowUnknownOption()
-    .passThroughOptions()
-    .description("Run the Codex LazyCodex ulw-loop CLI")
-    .action(async (args: string[] = []) => {
-      const exitCode = await codexUlwLoop(args)
       process.exit(exitCode)
     })
 }

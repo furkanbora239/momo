@@ -8,15 +8,11 @@ import { checkModels } from "./model-resolution"
 import { checkTelemetry } from "./telemetry"
 import { checkTeamMode } from "./team-mode"
 import { checkTuiPluginConfig } from "./tui-plugin-config"
-import { checkCodex, gatherCodexSummary } from "./codex"
-import { CODEX_COMPONENTS_CHECK_ID, CODEX_COMPONENTS_CHECK_NAME, checkCodexComponents } from "./codex-components"
-import { checkCodexRuntimeWrapper } from "./codex-runtime-wrapper"
 import { checkMomORoster } from "./momo"
 
 export type { CheckDefinition }
 export * from "./model-resolution-types"
 export { gatherSystemInfo, gatherToolsSummary }
-export { gatherCodexSummary }
 
 export function getAllCheckDefinitions(): CheckDefinition[] {
   return [
@@ -70,22 +66,5 @@ export function getAllCheckDefinitions(): CheckDefinition[] {
 }
 
 export function getCodexCheckDefinitions(): CheckDefinition[] {
-  return [
-    {
-      id: CHECK_IDS.CODEX,
-      name: CHECK_NAMES[CHECK_IDS.CODEX],
-      check: checkCodex,
-      critical: true,
-    },
-    {
-      id: CODEX_COMPONENTS_CHECK_ID,
-      name: CODEX_COMPONENTS_CHECK_NAME,
-      check: checkCodexComponents,
-    },
-    {
-      id: "codex-runtime-wrapper",
-      name: "codex-runtime-wrapper",
-      check: checkCodexRuntimeWrapper,
-    },
-  ]
+  return []
 }

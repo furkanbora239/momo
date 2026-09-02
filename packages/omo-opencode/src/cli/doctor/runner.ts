@@ -1,5 +1,5 @@
 import type { DoctorOptions, DoctorResult, CheckDefinition, CheckResult, DoctorSummary } from "./framework/types"
-import { getAllCheckDefinitions, getCodexCheckDefinitions, gatherSystemInfo, gatherToolsSummary, gatherCodexSummary } from "./checks"
+import { getAllCheckDefinitions, getCodexCheckDefinitions, gatherSystemInfo, gatherToolsSummary } from "./checks"
 import { EXIT_CODES } from "./framework/constants"
 import { formatDoctorOutput, formatJsonOutput } from "./framework/formatter"
 
@@ -73,7 +73,7 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
     Promise.all(allChecks.map(runCheck)),
     gatherSystemInfo(),
     gatherToolsSummary(),
-    target === "codex" ? gatherCodexSummary() : Promise.resolve(undefined),
+    Promise.resolve(undefined),
   ])
 
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -84,7 +84,7 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
   let results: CheckResult[]
   let systemInfo: Awaited<ReturnType<typeof gatherSystemInfo>>
   let tools: Awaited<ReturnType<typeof gatherToolsSummary>>
-  let codex: Awaited<ReturnType<typeof gatherCodexSummary>> | undefined
+  let codex: undefined
 
   try {
     ;[results, systemInfo, tools, codex] = await Promise.race([checksPromise, timeoutPromise])

@@ -1,6 +1,5 @@
 import { Command, Option } from "commander"
 import { install } from "./install"
-import { configureCleanupCommand, resolveCleanupPlatform } from "./cleanup-command"
 import { run } from "./run"
 import { getLocalVersion } from "./get-local-version"
 import { doctor, resolveDoctorTarget } from "./doctor"
@@ -86,8 +85,6 @@ export function resolveInstallArgs(
   }
 }
 
-export { resolveCleanupPlatform }
-
 program
   .name("oh-my-opencode")
   .description("The ultimate OpenCode plugin - multi-model orchestration, LSP tools, and more")
@@ -144,8 +141,6 @@ Model Providers (Priority: Native > Copilot > OpenCode Zen > Z.ai > Kimi > Baili
     const exitCode = await install(args)
     process.exit(exitCode)
   })
-
-configureCleanupCommand(program)
 
 program
    .command("run <message>")
