@@ -156,7 +156,7 @@ export async function checkSystem(deps: SystemCheckDeps = defaultDeps): Promise<
     }
   }
 
-  if (loadedInfo.expectedVersion && loadedInfo.loadedVersion && loadedInfo.expectedVersion !== loadedInfo.loadedVersion) {
+  if (!pluginInfo.isLocalDev && loadedInfo.expectedVersion && loadedInfo.loadedVersion && loadedInfo.expectedVersion !== loadedInfo.loadedVersion) {
     issues.push({
       title: "Loaded plugin version mismatch",
       description: `Cache expects ${loadedInfo.expectedVersion} but loaded ${loadedInfo.loadedVersion}.`,
@@ -167,6 +167,7 @@ export async function checkSystem(deps: SystemCheckDeps = defaultDeps): Promise<
   }
 
   if (
+    !pluginInfo.isLocalDev &&
     systemInfo.loadedVersion &&
     latestVersion &&
     !deps.compareVersions(systemInfo.loadedVersion, latestVersion)
