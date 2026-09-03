@@ -162,7 +162,8 @@ export type BuiltinAgentName =
   | "sisyphus-junior"
   | "advisor"
   | "planner"
-  | "executor";
+  | "executor"
+  | "manager";
 
 export type OverridableAgentName = "build" | BuiltinAgentName;
 

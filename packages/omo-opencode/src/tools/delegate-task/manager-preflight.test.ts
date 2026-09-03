@@ -115,6 +115,46 @@ describe("subagent-request-preflight - manager loop protection", () => {
   test("#given MANAGER_AGENT_NAMES #when inspected #then contains exactly planner and executor", () => {
     expect([...MANAGER_AGENT_NAMES]).toEqual(["planner", "executor"])
   })
+
+  test("#given parent=manager and target=planner #when validating #then passes (dispatcher-to-lead)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "planner", prompt: "plan it", load_skills: [], run_in_background: false, description: "test" },
+      "manager",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("valid")
+  })
+
+  test("#given parent=manager and target=executor #when validating #then passes (dispatcher-to-lead)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "executor", prompt: "execute it", load_skills: [], run_in_background: false, description: "test" },
+      "manager",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("valid")
+  })
+
+  test("#given parent=manager and target=manager #when validating #then blocked (dispatcher-to-dispatcher loop)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "manager", prompt: "dispatch it", load_skills: [], run_in_background: false, description: "test" },
+      "manager",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("invalid")
+  })
+
+  test("#given parent=planner and target=manager #when validating #then blocked (lead-to-dispatcher loop)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "manager", prompt: "dispatch it", load_skills: [], run_in_background: false, description: "test" },
+      "planner",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("invalid")
+  })
 })
 
 module.exports = {}

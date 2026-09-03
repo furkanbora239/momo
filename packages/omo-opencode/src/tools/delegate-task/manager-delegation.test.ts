@@ -1,6 +1,6 @@
 const { describe, test, expect } = require("bun:test")
 
-const { canSpawnWorkers, isManagerAgent, MANAGER_AGENT_NAMES } = require("./constants")
+const { canSpawnWorkers, isManagerAgent, isDispatcherAgent, MANAGER_AGENT_NAMES } = require("./constants")
 const { buildSyncPromptTools } = require("./sync-prompt-sender")
 const { getAgentToolRestrictions } = require("../../shared/agent-tool-restrictions")
 
@@ -13,11 +13,13 @@ describe("canSpawnWorkers", () => {
   test("#given manager agent with managersEnabled=true #when canSpawnWorkers called #then returns true", () => {
     expect(canSpawnWorkers("planner", true)).toBe(true)
     expect(canSpawnWorkers("executor", true)).toBe(true)
+    expect(canSpawnWorkers("manager", true)).toBe(true)
   })
 
   test("#given manager agent with managersEnabled=false #when canSpawnWorkers called #then returns false (degraded)", () => {
     expect(canSpawnWorkers("planner", false)).toBe(false)
     expect(canSpawnWorkers("executor", false)).toBe(false)
+    expect(canSpawnWorkers("manager", false)).toBe(false)
   })
 
   test("#given non-manager non-plan agent #when canSpawnWorkers called #then returns false", () => {
@@ -64,6 +66,11 @@ describe("buildSyncPromptTools - manager tool grant matrix", () => {
     expect(tools.task).toBe(true)
   })
 
+  test("#given manager with managersEnabled=true #when building tools #then task is granted", () => {
+    const tools = buildSyncPromptTools("manager", undefined, true)
+    expect(tools.task).toBe(true)
+  })
+
   test("#given planner with managersEnabled=false #when building tools #then task is denied (degraded)", () => {
     const tools = buildSyncPromptTools("planner", undefined, false)
     expect(tools.task).toBe(false)
@@ -71,6 +78,11 @@ describe("buildSyncPromptTools - manager tool grant matrix", () => {
 
   test("#given executor with managersEnabled=false #when building tools #then task is denied (degraded)", () => {
     const tools = buildSyncPromptTools("executor", undefined, false)
+    expect(tools.task).toBe(false)
+  })
+
+  test("#given manager with managersEnabled=false #when building tools #then task is denied (degraded)", () => {
+    const tools = buildSyncPromptTools("manager", undefined, false)
     expect(tools.task).toBe(false)
   })
 

@@ -16,6 +16,7 @@ import { createHephaestusAgent } from "./hephaestus"
 import { createSisyphusJuniorAgentWithOverrides } from "./sisyphus-junior"
 import { createPlannerAgent, PLANNER_PROMPT_METADATA } from "./planner"
 import { createExecutorAgent, EXECUTOR_PROMPT_METADATA } from "./executor"
+import { createManagerAgent, MANAGER_PROMPT_METADATA } from "./manager"
 import type { AvailableCategory } from "./dynamic-agent-prompt-builder"
 import {
   fetchAvailableModels,
@@ -49,6 +50,7 @@ const agentSources: Record<BuiltinAgentName, AgentSource> = {
   advisor: createAdvisorAgent,
   planner: createPlannerAgent,
   executor: createExecutorAgent,
+  manager: createManagerAgent,
 }
 
 /**
@@ -66,6 +68,7 @@ const agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>> = {
   advisor: ADVISOR_PROMPT_METADATA,
   planner: PLANNER_PROMPT_METADATA,
   executor: EXECUTOR_PROMPT_METADATA,
+  manager: MANAGER_PROMPT_METADATA,
 }
 
 export async function createBuiltinAgents(

@@ -1,6 +1,6 @@
 import type { DelegateTaskArgs } from "./types"
 import { getAgentConfigKey } from "../../shared/agent-display-names"
-import { isCoordinatorAgent, isManagerAgent, COORDINATOR_AGENT_NAMES, isPlanFamily } from "./constants"
+import { isCoordinatorAgent, isManagerAgent, isDispatcherAgent, COORDINATOR_AGENT_NAMES, isPlanFamily } from "./constants"
 import { SISYPHUS_JUNIOR_AGENT } from "./sisyphus-junior-agent"
 import { sanitizeSubagentType } from "./subagent-discovery"
 import type { ResolveSubagentExecutionOptions, SubagentRequestPreflight } from "./subagent-resolution-types"
@@ -55,24 +55,35 @@ Create the work plan directly - that's your job as the planning agent.`,
     }
   }
 
-  if (isManagerAgent(parentAgent) && isManagerAgent(agentName)) {
+  if (isDispatcherAgent(parentAgent) && isDispatcherAgent(agentName)) {
     return {
       kind: "invalid",
       result: {
         agentToUse: "",
         categoryModel: undefined,
-        error: `You are a manager agent (${parentAgent}). You cannot delegate to other manager agents. Delegate to a task category or a worker agent instead.`,
+        error: `You are a dispatcher agent (${parentAgent}). You cannot delegate to other dispatcher agents. Delegate to a department lead (planner, executor) or a worker agent instead.`,
       },
     }
   }
 
-  if (isManagerAgent(parentAgent) && isCoordinatorAgent(agentName)) {
+  if (isManagerAgent(parentAgent) && (isManagerAgent(agentName) || isDispatcherAgent(agentName))) {
     return {
       kind: "invalid",
       result: {
         agentToUse: "",
         categoryModel: undefined,
-        error: `Cannot delegate to coordinator agent "${agentName}" via task(). Manager agents delegate to workers (task categories, explore, librarian), not to coordinators (${COORDINATOR_AGENT_NAMES.join(", ")}).`,
+        error: `You are a manager agent (${parentAgent}). You cannot delegate to other manager or dispatcher agents. Delegate to a task category or a worker agent instead.`,
+      },
+    }
+  }
+
+  if ((isManagerAgent(parentAgent) || isDispatcherAgent(parentAgent)) && isCoordinatorAgent(agentName)) {
+    return {
+      kind: "invalid",
+      result: {
+        agentToUse: "",
+        categoryModel: undefined,
+        error: `Cannot delegate to coordinator agent "${agentName}" via task(). Manager and dispatcher agents delegate to department leads or workers, not to coordinators (${COORDINATOR_AGENT_NAMES.join(", ")}).`,
       },
     }
   }

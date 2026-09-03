@@ -421,6 +421,20 @@ export function isCoordinatorAgent(agentName: string | undefined): boolean {
 export const MANAGER_AGENT_NAMES = ["planner", "executor"] as const
 
 /**
+ * Dispatcher agent that sits between orchestrator and department leads.
+ */
+export const DISPATCHER_AGENT_NAMES = ["manager"] as const
+
+/**
+ * Returns true when the given agent name refers to a dispatcher agent (manager).
+ */
+export function isDispatcherAgent(agentName: string | undefined): boolean {
+  if (!agentName) return false
+  const normalized = getAgentConfigKey(agentName).toLowerCase().trim()
+  return DISPATCHER_AGENT_NAMES.some((name) => normalized === name)
+}
+
+/**
  * Returns true when the given agent name refers to a manager-layer agent
  * (planner or executor).
  */
@@ -433,7 +447,7 @@ export function isManagerAgent(agentName: string | undefined): boolean {
 /**
  * Returns true when the given agent should receive the `task` tool in sync
  * sessions (i.e., can spawn worker sub-agents). Plan-family agents always can;
- * when managers are enabled, planner/executor managers also can.
+ * when managers are enabled, planner/executor managers and dispatchers also can.
  *
  * When `managersEnabled` is false, degrades to today's plan-family-only
  * behavior — managers are not registered and cannot spawn.
@@ -443,6 +457,6 @@ export function canSpawnWorkers(
   managersEnabled: boolean = true,
 ): boolean {
   if (isPlanFamily(agentName)) return true
-  if (managersEnabled && isManagerAgent(agentName)) return true
+  if (managersEnabled && (isManagerAgent(agentName) || isDispatcherAgent(agentName))) return true
   return false
 }

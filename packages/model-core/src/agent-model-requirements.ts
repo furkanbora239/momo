@@ -209,4 +209,13 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
       { providers: ["opencode"], model: "big-pickle" },
     ],
   },
+  manager: {
+    fallbackChain: [
+      { providers: ["opencode-go", "go-b"], model: "qwen3.8-flash" },
+      { providers: ["opencode-go", "go-b"], model: "glm-5.3-flash" },
+      { providers: ["opencode-go", "go-b"], model: "deepseek-v4-flash" },
+      { providers: ["neuralwatt"], model: "glm-5.2" },
+      { providers: ["opencode"], model: "big-pickle" },
+    ],
+  },
 };

@@ -13,6 +13,7 @@ export type {
 } from "./types"
 export { atlasPromptVariants } from "./atlas-prompts"
 export { executorPromptVariants } from "./executor-prompts"
+export { managerPromptVariants } from "./manager-prompts"
 export { plannerPromptVariants } from "./planner-prompts"
 export { prometheusPromptVariants } from "./prometheus-prompts"
 export {
