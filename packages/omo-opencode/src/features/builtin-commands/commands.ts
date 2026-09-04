@@ -130,7 +130,7 @@ Parse $ARGUMENTS and act via the \`advisor\` tool:
 
 - No arguments → call \`advisor\` with action="report" and relay the result.
 - \`off\` / \`unbind\` / \`disable\` → call \`advisor\` with action="off".
-- A model id (e.g. \`neuralwatt/glm-5.2\`) → first call the \`catalog_list\` MCP
+- A model id (e.g. \`neuralwatt/kimi-k3\`) → first call the \`catalog_list\` MCP
   tool to show the user the connected, catalogued models; if the requested
   model is not in the catalog, say so and suggest closest matches. Then call
   \`advisor\` with action="bind" and model="<model-id>" and relay the result.

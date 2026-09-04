@@ -68,7 +68,7 @@ describe("createTaskChildPlanner", () => {
     const planner = createTaskChildPlanner(
       {},
       {},
-      () => registry([model("zai-coding-plan", "glm-5.2")]),
+      () => registry([model("openai", "gpt-5.6-sol")]),
     )
 
     // when
@@ -83,10 +83,10 @@ describe("createTaskChildPlanner", () => {
     const resolved = expectResolved(result)
     expect(resolved.plan.resolved_model).toMatchObject({
       source: "category",
-      provider: "zai-coding-plan",
-      model_id: "glm-5.2",
-      display: "zai-coding-plan/glm-5.2",
-      variant: "max",
+      provider: "openai",
+      model_id: "gpt-5.6-sol",
+      display: "openai/gpt-5.6-sol",
+      variant: "medium",
     })
   })
 
@@ -225,7 +225,7 @@ describe("createTaskChildPlanner", () => {
     const planner = createTaskChildPlanner(
       {},
       BUILTIN_AGENTS,
-      () => registry([model("zai-coding-plan", "glm-5.2")]),
+      () => registry([model("openai", "gpt-5.6-sol")]),
     )
 
     // when
@@ -238,7 +238,7 @@ describe("createTaskChildPlanner", () => {
 
     // then
     const resolved = expectResolved(result)
-    expect(resolved.plan.resolved_model).toMatchObject({ source: "category", provider: "zai-coding-plan" })
+    expect(resolved.plan.resolved_model).toMatchObject({ source: "category", provider: "openai" })
     expect(resolved.plan.category).toBe("visual-engineering")
   })
 
@@ -426,7 +426,7 @@ describe("createTaskChildPlanner plan variant", () => {
     const planner = createTaskChildPlanner(
       {},
       {},
-      () => registry([model("zai-coding-plan", "glm-5.2")]),
+      () => registry([model("openai", "gpt-5.6-sol")]),
     )
 
     // when
@@ -438,7 +438,7 @@ describe("createTaskChildPlanner plan variant", () => {
     })
 
     // then
-    expect(expectResolved(result).plan.variant).toBe("max")
+    expect(expectResolved(result).plan.variant).toBe("medium")
   })
 
   test("#given an explicit provider model #when planned #then no variant is applied", () => {

@@ -17,11 +17,6 @@ export const CATEGORY_FALLBACK_CHAINS: Readonly<Record<string, readonly Delegate
       variant: "max",
     },
     {
-      providers: ["zai-coding-plan", "opencode-go", "vercel"],
-      model: "glm-5.2",
-      variant: "max",
-    },
-    {
       providers: ["openai", "quotio-openai", "github-copilot", "opencode", "vercel"],
       model: "gpt-5.6-sol",
       variant: "medium",

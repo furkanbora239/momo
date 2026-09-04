@@ -272,7 +272,7 @@ bunx oh-my-opencode config migrate
   // 4. Subagent Category Overrides
   "categories": {
     "quick": { "model": "google/gemini-3-flash" },
-    "deep": { "model": "neuralwatt/glm-5.2" },
+    "deep": { "model": "opencode-go/glm-5.3-flash" },
     "ultrabrain": { "model": "openai/gpt-5.6-sol" }
   }
 }

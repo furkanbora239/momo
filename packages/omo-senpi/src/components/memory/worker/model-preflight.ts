@@ -161,7 +161,7 @@ function asMemoryModelChain(candidates: readonly ReflectionModelCandidate[]): Me
 }
 
 // A provider name never contains a slash, so the first column stays strict. A model id routinely does
-// (`z-ai/glm-5.2-ultrafast-unlocked`, `deepseek-ai/deepseek-v4-pro`, most OpenRouter ids), and senpi
+// (`z-ai/glm-5.3-flash`, `deepseek-ai/deepseek-v4-pro`, most OpenRouter ids), and senpi
 // resolves `<provider>/<model-id>` by splitting on the FIRST slash only, so the model column must keep
 // everything after it verbatim.
 function isProviderPart(value: string): boolean {

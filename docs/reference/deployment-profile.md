@@ -16,7 +16,7 @@ momo is built around high-throughput, low-cost model execution:
 
 | Role | Target Provider | Recommended Model | Rationale |
 |---|---|---|---|
-| **Orchestrator (Sisyphus)** | `neuralwatt` | `neuralwatt/glm-5.2` / `kimi-k3` / `claude-opus` | Takes advantage of **Neuralwatt Prompt Caching**; context stays cheap across long sessions. |
+| **Orchestrator (Sisyphus)** | `neuralwatt` | `neuralwatt/kimi-k3` / `claude-opus` | Takes advantage of **Neuralwatt Prompt Caching**; context stays cheap across long sessions. |
 | **Manager (Dispatcher)** | `opencode-go` (`go-b`) | `go-b/qwen3.8-flash` | Ultra-fast (low TTFT), sharp routing, highly cost-effective under Go 6x campaign. |
 | **Leads (Planner & Executor)** | `opencode-go` (`go-b`) | `go-b/glm-5.3-flash` / `qwen3.7-plus` | Strong reasoning for decomposition and test verification without draining limits. |
 | **Workers (Coding & Explore)** | `opencode-go` (`go-b`) | `go-b/hy3`, `deepseek-v4-flash`, `glm-5.3-flash` | High throughput coding (`hy3`) and rapid codebase exploration (`deepseek-flash`). |

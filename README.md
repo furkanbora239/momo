@@ -238,7 +238,7 @@ momo works out of the box with zero configuration. To customize behavior, create
       "model": "google/gemini-3-flash"
     },
     "deep": {
-      "model": "neuralwatt/glm-5.2"
+      "model": "opencode-go/glm-5.3-flash"
     },
     "ultrabrain": {
       "model": "openai/gpt-5.6-sol"

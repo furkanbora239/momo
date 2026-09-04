@@ -15,6 +15,7 @@ const expectedAgents = [
   "sisyphus-junior",
   "planner",
   "executor",
+  "manager",
 ] as const
 
 const expectedCategories = [

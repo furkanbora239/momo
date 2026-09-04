@@ -45,7 +45,7 @@ describe("CATEGORY_MODEL_REQUIREMENTS", () => {
     })
   })
 
-  test("visual-engineering follows the approved 4-rung chain", () => {
+  test("visual-engineering follows the approved 3-rung chain", () => {
     // given
     const visualEngineering = CATEGORY_MODEL_REQUIREMENTS["visual-engineering"]
 
@@ -62,11 +62,6 @@ describe("CATEGORY_MODEL_REQUIREMENTS", () => {
       {
         providers: ["kimi-for-coding", "moonshotai", "opencode-go", "opencode", "vercel"],
         model: "kimi-k3",
-        variant: "max",
-      },
-      {
-        providers: ["zai-coding-plan", "opencode-go", "vercel"],
-        model: "glm-5.2",
         variant: "max",
       },
       {

@@ -24,15 +24,15 @@ describe("AGENT_MODEL_REQUIREMENTS", () => {
     })
   })
 
-  test("sisyphus keeps opus primary before Kimi K3, gpt-5.6-sol, GLM 5.2, and big-pickle fallbacks", () => {
+  test("sisyphus keeps opus primary before Kimi K3, gpt-5.6-sol, and big-pickle fallbacks", () => {
     // given
     const sisyphus = AGENT_MODEL_REQUIREMENTS["sisyphus"]
 
     // when
-    const [primary, second, solFallback, fourth, last] = sisyphus.fallbackChain
+    const [primary, second, solFallback, last] = sisyphus.fallbackChain
 
     // then
-    expect(sisyphus.fallbackChain).toHaveLength(5)
+    expect(sisyphus.fallbackChain).toHaveLength(4)
     expect(sisyphus.requiresAnyModel).toBe(true)
     expect(primary).toEqual({
       providers: ["anthropic", "github-copilot", "opencode", "vercel"],
@@ -59,8 +59,6 @@ describe("AGENT_MODEL_REQUIREMENTS", () => {
       model: "gpt-5.6-sol",
       variant: "medium",
     })
-    expect(fourth?.providers[0]).toBe("zai-coding-plan")
-    expect(fourth?.model).toBe("glm-5.2")
     expect(last?.providers[0]).toBe("opencode")
     expect(last?.model).toBe("big-pickle")
   })

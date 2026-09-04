@@ -68,7 +68,7 @@ function foregroundLines() {
     mode: "spawn",
     category: "quick",
     execution_mode: "in-process",
-    model: "apitopia/z-ai/glm-5.2-ultrafast-unlocked",
+    model: "apitopia/z-ai/glm-5.3-flash",
     run_in_background: false,
     run_stats: { ...RUN_STATS, runtime_ms: 125_000, tool_calls: 7, tokens_per_second: 64 },
   }, THEME).render(WIDTH)
@@ -83,8 +83,8 @@ function backgroundLines() {
     status: "running",
     category: "quick",
     execution_mode: "in-process",
-    model: "apitopia/z-ai/glm-5.2-ultrafast-unlocked",
-    resolved_model: "apitopia/z-ai/glm-5.2-ultrafast-unlocked",
+    model: "apitopia/z-ai/glm-5.3-flash",
+    resolved_model: "apitopia/z-ai/glm-5.3-flash",
     created_at: new Date(now - 65_000).toISOString(),
     updated_at: new Date(now).toISOString(),
   }
@@ -123,7 +123,7 @@ function teamLines() {
       name: "stats-member",
       status: "completed",
       category: "quick",
-      model: "apitopia/z-ai/glm-5.2-ultrafast-unlocked",
+      model: "apitopia/z-ai/glm-5.3-flash",
       duration_ms: 65_000,
       run_stats: { ...RUN_STATS, tool_calls: 4, tokens_per_second: 250 },
       final_response: "team statistics member complete",

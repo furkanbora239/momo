@@ -13,7 +13,7 @@ export interface AdvisorToolOptions {
 
 const ADVISOR_TOOL_DESCRIPTION = `Bind, unbind, or report the momo advisor model for THIS session.
 The advisor is a bound-on-demand senior model. It stays UNBOUND (delegation to it is rejected) until a model is bound here or via agents.advisor.model config.
-Actions: "report" (default) shows the current binding and its source; "bind" requires the model parameter (e.g. "neuralwatt/glm-5.2") and applies only to this session; "off" clears the session binding (a config binding, if any, still applies).`
+Actions: "report" (default) shows the current binding and its source; "bind" requires the model parameter (e.g. "neuralwatt/kimi-k3") and applies only to this session; "off" clears the session binding (a config binding, if any, still applies).`
 
 export function createAdvisorTool(options: AdvisorToolOptions = {}): ToolDefinition {
   return tool({
@@ -26,7 +26,7 @@ export function createAdvisorTool(options: AdvisorToolOptions = {}): ToolDefinit
       model: tool.schema
         .string()
         .optional()
-        .describe('Model id to bind (provider/model, e.g. "neuralwatt/glm-5.2"). Required for action="bind".'),
+        .describe('Model id to bind (provider/model, e.g. "neuralwatt/kimi-k3"). Required for action="bind".'),
     },
     async execute(args, toolContext) {
       const sessionID = (toolContext as { sessionID?: string }).sessionID
@@ -39,7 +39,7 @@ export function createAdvisorTool(options: AdvisorToolOptions = {}): ToolDefinit
       if (action === "bind") {
         const model = args.model?.trim()
         if (!model) {
-          return 'advisor: action "bind" requires the model parameter (e.g. model="neuralwatt/glm-5.2").'
+          return 'advisor: action "bind" requires the model parameter (e.g. model="neuralwatt/kimi-k3").'
         }
         setSessionAdvisorBinding(sessionID, model)
         return `advisor: bound to "${model}" for this session. Delegation to the advisor agent is now enabled and will use this model. Use action="off" to unbind.`

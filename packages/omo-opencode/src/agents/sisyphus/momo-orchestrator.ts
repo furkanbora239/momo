@@ -174,7 +174,7 @@ Map surface form → true intent → routing. Announce in one short line - this 
 
 When tasks are independent, delegate them in parallel:
 \`\`\`
-task({ category: "visual-engineering", prompt: "...", model: "neuralwatt/glm-5.2", run_in_background: true })
+task({ category: "visual-engineering", prompt: "...", model: "opencode-go/glm-5.3-flash", run_in_background: true })
 task({ category: "deep", prompt: "...", model: "openai/gpt-5-nano", run_in_background: true })
 task({ category: "writing", prompt: "...", model: "anthropic/claude-haiku-4-5", run_in_background: true })
 \`\`\`

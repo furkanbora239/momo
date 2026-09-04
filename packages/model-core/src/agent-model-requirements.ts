@@ -24,7 +24,6 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
         model: "kimi-k3",
       },
       { providers: ["openai", "github-copilot", "opencode", "vercel"], model: "gpt-5.6-sol", variant: "medium" },
-      { providers: ["zai-coding-plan", "opencode", "bailian-coding-plan", "vercel"], model: "glm-5.2" },
       { providers: ["opencode"], model: "big-pickle" },
     ],
     requiresAnyModel: true,
@@ -62,7 +61,6 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
         model: "claude-opus-5",
         variant: "max",
       },
-      { providers: ["opencode-go", "vercel"], model: "glm-5.2" },
     ],
   },
   librarian: {
@@ -151,7 +149,6 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
         model: "gemini-3.1-pro",
         variant: "high",
       },
-      { providers: ["opencode-go", "vercel"], model: "glm-5.2" },
     ],
   },
   atlas: {
@@ -214,7 +211,6 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
       { providers: ["opencode-go", "go-b"], model: "qwen3.8-flash" },
       { providers: ["opencode-go", "go-b"], model: "glm-5.3-flash" },
       { providers: ["opencode-go", "go-b"], model: "deepseek-v4-flash" },
-      { providers: ["neuralwatt"], model: "glm-5.2" },
       { providers: ["opencode"], model: "big-pickle" },
     ],
   },

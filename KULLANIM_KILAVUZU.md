@@ -292,7 +292,7 @@ momo ayarları `~/.omo/omo.jsonc` (global) veya projenizdeki `.opencode/oh-my-op
       "model": "google/gemini-3-flash"
     },
     "deep": {
-      "model": "neuralwatt/glm-5.2"
+      "model": "opencode-go/glm-5.3-flash"
     },
     "ultrabrain": {
       "model": "openai/gpt-5.6-sol"

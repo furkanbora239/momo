@@ -14,11 +14,6 @@ export const CATEGORY_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
         variant: "max",
       },
       {
-        providers: ["zai-coding-plan", "opencode-go", "vercel"],
-        model: "glm-5.2",
-        variant: "max",
-      },
-      {
         providers: ["openai", "quotio-openai", "github-copilot", "opencode", "vercel"],
         model: "gpt-5.6-sol",
         variant: "medium",
