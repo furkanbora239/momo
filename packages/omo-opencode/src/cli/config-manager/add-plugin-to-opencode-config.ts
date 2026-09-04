@@ -72,7 +72,7 @@ function isSourceOmoPluginEntry(plugin: string): boolean {
   const normalized = plugin.toLowerCase().replaceAll("\\", "/")
   if (!normalized.startsWith("file://")) return false
 
-  return /\/(omo(?:-[^/]*)?|oh-my-opencode|oh-my-openagent)\/(src|dist)\/index\.(ts|js)$/.test(normalized)
+  return /\/(momo|omo(?:-[^/]*)?|oh-my-opencode|oh-my-openagent)\/(src|dist)\/index\.(ts|js)$/.test(normalized)
 }
 
 function isPackageOmoPluginEntry(plugin: string): boolean {
