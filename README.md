@@ -13,7 +13,7 @@
 ### The Token-Efficient, Multi-Model Agent Harness for OpenCode
 
 **Stop burning your budget on simple coding tasks.**  
-momo transforms OpenCode into a high-performance, cost-effective development team: an orchestrator that plans and delegates aggressively to cheap subagents, compresses prompts locally with Ollama, and calls flagship models strictly on demand.
+momo transforms OpenCode into a high-performance, cost-effective development team: an orchestrator that plans and delegates aggressively to cheap subagents, compresses prompts before submission, and calls flagship models strictly on demand.
 
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-369eff?style=flat-square&logo=opencode)](https://opencode.ai)
 [![Runtime Bun](https://img.shields.io/badge/Runtime-Bun-f472b6?style=flat-square&logo=bun)](https://bun.sh)
@@ -51,7 +51,7 @@ Standard AI coding harnesses send massive context windows, entire project trees,
 
 1. **Delegation Over Direct Implementation:** The orchestrator acts as a technical lead. It investigates, crafts a plan, and delegates tasks to specialized subagents instead of consuming expensive output tokens writing boilerplate directly.
 2. **Cheapest Adequate Model:** Subagent models are selected per-task at runtime (speed, code generation, visual UI, reasoning) from a live provider catalog (`catalog_pick`).
-3. **Local Translation & Token Discipline:** Prompts are translated to English and condensed into terse "Caveman" style locally via Ollama (`qwen2.5:1.5b` or `gemma3:1b`) before any cloud API call.
+3. **Prompt Translation & Token Discipline:** Prompts are translated to English and condensed into terse "Caveman" style before cloud submission, by default through a free cloud translator (Google Gemma via the Gemini API), or locally via Ollama (`qwen2.5:1.5b`) when you opt in.
 4. **Zero-Config Start:** Simply install, run `/models` in OpenCode, choose your preferred model, and start coding immediately. No mandatory config files.
 5. **No Surprise Costs:** Frontier models are never called automatically in failure loops; you bind them explicitly when you need high-level architectural advice.
 
@@ -66,7 +66,7 @@ Standard AI coding harnesses send massive context windows, entire project trees,
                                            │
                                            ▼
                        ┌────────────────────────────────────────┐
-                       │   Local Translator (Ollama / Qwen)     │
+                       │  Prompt Translator (Gemma / Ollama)    │
                        │   -> Translates to English & Compresses│
                        └───────────────────┬────────────────────┘
                                            │
@@ -91,8 +91,8 @@ Standard AI coding harnesses send massive context windows, entire project trees,
 
 | | Feature | Description & Benefits |
 | :---: | :--- | :--- |
-| ⚡ | **Local Prompt Translator** | Intercepts user prompts before cloud submission. A local model (e.g. Qwen 2.5 1.5B via Ollama) translates foreign languages to English and compresses text into dense "Caveman" style, slashing both input and output token costs. |
-| 🗂️ | **Live Model Catalog (`catalog` MCP)** | Queries all connected providers dynamically at session startup (`client.provider.list()`). Selects the cheapest capable model via heuristic capability matching (`catalog_pick`). |
+| ⚡ | **Prompt Translator** | Intercepts user prompts before cloud submission. Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
+| 🗂️ | **Live Model Catalog (`catalog` MCP)** | Queries all connected providers dynamically at session startup (`client.provider.list()`), enriched with a built-in model knowledge base (benchmarks, coding profiles, recommended roles). `catalog_pick` ranks by capability and price with `cost_tier` filters and dynamic role matching. |
 | 🧠 | **On-Demand Advisor (`/advisor`)** | Frontier models stay unbound by default to eliminate surprise billing. When facing architectural roadblocks or tricky bugs, bind an advisor for concise, high-value guidance (<300 tokens). |
 | 🧗 | **Ponytail YAGNI Solution Ladder** | Built-in system prompt discipline: models climb a strict ladder (YAGNI → reuse existing code → stdlib → native feature → existing dependency → 1 line → minimal code). |
 | 🗺️ | **Repo-Map Auto-Injector** | Reads `.codegraph` SQLite indexes and injects a high-level summary of key files, symbols, and dependencies on turn 1, eliminating costly exploratory grep loops. |
@@ -106,7 +106,7 @@ Standard AI coding harnesses send massive context windows, entire project trees,
 
 ## 🤖 Streamlined Agent Roster
 
-momo simplifies the active agent roster to minimize context overhead. Legacy agents are preserved in the codebase for reference, but disabled by default:
+momo keeps the always-on roster lean to minimize context overhead. A manager hierarchy (dispatcher + department leads) and two specialists extend it, while legacy heavyweights stay in the codebase but disabled by default:
 
 ```
                   ┌─────────────────────────────────────┐
@@ -121,6 +121,16 @@ momo simplifies the active agent roster to minimize context overhead. Legacy age
 │  Contextual Grep │      │  External Docs   │      │ Bound On-Demand  │
 │  & Code Search   │      │  & OSS Research  │      │   Architecture   │
 └──────────────────┘      └──────────────────┘      └──────────────────┘
+
+                    ┌─────────────────────────────────────┐
+                    │      Manager Layer (default on)     │
+                    │ planner / executor / reviewer leads │
+                    └──────┬──────────┬──────────┬────────┘
+                           │          │          │
+                           ▼          ▼          ▼
+                    ┌──────────┐ ┌──────────┐ ┌──────────┐
+                    │ planner  │ │ executor │ │ reviewer │
+                    └──────────┘ └──────────┘ └──────────┘
 ```
 
 ### Active Roster:
@@ -138,13 +148,30 @@ momo simplifies the active agent roster to minimize context overhead. Legacy age
 4. **advisor (On-Demand Senior Architect)**
    - **Role:** High-level architectural decision-making, debugging stuck failure loops.
    - **Trigger:** Explicitly bound via `/advisor <model>`. Returns concise, decisive directives.
+5. **research (Deep Research Worker)**
+   - **Role:** Multi-module codebase investigation, call-hierarchy analysis, and technical documentation research. Read-only.
+   - **Trigger:** Deep "how does X work" questions that span many modules.
+6. **manager (Tier-2 Dispatcher)**
+   - **Role:** Evaluates each task, routes it to the planner or executor, and picks lead models via `catalog_pick`. Never edits directly.
+   - **Trigger:** Sits between the orchestrator and the department leads in the manager hierarchy.
+7. **planner / executor / reviewer (Department Leads)**
+   - **Role:** planner gathers context via explore/librarian and produces structured work plans; executor consumes approved plans and delegates to category workers, collecting diff + test evidence; reviewer audits changes, runs test verification, and checks edge cases and security. None of them edit directly.
+   - **Gate:** Registered while `delegation.managers` is `true` (the default). Set it to `false` to unregister all three.
+8. **sisyphus-junior (Lightweight Worker)**
+   - **Role:** Focused task executor with no delegation rights; the downcast target when category routing needs a cheaper worker.
+
+Legacy agents (`prometheus`, `metis`, `momus`, `hephaestus`, `oracle`, `atlas`, `multimodal-looker`) remain in the codebase but ship disabled by default; re-enable any via `disabled_agents` in `omo.jsonc`.
 
 ### Subagent Execution Categories:
 When delegating work via `task()`, momo routes tasks to optimized categories:
-- **`quick`:** Small single-file fixes, typos, and minor edits (uses fast flash-tier models).
-- **`deep`:** Multi-file features, refactoring, and comprehensive implementation.
-- **`visual-engineering`:** Frontend UI/UX, CSS styling, components, and layout design.
-- **`ultrabrain`:** Complex algorithms, performance optimization, and difficult logic problems.
+- **`quick`:** Trivial tasks, single-file changes, typos, and simple modifications (uses fast flash-tier models).
+- **`deep`:** Goal-oriented autonomous problem-solving on hairy problems requiring deep research; one goal and one deliverable per call.
+- **`visual-engineering`:** Frontend, UI/UX, design, styling, and animation.
+- **`artistry`:** Complex problem-solving with unconventional, creative approaches beyond standard patterns.
+- **`ultrabrain`:** Genuinely hard, logic-heavy tasks; give clear goals, not step-by-step instructions.
+- **`writing`:** Documentation, prose, and technical writing.
+- **`unspecified-low`:** Tasks that don't fit other categories, low effort required.
+- **`unspecified-high`:** Tasks that don't fit other categories, high effort required.
 
 ---
 
@@ -156,7 +183,7 @@ Before using momo, ensure your system has:
    *Note: momo uses Bun for building and running. Do not use npm, yarn, or pnpm in the root workspace.*
 2. **[OpenCode](https://opencode.ai/)** installed and accessible in your PATH (`opencode`).
 3. *(Optional)* **[Ollama](https://ollama.com/)** for local prompt translation.  
-   *(If missing, momo can automatically install Ollama and pull `qwen2.5:1.5b` on Linux/macOS on first run).*
+   *(Only needed when you set `local_translator.mode` to `"local"`; the default `"cloud"` mode uses a free Google Gemma translator and needs no Ollama. `auto_install` is opt-in and Linux-only, installing Ollama user-locally under `~/.omo/ollama`.)*
 
 ---
 
@@ -209,20 +236,22 @@ momo works out of the box with zero configuration. To customize behavior, create
 {
   "$schema": "https://raw.githubusercontent.com/furkanbora239/momo/dev/assets/oh-my-opencode.schema.json",
 
-  // 1. Local Prompt Translator (Ollama)
+  // 1. Prompt Translator (cloud by default, Ollama optional)
   "local_translator": {
-    "enabled": true,                 // Enable local prompt translation & compression
-    "model": "qwen2.5:1.5b",          // Local Ollama model tag (or 'gemma3:1b')
+    "enabled": true,                 // Enable prompt translation & compression
+    "mode": "cloud",                 // "cloud" = free Google Gemma via Gemini API (default), "local" = Ollama
+    "model": "qwen2.5:1.5b",          // Ollama model tag used when mode is "local"
     "ollama_host": "http://localhost:11434",
     "timeout_ms": 30000,
-    "auto_install": true,            // Automatically install Ollama if missing (Linux/macOS)
+    "auto_install": false,           // Opt-in: install Ollama user-locally if missing (Linux only)
     "min_length": 20,                // Skip messages shorter than 20 characters
     "log_translations": true         // Log inputs/outputs to ~/.omo/local-translator-logs/ for finetuning
   },
 
   // 2. Model Catalog MCP
   "catalog": {
-    "enabled": true                  // Dynamic runtime model picker
+    "enabled": true,                 // Dynamic runtime model picker (knowledge-base enriched)
+    "prefer_providers": []           // Optional: boost rows from these providers within a tier
   },
 
   // 3. Advisor Agent Binding (Optional default)
@@ -274,6 +303,8 @@ momo works out of the box with zero configuration. To customize behavior, create
 | `/remove-deadcode` | Remove unused code across the project with LSP-verified safety. |
 | `omo doctor` | Run CLI diagnostics on connected providers, active models, catalog MCP, and plugin health. |
 
+> ℹ️ `/refactor`, `/hyperplan`, and `/remove-ai-slops` ship disabled by default (token-saving v1 defaults). Re-enable them by setting `disabled_commands` to `[]`, or list only the ones you want kept off.
+
 
 ---
 
@@ -291,8 +322,17 @@ bun test packages/omo-opencode/src
 # Run complete workspace tests
 bun test
 
+# Fast subset of the workspace test suite
+bun run test:fast
+
 # Rebuild distribution bundle
 bun run build
+
+# Fast rebuild of the plugin ESM bundle only (skips MCP compilation)
+bun run build:fast
+
+# Watch-mode rebuild of the plugin bundle
+bun run dev
 
 # Regenerate configuration JSON schema
 bun run build:schema
@@ -313,7 +353,7 @@ omo/
 ├── packages/
 │   ├── omo-opencode/        # OpenCode plugin implementation (momo's core focus)
 │   │   └── src/
-│   │       ├── agents/      # Orchestrator, Advisor, and prompt builders
+│   │       ├── agents/      # Orchestrator, manager layer, Advisor, and prompt builders
 │   │       ├── config/      # Zod configuration schemas & validation
 │   │       ├── features/    # Features (local-translator, repo-map, etc.)
 │   │       ├── hooks/       # OpenCode lifecycle hooks

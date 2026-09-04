@@ -23,8 +23,12 @@ Principles:
 
 ## Status
 
-Phases 0-5 implemented; Phase 6 (docs) mostly done; Phase 7 implemented (code
-level + in-process QA). Waves:
+Phases 0-8 implemented; Phase 6 (docs) mostly done; Phase 7 implemented (code
+level + in-process QA). Manager hierarchy extended past Wave 8: tier-2 `manager`
+dispatcher + dynamic catalog model selection (81bd96308), then the model
+knowledge base, `reviewer` lead, `research` worker, and manager dispatch matrix
+(4dfef4f49, Wave 11). glm-5.2 purged from all automatic selection points
+(6a6c21b1a; senpi-task QA fixtures updated in f8de57de0). Waves:
 
 - [x] Wave 1 — Phase 0: momo identity, docs, license audit
 - [x] Wave 2 — Phase 1: Model Catalog MCP (`catalog_list`/`catalog_pick`/`catalog_refresh`)
@@ -60,6 +64,19 @@ level + in-process QA). Waves:
       (mcp-config-handler.ts: unresolvable .mcp.json commands cannot shadow
       builtins; evidence `.omo/evidence/20260902-codegraph-mcp-shadowing/`,
       `.omo/evidence/20260902-catalog-cost-aware/`)
+- [x] Wave 11 — model knowledge base + hierarchy expansion (commit 4dfef4f49):
+      `model-core/src/model-capabilities/model-knowledge-base.ts` (~882 lines:
+      OpenCode Zen / OpenCode Go / NeuralWatt profiles with benchmarks, coding
+      profiles, recommended roles); CatalogRow enriched (`description`,
+      `best_for`, `recommended_roles`) and catalog_pick gains dynamic role
+      matching + NeuralWatt provider boost on complex tasks; new `reviewer`
+      lead agent (code review, diff inspection, test verification; Momus/Oracle
+      synthesis; gated by `delegation.managers` like planner/executor) and
+      `research` read-only worker (deep multi-module investigation, docs
+      research); manager prompt dispatch matrix (Path A direct workers / Path B
+      department leads, dynamic brain assignment via catalog_pick); wired into
+      agent-names schema, builtin-agents, tool restrictions, fallback chains;
+      unit tests across model-core, prompts-core, omo-opencode
 - [ ] Deferred — token-burn live chat-session evidence (needs a real provider
       session; wiring verified by source inspection)
 
@@ -136,11 +153,19 @@ fine on 1.18.25 (verified 2026-09-01, see HANDOFF.md). In-process wiring proof
    multimodal-looker. Fold prometheus planning into an orchestrator **plan mode**
    prompt variant.
 2. **Phase B (v2, only if A under-delegates):** manager layer. Status:
-    implemented 2026-09-02 (Wave 8). Three-level hierarchy: orchestrator (owner) →
-    manager agents (`planner`/`executor`) → worker agents (explore/librarian,
-    task categories). Orchestrator stops spawning workers directly for planned
-    work; it reviews and approves between stages. `delegation.managers` defaults
-    TRUE (user decision; the plan text below originally said false).
+    implemented 2026-09-02 (Wave 8) with planner + executor; extended
+    2026-09-03 by the tier-2 `manager` dispatcher + dynamic catalog model
+    selection for leads and workers (81bd96308), and 2026-09-04 by the
+    `reviewer` lead + `research` worker + dispatch matrix (4dfef4f49,
+    Wave 11). Hierarchy: orchestrator (owner) → `manager` dispatcher →
+    leads (`planner`/`executor`/`reviewer`) → workers (explore/librarian,
+    research, task categories). Manager dispatches either directly to
+    workers (atomic tasks) or to a lead with a catalog_pick-assigned brain
+    (substantive work). Orchestrator stops spawning workers directly for
+    planned work; it reviews and approves between stages.
+    `delegation.managers` defaults TRUE (user decision; the plan text below
+    originally said false; planner/executor/reviewer unregister when false,
+    per `config/validate.ts` mergeViews).
 
    Flow:
 
@@ -336,9 +361,12 @@ carries metrics, and `catalog_pick` accepts explicit cost/complexity criteria.
 3. **Orchestrator cost directive (system prompt, all variants):** simple
    read/grep/format/scaffold tasks → `budget` tier models; expensive models only
    for hard debugging, architecture decisions, deep multi-step reasoning.
-4. **Follow-ups (later fazlar):** Faz 2 ToolRegistry + `discover_tools(intent)`
-   lazy tool injection; Faz 3 `pruneSchema()` (strip title/$schema/examples/default,
-   cap descriptions 100-120 chars); Faz 4 `truncateOutput` 8000-char tool result cap.
+4. **Follow-ups:** Faz 3+4 landed (commit 35b755118: `pruneToolSchema`
+   token pruning in mcp-stdio-core, stripping title/$schema/examples/default
+   with capped descriptions, plus the 8000-char tool output cap via
+   `tool-output-truncator.ts`; schema + `experimental` config updated).
+   Still open: Faz 2 ToolRegistry + `discover_tools(intent)` lazy tool
+   injection.
 
 Files: `packages/omo-opencode/src/mcp/model-catalog-server.ts` (+cli),
 `packages/model-core/src/model-capabilities/runtime-model-readers.ts` (+barrel
@@ -366,6 +394,9 @@ evidence `.omo/evidence/20260902-catalog-cost-aware/`.
   auto-install + model pull verified, translation I/O logging verified.
 - **Wave 10:** Phase 8 (catalog metadata enrichment + cost-aware routing + MCP
   repair wave: codegraph shadowing guard, mcp-config-handler collision tests).
+- **Wave 11:** model knowledge base + reviewer/research agents + manager
+  dispatch matrix (commit 4dfef4f49) — QA: unit tests across model-core,
+  prompts-core, omo-opencode.
 
 ## Verification gate
 
@@ -385,6 +416,14 @@ Tracked against the waves above. Verified with `bun run typecheck` (tsgo) and
 `bun test` on `packages/omo-opencode`; the 3 failing tests in
 `cli/doctor/checks/codex-components.test.ts` are environment-dependent (Codex
 binary / `sg` resolution) and unrelated to these changes.
+
+Uncommitted working tree (as of 2026-09-04): `bunfig.toml` /
+`bunfig.win2.toml` widen `test.pathIgnorePatterns` to exclude
+`packages/omo-codex/**`, `packages/omo-senpi/**`, `packages/senpi-task/**`,
+`packages/omo-native/**`, `script/**`, `scripts/**`, `postinstall.test.ts`,
+aligning the root test run with the default build graph (codex/senpi/native
+dropped from `script/build.ts` + `test-fast` since 2c2c5168b, F7). Small
+`packages/skills-loader-core` test updates ride along.
 
 - **Wave 1 (Phase 0)** — done. `README.md` + `AGENTS.md` rewritten to the momo
   identity (provider-agnostic, SUL-1.0 + MODIFIED notice kept). `notes/deepseek-harness.md`
