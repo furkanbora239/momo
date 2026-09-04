@@ -105,4 +105,21 @@ describe("tui sidebar renderView", () => {
     expect(description).toContain("gpt-5.5")
     expect(nodes[0]?.kind).toBe("box")
   })
+
+  it("#given empty roster #when rendering #then it renders Agents idle section", () => {
+    // given
+    const view: SidebarView = {
+      kind: "idle",
+      roster: { kind: "empty" },
+    }
+
+    // when
+    const description = describeView(view)
+    const nodes = buildViewNodes(view, theme)
+
+    // then
+    expect(description).toContain("Agents")
+    expect(description).toContain("idle")
+    expect(nodes[0]?.kind).toBe("box")
+  })
 })

@@ -75,6 +75,7 @@ type PluginValidation = {
     readonly tui?: {
       readonly sidebar?: {
         readonly enabled?: boolean
+        readonly roster?: boolean
       }
     }
   }
@@ -85,7 +86,8 @@ async function loadPluginValidation(directory: string): Promise<PluginValidation
   return validatePluginConfig(directory)
 }
 
-async function loadRosterRows(directory: string): Promise<readonly RosterRow[]> {
+async function loadRosterRows(directory: string, enabled = false): Promise<readonly RosterRow[]> {
+  if (!enabled) return []
   const { resolveRoster } = await import("./features/tui-sidebar/roster-resolver")
   const resolver: RosterResolver = resolveRoster
   return resolver(directory)
@@ -94,7 +96,7 @@ async function loadRosterRows(directory: string): Promise<readonly RosterRow[]> 
 async function readView(directory: string): Promise<SidebarView> {
   const validation = await loadPluginValidation(directory)
   const mirror = readMirror(directory)
-  const roster = await loadRosterRows(directory)
+  const roster = await loadRosterRows(directory, validation.config.tui?.sidebar?.roster === true)
   return computeView({
     config: deriveConfig(validation),
     roster: deriveRoster(roster),

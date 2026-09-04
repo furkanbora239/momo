@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
+import { pathToFileURL } from "node:url"
 
 import {
   isOurFilePluginEntry,
@@ -52,6 +53,18 @@ function pluginEntries(config: ConfigShape): string[] {
     : []
 }
 
+function fileEntryPackageDir(entry: string): string | null {
+  let path = entry.slice("file:".length)
+  if (path.startsWith("//")) path = path.slice(2)
+  if (path.endsWith(".js") || path.endsWith(".mjs") || path.endsWith(".ts")) {
+    const parent = dirname(path)
+    if (existsSync(join(parent, "package.json"))) return parent
+    if (existsSync(join(dirname(parent), "package.json"))) return dirname(parent)
+    return parent
+  }
+  return null
+}
+
 function desiredTuiEntry(serverEntry: string): string | null {
   if (serverEntry === PLUGIN_NAME || serverEntry.startsWith(`${PLUGIN_NAME}@`)) {
     return serverEntry
@@ -60,9 +73,17 @@ function desiredTuiEntry(serverEntry: string): string | null {
     return serverEntry
   }
   if (serverEntry.startsWith("file:") && isOurFilePluginEntry(serverEntry)) {
+    const pkgDir = fileEntryPackageDir(serverEntry)
+    if (pkgDir) {
+      return serverEntry.startsWith("file://") ? pathToFileURL(pkgDir).href : `file:${pkgDir}`
+    }
     return serverEntry
   }
   return null
+}
+
+function isAnyOmoTuiPluginEntry(entry: unknown): boolean {
+  return isNamedTuiPluginEntry(entry) || isServerPluginEntry(entry)
 }
 
 function readTuiConfig(tuiJsonPath: string): { config: ConfigShape; malformed: boolean } {
@@ -96,12 +117,23 @@ export function ensureTuiPluginEntry(opts: { configDir?: string } = {}): EnsureT
     return { changed: false, reason: "malformed" }
   }
 
-  const plugins = pluginEntries(config).filter((entry) => !isNamedTuiPluginEntry(entry))
-  if (plugins.includes(desiredEntry)) {
+  const currentPlugins = pluginEntries(config)
+  const isAlreadySoleEntry = currentPlugins.length === 1 && currentPlugins[0] === desiredEntry
+  if (isAlreadySoleEntry) {
+    return { changed: false, reason: "already-present" }
+  }
+
+  const nonOmoPlugins = currentPlugins.filter((entry) => !isAnyOmoTuiPluginEntry(entry))
+  const updatedPlugins = [...nonOmoPlugins, desiredEntry]
+
+  if (
+    currentPlugins.length === updatedPlugins.length &&
+    currentPlugins.every((entry, i) => entry === updatedPlugins[i])
+  ) {
     return { changed: false, reason: "already-present" }
   }
 
   mkdirSync(configDir, { recursive: true })
-  writeFileAtomically(tuiJsonPath, formatConfig({ ...config, plugin: [...plugins, desiredEntry] }))
+  writeFileAtomically(tuiJsonPath, formatConfig({ ...config, plugin: updatedPlugins }))
   return { changed: true, reason: "added" }
 }

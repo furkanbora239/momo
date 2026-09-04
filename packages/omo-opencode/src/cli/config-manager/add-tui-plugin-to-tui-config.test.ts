@@ -83,6 +83,21 @@ describe("ensureTuiPluginEntry", () => {
     expect(readTuiPlugins(dir)).toEqual([fileEntry])
   })
 
+  it("#given file server entry pointing to dist file and stale versioned package in tui.json #when ensuring #then it resolves package root and purges stale package", () => {
+    // given
+    const dir = tempConfigDir()
+    const fileEntry = writeFilePackage(dir)
+    writeConfig(dir, "opencode.json", { plugin: [`${fileEntry}/dist/index.js`] })
+    writeConfig(dir, "tui.json", { plugin: [`${PLUGIN_NAME}@4.19.3`] })
+
+    // when
+    const result = ensureTuiPluginEntry({ configDir: dir })
+
+    // then
+    expect(result).toEqual({ changed: true, reason: "added" })
+    expect(readTuiPlugins(dir)).toEqual([fileEntry])
+  })
+
   it("#given legacy server entry #when legacy TUI entry already exists #then it does not duplicate", () => {
     // given
     const dir = tempConfigDir()

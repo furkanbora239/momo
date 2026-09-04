@@ -123,7 +123,7 @@ export const OhMyOpenCodeConfigSchema = z.object({
   context7: Context7ConfigSchema.optional(),
   grep_app: GrepAppConfigSchema.optional(),
   tmux: TmuxConfigSchema.optional(),
-  tui: TuiConfigSchema.default({ sidebar: { enabled: true } }).optional(),
+  tui: TuiConfigSchema.default({ sidebar: { enabled: true, roster: false } }).optional(),
   sisyphus: SisyphusConfigSchema.optional(),
   start_work: StartWorkConfigSchema.optional(),
   /** Default mode auto-activation settings (ultrawork, goal) */

@@ -11744,24 +11744,31 @@
     "tui": {
       "default": {
         "sidebar": {
-          "enabled": true
+          "enabled": true,
+          "roster": false
         }
       },
       "type": "object",
       "properties": {
         "sidebar": {
           "default": {
-            "enabled": true
+            "enabled": true,
+            "roster": false
           },
           "type": "object",
           "properties": {
             "enabled": {
               "default": true,
               "type": "boolean"
+            },
+            "roster": {
+              "default": false,
+              "type": "boolean"
             }
           },
           "required": [
-            "enabled"
+            "enabled",
+            "roster"
           ],
           "additionalProperties": false
         }

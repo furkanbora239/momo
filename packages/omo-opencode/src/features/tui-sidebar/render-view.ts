@@ -194,13 +194,20 @@ function brokenNodes(messages: readonly string[], theme: ThemeLike): ViewNode[] 
 }
 
 function idleNodes(roster: RosterState, theme: ThemeLike): ViewNode[] {
+  if (roster.kind === "empty") {
+    return [
+      section("Agents", theme, [
+        text({ fg: theme.textMuted }, "idle"),
+      ]),
+    ]
+  }
   return [section("Models", theme, rosterLines(roster).map((line) => text({ fg: theme.text }, line)))]
 }
 
 function rosterLines(roster: RosterState): string[] {
   switch (roster.kind) {
     case "empty":
-      return ["No configured models"]
+      return ["Agents", "idle"]
     case "rows":
       return roster.rows.map((row) => `${row.label} ${row.model}`)
     default:
