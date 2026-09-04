@@ -422,6 +422,10 @@ binary / `sg` resolution) and unrelated to these changes.
   binary, isolated XDG, and connected providers).
 - Codegraph MCP runtime performance (wiring correct per source inspection; MCP tool
   calls time out at runtime — separate debug task).
+- Manager dynamic model selection: currently retained on a static fallback chain
+  (`qwen3.8-flash` -> `glm-5.3-flash` -> `deepseek-v4-flash` -> `big-pickle` on `opencode-go`)
+  supporting the user's neuralwatt orchestrator (cache-hit optimization) + opencode worker
+  topology. Plan future registration-time catalog selection to eliminate static lists entirely.
 
 ### Phase 7 — done at code level; follow-ups
 

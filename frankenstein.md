@@ -97,6 +97,15 @@
 - Clash with MOMO: Clutters logs with non-actionable migration warnings.
 - Planned action: Standardize on a single clean `~/.omo/omo.jsonc` format without noisy migration logs.
 
+### F16 — Manager Agent Dynamic Model Selection vs Static Chain (Neuralwatt Cache Strategy)
+- Current state: Manager currently uses a static fallback chain in `AGENT_MODEL_REQUIREMENTS["manager"]` (`qwen3.8-flash` -> `glm-5.3-flash` -> `deepseek-v4-flash` -> `big-pickle` via `opencode-go` / `go-b`). Kept as-is for now per maintainer directive.
+- User operational strategy & provider allocation:
+  - **Orchestrator**: Dedicated to `neuralwatt` (e.g., Claude Opus / Kimi K3) to maximize prompt cache hit advantages across long orchestrator sessions.
+  - **Workers & Dispatcher (Manager/Planner/Executor/Categories)**: Run via `opencode` / `opencode-go` flash models to minimize costs.
+- Future design requirement:
+  - While the current chain fits the `opencode-go` + `neuralwatt` setup, momo's long-term north star is "zero hardcoded lists".
+  - Planned future solution: Implement registration-time dynamic selection (`resolveManagerInitialModel`) that inspects connected providers via the live catalog and selects the cheapest flash/budget model dynamically, or inherits the session model when no provider-specific list is given.
+
 ## INFO
 
 ### F9 — opencode-go pack: 5-hour rolling usage limit (NOT daily)
