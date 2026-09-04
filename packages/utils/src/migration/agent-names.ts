@@ -1,62 +1,119 @@
 export const AGENT_NAME_MAP: Record<string, string> = {
-  // Sisyphus variants → "sisyphus"
+  // Sisyphus / Orchestrator variants → "sisyphus"
   omo: "sisyphus",
   OmO: "sisyphus",
   Sisyphus: "sisyphus",
   "Sisyphus (Ultraworker)": "sisyphus",
+  "Sisyphus - ultraworker": "sisyphus",
+  "sisyphus - ultraworker": "sisyphus",
   sisyphus: "sisyphus",
+  orchestrator: "sisyphus",
+  Orchestrator: "sisyphus",
 
-  // Hephaestus variants → "hephaestus"
+  // Hephaestus / Coder variants → "hephaestus"
   "Hephaestus (Deep Agent)": "hephaestus",
+  "Hephaestus - Deep Agent": "hephaestus",
+  "hephaestus - deep agent": "hephaestus",
+  hephaestus: "hephaestus",
+  coder: "hephaestus",
+  Coder: "hephaestus",
 
-  // Prometheus variants → "prometheus"
+  // Prometheus / Planner variants → "prometheus"
   "OmO-Plan": "prometheus",
   "omo-plan": "prometheus",
   "Planner-Sisyphus": "prometheus",
   "planner-sisyphus": "prometheus",
   "Prometheus - Plan Builder": "prometheus",
   "Prometheus (Plan Builder)": "prometheus",
+  "prometheus - plan builder": "prometheus",
   prometheus: "prometheus",
+  planner: "prometheus",
+  Planner: "prometheus",
 
-  // Atlas variants → "atlas"
+  // Atlas / Coordinator variants → "atlas"
   "orchestrator-sisyphus": "atlas",
   Atlas: "atlas",
   "Atlas (Plan Executor)": "atlas",
+  "Atlas - Plan Executor": "atlas",
+  "atlas - plan executor": "atlas",
   atlas: "atlas",
+  coordinator: "atlas",
+  Coordinator: "atlas",
 
-  // Metis variants → "metis"
+  // Metis / Analyst variants → "metis"
   "plan-consultant": "metis",
   "Metis - Plan Consultant": "metis",
   "Metis (Plan Consultant)": "metis",
+  "metis - plan consultant": "metis",
   metis: "metis",
+  analyst: "metis",
+  Analyst: "metis",
 
-  // Momus variants → "momus"
+  // Momus / Critic variants → "momus"
   "Momus - Plan Critic": "momus",
   "Momus (Plan Critic)": "momus",
+  "momus - plan critic": "momus",
   momus: "momus",
+  critic: "momus",
+  Critic: "momus",
 
-  // Sisyphus-Junior → "sisyphus-junior"
+  // Sisyphus-Junior / Worker → "sisyphus-junior"
   "Sisyphus-Junior": "sisyphus-junior",
   "sisyphus-junior": "sisyphus-junior",
+  worker: "sisyphus-junior",
+  Worker: "sisyphus-junior",
 
-  // Already lowercase - passthrough
-  build: "build",
+  // Oracle / Architect variants → "oracle"
   oracle: "oracle",
-  librarian: "librarian",
+  Oracle: "oracle",
+  architect: "oracle",
+  Architect: "oracle",
+
+  // Explore / Explorer variants → "explore"
   explore: "explore",
+  Explore: "explore",
+  explorer: "explore",
+  Explorer: "explore",
+
+  // Multimodal-looker / Vision variants → "multimodal-looker"
   "multimodal-looker": "multimodal-looker",
+  vision: "multimodal-looker",
+  Vision: "multimodal-looker",
+
+  // Athena / Council
+  athena: "athena",
+  council: "athena",
+  Council: "athena",
+  "athena-junior": "athena-junior",
+  "council-worker": "athena-junior",
+
+  // Passthroughs
+  build: "build",
+  librarian: "librarian",
 }
 
 export const BUILTIN_AGENT_NAMES = new Set([
-  "sisyphus", // was "Sisyphus"
+  "sisyphus",
+  "orchestrator",
   "oracle",
+  "architect",
   "librarian",
   "explore",
+  "explorer",
   "multimodal-looker",
-  "metis", // was "Metis - Plan Consultant"
-  "momus", // was "Momus - Plan Critic"
-  "prometheus", // was "Prometheus - Plan Builder"
-  "atlas", // was "Atlas"
+  "vision",
+  "metis",
+  "analyst",
+  "momus",
+  "critic",
+  "prometheus",
+  "planner",
+  "atlas",
+  "coordinator",
+  "hephaestus",
+  "coder",
+  "sisyphus-junior",
+  "worker",
   "build",
 ])
 

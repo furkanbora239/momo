@@ -4,7 +4,7 @@ import { buildClaudeThinkingConfig } from "./types";
 import type { AgentMode } from "./types";
 
 const SISYPHUS_DESCRIPTION =
-  "Powerful AI orchestrator. Plans obsessively with todos, assesses search complexity before exploration, delegates strategically via category+skills combinations. Uses explore for internal code (parallel-friendly), librarian for external docs. (Sisyphus - OhMyOpenCode)";
+  "Primary AI orchestrator. Plans, coordinates, delegates to specialized agents, and drives tasks to completion. (Orchestrator - momo)";
 
 const SISYPHUS_THINKING_BUDGET_TOKENS = 10000;
 

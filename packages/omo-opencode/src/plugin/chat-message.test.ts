@@ -796,11 +796,11 @@ describe("createChatMessageHandler - /goal raw slash fallback", () => {
 
 })
 
-function createMockInput(agent?: string, model?: { providerID: string; modelID: string }) {
+function createMockInput(agent?: string, model?: { providerID: string; modelID: string } | null) {
   return {
     sessionID: "test-session",
     agent,
-    model,
+    model: model === null ? undefined : (model ?? { providerID: "test-provider", modelID: "test-model" }),
   }
 }
 
@@ -811,6 +811,47 @@ function createMockOutput(variant?: string): ChatMessageHandlerOutput {
   }
   return { message, parts: [] }
 }
+
+describe("createChatMessageHandler - no model selected guard", () => {
+  test("throws error and shows toast when no model is selected", async () => {
+    // given
+    let toastShown = false
+    const args = createMockHandlerArgs({ shouldOverride: true })
+    args.ctx = unsafeTestValue<PluginContext>({
+      client: {
+        tui: {
+          showToast: async () => {
+            toastShown = true
+          },
+        },
+      },
+    })
+    const handler = createChatMessageHandler(args)
+    const input = createMockInput("sisyphus", null)
+    const output: ChatMessageHandlerOutput = {
+      message: {},
+      parts: [{ type: "text", text: "Hello AI!" }],
+    }
+
+    // when / then
+    await expect(handler(input, output)).rejects.toThrow("No model selected. Please select a model first using /models.")
+    expect(toastShown).toBe(true)
+  })
+
+  test("allows /models command even when no model is selected", async () => {
+    // given
+    const args = createMockHandlerArgs({ shouldOverride: true })
+    const handler = createChatMessageHandler(args)
+    const input = createMockInput("sisyphus", null)
+    const output: ChatMessageHandlerOutput = {
+      message: {},
+      parts: [{ type: "text", text: "/models" }],
+    }
+
+    // when / then
+    await handler(input, output)
+  })
+})
 
 describe("createChatMessageHandler - TUI variant passthrough", () => {
   test("first message: does not override TUI variant when user has no selection", async () => {
@@ -915,7 +956,7 @@ describe("createChatMessageHandler - TUI variant passthrough", () => {
     setSessionModel("test-session", { providerID: "openai", modelID: "gpt-5.4" })
     const args = createMockHandlerArgs({ shouldOverride: false })
     const handler = createChatMessageHandler(args)
-    const input = createMockInput("sisyphus")
+    const input = createMockInput("sisyphus", null)
     const output = createMockOutput()
 
     //#when
@@ -932,7 +973,7 @@ describe("createChatMessageHandler - TUI variant passthrough", () => {
     setSessionModel("test-session", { providerID: "openai", modelID: "gpt-5.4" })
     const args = createMockHandlerArgs({ shouldOverride: true })
     const handler = createChatMessageHandler(args)
-    const input = createMockInput("sisyphus")
+    const input = createMockInput("sisyphus", null)
     const output = createMockOutput()
 
     //#when
@@ -976,7 +1017,7 @@ describe("createChatMessageHandler - TUI variant passthrough", () => {
       },
     })
     const handler = createChatMessageHandler(args)
-    const input = createMockInput("sisyphus")
+    const input = createMockInput("sisyphus", null)
     const output = createMockOutput()
 
     //#when
@@ -1000,7 +1041,7 @@ describe("createChatMessageHandler - TUI variant passthrough", () => {
       },
     })
     const handler = createChatMessageHandler(args)
-    const input = createMockInput(getAgentListDisplayName("prometheus"))
+    const input = createMockInput(getAgentListDisplayName("prometheus"), null)
     const output = createMockOutput()
 
     //#when
@@ -1009,7 +1050,7 @@ describe("createChatMessageHandler - TUI variant passthrough", () => {
     //#then
     expect(output.message["model"]).toBeUndefined()
     expect(getSessionModel("test-session")).toEqual({ providerID: "openai", modelID: "gpt-5.4" })
-    expect(getSessionAgent("test-session")).toBe("Prometheus - Plan Builder")
+    expect(getSessionAgent("test-session")).toBe(getAgentListDisplayName("prometheus"))
   })
 
   test("respects a mid-conversation model switch instead of reusing the previous stored model", async () => {

@@ -30,10 +30,10 @@ describe("agent-sort-shim", () => {
       test("#then returns canonical sisyphus->hephaestus->prometheus->atlas order", () => {
         // given
         setAgentSortOrder(undefined)
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const input = [atlas, prometheus, hephaestus, sisyphus]
 
         // when
@@ -46,10 +46,10 @@ describe("agent-sort-shim", () => {
       test("#then follows configured core agent order", () => {
         // given
         setAgentSortOrder(["hephaestus", "sisyphus", "prometheus", "atlas"])
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const input = [atlas, prometheus, hephaestus, sisyphus]
 
         // when
@@ -65,10 +65,10 @@ describe("agent-sort-shim", () => {
     describe("#when toSorted with alphabetical compareFn", () => {
       test("#then core agents come first in canonical order followed by non-core agents alphabetically", () => {
         // given
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const build = { name: "build" }
         const plan = { name: "plan" }
         const input = [atlas, build, prometheus, plan, hephaestus, sisyphus]
@@ -103,7 +103,7 @@ describe("agent-sort-shim", () => {
         })
 
         // then
-        expect(result).toEqual([sisyphus, hephaestus, prometheus, atlas, explore, oracle])
+        expect(result).toEqual([sisyphus, hephaestus, prometheus, atlas, oracle, explore])
       })
     })
   })
@@ -188,10 +188,10 @@ describe("agent-sort-shim", () => {
     describe("#when sort with alphabetical compareFn (in-place)", () => {
       test("#then mutates the original array to canonical order", () => {
         // given
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const input = [atlas, prometheus, hephaestus, sisyphus]
 
         // when
@@ -210,10 +210,10 @@ describe("agent-sort-shim", () => {
         // given
         installAgentSortShim()
         installAgentSortShim()
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const input = [atlas, prometheus, hephaestus, sisyphus]
 
         // when
@@ -231,10 +231,10 @@ describe("agent-sort-shim", () => {
         // given
         setAgentSortOrder(undefined)
         setDefaultAgentForSort("crystal")
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const crystal = { name: "crystal" }
         const input = [atlas, crystal, prometheus, hephaestus, sisyphus]
 
@@ -250,11 +250,11 @@ describe("agent-sort-shim", () => {
       test("#then that core agent sorts first, others follow in remaining canonical order", () => {
         // given
         setAgentSortOrder(undefined)
-        setDefaultAgentForSort("Hephaestus - Deep Agent")
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        setDefaultAgentForSort(AGENT_DISPLAY_NAMES.hephaestus)
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const input = [atlas, prometheus, hephaestus, sisyphus]
 
         // when
@@ -272,10 +272,10 @@ describe("agent-sort-shim", () => {
         // given
         setAgentSortOrder(["hephaestus", "sisyphus", "prometheus", "atlas"])
         // setDefaultAgentForSort is intentionally NOT called (user did not set default_agent)
-        const sisyphus = { name: "Sisyphus - ultraworker" }
-        const hephaestus = { name: "Hephaestus - Deep Agent" }
-        const prometheus = { name: "Prometheus - Plan Builder" }
-        const atlas = { name: "Atlas - Plan Executor" }
+        const sisyphus = { name: AGENT_DISPLAY_NAMES.sisyphus }
+        const hephaestus = { name: AGENT_DISPLAY_NAMES.hephaestus }
+        const prometheus = { name: AGENT_DISPLAY_NAMES.prometheus }
+        const atlas = { name: AGENT_DISPLAY_NAMES.atlas }
         const input = [atlas, sisyphus, prometheus, hephaestus]
 
         // when

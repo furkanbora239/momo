@@ -10,19 +10,19 @@
  * type selector dropdown. Use ` - ` (space-dash-space) instead of `(...)`.
  */
 export const AGENT_DISPLAY_NAMES: Record<string, string> = {
-  sisyphus: "Sisyphus - ultraworker",
-  hephaestus: "Hephaestus - Deep Agent",
-  prometheus: "Prometheus - Plan Builder",
-  atlas: "Atlas - Plan Executor",
-  "sisyphus-junior": "Sisyphus-Junior",
-  metis: "Metis - Plan Consultant",
-  momus: "Momus - Plan Critic",
-  athena: "Athena - Council",
-  "athena-junior": "Athena-Junior - Council",
-  oracle: "oracle",
+  sisyphus: "orchestrator",
+  hephaestus: "coder",
+  prometheus: "planner",
+  atlas: "coordinator",
+  "sisyphus-junior": "worker",
+  metis: "analyst",
+  momus: "critic",
+  athena: "council",
+  "athena-junior": "council-worker",
+  oracle: "architect",
   librarian: "librarian",
-  explore: "explore",
-  "multimodal-looker": "multimodal-looker",
+  explore: "explorer",
+  "multimodal-looker": "vision",
   "council-member": "council-member",
 }
 
@@ -58,12 +58,15 @@ export function getAgentDisplayName(
     if (override?.displayName) return override.displayName
   }
 
+  const resolved = resolveKnownAgentConfigKey(configKey)
+  const lookupKey = resolved ?? configKey
+
   // Try exact match first
-  const exactMatch = AGENT_DISPLAY_NAMES[configKey]
+  const exactMatch = AGENT_DISPLAY_NAMES[lookupKey]
   if (exactMatch !== undefined) return exactMatch
 
   // Fall back to case-insensitive search
-  const lowerKey = configKey.toLowerCase()
+  const lowerKey = lookupKey.toLowerCase()
   for (const [k, v] of Object.entries(AGENT_DISPLAY_NAMES)) {
     if (k.toLowerCase() === lowerKey) return v
   }
@@ -92,17 +95,37 @@ const REVERSE_DISPLAY_NAMES: Record<string, string> = Object.fromEntries(
   Object.entries(AGENT_DISPLAY_NAMES).map(([key, displayName]) => [displayName.toLowerCase(), key]),
 )
 
-// Legacy parenthesized display names for backward compatibility.
+// Legacy display names for backward compatibility.
 // Old configs/sessions may reference these names; resolve them to config keys.
 const LEGACY_DISPLAY_NAMES: Record<string, string> = {
   "sisyphus (ultraworker)": "sisyphus",
+  "sisyphus - ultraworker": "sisyphus",
+  "sisyphus": "sisyphus",
   "hephaestus (deep agent)": "hephaestus",
+  "hephaestus - deep agent": "hephaestus",
+  "hephaestus": "hephaestus",
   "prometheus (plan builder)": "prometheus",
+  "prometheus - plan builder": "prometheus",
+  "prometheus": "prometheus",
   "atlas (plan executor)": "atlas",
+  "atlas - plan executor": "atlas",
+  "atlas": "atlas",
+  "sisyphus-junior": "sisyphus-junior",
   "metis (plan consultant)": "metis",
+  "metis - plan consultant": "metis",
+  "metis": "metis",
   "momus (plan critic)": "momus",
+  "momus - plan critic": "momus",
+  "momus": "momus",
   "athena (council)": "athena",
+  "athena - council": "athena",
+  "athena": "athena",
   "athena-junior (council)": "athena-junior",
+  "athena-junior - council": "athena-junior",
+  "athena-junior": "athena-junior",
+  "oracle": "oracle",
+  "explore": "explore",
+  "multimodal-looker": "multimodal-looker",
 }
 
 function resolveKnownAgentConfigKey(agentName: string): string | undefined {

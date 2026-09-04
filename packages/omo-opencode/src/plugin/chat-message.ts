@@ -1,12 +1,14 @@
 import type { OhMyOpenCodeConfig } from "../config"
 
-import { updateSessionAgent } from "../features/claude-code-session-state"
+import { subagentSessions, updateSessionAgent } from "../features/claude-code-session-state"
 import { detectSlashCommand, extractPromptText } from "../hooks/auto-slash-command/detector"
 import {
   isRuntimeFallbackRetryTextParts,
   isSyntheticOrInternalOnlyTextParts,
   log,
 } from "../shared"
+import { getAgentConfigKey } from "../shared/agent-display-names"
+import { getSessionModel } from "../shared/session-model-state"
 import { applyUltraworkModelOverrideOnMessage } from "./ultrawork-model-override"
 import type { PluginContext } from "./types"
 import { handleGoalMessage } from "./chat-message/loop-commands"
@@ -25,9 +27,9 @@ import type {
 export type { ChatMessageHandlerOutput, ChatMessageInput } from "./chat-message/types"
 
 type PluginContextWithTui = {
-  readonly client: {
-    readonly tui: {
-      readonly showToast: (input: {
+  readonly client?: {
+    readonly tui?: {
+      readonly showToast?: (input: {
         readonly body: {
           readonly title: string
           readonly message: string
@@ -107,7 +109,8 @@ export function createChatMessageHandler(args: {
       updateSessionAgent(input.sessionID, input.agent)
     }
 
-    const slashCommand = detectSlashCommand(extractPromptText(output.parts))
+    const promptText = extractPromptText(output.parts).trim()
+    const slashCommand = detectSlashCommand(promptText)
     if (slashCommand?.command === "stop-continuation") {
       stopContinuation({
         directory: ctx.directory,
@@ -117,10 +120,6 @@ export function createChatMessageHandler(args: {
     }
 
     const isFirstMessage = firstMessageVariantGate.shouldOverride(input.sessionID)
-    if (isFirstMessage) {
-      firstMessageVariantGate.markApplied(input.sessionID)
-    }
-
     const storedMainSessionModel = getStoredMainSessionModel(
       input,
       pluginConfig,
@@ -130,6 +129,45 @@ export function createChatMessageHandler(args: {
       output.message.model = storedMainSessionModel
     }
 
+    const agentKey = input.agent ? getAgentConfigKey(input.agent) : undefined
+    const agentConfiguredModel = agentKey ? pluginConfig.agents?.[agentKey as keyof typeof pluginConfig.agents]?.model : undefined
+
+    const hasExplicitModel = Boolean(
+      (input.model?.modelID && input.model.modelID.trim().length > 0) ||
+      (typeof output.message.model === "string" && output.message.model.trim().length > 0) ||
+      (output.message.model && typeof output.message.model === "object" && (output.message.model as { modelID?: string }).modelID) ||
+      getSessionModel(input.sessionID)
+    )
+
+    const isGoalAction = nativeGoalCommand ||
+      ["pause", "resume", "clear"].includes(promptText.toLowerCase()) ||
+      promptText.startsWith("/goal")
+
+    if (
+      promptText.length > 0 &&
+      !hasExplicitModel &&
+      !agentConfiguredModel &&
+      !slashCommand &&
+      !isGoalAction &&
+      !subagentSessions.has(input.sessionID)
+    ) {
+      if (pluginContext.client?.tui?.showToast) {
+        await pluginContext.client.tui.showToast({
+          body: {
+            title: "No Model Selected",
+            message: "Please select a model first using /models before sending prompts.",
+            variant: "warning",
+            duration: 5000,
+          },
+        }).catch(() => {})
+      }
+      throw new Error("No model selected. Please select a model first using /models.")
+    }
+
+    if (isFirstMessage) {
+      firstMessageVariantGate.markApplied(input.sessionID)
+    }
+
     await runChatMessageHooks({
       input,
       output,
@@ -137,7 +175,9 @@ export function createChatMessageHandler(args: {
       runtimeFallbackEnabled,
     })
     await runStartWorkHookIfApplicable(hooks, input, output)
-    notifyWhenModelCacheIsMissing(pluginContext.client.tui)
+    if (pluginContext.client?.tui) {
+      notifyWhenModelCacheIsMissing(pluginContext.client.tui as Parameters<typeof notifyWhenModelCacheIsMissing>[0])
+    }
     handleGoalMessage({
       hooks,
       input,
@@ -150,7 +190,7 @@ export function createChatMessageHandler(args: {
       pluginConfig,
       input.agent,
       output,
-      pluginContext.client.tui,
+      pluginContext.client?.tui,
       input.sessionID,
       pluginContext.client,
     )
