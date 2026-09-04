@@ -9,8 +9,14 @@ pathIgnorePatterns = [
   "packages/omo-codex/scripts/**",
   "packages/shared-skills/upstreams/**",
   "packages/omo-senpi/**",
+  "packages/senpi-task/**",
+  "packages/omo-codex/**",
+  "packages/omo-native/**",
   "packages/omo-opencode/**",
   "packages/memory-core/**",
+  "script/**",
+  "scripts/**",
+  "postinstall.test.ts"
 ]
 
 [loader]

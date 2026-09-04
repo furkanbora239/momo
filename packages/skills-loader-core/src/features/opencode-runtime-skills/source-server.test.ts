@@ -9,11 +9,15 @@ afterEach(() => {
   cleanupServer = undefined
 })
 
+const SECURITY_SKILLS_CONFIG = {
+  skills: { enable_default_off: ["security-research", "security-review"] },
+}
+
 describe("runtime security skill source server", () => {
   test("serves an OpenCode skill index and markdown files with matching frontmatter names", async () => {
     // given
     const source = await createRuntimeSkillSourceServer({
-      skills: selectRuntimeSecuritySkills(),
+      skills: selectRuntimeSecuritySkills(SECURITY_SKILLS_CONFIG),
     })
     cleanupServer = source
 
@@ -44,7 +48,7 @@ describe("runtime security skill source server", () => {
   test("returns 404 for unknown paths", async () => {
     // given
     const source = await createRuntimeSkillSourceServer({
-      skills: selectRuntimeSecuritySkills(),
+      skills: selectRuntimeSecuritySkills(SECURITY_SKILLS_CONFIG),
     })
     cleanupServer = source
 
@@ -59,7 +63,7 @@ describe("runtime security skill source server", () => {
     // given
     const source = await createRuntimeSkillSourceServer(
       {
-        skills: selectRuntimeSecuritySkills(),
+        skills: selectRuntimeSecuritySkills(SECURITY_SKILLS_CONFIG),
       },
       {},
     )

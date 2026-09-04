@@ -9,6 +9,8 @@ import {
 type DisabledSkillName = NonNullable<OhMyOpenCodeConfig["disabled_skills"]>[number]
 type SkillsConfig = OhMyOpenCodeConfig["skills"]
 
+const SECURITY_ENABLE_DEFAULT_OFF = ["security-research", "security-review"] as const
+
 function createPluginConfig(args?: {
   readonly disabledSkills?: readonly DisabledSkillName[]
   readonly skills?: SkillsConfig
@@ -20,7 +22,10 @@ function createPluginConfig(args?: {
       git_env_prefix: "GIT_MASTER=1",
     },
     disabled_skills: args?.disabledSkills ? [...args.disabledSkills] : undefined,
-    skills: args?.skills,
+    skills: {
+      enable_default_off: [...SECURITY_ENABLE_DEFAULT_OFF],
+      ...(args?.skills ?? {}),
+    },
   }
 }
 
