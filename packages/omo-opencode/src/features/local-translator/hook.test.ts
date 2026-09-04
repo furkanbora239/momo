@@ -147,4 +147,94 @@ describe("local-translator hook", () => {
       }
     }
   })
+
+  it("fires progress and completion toasts when notifications are enabled", async () => {
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: "COMPACTED_PROMPT" }],
+              },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as unknown as typeof fetch
+    const toasts: Array<{ title?: string; message: string; variant: string }> = []
+    const mockShowToast = async (opts: { body: { title?: string; message: string; variant: "info" | "success" | "warning" | "error" } }) => {
+      toasts.push(opts.body)
+      return {}
+    }
+
+    try {
+      const hook = createLocalTranslatorHook(
+        {
+          enabled: true,
+          mode: "cloud",
+          showNotifications: true,
+          logTranslations: false,
+        },
+        { client: { tui: { showToast: mockShowToast } } },
+      )
+      const output = { messages: [makeUserMessage("bu uzun mesaj ingilizceye cevrilmeli")] }
+
+      await hook["experimental.chat.messages.transform"]({}, output)
+
+      expect(toasts.length).toBe(2)
+      expect(toasts[0]?.variant).toBe("info")
+      expect(toasts[0]?.title).toBe("momo translator")
+      expect(toasts[1]?.variant).toBe("success")
+      expect(toasts[1]?.message).toContain("COMPACTED_PROMPT")
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+    }
+  })
+
+  it("does not fire toasts when showNotifications is false", async () => {
+    process.env["GOOGLE_API_KEY"] = "test-key"
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: "COMPACTED_PROMPT" }],
+              },
+              finishReason: "STOP",
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as unknown as typeof fetch
+    const toasts: Array<{ title?: string; message: string; variant: string }> = []
+    const mockShowToast = async (opts: { body: { title?: string; message: string; variant: "info" | "success" | "warning" | "error" } }) => {
+      toasts.push(opts.body)
+      return {}
+    }
+
+    try {
+      const hook = createLocalTranslatorHook(
+        {
+          enabled: true,
+          mode: "cloud",
+          showNotifications: false,
+          logTranslations: false,
+        },
+        { client: { tui: { showToast: mockShowToast } } },
+      )
+      const output = { messages: [makeUserMessage("bu uzun mesaj cevrilsin fakat sessizce")] }
+
+      await hook["experimental.chat.messages.transform"]({}, output)
+
+      expect(toasts.length).toBe(0)
+    } finally {
+      globalThis.fetch = originalFetch
+      delete process.env["GOOGLE_API_KEY"]
+    }
+  })
 })

@@ -129,25 +129,29 @@ export function createTransformHooks(args: {
     ? safeCreateHook(
         "local-translator",
         () =>
-          createLocalTranslatorHook({
-            enabled: localTranslatorConfig?.enabled !== false,
-            mode: localTranslatorConfig?.mode,
-            model: localTranslatorConfig?.model,
-            ollamaHost: localTranslatorConfig?.ollama_host,
-            timeoutMs: localTranslatorConfig?.timeout_ms,
-            autoInstall: localTranslatorConfig?.auto_install,
-            minLength: localTranslatorConfig?.min_length,
-            logTranslations: localTranslatorConfig?.log_translations,
-            numCtx: localTranslatorConfig?.num_ctx,
-            numPredict: localTranslatorConfig?.num_predict,
-            cloud: localTranslatorConfig?.cloud
-              ? {
-                  provider: localTranslatorConfig.cloud.provider ?? undefined,
-                  model: localTranslatorConfig.cloud.model ?? undefined,
-                  maxOutputTokens: localTranslatorConfig.cloud.max_output_tokens ?? undefined,
-                }
-              : undefined,
-          }),
+          createLocalTranslatorHook(
+            {
+              enabled: localTranslatorConfig?.enabled !== false,
+              mode: localTranslatorConfig?.mode,
+              model: localTranslatorConfig?.model,
+              ollamaHost: localTranslatorConfig?.ollama_host,
+              timeoutMs: localTranslatorConfig?.timeout_ms,
+              autoInstall: localTranslatorConfig?.auto_install,
+              minLength: localTranslatorConfig?.min_length,
+              logTranslations: localTranslatorConfig?.log_translations,
+              showNotifications: localTranslatorConfig?.show_notifications,
+              numCtx: localTranslatorConfig?.num_ctx,
+              numPredict: localTranslatorConfig?.num_predict,
+              cloud: localTranslatorConfig?.cloud
+                ? {
+                    provider: localTranslatorConfig.cloud.provider ?? undefined,
+                    model: localTranslatorConfig.cloud.model ?? undefined,
+                    maxOutputTokens: localTranslatorConfig.cloud.max_output_tokens ?? undefined,
+                  }
+                : undefined,
+            },
+            { client: ctx.client },
+          ),
         { enabled: safeHookEnabled },
       )
     : null

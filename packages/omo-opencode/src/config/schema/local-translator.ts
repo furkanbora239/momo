@@ -13,7 +13,7 @@ const CloudTranslationSchema = z
     max_output_tokens: z
       .number()
       .optional()
-      .describe("Max output tokens per translation call (reasoning tokens included). Default: 1024."),
+      .describe("Max output tokens per translation call (reasoning tokens included). Default: 4096."),
   })
   .optional()
 
@@ -40,7 +40,7 @@ export const LocalTranslatorConfigSchema = z
     timeout_ms: z
       .number()
       .optional()
-      .describe("Translation timeout in milliseconds. Default: 30000."),
+      .describe("Translation timeout in milliseconds. Default: 60000."),
     auto_install: z
       .boolean()
       .optional()
@@ -55,6 +55,10 @@ export const LocalTranslatorConfigSchema = z
       .boolean()
       .optional()
       .describe("Log translation I/O to ~/.omo/local-translator-logs/ for finetuning. Default: true."),
+    show_notifications: z
+      .boolean()
+      .optional()
+      .describe("Show TUI toast notifications during and after prompt translation. Default: true."),
     num_ctx: z
       .number()
       .optional()

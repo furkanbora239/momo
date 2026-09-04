@@ -15,6 +15,7 @@ export interface TranslationConfig {
   readonly autoInstall: boolean
   readonly minLength: number
   readonly logTranslations: boolean
+  readonly showNotifications: boolean
   readonly numCtx: number
   readonly numPredict: number
   readonly cloud: CloudTranslationConfig
@@ -46,7 +47,7 @@ export interface LogEntry {
 export const DEFAULT_CLOUD_CONFIG: CloudTranslationConfig = {
   provider: "google",
   model: "gemma-4-31b-it",
-  maxOutputTokens: 1024,
+  maxOutputTokens: 4096,
 }
 
 export const DEFAULT_TRANSLATION_CONFIG: TranslationConfig = {
@@ -54,10 +55,11 @@ export const DEFAULT_TRANSLATION_CONFIG: TranslationConfig = {
   mode: "cloud",
   model: "qwen2.5:1.5b",
   ollamaHost: "http://localhost:11434",
-  timeoutMs: 30000,
+  timeoutMs: 60000,
   autoInstall: false,
   minLength: 20,
   logTranslations: true,
+  showNotifications: true,
   numCtx: 2048,
   numPredict: 128,
   cloud: DEFAULT_CLOUD_CONFIG,

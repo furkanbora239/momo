@@ -80,6 +80,36 @@ describe("cloud-client", () => {
     }
   })
 
+  it("#given a response with partial text and finishReason MAX_TOKENS #when chatWithCloud runs #then it throws token limit error instead of truncated text", async () => {
+    useTestApiKey()
+    stubFetchOnce({
+      candidates: [
+        {
+          content: {
+            parts: [
+              { thought: true, text: "internal reasoning" },
+              { text: "PARTIAL_TEXT_CUT_OFF" },
+            ],
+          },
+          finishReason: "MAX_TOKENS",
+        },
+      ],
+    })
+    try {
+      let message = ""
+      try {
+        await chatWithCloud(cloudConfig, "system", "girdi")
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      expect(message).toContain("hit token limit")
+      expect(message).toContain("MAX_TOKENS")
+    } finally {
+      globalThis.fetch = originalFetch
+      restoreApiKey()
+    }
+  })
+
   it("#given no api key anywhere #when chatWithCloud runs #then it throws cloud_api_key_missing without a network call", async () => {
     delete process.env["GOOGLE_API_KEY"]
     delete process.env["GEMINI_API_KEY"]

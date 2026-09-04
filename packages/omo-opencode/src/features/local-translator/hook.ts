@@ -31,8 +31,37 @@ interface MessageWithParts {
   parts: Part[]
 }
 
+export interface LocalTranslatorToastBody {
+  readonly title?: string
+  readonly message: string
+  readonly variant: "info" | "success" | "warning" | "error"
+  readonly duration?: number
+}
+
+export interface LocalTranslatorDependencies {
+  readonly client?: {
+    readonly tui?: {
+      readonly showToast?: (options: { readonly body: LocalTranslatorToastBody }) => Promise<unknown>
+    }
+  }
+}
+
+async function showToastSafely(
+  deps: LocalTranslatorDependencies | undefined,
+  body: LocalTranslatorToastBody,
+): Promise<void> {
+  try {
+    await deps?.client?.tui?.showToast?.({ body })
+  } catch (error) {
+    log("[local-translator] Failed to show toast", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
 export function createLocalTranslatorHook(
   rawConfig: TranslationConfigInput | undefined,
+  deps?: LocalTranslatorDependencies,
 ) {
   const config = resolveConfig(rawConfig)
 
@@ -121,9 +150,27 @@ export function createLocalTranslatorHook(
 
       if (shouldSkipTranslation(originalText, config.minLength).skip) return
 
+      if (config.showNotifications) {
+        const backendModel = config.mode === "cloud" ? config.cloud.model : config.model
+        void showToastSafely(deps, {
+          title: "momo translator",
+          message: `Translating & compacting prompt via ${backendModel}...`,
+          variant: "info",
+          duration: 3000,
+        })
+      }
+
       const ready = await ensureTranslatorReady()
       if (!ready) {
         log("[local-translator] Translator not ready, passing through original text")
+        if (config.showNotifications) {
+          void showToastSafely(deps, {
+            title: "momo translator",
+            message: "Translator not ready, passing original prompt through",
+            variant: "warning",
+            duration: 4000,
+          })
+        }
         return
       }
 
@@ -131,6 +178,17 @@ export function createLocalTranslatorHook(
 
       if (result.skipped) {
         log("[local-translator] Skipped translation", { reason: result.skipReason })
+        if (config.showNotifications && result.skipReason) {
+          const isError = result.skipReason.startsWith("error:")
+          void showToastSafely(deps, {
+            title: isError ? "momo translator failed" : "momo translator",
+            message: isError
+              ? `Passing through original prompt (${result.skipReason.replace(/^error:\s*/, "")})`
+              : `Skipped (${result.skipReason})`,
+            variant: isError ? "warning" : "info",
+            duration: isError ? 5000 : 3000,
+          })
+        }
         return
       }
 
@@ -141,6 +199,25 @@ export function createLocalTranslatorHook(
         originalLength: originalText.length,
         translatedLength: result.translatedText.length,
       })
+
+      if (config.showNotifications) {
+        const origLen = originalText.length
+        const transLen = result.translatedText.length
+        const pct = Math.round(((origLen - transLen) / origLen) * 100)
+        const stats = pct > 0
+          ? `Compacted: ${origLen} -> ${transLen} chars (-${pct}%)`
+          : `Translated: ${origLen} -> ${transLen} chars`
+        const preview = result.translatedText.length > 200
+          ? `${result.translatedText.slice(0, 197)}...`
+          : result.translatedText
+
+        void showToastSafely(deps, {
+          title: `momo translator (${(result.latencyMs / 1000).toFixed(1)}s)`,
+          message: `${stats}\n-> "${preview}"`,
+          variant: "success",
+          duration: 7000,
+        })
+      }
     },
   }
 }

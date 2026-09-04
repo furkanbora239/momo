@@ -94,9 +94,13 @@ export async function chatWithCloud(
     .join("")
     .trim()
 
+  const finishReason = data.candidates?.[0]?.finishReason ?? "unknown"
   if (finalText.length === 0) {
-    const finishReason = data.candidates?.[0]?.finishReason ?? "unknown"
     throw new Error(`cloud chat returned no text (finishReason: ${finishReason})`)
+  }
+
+  if (finishReason === "MAX_TOKENS") {
+    throw new Error(`cloud chat hit token limit (finishReason: MAX_TOKENS)`)
   }
 
   return finalText
