@@ -61,7 +61,7 @@ Create the work plan directly - that's your job as the planning agent.`,
       result: {
         agentToUse: "",
         categoryModel: undefined,
-        error: `You are a dispatcher agent (${parentAgent}). You cannot delegate to other dispatcher agents. Delegate to a department lead (planner, executor) or a worker agent instead.`,
+        error: `You are a dispatcher agent (${parentAgent}). You cannot delegate to other dispatcher agents. Delegate to a department lead (planner, executor, reviewer) or a worker agent instead.`,
       },
     }
   }

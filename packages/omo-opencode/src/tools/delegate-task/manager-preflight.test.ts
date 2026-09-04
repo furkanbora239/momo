@@ -112,8 +112,8 @@ describe("subagent-request-preflight - manager loop protection", () => {
     expect(result.kind).toBe("valid")
   })
 
-  test("#given MANAGER_AGENT_NAMES #when inspected #then contains exactly planner and executor", () => {
-    expect([...MANAGER_AGENT_NAMES]).toEqual(["planner", "executor"])
+  test("#given MANAGER_AGENT_NAMES #when inspected #then contains exactly planner, executor, and reviewer", () => {
+    expect([...MANAGER_AGENT_NAMES]).toEqual(["planner", "executor", "reviewer"])
   })
 
   test("#given parent=manager and target=planner #when validating #then passes (dispatcher-to-lead)", () => {
@@ -136,6 +136,58 @@ describe("subagent-request-preflight - manager loop protection", () => {
     expect(result.kind).toBe("valid")
   })
 
+  test("#given parent=manager and target=reviewer #when validating #then passes (dispatcher-to-lead)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "reviewer", prompt: "review it", load_skills: [], run_in_background: false, description: "test" },
+      "manager",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("valid")
+  })
+
+  test("#given parent=manager and target=research #when validating #then passes (dispatcher-to-worker)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "research", prompt: "research it", load_skills: [], run_in_background: false, description: "test" },
+      "manager",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("valid")
+  })
+
+  test("#given parent=reviewer and target=research #when validating #then passes (lead-to-worker)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "research", prompt: "research it", load_skills: [], run_in_background: false, description: "test" },
+      "reviewer",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("valid")
+  })
+
+  test("#given parent=reviewer and target=executor #when validating #then blocked (lead-to-lead loop)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "executor", prompt: "execute it", load_skills: [], run_in_background: false, description: "test" },
+      "reviewer",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("invalid")
+    expect(result.result.error).toContain("manager")
+  })
+
+  test("#given parent=parent and target=reviewer #when parent is planner #then blocked (lead-to-lead loop)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "reviewer", prompt: "review it", load_skills: [], run_in_background: false, description: "test" },
+      "planner",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("invalid")
+    expect(result.result.error).toContain("manager")
+  })
+
   test("#given parent=manager and target=manager #when validating #then blocked (dispatcher-to-dispatcher loop)", () => {
     const result = validateSubagentRequest(
       { subagent_type: "manager", prompt: "dispatch it", load_skills: [], run_in_background: false, description: "test" },
@@ -150,6 +202,16 @@ describe("subagent-request-preflight - manager loop protection", () => {
     const result = validateSubagentRequest(
       { subagent_type: "manager", prompt: "dispatch it", load_skills: [], run_in_background: false, description: "test" },
       "planner",
+      "",
+      makeOptions(),
+    )
+    expect(result.kind).toBe("invalid")
+  })
+
+  test("#given parent=reviewer and target=manager #when validating #then blocked (lead-to-dispatcher loop)", () => {
+    const result = validateSubagentRequest(
+      { subagent_type: "manager", prompt: "dispatch it", load_skills: [], run_in_background: false, description: "test" },
+      "reviewer",
       "",
       makeOptions(),
     )

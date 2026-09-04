@@ -418,7 +418,7 @@ export function isCoordinatorAgent(agentName: string | undefined): boolean {
  * delegation.managers config gate is on. They sit between the orchestrator and
  * workers in a 3-level hierarchy (owner → manager → worker).
  */
-export const MANAGER_AGENT_NAMES = ["planner", "executor"] as const
+export const MANAGER_AGENT_NAMES = ["planner", "executor", "reviewer"] as const
 
 /**
  * Dispatcher agent that sits between orchestrator and department leads.
@@ -436,7 +436,7 @@ export function isDispatcherAgent(agentName: string | undefined): boolean {
 
 /**
  * Returns true when the given agent name refers to a manager-layer agent
- * (planner or executor).
+ * (planner, executor, or reviewer).
  */
 export function isManagerAgent(agentName: string | undefined): boolean {
   if (!agentName) return false

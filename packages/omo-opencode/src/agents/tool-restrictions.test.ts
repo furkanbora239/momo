@@ -9,6 +9,8 @@ import { createMetisAgent } from "./metis"
 import { createAtlasAgent } from "./atlas"
 import { createSisyphusAgent } from "./sisyphus"
 import { createHephaestusAgent } from "./hephaestus"
+import { createReviewerAgent } from "./reviewer"
+import { createResearchAgent } from "./research"
 import { getAgentToolRestrictions } from "../shared/agent-tool-restrictions"
 
 const TEST_MODEL = "anthropic/claude-sonnet-4-5"
@@ -254,6 +256,28 @@ describe("read-only agent tool restrictions", () => {
         expect(permission.grep).toBeUndefined()
         expect(permission.glob).toBeUndefined()
       }
+    })
+  })
+
+  describe("Reviewer", () => {
+    test("denies all file-writing tools", () => {
+      const agent = createReviewerAgent(TEST_MODEL)
+      const permission = (agent.permission ?? {}) as Record<string, string>
+      for (const tool of FILE_WRITE_TOOLS) {
+        expect(permission[tool]).toBe("deny")
+      }
+    })
+  })
+
+  describe("Research", () => {
+    test("denies all file-writing tools, task, and call_omo_agent", () => {
+      const agent = createResearchAgent(TEST_MODEL)
+      const permission = (agent.permission ?? {}) as Record<string, string>
+      for (const tool of FILE_WRITE_TOOLS) {
+        expect(permission[tool]).toBe("deny")
+      }
+      expect(permission["task"]).toBe("deny")
+      expect(permission["call_omo_agent"]).toBe("deny")
     })
   })
 })

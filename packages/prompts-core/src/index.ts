@@ -16,6 +16,8 @@ export { executorPromptVariants } from "./executor-prompts"
 export { managerPromptVariants } from "./manager-prompts"
 export { plannerPromptVariants } from "./planner-prompts"
 export { prometheusPromptVariants } from "./prometheus-prompts"
+export { researchPromptVariants } from "./research-prompts"
+export { reviewerPromptVariants } from "./reviewer-prompts"
 export {
   CODEX_ULTRAWORK_PROMPT,
   ULTRAWORK_DEFAULT_PROMPT,

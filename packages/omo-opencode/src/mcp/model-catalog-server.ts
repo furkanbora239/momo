@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs"
 import type { Readable, Writable } from "node:stream"
 import {
+  getModelProfile,
   readRuntimeModelCost,
   readRuntimeModelLimitContext,
   readRuntimeModelLimitOutput,
@@ -142,8 +143,11 @@ interface CatalogRow {
   output: number | null
   pricing: Pricing | null
   cost_tier: CostTier | null
+  description?: string
   strengths: string[]
   weaknesses: string[]
+  best_for?: string[]
+  recommended_roles?: string[]
   vision: boolean
   reasoning: boolean
   tool_call: boolean
@@ -170,21 +174,30 @@ function flatten(cache: ProviderModelsCache): CatalogRow[] {
       const toolCall = hasCapability(model, "tool_call")
       const modalities = readRuntimeModelModalities(model)
       const textOutput = modalities?.output ? modalities.output.includes("text") : null
-      const { strengths, weaknesses } = deriveStrengths({ tier, costTier, vision, reasoning, toolCall })
+      const profile = getModelProfile(model.id)
+      const genericStrengths = deriveStrengths({ tier, costTier, vision, reasoning, toolCall })
+      const strengths = profile ? [...profile.strengths] : genericStrengths.strengths
+      const weaknesses = profile ? [...profile.weaknesses] : genericStrengths.weaknesses
+      const bestFor = profile ? [...profile.bestUseCases] : []
+      const recommendedRoles = profile ? [profile.primaryRole, ...profile.secondaryRoles] : []
+
       rows.push({
         id: model.id,
         provider: typeof model.providerID === "string" ? model.providerID : provider,
         name: typeof model.name === "string" ? model.name : model.id,
-        family: typeof model.family === "string" ? model.family : null,
+        family: typeof model.family === "string" ? model.family : (profile?.family ?? null),
         tier,
-        context_window: readRuntimeModelLimitContext(model) ?? null,
-        output: readRuntimeModelLimitOutput(model) ?? null,
+        context_window: readRuntimeModelLimitContext(model) ?? profile?.benchmarks.contextWindowTokens ?? null,
+        output: readRuntimeModelLimitOutput(model) ?? profile?.benchmarks.maxOutputTokens ?? null,
         pricing,
         cost_tier: costTier,
+        description: profile?.description,
         strengths,
         weaknesses,
+        best_for: bestFor.length > 0 ? bestFor : undefined,
+        recommended_roles: recommendedRoles.length > 0 ? recommendedRoles : undefined,
         vision,
-        reasoning,
+        reasoning: reasoning || (profile?.benchmarks.reasoningSupported ?? false),
         tool_call: toolCall,
         text_output: textOutput,
         release_date: readReleaseDate(model),
@@ -271,10 +284,23 @@ function blendedPrice(row: CatalogRow): number {
   return (row.pricing.input_per_m + row.pricing.output_per_m) / 2
 }
 
+function matchesRoleNeed(row: CatalogRow, need: string): boolean {
+  if (!row.recommended_roles || row.recommended_roles.length === 0) return false
+  const n = need.toLowerCase()
+  if ((n.includes("plan") || n === "lead_planner") && row.recommended_roles.includes("lead_planner")) return true
+  if ((n.includes("exec") || n === "lead_executor" || n.includes("code")) && row.recommended_roles.includes("lead_executor")) return true
+  if ((n.includes("review") || n === "lead_reviewer" || n.includes("audit")) && row.recommended_roles.includes("lead_reviewer")) return true
+  if ((n.includes("research") || n === "worker_research" || n.includes("librar")) && row.recommended_roles.includes("worker_research")) return true
+  if ((n.includes("explore") || n === "worker_explore" || n.includes("grep")) && row.recommended_roles.includes("worker_explore")) return true
+  if ((n.includes("quick") || n === "worker_quick" || n.includes("patch")) && row.recommended_roles.includes("worker_quick")) return true
+  if ((n.includes("visual") || n === "worker_visual") && row.recommended_roles.includes("worker_visual")) return true
+  return false
+}
+
 function pickCatalog(
   state: CatalogState,
   params: unknown,
-): { picks: Array<{ id: string; provider: string; tier: CatalogRow["tier"]; cost_tier: CostTier | null; pricing: Pricing | null; reason: string }> } {
+): { picks: Array<{ id: string; provider: string; tier: CatalogRow["tier"]; cost_tier: CostTier | null; pricing: Pricing | null; reason: string; description?: string; best_for?: string[]; recommended_roles?: string[] }> } {
   const cache = readCacheFile(state.cacheFile)
   if (!cache) return { picks: [] }
   const need = isPlainRecord(params) && typeof params["need"] === "string" ? params["need"].toLowerCase() : "default"
@@ -314,6 +340,19 @@ function pickCatalog(
   rows.sort((a, b) => {
     const preferDiff = Number(preferBoostSet.has(b.id)) - Number(preferBoostSet.has(a.id))
     if (preferDiff !== 0) return preferDiff
+
+    // If task_complexity is complex, prefer neuralwatt provider if connected (orchestrator cache synergy)
+    if (taskComplexity === "complex") {
+      const aIsNw = a.provider.toLowerCase() === "neuralwatt" ? 1 : 0
+      const bIsNw = b.provider.toLowerCase() === "neuralwatt" ? 1 : 0
+      if (bIsNw !== aIsNw) return bIsNw - aIsNw
+    }
+
+    // Role affinity boost if need maps to a known role
+    const aRole = matchesRoleNeed(a, need) ? 1 : 0
+    const bRole = matchesRoleNeed(b, need) ? 1 : 0
+    if (bRole !== aRole) return bRole - aRole
+
     const rankDiff = tierOrder.indexOf(a.tier) - tierOrder.indexOf(b.tier)
     if (rankDiff !== 0) return rankDiff
     const tierDiff = TIER_RANK[a.tier] - TIER_RANK[b.tier]
@@ -332,6 +371,9 @@ function pickCatalog(
     tier: row.tier,
     cost_tier: row.cost_tier,
     pricing: row.pricing,
+    description: row.description,
+    best_for: row.best_for,
+    recommended_roles: row.recommended_roles,
     reason: need.includes("vision")
       ? "vision-capable"
       : need.includes("reason") || taskComplexity === "complex"

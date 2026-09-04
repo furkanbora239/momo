@@ -16,6 +16,8 @@ const expectedAgents = [
   "planner",
   "executor",
   "manager",
+  "reviewer",
+  "research",
 ] as const
 
 const expectedCategories = [

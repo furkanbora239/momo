@@ -16,3 +16,17 @@ export type {
 	ModelCapabilitiesSnapshot,
 	ModelCapabilitiesSnapshotEntry,
 } from "./types"
+export {
+	MODEL_KNOWLEDGE_BASE,
+	getModelProfile,
+	getModelsByRole,
+	getModelsByProvider,
+	normalizeKnowledgeBaseKey,
+	type CodingBenchmarkProfile,
+	type LatencyTier,
+	type ModelCostTier,
+	type ModelProfileEntry,
+	type MomoAgentRole,
+	type MomoProviderID,
+	type SweBenchRankTier,
+} from "./model-knowledge-base"

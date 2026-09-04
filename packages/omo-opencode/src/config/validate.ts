@@ -107,6 +107,7 @@ function mergeViews(views: readonly LoadedConfigView[]): OhMyOpenCodeConfig {
     const additions: string[] = []
     if (!existing.has("planner")) additions.push("planner")
     if (!existing.has("executor")) additions.push("executor")
+    if (!existing.has("reviewer")) additions.push("reviewer")
     if (additions.length > 0) {
       config = { ...config, disabled_agents: [...(config.disabled_agents ?? []), ...additions] }
     }

@@ -61,6 +61,13 @@ const AGENT_RESTRICTIONS: Record<string, Record<string, boolean>> = {
     call_omo_agent: false,
   },
 
+  reviewer: {
+    write: false,
+    edit: false,
+  },
+
+  research: EXPLORATION_AGENT_DENYLIST,
+
   "multimodal-looker": {
     read: true,
   },

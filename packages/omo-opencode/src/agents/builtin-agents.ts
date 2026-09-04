@@ -17,6 +17,8 @@ import { createSisyphusJuniorAgentWithOverrides } from "./sisyphus-junior"
 import { createPlannerAgent, PLANNER_PROMPT_METADATA } from "./planner"
 import { createExecutorAgent, EXECUTOR_PROMPT_METADATA } from "./executor"
 import { createManagerAgent, MANAGER_PROMPT_METADATA } from "./manager"
+import { createReviewerAgent, REVIEWER_PROMPT_METADATA } from "./reviewer"
+import { createResearchAgent, RESEARCH_PROMPT_METADATA } from "./research"
 import type { AvailableCategory } from "./dynamic-agent-prompt-builder"
 import {
   fetchAvailableModels,
@@ -51,6 +53,8 @@ const agentSources: Record<BuiltinAgentName, AgentSource> = {
   planner: createPlannerAgent,
   executor: createExecutorAgent,
   manager: createManagerAgent,
+  reviewer: createReviewerAgent,
+  research: createResearchAgent,
 }
 
 /**
@@ -69,6 +73,8 @@ const agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>> = {
   planner: PLANNER_PROMPT_METADATA,
   executor: EXECUTOR_PROMPT_METADATA,
   manager: MANAGER_PROMPT_METADATA,
+  reviewer: REVIEWER_PROMPT_METADATA,
+  research: RESEARCH_PROMPT_METADATA,
 }
 
 export async function createBuiltinAgents(

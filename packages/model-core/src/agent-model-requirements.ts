@@ -214,4 +214,25 @@ export const AGENT_MODEL_REQUIREMENTS: Record<string, ModelRequirement> = {
       { providers: ["opencode"], model: "big-pickle" },
     ],
   },
+  reviewer: {
+    fallbackChain: [
+      { providers: ["anthropic", "github-copilot", "opencode", "vercel"], model: "claude-sonnet-5" },
+      { providers: ["opencode-go", "vercel"], model: "kimi-k3" },
+      {
+        providers: ["openai", "github-copilot", "opencode", "vercel"],
+        model: "gpt-5.6-sol",
+        variant: "medium",
+      },
+      { providers: ["opencode-go", "vercel"], model: "minimax-m3" },
+      { providers: ["opencode"], model: "big-pickle" },
+    ],
+  },
+  research: {
+    fallbackChain: [
+      { providers: ["opencode-go", "go-b"], model: "glm-5.3-flash" },
+      { providers: ["opencode-go", "go-b"], model: "qwen3.8-flash" },
+      { providers: ["opencode-go", "go-b"], model: "deepseek-v4-flash" },
+      { providers: ["opencode"], model: "big-pickle" },
+    ],
+  },
 };
