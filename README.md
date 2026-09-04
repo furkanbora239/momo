@@ -207,17 +207,31 @@ bun run build
 *This bundles TypeScript sources, compiles MCP servers, and prepares `./dist`.*
 
 ### Step 4: Add to OpenCode Configuration
-Add the plugin path to your OpenCode configuration (e.g. `~/.config/opencode/opencode.json` or project-level `opencode.json`):
+Add the local plugin path (`file://` URI pointing to `dist/index.js`) to your OpenCode configuration (`~/.config/opencode/opencode.json`):
 
 ```json
 {
   "plugin": [
-    "/absolute/path/to/momo"
+    "file:///absolute/path/to/momo/dist/index.js"
   ]
 }
 ```
 
-*Alternatively, you can link the package locally via `bun link`.*
+For the OpenCode TUI interface, register the package root in `~/.config/opencode/tui.json`:
+
+```json
+{
+  "plugin": [
+    "file:///absolute/path/to/momo"
+  ]
+}
+```
+
+You can verify the installation at any time:
+```bash
+bun dist/cli/index.js doctor
+opencode debug info
+```
 
 ### Step 5: Launch OpenCode
 ```bash
