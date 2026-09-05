@@ -16,6 +16,12 @@ export interface ParsedSlashCommand {
   raw: string
 }
 
+export interface SlashCommandToken {
+  command: string
+  tokenStart: number
+  tokenEnd: number
+}
+
 export interface AutoSlashCommandResult {
   detected: boolean
   parsedCommand?: ParsedSlashCommand

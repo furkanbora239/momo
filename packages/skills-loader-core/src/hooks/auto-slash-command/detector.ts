@@ -3,9 +3,11 @@ import {
   EXCLUDED_COMMANDS,
   SLASH_COMMAND_PATTERN,
 } from "./constants"
-import type { ParsedSlashCommand } from "./types"
+import type { ParsedSlashCommand, SlashCommandToken } from "./types"
 
 const CODE_BLOCK_PATTERN = /```[\s\S]*?```/g
+const SLASH_TOKEN_PATTERN = /(^|[\s(])\/([a-zA-Z@][\w.-]+)/g
+const FENCE_MARKER = "```"
 
 export function removeCodeBlocks(text: string): string {
   return text.replace(CODE_BLOCK_PATTERN, "")
@@ -54,6 +56,52 @@ export function detectSlashCommand(text: string): ParsedSlashCommand | null {
   }
 
   return parsed
+}
+
+function collectSlashCommandTokens(
+  segment: string,
+  offset: number,
+  tokens: SlashCommandToken[],
+): void {
+  SLASH_TOKEN_PATTERN.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = SLASH_TOKEN_PATTERN.exec(segment)) !== null) {
+    const command = match[2].toLowerCase()
+    if (isExcludedCommand(command)) {
+      continue
+    }
+    tokens.push({
+      command,
+      tokenStart: offset + match.index + match[1].length,
+      tokenEnd: offset + match.index + match[0].length,
+    })
+  }
+}
+
+export function findSlashCommandTokens(text: string): SlashCommandToken[] {
+  const tokens: SlashCommandToken[] = []
+  let segmentStart = 0
+  let inFence = false
+  let i = 0
+
+  while (i < text.length) {
+    if (text.startsWith(FENCE_MARKER, i)) {
+      if (!inFence) {
+        collectSlashCommandTokens(text.slice(segmentStart, i), segmentStart, tokens)
+      }
+      inFence = !inFence
+      i += FENCE_MARKER.length
+      segmentStart = i
+      continue
+    }
+    i += 1
+  }
+
+  if (!inFence) {
+    collectSlashCommandTokens(text.slice(segmentStart), segmentStart, tokens)
+  }
+
+  return tokens
 }
 
 export function extractPromptText(
