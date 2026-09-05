@@ -93,7 +93,11 @@ export async function handleSessionCreatedEvent(args: {
   ) {
     return;
   }
-  const isSubagentSession = !!sessionInfo?.parentID || !!sessionID && subagentSessions.has(sessionID);
+  const isSubagentSession = !!sessionInfo?.parentID || (!!sessionID && subagentSessions.has(sessionID));
+
+  if (sessionID && isSubagentSession) {
+    subagentSessions.add(sessionID);
+  }
 
   if (!isSubagentSession) setMainSession(sessionID);
   args.firstMessageVariantGate.markSessionCreated(sessionInfo);

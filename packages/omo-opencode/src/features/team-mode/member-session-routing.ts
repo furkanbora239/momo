@@ -2,6 +2,7 @@ import { stripAgentListSortPrefix } from "../../shared/agent-display-names"
 import { resolveRegisteredAgentName } from "../claude-code-session-state"
 import { applySessionPromptParams } from "../../shared/session-prompt-params-helpers"
 import { SessionCategoryRegistry } from "../../shared/session-category-registry"
+import { createInternalAgentTextPart } from "../../shared/internal-initiator-marker"
 import type { RuntimeStateMember } from "./types"
 
 type PromptGenerationModel = {
@@ -64,6 +65,6 @@ export function buildMemberPromptBody(member: RuntimeStateMember, text: string):
     ...(model ? { model } : {}),
     ...(member.model?.variant ? { variant: member.model.variant } : {}),
     ...buildPromptGenerationParams(member.model),
-    parts: [{ type: "text", text }],
+    parts: [createInternalAgentTextPart(text)],
   }
 }

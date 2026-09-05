@@ -1,7 +1,12 @@
 import type { PluginInput } from "@opencode-ai/plugin"
 import { clearSessionAgent, handedBackSyncSessions, setSessionAgent, subagentSessions, syncSubagentSessions } from "../../features/claude-code-session-state"
 import { dispatchInternalPrompt, isInternalPromptDispatchAccepted } from "../../hooks/shared/prompt-async-gate"
-import { getAgentToolRestrictions, isAmbiguousPostDispatchPromptFailure, log } from "../../shared"
+import {
+  createInternalAgentTextPart,
+  getAgentToolRestrictions,
+  isAmbiguousPostDispatchPromptFailure,
+  log,
+} from "../../shared"
 import { normalizeAgentForPrompt, stripAgentListSortPrefix } from "../../shared/agent-display-names"
 import {
   clearDelegatedChildSessionBootstrap,
@@ -147,7 +152,7 @@ export async function executeSync(
           body: {
             agent: promptAgent,
             tools: promptTools,
-            parts: [{ type: "text", text: args.prompt }],
+            parts: [createInternalAgentTextPart(args.prompt)],
             ...(model ? { model: { providerID: model.providerID, modelID: model.modelID } } : {}),
             ...(model?.variant ? { variant: model.variant } : {}),
             ...buildPromptGenerationParams(model),

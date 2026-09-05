@@ -2,6 +2,7 @@
 
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { describe, test, expect, mock } from "bun:test"
+import { createInternalAgentTextPart } from "../../shared/internal-initiator-marker"
 
 type ExecuteSync = typeof import("./sync-executor").executeSync
 
@@ -121,7 +122,7 @@ describe("executeSync", () => {
     expect(promptInput?.body.agent).toBe("explorer")
     expect(promptInput?.body.tools.question).toBe(false)
     expect(promptInput?.body.tools.task).toBe(false)
-    expect(promptInput?.body.parts).toEqual([{ type: "text", text: "find something" }])
+    expect(promptInput?.body.parts).toEqual([createInternalAgentTextPart("find something")])
   })
 
   test("removes invisible agent characters before sending the sync prompt", async () => {
