@@ -29,6 +29,7 @@ import type { CodegraphCommandResult } from "./command-runner"
 import { runCodegraphCommand } from "./command-runner"
 import { resolveCodegraphProjectRoot } from "./project-root"
 import { decideCodegraphStartupAction } from "./status"
+import { warmupCodegraphMcp, type WarmupCodegraphMcpOptions, type WarmupCodegraphMcpResult } from "./warmup"
 
 export interface CodegraphBootstrapContext {
   readonly directory: string
@@ -67,6 +68,7 @@ export interface CodegraphBootstrapDeps {
     options: { readonly env: Record<string, string>; readonly timeoutMs: number },
   ) => Promise<CodegraphCommandResult>
   readonly schedule: (task: () => Promise<void>) => void
+  readonly warmupMcp?: (options: WarmupCodegraphMcpOptions) => Promise<WarmupCodegraphMcpResult>
 }
 
 const CODEGRAPH_VERSION = CODEGRAPH_PINNED_VERSION
@@ -89,7 +91,7 @@ function provisionedBinFromInstallDir(installDir: string | undefined): string | 
 }
 
 function codegraphEnv(deps: CodegraphBootstrapDeps, config: Partial<CodegraphConfig>): Record<string, string> {
-  const env = deps.buildEnv()
+  const env = deps.buildEnv({ idleTimeoutMs: config.idle_timeout_ms ?? 0 })
   return config.install_dir === undefined
     ? env
     : { ...env, CODEGRAPH_INSTALL_DIR: config.install_dir }
@@ -190,6 +192,28 @@ async function runBootstrap(
       projectRoot,
       timedOut: action.timedOut,
     })
+
+    if (action.exitCode === 0 && config.auto_warmup !== false && deps.warmupMcp) {
+      try {
+        const warmupResult = await deps.warmupMcp({
+          argsPrefix: command.argsPrefix,
+          command: command.command,
+          env,
+          log: deps.log,
+          projectRoot,
+        })
+        deps.log("[codegraph-bootstrap] CodeGraph warmup finished", {
+          durationMs: warmupResult.durationMs,
+          projectRoot,
+          success: warmupResult.success,
+        })
+      } catch (warmupError) {
+        deps.log("[codegraph-bootstrap] CodeGraph warmup failed", {
+          error: warmupError instanceof Error ? warmupError.message : String(warmupError),
+          projectRoot,
+        })
+      }
+    }
   } catch (error) {
     if (error instanceof Error) {
       deps.log("[codegraph-bootstrap] Bootstrap failed", { error: error.message, projectRoot })
@@ -210,6 +234,7 @@ const defaultDeps: CodegraphBootstrapDeps = {
   resolveCommand: resolveCodegraphCommand,
   runCommand: runCodegraphCommand,
   schedule: defaultSchedule,
+  warmupMcp: warmupCodegraphMcp,
 }
 
 export function clearCodegraphBootstrapProjectsForTesting(): void {

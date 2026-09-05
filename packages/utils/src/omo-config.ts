@@ -34,9 +34,11 @@ const SESSION_START_COOLDOWN_FLOOR_MS = 60_000
 
 const CODEGRAPH_VALUE_TYPES: Record<CodegraphSettingKey, "boolean" | "number" | "string" | "string_array"> = {
   auto_provision: "boolean",
+  auto_warmup: "boolean",
   daemon: "boolean",
   enabled: "boolean",
   excluded_roots: "string_array",
+  idle_timeout_ms: "number",
   install_dir: "string",
   session_start_cooldown_ms: "number",
   telemetry: "boolean",

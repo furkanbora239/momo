@@ -5,10 +5,12 @@ import { HARNESS_IDS, type HarnessId } from "./harness"
 const OmoCodegraphSettingsShape = {
   enabled: z.boolean(),
   auto_provision: z.boolean(),
+  auto_warmup: z.boolean().optional(),
   daemon: z.boolean(),
   telemetry: z.boolean(),
   install_dir: z.string().optional(),
   watch_debounce_ms: z.number().finite().nonnegative().optional(),
+  idle_timeout_ms: z.number().finite().nonnegative().optional(),
   excluded_roots: z.array(z.string()).optional(),
   session_start_cooldown_ms: z.number().finite().min(60_000).optional(),
 }
@@ -27,9 +29,11 @@ export type OmoCodegraphSettingsLayer = z.infer<typeof OmoCodegraphSettingsLayer
 
 export interface CodegraphConfig {
   readonly auto_provision?: boolean
+  readonly auto_warmup?: boolean
   readonly daemon?: boolean
   readonly enabled?: boolean
   readonly excluded_roots?: readonly string[]
+  readonly idle_timeout_ms?: number
   readonly install_dir?: string
   readonly session_start_cooldown_ms?: number
   readonly telemetry?: boolean
@@ -41,9 +45,11 @@ type SettingPath = `codegraph.${CodegraphSettingKey}`
 
 export const SETTING_HARNESS_SUPPORT: Record<SettingPath, readonly HarnessId[]> = {
   "codegraph.auto_provision": HARNESS_IDS,
+  "codegraph.auto_warmup": ["opencode"],
   "codegraph.daemon": ["codex", "opencode"],
   "codegraph.enabled": HARNESS_IDS,
   "codegraph.excluded_roots": ["codex", "opencode"],
+  "codegraph.idle_timeout_ms": ["codex", "opencode"],
   "codegraph.install_dir": HARNESS_IDS,
   "codegraph.session_start_cooldown_ms": ["codex"],
   "codegraph.telemetry": HARNESS_IDS,

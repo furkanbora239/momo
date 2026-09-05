@@ -5,8 +5,13 @@ import type { TeamModeConfig } from "./manager"
 import { spawn as bunSpawn } from "@oh-my-opencode/utils/runtime"
 
 async function runGit(args: string[]): Promise<{ code: number; stderr: string }> {
-  const process = bunSpawn({ cmd: ["git", ...args], stdout: "pipe", stderr: "pipe" })
-  const [exitCode, stderrText] = await Promise.all([process.exited, new Response(process.stderr).text()])
+  const proc = bunSpawn({
+    cmd: ["git", ...args],
+    env: { ...process.env, LC_ALL: "C" },
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  const [exitCode, stderrText] = await Promise.all([proc.exited, new Response(proc.stderr).text()])
   return { code: exitCode, stderr: stderrText }
 }
 
@@ -15,6 +20,7 @@ export async function removeWorktree(worktreePath: string): Promise<void> {
 
   const rootLookup = bunSpawn({
     cmd: ["git", "-C", worktreePath, "rev-parse", "--show-superproject-working-tree"],
+    env: { ...process.env, LC_ALL: "C" },
     stdout: "pipe",
     stderr: "pipe",
   })

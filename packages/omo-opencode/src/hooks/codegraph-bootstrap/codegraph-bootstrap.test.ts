@@ -49,6 +49,10 @@ function createDeps(events: string[], overrides: Partial<CodegraphBootstrapDeps>
       events.push("scheduled")
       void task()
     },
+    warmupMcp: async (options) => {
+      events.push(`warmup:${options.projectRoot}:${options.command}`)
+      return { durationMs: 5, success: true }
+    },
     ...overrides,
   }
 }
@@ -360,5 +364,66 @@ describe("createCodegraphBootstrapHook", () => {
     } finally {
       rmSync(workspace, { force: true, recursive: true })
     }
+  })
+
+  test("#given bootstrap succeeds and auto_warmup is enabled by default #when background work runs #then warmupMcp is called", async () => {
+    // given
+    const events: string[] = []
+    const projectRoot = resolve("/repo")
+    const hook = createCodegraphBootstrapHook(
+      { directory: "/repo" },
+      { enabled: true },
+      createDeps(events),
+    )
+
+    // when
+    hook.event({ event: { type: "session.created", properties: {} } })
+    await waitForBackground()
+
+    // then
+    expect(events).toContain(`warmup:${projectRoot}:/bin/codegraph`)
+    expect(events).toContain("log:[codegraph-bootstrap] CodeGraph warmup finished")
+  })
+
+  test("#given bootstrap succeeds and auto_warmup is false #when background work runs #then warmupMcp is skipped", async () => {
+    // given
+    const events: string[] = []
+    const projectRoot = resolve("/repo")
+    const hook = createCodegraphBootstrapHook(
+      { directory: "/repo" },
+      { auto_warmup: false, enabled: true },
+      createDeps(events),
+    )
+
+    // when
+    hook.event({ event: { type: "session.created", properties: {} } })
+    await waitForBackground()
+
+    // then
+    expect(events).not.toContain(`warmup:${projectRoot}:/bin/codegraph`)
+    expect(events).toContain("log:[codegraph-bootstrap] CodeGraph bootstrap finished")
+    expect(events).not.toContain("log:[codegraph-bootstrap] CodeGraph warmup finished")
+  })
+
+  test("#given warmupMcp throws #when background work runs #then warmup error is logged and bootstrap is not failed", async () => {
+    // given
+    const events: string[] = []
+    const hook = createCodegraphBootstrapHook(
+      { directory: "/repo" },
+      { enabled: true },
+      createDeps(events, {
+        warmupMcp: async () => {
+          throw new Error("synthetic warmup timeout")
+        },
+      }),
+    )
+
+    // when
+    hook.event({ event: { type: "session.created", properties: {} } })
+    await waitForBackground()
+
+    // then
+    expect(events).toContain("log:[codegraph-bootstrap] CodeGraph warmup failed")
+    expect(events).not.toContain("log:[codegraph-bootstrap] Bootstrap failed")
   })
 })

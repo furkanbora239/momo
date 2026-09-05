@@ -71,6 +71,11 @@ All agents start unpinned to any specific provider/model; the user configures mo
    - Compaction prompt updated to preserve architectural decisions and current milestone status.
    - Instructs compaction to prune massive raw tool logs/diffs while distilling high-signal facts and referencing `PROJECT_STATE.md`.
 
+6. **CodeGraph Daemon Never-Idle & Synthetic Warmup**:
+   - Resolved first-query cold start: Background synthetic probe (`warmupCodegraphMcp`) issues JSON-RPC handshake + `codegraph_status` right after bootstrap, warming up the daemon and SQLite database in ~25ms.
+   - Resolved 5-minute idle exit: Configured `CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS=0` and `CODEGRAPH_DAEMON_MAX_IDLE_MS=0` by default so the CodeGraph daemon remains alive and hot across the entire OpenCode session.
+   - Config & Schema: Added `auto_warmup` (default `true`) and `idle_timeout_ms` (default `0`) with zero-config defaults and full schema generation.
+
 ---
 
 ## 5. Working Rules & Constraints

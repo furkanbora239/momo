@@ -155,6 +155,7 @@ describe("resolveCodegraphCommand", () => {
       which: (commandName: string) => (commandName === "node22" ? node22 : null),
     })
     const support = resolveCodegraphNodeSupport({
+      env: {},
       nodeVersion: (candidate: string) => (candidate === node22 ? "v22.14.0" : "v26.0.0"),
       which: (commandName: string) => (commandName === "node22" ? node22 : null),
     })
@@ -185,6 +186,7 @@ describe("resolveCodegraphCommand", () => {
 
     // when
     const support = resolveCodegraphNodeSupport({
+      env: {},
       nodeVersion: (candidate: string) => (candidate === node ? "v26.0.0" : "v0.0.0"),
       which: (commandName: string) => (commandName === "node" ? node : null),
     })

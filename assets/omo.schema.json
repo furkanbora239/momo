@@ -773,6 +773,9 @@
           "default": true,
           "type": "boolean"
         },
+        "auto_warmup": {
+          "type": "boolean"
+        },
         "daemon": {
           "default": true,
           "type": "boolean"
@@ -785,6 +788,10 @@
           "type": "string"
         },
         "watch_debounce_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "idle_timeout_ms": {
           "type": "number",
           "minimum": 0
         },
@@ -13074,6 +13081,9 @@
               "default": true,
               "type": "boolean"
             },
+            "auto_warmup": {
+              "type": "boolean"
+            },
             "daemon": {
               "default": true,
               "type": "boolean"
@@ -13087,6 +13097,10 @@
               "items": {
                 "type": "string"
               }
+            },
+            "idle_timeout_ms": {
+              "type": "number",
+              "minimum": 0
             },
             "install_dir": {
               "type": "string"
@@ -14426,6 +14440,9 @@
             "auto_provision": {
               "type": "boolean"
             },
+            "auto_warmup": {
+              "type": "boolean"
+            },
             "daemon": {
               "type": "boolean"
             },
@@ -14436,6 +14453,10 @@
               "type": "string"
             },
             "watch_debounce_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "idle_timeout_ms": {
               "type": "number",
               "minimum": 0
             },
@@ -16003,6 +16024,9 @@
             "auto_provision": {
               "type": "boolean"
             },
+            "auto_warmup": {
+              "type": "boolean"
+            },
             "daemon": {
               "type": "boolean"
             },
@@ -16013,6 +16037,10 @@
               "type": "string"
             },
             "watch_debounce_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "idle_timeout_ms": {
               "type": "number",
               "minimum": 0
             },
@@ -17586,6 +17614,9 @@
               "auto_provision": {
                 "type": "boolean"
               },
+              "auto_warmup": {
+                "type": "boolean"
+              },
               "daemon": {
                 "type": "boolean"
               },
@@ -17596,6 +17627,10 @@
                 "type": "string"
               },
               "watch_debounce_ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "idle_timeout_ms": {
                 "type": "number",
                 "minimum": 0
               },
@@ -29662,6 +29697,9 @@
                     "default": true,
                     "type": "boolean"
                   },
+                  "auto_warmup": {
+                    "type": "boolean"
+                  },
                   "daemon": {
                     "default": true,
                     "type": "boolean"
@@ -29675,6 +29713,10 @@
                     "items": {
                       "type": "string"
                     }
+                  },
+                  "idle_timeout_ms": {
+                    "type": "number",
+                    "minimum": 0
                   },
                   "install_dir": {
                     "type": "string"
@@ -31014,6 +31056,9 @@
                   "auto_provision": {
                     "type": "boolean"
                   },
+                  "auto_warmup": {
+                    "type": "boolean"
+                  },
                   "daemon": {
                     "type": "boolean"
                   },
@@ -31024,6 +31069,10 @@
                     "type": "string"
                   },
                   "watch_debounce_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "idle_timeout_ms": {
                     "type": "number",
                     "minimum": 0
                   },
@@ -32591,6 +32640,9 @@
                   "auto_provision": {
                     "type": "boolean"
                   },
+                  "auto_warmup": {
+                    "type": "boolean"
+                  },
                   "daemon": {
                     "type": "boolean"
                   },
@@ -32601,6 +32653,10 @@
                     "type": "string"
                   },
                   "watch_debounce_ms": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "idle_timeout_ms": {
                     "type": "number",
                     "minimum": 0
                   },

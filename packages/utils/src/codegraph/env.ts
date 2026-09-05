@@ -5,6 +5,8 @@ export const CODEGRAPH_INSTALL_DIR_ENV = "CODEGRAPH_INSTALL_DIR"
 export const CODEGRAPH_NO_DAEMON_ENV = "CODEGRAPH_NO_DAEMON"
 export const CODEGRAPH_NO_DOWNLOAD_ENV = "CODEGRAPH_NO_DOWNLOAD"
 export const CODEGRAPH_TELEMETRY_ENV = "CODEGRAPH_TELEMETRY"
+export const CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS_ENV = "CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS"
+export const CODEGRAPH_DAEMON_MAX_IDLE_MS_ENV = "CODEGRAPH_DAEMON_MAX_IDLE_MS"
 export const DO_NOT_TRACK_ENV = "DO_NOT_TRACK"
 
 const SAFE_AMBIENT_ENV_KEYS = new Set([
@@ -38,6 +40,7 @@ const SAFE_CODEGRAPH_RUNTIME_ENV_KEYS = new Set([
   "CODEGRAPH_ALLOW_UNSAFE_NODE",
   "CODEGRAPH_BIN",
   "CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS",
+  "CODEGRAPH_DAEMON_MAX_IDLE_MS",
   "CODEGRAPH_FAKE_LOG",
   "CODEGRAPH_NO_DAEMON",
   "CODEGRAPH_NODE_BIN",
@@ -54,6 +57,7 @@ export interface BuildCodegraphEnvOptions {
   // as opt-out) so the daemon may run and an ambient CODEGRAPH_NO_DAEMON=1 can
   // still escape-hatch back to daemon-off.
   readonly daemon?: boolean
+  readonly idleTimeoutMs?: number
 }
 
 export interface BuildCodegraphChildEnvOptions {
@@ -67,15 +71,25 @@ export type CodegraphEnv = {
   readonly [CODEGRAPH_NO_DAEMON_ENV]?: "1"
   readonly [CODEGRAPH_NO_DOWNLOAD_ENV]: "1"
   readonly [CODEGRAPH_TELEMETRY_ENV]: "0"
+  readonly [CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS_ENV]?: string
+  readonly [CODEGRAPH_DAEMON_MAX_IDLE_MS_ENV]?: string
   readonly [DO_NOT_TRACK_ENV]: "1"
 }
 
 export function buildCodegraphEnv(options: BuildCodegraphEnvOptions = {}): CodegraphEnv {
   const homeDir = options.homeDir ?? homedir()
+  const idleTimeout = options.idleTimeoutMs
 
   return {
     [CODEGRAPH_INSTALL_DIR_ENV]: join(homeDir, ".omo", "codegraph"),
-    ...(options.daemon === false ? { [CODEGRAPH_NO_DAEMON_ENV]: "1" as const } : {}),
+    ...(options.daemon === false
+      ? { [CODEGRAPH_NO_DAEMON_ENV]: "1" as const }
+      : idleTimeout !== undefined
+        ? {
+            [CODEGRAPH_DAEMON_IDLE_TIMEOUT_MS_ENV]: String(idleTimeout),
+            [CODEGRAPH_DAEMON_MAX_IDLE_MS_ENV]: String(idleTimeout),
+          }
+        : {}),
     [CODEGRAPH_NO_DOWNLOAD_ENV]: "1",
     [CODEGRAPH_TELEMETRY_ENV]: "0",
     [DO_NOT_TRACK_ENV]: "1",

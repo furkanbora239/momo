@@ -11265,6 +11265,9 @@
           "default": true,
           "type": "boolean"
         },
+        "auto_warmup": {
+          "type": "boolean"
+        },
         "daemon": {
           "default": true,
           "type": "boolean"
@@ -11278,6 +11281,10 @@
           "items": {
             "type": "string"
           }
+        },
+        "idle_timeout_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "install_dir": {
           "type": "string"

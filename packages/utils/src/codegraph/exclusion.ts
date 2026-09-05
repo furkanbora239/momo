@@ -1,6 +1,6 @@
 import { realpathSync } from "node:fs"
 import { homedir, tmpdir as osTmpdir } from "node:os"
-import { isAbsolute, join, resolve } from "node:path"
+import { basename, dirname, isAbsolute, join, resolve } from "node:path"
 
 export type CodegraphProjectExclusionReason = "custom-root" | "omo-state" | "tmp-root"
 
@@ -29,6 +29,19 @@ function realpathIfPossible(path: string): string {
   try {
     return realpathSync(path)
   } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      let current = path
+      const segments: string[] = []
+      while (current !== dirname(current)) {
+        segments.unshift(basename(current))
+        current = dirname(current)
+        try {
+          return join(realpathSync(current), ...segments)
+        } catch {
+          // continue walking up
+        }
+      }
+    }
     if (error instanceof Error) return resolve(path)
     throw error
   }
