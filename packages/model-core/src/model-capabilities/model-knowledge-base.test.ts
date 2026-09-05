@@ -72,4 +72,43 @@ describe("model-knowledge-base", () => {
       expect(entry.benchmarks.maxOutputTokens).toBeGreaterThan(0)
     }
   })
+
+  test("#given omen-alpha #when queried #then exists with valid benchmark and provider fields and no supersededBy", () => {
+    const omen = getModelProfile("opencode-go/omen-alpha")
+    expect(omen).toBeDefined()
+    expect(omen?.canonicalId).toBe("omen-alpha")
+    expect(omen?.displayName).toBe("Omen Alpha")
+    expect(omen?.benchmarks.sweBenchScorePercentEst).toBeGreaterThanOrEqual(0)
+    expect(omen?.benchmarks.sweBenchScorePercentEst).toBeLessThanOrEqual(100)
+    const validProviders = [
+      "opencode",
+      "opencode-go",
+      "go-b",
+      "neuralwatt",
+      "openai",
+      "anthropic",
+      "google",
+      "deepseek",
+      "alibaba",
+      "moonshotai",
+      "minimax",
+      "xiaomi",
+      "zai",
+    ]
+    for (const provider of omen?.availableProviders ?? []) {
+      expect(validProviders).toContain(provider)
+    }
+    expect(omen?.supersededBy).toBeUndefined()
+  })
+
+  test("#given supersededBy references #when validated #then they point at existing entries and never at themselves", () => {
+    const entries = Object.entries(MODEL_KNOWLEDGE_BASE)
+    expect(entries.some(([, entry]) => entry.supersededBy !== undefined)).toBe(true)
+    for (const [id, entry] of entries) {
+      if (entry.supersededBy === undefined) continue
+      expect(MODEL_KNOWLEDGE_BASE[entry.supersededBy]).toBeDefined()
+      expect(entry.supersededBy).not.toBe(entry.canonicalId)
+      expect(entry.supersededBy).not.toBe(id)
+    }
+  })
 })

@@ -67,6 +67,7 @@ export interface ModelProfileEntry {
   readonly antiPatterns: readonly string[]
   readonly primaryRole: MomoAgentRole
   readonly secondaryRoles: readonly MomoAgentRole[]
+  readonly supersededBy?: string
   readonly providerNotes?: Partial<Record<MomoProviderID, string>>
 }
 
@@ -363,6 +364,7 @@ export const MODEL_KNOWLEDGE_BASE: Record<string, ModelProfileEntry> = {
     ],
     primaryRole: "advisor",
     secondaryRoles: ["lead_executor", "worker_quick"],
+    supersededBy: "glm-5.3-flash",
   },
 
   "big-pickle": {
@@ -401,6 +403,56 @@ export const MODEL_KNOWLEDGE_BASE: Record<string, ModelProfileEntry> = {
     ],
     primaryRole: "worker_quick",
     secondaryRoles: [],
+  },
+
+  // =========================================================================
+  // OMEN FAMILY (OpenCode Go exclusive)
+  // =========================================================================
+
+  "omen-alpha": {
+    canonicalId: "omen-alpha",
+    displayName: "Omen Alpha",
+    family: "omen",
+    availableProviders: ["opencode-go"],
+    costTier: "budget",
+    latencyTier: "fast",
+    benchmarks: {
+      sweBenchRankTier: "tier_2_high_competence",
+      sweBenchScorePercentEst: 71.5,
+      contextWindowTokens: 500_000,
+      maxOutputTokens: 128_000,
+      reasoningSupported: true,
+      thinkingType: "budget",
+      modalities: { input: ["text", "image"], output: ["text"] },
+    },
+    description: "Stealth (undisclosed maker) coding model exclusive to OpenCode Go, 500K context, image input, effort-tiered reasoning; strong $-per-performance under the promo.",
+    strengths: [
+      "Mid-tier leaderboard neighbor of DeepSeek-V4-Flash with the fastest average completion in its band (01:51; ~189 tok/s community-reported)",
+      "500K context and 128K output for repo-scale analysis and docs-heavy digestion",
+      "Image input enables screenshot-driven frontend and UI debugging",
+      "10x usage multiplier inside the $10/mo OpenCode Go subscription ($100/mo included; standard Go multiplier is 6x)",
+    ],
+    bestUseCases: [
+      "Primary worker_quick: routine implementation, iterative debugging, high-volume agent loops",
+      "worker_explore: repository exploration and docs-heavy digestion via 500K context",
+      "worker_visual: screenshot-driven frontend/UI work via image input",
+    ],
+    weaknesses: [
+      "Opaque provenance: no model card or named lab; treat as a black-box service",
+      "No official benchmarks or SWE-bench score; ranking derives from one leaderboard snapshot (23.14/40, rank #15)",
+      "Isolated community reports of multi-turn recall lapses in long tool loops",
+      "Go-only access (not on OpenRouter); $100/mo promo allowance has no published end date and can be retired",
+    ],
+    antiPatterns: [
+      "Never use for provenance-sensitive or compliance-critical production; undisclosed maker cannot be audited",
+      "Never as Sisyphus orchestrator, advisor, or lead planner: mid-tier rank and unverified identity",
+      "Do not hard-depend on the $100 promo allowance in cost planning; an earlier Go promo was retired without notice (changelog v1.18.22)",
+    ],
+    primaryRole: "worker_quick",
+    secondaryRoles: ["worker_explore", "worker_visual"],
+    providerNotes: {
+      "opencode-go": "Sep 2026 promo: $100/month usage inside the $10 Go subscription (10x vs the standard 6x); $0.20/M input, $0.66/M output, $0.04/M cache read; pricing started 2026-09-04 with no published end date",
+    },
   },
 
   // =========================================================================
