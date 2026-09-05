@@ -1,5 +1,6 @@
 import type { Message, Part } from "@opencode-ai/sdk"
 import { isRealUserMessage, isRealUserTextPart, log } from "../../shared"
+import { getMainSessionID, subagentSessions, syncSubagentSessions } from "../claude-code-session-state"
 import type { TranslationConfig, TranslationConfigInput } from "./types"
 import { DEFAULT_TRANSLATION_CONFIG } from "./types"
 import { translateMessage, shouldSkipTranslation } from "./translator"
@@ -43,6 +44,13 @@ export interface LocalTranslatorDependencies {
     readonly tui?: {
       readonly showToast?: (options: { readonly body: LocalTranslatorToastBody }) => Promise<unknown>
     }
+    readonly session?: {
+      readonly get?: (options: { readonly path: { readonly id: string } }) => Promise<{
+        data?: {
+          parentID?: string
+        }
+      }>
+    }
   }
 }
 
@@ -57,6 +65,40 @@ async function showToastSafely(
       error: error instanceof Error ? error.message : String(error),
     })
   }
+}
+
+async function shouldSkipForSession(
+  sessionID: string | undefined,
+  deps: LocalTranslatorDependencies | undefined,
+): Promise<boolean> {
+  if (!sessionID) return false
+  if (subagentSessions.has(sessionID) || syncSubagentSessions.has(sessionID)) {
+    log("[local-translator] Skipping translation for subagent session", { sessionID })
+    return true
+  }
+  const mainSessionID = getMainSessionID()
+  if (mainSessionID && sessionID !== mainSessionID) {
+    log("[local-translator] Skipping translation for non-main session", { sessionID, mainSessionID })
+    return true
+  }
+  if (deps?.client?.session?.get) {
+    try {
+      const sessionResult = await deps.client.session.get({ path: { id: sessionID } })
+      if (sessionResult?.data?.parentID) {
+        log("[local-translator] Skipping translation for child session with parentID", {
+          sessionID,
+          parentID: sessionResult.data.parentID,
+        })
+        return true
+      }
+    } catch (error) {
+      log("[local-translator] Failed to query session info for parentID", {
+        sessionID,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+  return false
 }
 
 export function createLocalTranslatorHook(
@@ -134,6 +176,9 @@ export function createLocalTranslatorHook(
 
       const lastUserMessage = messages[lastUserMessageIndex]
       if (!lastUserMessage || !isRealUserMessage(lastUserMessage)) return
+
+      const sessionID = lastUserMessage.info.sessionID
+      if (await shouldSkipForSession(sessionID, deps)) return
 
       const textPartIndex = lastUserMessage.parts.findIndex(
         (part) =>

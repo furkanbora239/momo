@@ -1,17 +1,19 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Message, Part } from "@opencode-ai/sdk"
+import { _resetForTesting, setMainSession, subagentSessions, syncSubagentSessions } from "../claude-code-session-state"
+import { createInternalAgentTextPart } from "../../shared/internal-initiator-marker"
 import { createLocalTranslatorHook } from "./hook"
 
 const originalFetch = globalThis.fetch
 
-function makeUserMessage(text: string) {
+function makeUserMessage(text: string, sessionID = "s1") {
   return {
     info: {
       id: "m1",
-      sessionID: "s1",
+      sessionID,
       role: "user",
       time: { created: 1 },
     } as unknown as Message,
@@ -20,6 +22,9 @@ function makeUserMessage(text: string) {
 }
 
 describe("local-translator hook", () => {
+  afterEach(() => {
+    _resetForTesting()
+  })
   it("skips a short message before any Ollama call (text unchanged)", async () => {
     const hook = createLocalTranslatorHook({
       enabled: true,
@@ -236,5 +241,132 @@ describe("local-translator hook", () => {
       globalThis.fetch = originalFetch
       delete process.env["GOOGLE_API_KEY"]
     }
+  })
+
+  it("#given a session in subagentSessions #when transform runs #then translation is skipped and text is unchanged", async () => {
+    subagentSessions.add("sub-session-1")
+    const hook = createLocalTranslatorHook({
+      enabled: true,
+      mode: "cloud",
+      logTranslations: false,
+    })
+    const output = {
+      messages: [
+        makeUserMessage(
+          "bu alt ajana gonderilen cok detayli bir gorev talimatidir ve asla cevrilmemeli",
+          "sub-session-1",
+        ),
+      ],
+    }
+
+    await hook["experimental.chat.messages.transform"]({}, output)
+
+    expect((output.messages[0].parts[0] as { text: string }).text).toBe(
+      "bu alt ajana gonderilen cok detayli bir gorev talimatidir ve asla cevrilmemeli",
+    )
+  })
+
+  it("#given a session in syncSubagentSessions #when transform runs #then translation is skipped and text is unchanged", async () => {
+    syncSubagentSessions.add("sync-sub-1")
+    const hook = createLocalTranslatorHook({
+      enabled: true,
+      mode: "cloud",
+      logTranslations: false,
+    })
+    const output = {
+      messages: [
+        makeUserMessage(
+          "bu senkron alt ajana gonderilen gorev talimatidir ve asla bozulmamalidir",
+          "sync-sub-1",
+        ),
+      ],
+    }
+
+    await hook["experimental.chat.messages.transform"]({}, output)
+
+    expect((output.messages[0].parts[0] as { text: string }).text).toBe(
+      "bu senkron alt ajana gonderilen gorev talimatidir ve asla bozulmamalidir",
+    )
+  })
+
+  it("#given a non-main session when main session ID is set #when transform runs #then translation is skipped and text is unchanged", async () => {
+    setMainSession("main-session-id")
+    const hook = createLocalTranslatorHook({
+      enabled: true,
+      mode: "cloud",
+      logTranslations: false,
+    })
+    const output = {
+      messages: [
+        makeUserMessage(
+          "bu ikincil bir oturum icindeki detayli talimattir ve cevrilmemelidir",
+          "child-session-id",
+        ),
+      ],
+    }
+
+    await hook["experimental.chat.messages.transform"]({}, output)
+
+    expect((output.messages[0].parts[0] as { text: string }).text).toBe(
+      "bu ikincil bir oturum icindeki detayli talimattir ve cevrilmemelidir",
+    )
+  })
+
+  it("#given a message with internal initiator marker #when transform runs #then translation is skipped and text is unchanged", async () => {
+    const internalPart = createInternalAgentTextPart(
+      "bu orkestrator tarafindan gonderilen dahili bir gorev metnidir ve detay icerir",
+    )
+    const hook = createLocalTranslatorHook({
+      enabled: true,
+      mode: "cloud",
+      logTranslations: false,
+    })
+    const output = {
+      messages: [
+        {
+          info: {
+            id: "m1",
+            sessionID: "s1",
+            role: "user",
+            time: { created: 1 },
+          } as unknown as Message,
+          parts: [internalPart as unknown as Part],
+        },
+      ],
+    }
+
+    await hook["experimental.chat.messages.transform"]({}, output)
+
+    expect((output.messages[0].parts[0] as { text: string }).text).toBe(internalPart.text)
+  })
+
+  it("#given a session with parentID from client.session.get #when transform runs #then translation is skipped and text is unchanged", async () => {
+    const mockClient = {
+      session: {
+        get: async () => ({ data: { parentID: "parent-root-123" } }),
+      },
+    }
+    const hook = createLocalTranslatorHook(
+      {
+        enabled: true,
+        mode: "cloud",
+        logTranslations: false,
+      },
+      { client: mockClient },
+    )
+    const output = {
+      messages: [
+        makeUserMessage(
+          "bu parent oturumu olan bir cocuk oturum gorevidir ve cevrilmemelidir",
+          "child-123",
+        ),
+      ],
+    }
+
+    await hook["experimental.chat.messages.transform"]({}, output)
+
+    expect((output.messages[0].parts[0] as { text: string }).text).toBe(
+      "bu parent oturumu olan bir cocuk oturum gorevidir ve cevrilmemelidir",
+    )
   })
 })
