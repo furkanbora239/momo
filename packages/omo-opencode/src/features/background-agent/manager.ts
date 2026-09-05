@@ -1725,6 +1725,13 @@ The fallback retry session is now created and can be inspected directly.
         if (partInfo.id && partInfo.state?.status === "running") {
           countedToolPartIDs.add(partInfo.id)
           task.progress.countedToolPartIDs = countedToolPartIDs
+          task.progress.activeTool = partInfo.tool
+          task.progress.activeToolStartedAt = task.progress.activeToolStartedAt ?? (partInfo?.activityTime ?? new Date())
+        } else if (partInfo.state?.status === "completed" || partInfo.state?.status === "error") {
+          if (task.progress.activeTool === partInfo.tool) {
+            task.progress.activeTool = undefined
+            task.progress.activeToolStartedAt = undefined
+          }
         }
 
         task.progress.toolCalls += 1

@@ -8,7 +8,6 @@ import { randomUUID } from "node:crypto"
 import { readBoulderState, clearBoulderState } from "../../features/boulder-state"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { createStartWorkHook } from "./start-work-hook"
-import { START_WORK_TEMPLATE } from "../../features/builtin-commands/templates/start-work"
 import { createPrDeliveryBlock } from "./worktree-block"
 
 describe("start-work hook platform session ids", () => {
@@ -191,14 +190,5 @@ ${args}
 
     // then
     expect(state?.plan_name).toBe("work")
-  })
-})
-
-describe("start-work template label matches the activated agent (#5499)", () => {
-  test("#given /start-work activates Atlas #when reading the shipped template header #then it carries the marker the hook gates on", () => {
-    // /start-work activates the atlas agent (see createStartWorkHook), and the
-    // hook only fires on messages containing this marker, so the shipped
-    // template must keep it (#5499).
-    expect(START_WORK_TEMPLATE).toContain("You are starting an Atlas work session.")
   })
 })

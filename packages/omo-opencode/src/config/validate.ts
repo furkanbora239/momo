@@ -77,17 +77,6 @@ export const V1_DISABLED_AGENTS_DEFAULT = [
   "multimodal-looker",
 ] as const
 
-/**
- * momo wave-2 lean roster: heavy multi-agent slash commands disabled by default
- * (kept off `/[name]`). A user re-enables any by clearing `disabled_commands`
- * (`[]` suppresses the default) or by listing the ones they want kept off.
- */
-export const V1_DISABLED_COMMANDS_DEFAULT = [
-  "refactor",
-  "hyperplan",
-  "remove-ai-slops",
-] as const
-
 function mergeViews(views: readonly LoadedConfigView[]): OhMyOpenCodeConfig {
   let config = OhMyOpenCodeConfigSchema.parse({})
   for (const view of views) {
@@ -100,7 +89,7 @@ function mergeViews(views: readonly LoadedConfigView[]): OhMyOpenCodeConfig {
     config = { ...config, disabled_agents: [...V1_DISABLED_AGENTS_DEFAULT] }
   }
   if (views.every((view) => view.config.disabled_commands === undefined)) {
-    config = { ...config, disabled_commands: [...V1_DISABLED_COMMANDS_DEFAULT] }
+    delete (config as Record<string, unknown>).disabled_commands
   }
   if (config.delegation?.managers === false) {
     const existing = new Set((config.disabled_agents ?? []).map((n) => n.toLowerCase()))

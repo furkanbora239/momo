@@ -34,7 +34,7 @@ import { buildGpt55SisyphusJuniorPrompt } from "./gpt-5-5"
 import { buildGeminiSisyphusJuniorPrompt } from "./gemini"
 import { buildGlm52SisyphusJuniorPrompt } from "./glm-5-2"
 
-const MODE: AgentMode = "subagent"
+const MODE: AgentMode = "all"
 
 // Core tools that Sisyphus-Junior must NEVER have access to
 // Note: call_omo_agent is ALLOWED so subagents can spawn explore/librarian

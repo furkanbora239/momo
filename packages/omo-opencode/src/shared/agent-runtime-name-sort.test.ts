@@ -69,7 +69,7 @@ describe("OpenCode Agent.list() sort with runtime display names", () => {
       expect(orderedConfigKeys).toEqual([
         "sisyphus",
         "hephaestus",
-        "prometheus",
+        "planner",
         "atlas",
         "athena",
         "explore",
@@ -92,7 +92,7 @@ describe("OpenCode Agent.list() sort with runtime display names", () => {
       expect(orderedConfigKeys.slice(0, 4)).toEqual([
         "sisyphus",
         "hephaestus",
-        "prometheus",
+        "planner",
         "atlas",
       ])
     })
@@ -111,7 +111,7 @@ describe("OpenCode Agent.list() sort with runtime display names", () => {
       expect(orderedConfigKeys).toEqual([
         "sisyphus",
         "hephaestus",
-        "prometheus",
+        "planner",
         "atlas",
       ])
     })

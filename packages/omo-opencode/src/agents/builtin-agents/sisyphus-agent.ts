@@ -123,7 +123,7 @@ export function maybeCreateSisyphusConfig(input: {
     disableOmoEnv,
   })
 
-  if (!sisyphusOverride?.model) {
+  if (!sisyphusOverride?.model && !sisyphusOverride?.category && !uiSelectedModel) {
     delete sisyphusConfig.model
   }
 

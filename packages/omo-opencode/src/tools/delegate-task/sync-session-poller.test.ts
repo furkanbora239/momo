@@ -538,6 +538,112 @@ describe("pollSyncSession", () => {
       expect(result).toBeNull()
       expect(statusCallCount).toBeGreaterThanOrEqual(3)
     })
+
+    test("#when session is busy with no activity and no running tool #then aborts on stall timeout", async () => {
+      const { pollSyncSession } = require("./sync-session-poller")
+      __setTimingConfig({
+        POLL_INTERVAL_MS: 10,
+        STALL_TIMEOUT_MS: 40,
+        MAX_POLL_TIME_MS: 5000,
+      })
+
+      let abortCalled = false
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
+              {
+                info: { id: "msg_002", role: "assistant", time: { created: 2000 } },
+                parts: [{ type: "text", text: "Working..." }],
+              },
+            ],
+          }),
+          status: async () => ({ data: { "ses_stalled": { type: "busy" } } }),
+          abort: async () => {
+            abortCalled = true
+            return {}
+          },
+        },
+      }
+
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_stalled",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+      })
+
+      expect(abortCalled).toBe(true)
+      expect(result).toContain("subagent stalled")
+    })
+
+    test("#when session is busy and a tool is running #then does not abort for stall", async () => {
+      const { pollSyncSession } = require("./sync-session-poller")
+      __setTimingConfig({
+        POLL_INTERVAL_MS: 10,
+        STALL_TIMEOUT_MS: 30,
+        ACTIVE_TOOL_TIMEOUT_MS: 1000,
+        MAX_POLL_TIME_MS: 5000,
+      })
+
+      let pollCount = 0
+      let abortCalled = false
+      const mockClient = {
+        session: {
+          messages: async () => {
+            pollCount++
+            if (pollCount <= 4) {
+              return {
+                data: [
+                  { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
+                  {
+                    info: { id: "msg_002", role: "assistant", time: { created: 2000 } },
+                    parts: [
+                      {
+                        type: "tool",
+                        tool: "bash",
+                        state: { status: "running", time: { start: Date.now() - 50 } },
+                      },
+                    ],
+                  },
+                ],
+              }
+            }
+            return {
+              data: [
+                { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
+                {
+                  info: { id: "msg_002", role: "assistant", time: { created: 2000 }, finish: "end_turn" },
+                  parts: [{ type: "text", text: "Test passed!" }],
+                },
+              ],
+            }
+          },
+          status: async () => {
+            if (pollCount <= 4) {
+              return { data: { "ses_tool": { type: "busy" } } }
+            }
+            return { data: { "ses_tool": { type: "idle" } } }
+          },
+          abort: async () => {
+            abortCalled = true
+            return {}
+          },
+        },
+      }
+
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_tool",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+      })
+
+      expect(abortCalled).toBe(false)
+      expect(result).toBeNull()
+      expect(pollCount).toBeGreaterThanOrEqual(4)
+    })
   })
 
   describe("isSessionComplete edge cases", () => {

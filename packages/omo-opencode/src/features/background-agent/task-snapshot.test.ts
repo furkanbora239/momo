@@ -125,4 +125,31 @@ describe("toBackgroundTaskSnapshots", () => {
     })
     expect(JSON.stringify(snapshots)).not.toContain("SECRET_TOKEN")
   })
+
+  test("includes running active tool in lastTool field when activeTool is present", () => {
+    //#given
+    const task = createTask({
+      id: "task-running-bash",
+      description: "run test suite",
+      agent: "worker",
+      progress: {
+        toolCalls: 5,
+        lastTool: "read_file",
+        activeTool: "bash",
+        lastUpdate: new Date("2026-06-15T00:00:00.000Z"),
+      },
+    })
+
+    //#when
+    const snapshots = toBackgroundTaskSnapshots([task])
+
+    //#then
+    expect(firstSnapshot(snapshots)).toEqual({
+      title: "run test suite",
+      status: "running",
+      toolCalls: 5,
+      lastTool: "[Running: bash]",
+      agent: "worker",
+    })
+  })
 })

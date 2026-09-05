@@ -153,7 +153,7 @@ describe("createBuiltinAgents with model overrides", () => {
       const agents = await createBuiltinAgents([], {}, undefined, TEST_DEFAULT_MODEL, undefined, undefined, [], {})
 
       // #then
-      expect(agents.sisyphus.model).toBe("anthropic/claude-opus-5")
+      expect(agents.sisyphus.model).toBeUndefined()
       expect(agents.sisyphus.thinking).toBeUndefined()
       expect(agents.sisyphus.reasoningEffort).toBeUndefined()
     } finally {
@@ -312,7 +312,7 @@ describe("createBuiltinAgents with model overrides", () => {
 
       // #then
       expect(agents.sisyphus).toBeDefined()
-      expect(agents.sisyphus.model).toBe("anthropic/claude-opus-5")
+      expect(agents.sisyphus.model).toBeUndefined()
     } finally {
       cacheSpy.mockRestore()
       fetchSpy.mockRestore()
@@ -701,7 +701,7 @@ describe("createBuiltinAgents without systemDefaultModel", () => {
 
       // #then
       expect(agents.sisyphus).toBeDefined()
-      expect(agents.sisyphus.model).toBe("anthropic/claude-opus-5")
+      expect(agents.sisyphus.model).toBeUndefined()
     } finally {
       cacheSpy.mockRestore()
       fetchSpy.mockRestore()
@@ -1022,7 +1022,7 @@ describe("createBuiltinAgents with requiresAnyModel gating (sisyphus)", () => {
 
       // #then
       expect(agents.sisyphus).toBeDefined()
-      expect(agents.sisyphus.model).toBe("anthropic/claude-opus-5")
+      expect(agents.sisyphus.model).toBeUndefined()
     } finally {
       cacheSpy.mockRestore()
       fetchSpy.mockRestore()

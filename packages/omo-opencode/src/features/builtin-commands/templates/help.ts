@@ -8,7 +8,7 @@ When this command is triggered:
 1. Examine the user's request / arguments in \`$ARGUMENTS\`.
 2. If \`$ARGUMENTS\` is empty or general (e.g., "all", "help", "list", "overview"):
    Output the structured **Complete Command & Feature Reference** below.
-3. If \`$ARGUMENTS\` specifies a particular topic, command, agent, or concept (e.g., "advisor", "goal", "refactor", "hyperplan", "config", "agents", "translator", "catalog", "rules", "doctor"):
+3. If \`$ARGUMENTS\` specifies a particular topic, command, agent, or concept (e.g., "advisor", "goal", "config", "agents", "translator", "catalog", "rules", "doctor"):
    Provide a detailed, practical deep-dive for that specific topic with syntax, examples, internals, and best practices.
 
 ---
@@ -27,18 +27,12 @@ Present a clear table and brief summaries of all available slash commands:
 | Command | Syntax | Description |
 | :--- | :--- | :--- |
 | \`/help\` | \`/help [topic]\` | Display this usage guide or get detailed help on a specific command/topic. |
-| \`/advisor\` | \`/advisor <model\|off\|report>\` | Bind or unbind an on-demand senior advisor model (e.g. Claude Opus 5, GPT-5.6 Sol) for difficult reasoning/debugging. |
+| \`/advisor\` | \`/advisor <model\|off\|report>\` | Bind or unbind an on-demand senior advisor model for difficult reasoning/debugging. |
 | \`/goal\` | \`/goal <objective> \| pause \| resume \| clear\` | Set or manage a continuous execution loop goal until completion criteria are met. |
-| \`/refactor\` | \`/refactor <target> [--scope=...] [--strategy=...]\` | Intelligent refactoring with LSP diagnostics, AST-grep, and TDD verification. |
-| \`/hyperplan\` | \`/hyperplan [request]\` | Adversarial multi-agent planning: 5 hostile category members cross-critique and formulate an executable plan. |
-| \`/start-work\` | \`/start-work [plan-name] [--worktree <path>] [--make-pr] [--ship]\` | Begin executing a planned work session with task breakdown. |
 | \`/handoff\` | \`/handoff [goal]\` | Generate a self-contained context summary to continue work smoothly in a fresh session. |
-| \`/remove-ai-slops\` | \`/remove-ai-slops [target]\` | Clean AI code smells, verbose commentary, and boilerplate code from changes. |
 | \`/stop-continuation\` | \`/stop-continuation\` | Immediately halt all background loops, todo continuations, and active goal loops. |
-| \`/security-research\` | \`/security-research\` | Run team-mode security audit: 3 vulnerability hunters + 2 PoC engineers. |
 | \`/remove-deadcode\` | \`/remove-deadcode\` | Remove unused code across the project with LSP-verified safety. |
-| \`/get-unpublished-changes\` | \`/get-unpublished-changes\` | Compare HEAD with latest release and categorize changes by release layer. |
-| \`/publish\` | \`/publish <patch\|minor\|major\|version>\` | Publish package release by triggering GitHub Actions release workflow. |
+| \`/tech-debt-audit\` | \`/tech-debt-audit\` | Comprehensive 9-dimension technical debt audit across the repository. |
 
 ### 3. 🤖 Agent Roster & Subagent Categories
 - **Orchestrator (\`sisyphus\`):** Technical lead / coordinator. Analyzes the repo-map, clarifies requirements, builds executable task plans, and delegates to subagents.

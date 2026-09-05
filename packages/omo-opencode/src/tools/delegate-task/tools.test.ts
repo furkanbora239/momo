@@ -322,14 +322,14 @@ describe("sisyphus-task", () => {
 
     test("returns true for prometheus display name", () => {
       //#given / #when
-      const result = isPlanFamily(getAgentDisplayName("prometheus"))
+      const result = isPlanFamily("Prometheus - Plan Builder")
       //#then
       expect(result).toBe(true)
     })
 
     test("returns true for prometheus list display name with zwsp prefix", () => {
       //#given / #when
-      const result = isPlanFamily(getAgentListDisplayName("prometheus"))
+      const result = isPlanFamily("​Prometheus - Plan Builder")
       //#then
       expect(result).toBe(true)
     })
@@ -591,7 +591,7 @@ describe("sisyphus-task", () => {
       await tool.execute(args, toolContext)
 
       // then
-      expect(requireCapturedLaunchInput(launchInput).agent).toBe("Sisyphus-Junior")
+      expect(requireCapturedLaunchInput(launchInput).agent).toBe("worker")
     }, { timeout: 10000 })
 
     test("prefers category over subagent_type when both are provided", async () => {
@@ -653,7 +653,7 @@ describe("sisyphus-task", () => {
       await tool.execute(args, toolContext)
 
       //#then - category takes precedence, subagent_type is overridden to sisyphus-junior
-      expect(requireCapturedLaunchInput(launchInput).agent).toBe("Sisyphus-Junior")
+      expect(requireCapturedLaunchInput(launchInput).agent).toBe("worker")
     }, { timeout: 10000 })
 
     test("proceeds without error when systemDefaultModel is undefined", async () => {
@@ -4031,7 +4031,7 @@ describe("sisyphus-task", () => {
       //#when
       const result = await tool.execute(
         { description: "test", prompt: "Create a plan", subagent_type: "plan", run_in_background: false, load_skills: [] },
-        { sessionID: "p", messageID: "m", agent: getAgentDisplayName("prometheus"), abort: new AbortController().signal }
+        { sessionID: "p", messageID: "m", agent: "Prometheus - Plan Builder", abort: new AbortController().signal }
       )
 
       //#then
@@ -4669,7 +4669,7 @@ describe("sisyphus-task", () => {
       )
 
       // then - title should follow OpenCode format
-      expect(createBody.title).toBe("Implement feature X (@Sisyphus-Junior subagent)")
+      expect(createBody.title).toBe("Implement feature X (@worker subagent)")
     }, { timeout: 10000 })
 
     test("sync task output includes <task_metadata> block with session_id", async () => {

@@ -19,6 +19,9 @@ export interface TrackedTask {
   category?: string
   skills?: string[]
   modelInfo?: ModelFallbackInfo
+  toolCalls?: number
+  lastTool?: string
+  activeTool?: string
 }
 
 export interface TaskToastOptions {

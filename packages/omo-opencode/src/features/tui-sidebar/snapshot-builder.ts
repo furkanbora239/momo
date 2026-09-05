@@ -1,5 +1,7 @@
 import { getLastAgentFromSession } from "../../hooks/atlas/session-last-agent"
 import { normalizeSDKResponse } from "../../shared/normalize-sdk-response"
+import { getTaskToastManager } from "../task-toast-manager"
+import type { TrackedTask } from "../task-toast-manager/types"
 import { MIRROR_SCHEMA_VERSION } from "./constants"
 import { readActiveLoop } from "./loop-reader"
 import { canonicalProjectDir } from "./mirror-path"
@@ -24,6 +26,10 @@ export type TuiBackgroundSnapshotProvider = {
   readonly getTasksSnapshot: () => readonly BackgroundTaskSnapshot[]
 }
 
+export type TuiTaskToastSnapshotProvider = {
+  readonly getRunningTasks: () => readonly TrackedTask[]
+}
+
 export type SessionAgentResolver = (sessionID: string, client: TuiMirrorClient) => Promise<string | null>
 
 export type BuildTuiRuntimeSnapshotInput = {
@@ -32,6 +38,7 @@ export type BuildTuiRuntimeSnapshotInput = {
   readonly backgroundManager: TuiBackgroundSnapshotProvider
   readonly getStatuses?: () => Promise<SessionStatusMap>
   readonly sessionAgentResolver?: SessionAgentResolver
+  readonly taskToastManager?: TuiTaskToastSnapshotProvider | null
 }
 
 type ActiveAgentStatus = Extract<AgentStatus, "busy" | "retry" | "running">
@@ -42,12 +49,61 @@ export async function buildTuiRuntimeSnapshot(
   const statuses = await readStatuses(input)
   const loop = readActiveLoop(input.projectDir)
 
+  const resolvedActiveAgents = await activeAgentsFromStatuses(
+    statuses,
+    input.client,
+    input.sessionAgentResolver ?? getLastAgentFromSession,
+  )
+
+  const toastManager = input.taskToastManager !== undefined ? input.taskToastManager : getTaskToastManager()
+  const runningToastTasks = toastManager?.getRunningTasks() ?? []
+
+  const activeAgentNames = new Set(resolvedActiveAgents.map((a) => a.name.toLowerCase()))
+  const extraActiveAgents: Array<{ name: string; status: ActiveAgentStatus }> = []
+
+  for (const task of runningToastTasks) {
+    if (task.agent && !activeAgentNames.has(task.agent.toLowerCase())) {
+      activeAgentNames.add(task.agent.toLowerCase())
+      extraActiveAgents.push({
+        name: task.agent,
+        status: "running",
+      })
+    }
+  }
+
+  const bgSnapshots = input.backgroundManager.getTasksSnapshot()
+  for (const task of bgSnapshots) {
+    if (task.status === "running" && task.agent && !activeAgentNames.has(task.agent.toLowerCase())) {
+      activeAgentNames.add(task.agent.toLowerCase())
+      extraActiveAgents.push({
+        name: task.agent,
+        status: "running",
+      })
+    }
+  }
+
+  const bgJobs = bgSnapshots.map(toJobRow)
+
+  const syncJobs: JobRow[] = []
+  for (const task of runningToastTasks) {
+    if (!task.isBackground) {
+      const activeTool = task.activeTool
+      const lastTool = activeTool ? `[Running: ${activeTool}]` : (task.lastTool ?? null)
+      syncJobs.push({
+        title: task.description || `${task.agent} task`,
+        status: "running",
+        toolCalls: task.toolCalls ?? null,
+        lastTool,
+      })
+    }
+  }
+
   return {
     version: MIRROR_SCHEMA_VERSION,
     projectDir: canonicalProjectDir(input.projectDir),
     updatedAt: Date.now(),
-    activeAgents: await activeAgentsFromStatuses(statuses, input.client, input.sessionAgentResolver ?? getLastAgentFromSession),
-    jobBoard: input.backgroundManager.getTasksSnapshot().map(toJobRow),
+    activeAgents: [...resolvedActiveAgents, ...extraActiveAgents],
+    jobBoard: [...bgJobs, ...syncJobs],
     loop: loop.kind === "live" ? redactLoopText(loop) : null,
   }
 }

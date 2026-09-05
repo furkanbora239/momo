@@ -416,6 +416,8 @@ describe("BackgroundManager pollRunningTasks", () => {
       task.progress = {
         toolCalls: 4,
         lastUpdate: new Date(Date.now() - 35 * 60 * 1000),
+        activeTool: "bash",
+        activeToolStartedAt: new Date(Date.now() - 35 * 60 * 1000),
       }
       injectTask(manager, task)
 

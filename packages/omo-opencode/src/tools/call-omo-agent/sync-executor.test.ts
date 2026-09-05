@@ -118,7 +118,7 @@ describe("executeSync", () => {
     const promptInput = recorder.getCapturedInput()
     expect(promptInput).toBeDefined()
     expect(promptInput?.path.id).toBe("ses-test-123")
-    expect(promptInput?.body.agent).toBe("explore")
+    expect(promptInput?.body.agent).toBe("explorer")
     expect(promptInput?.body.tools.question).toBe(false)
     expect(promptInput?.body.tools.task).toBe(false)
     expect(promptInput?.body.parts).toEqual([{ type: "text", text: "find something" }])
@@ -142,10 +142,10 @@ describe("executeSync", () => {
 
     //#then
     const promptInput = recorder.getCapturedInput()
-    expect(promptInput?.body.agent).toBe("Sisyphus - ultraworker")
+    expect(promptInput?.body.agent).toBe("orchestrator")
   })
 
-  test("#given subagent_type is the lowercase config key 'hephaestus' #when executeSync runs #then prompt receives the registered display name 'Hephaestus - Deep Agent'", async () => {
+  test("#given subagent_type is the lowercase config key 'hephaestus' #when executeSync runs #then prompt receives the registered display name 'coder'", async () => {
     //#given
     const executeSync = await importExecuteSync()
     const deps = createDependencies()
@@ -161,12 +161,12 @@ describe("executeSync", () => {
     //#when
     await executeSync(args, toolContext, createContext(recorder.promptAsync) as never, deps)
 
-    //#then — SDK rejects raw config keys with UnknownError; the dispatch must translate
+    //#then — SDK rejects raw config keys with UnknownError; the dispatch must translate
     const promptInput = recorder.getCapturedInput()
-    expect(promptInput?.body.agent).toBe("Hephaestus - Deep Agent")
+    expect(promptInput?.body.agent).toBe("coder")
   })
 
-  test("#given subagent_type is the lowercase config key 'sisyphus-junior' #when executeSync runs #then prompt receives the registered display name 'Sisyphus-Junior'", async () => {
+  test("#given subagent_type is the lowercase config key 'sisyphus-junior' #when executeSync runs #then prompt receives the registered display name 'worker'", async () => {
     //#given
     const executeSync = await importExecuteSync()
     const deps = createDependencies()
@@ -184,10 +184,10 @@ describe("executeSync", () => {
 
     //#then
     const promptInput = recorder.getCapturedInput()
-    expect(promptInput?.body.agent).toBe("Sisyphus-Junior")
+    expect(promptInput?.body.agent).toBe("worker")
   })
 
-  test("#given subagent_type is already a display name like 'explore' (config key == display name) #when executeSync runs #then prompt receives 'explore' unchanged", async () => {
+  test("#given subagent_type is 'explore' #when executeSync runs #then prompt receives registered display name", async () => {
     //#given a same-keyed agent must not be double-translated
     const executeSync = await importExecuteSync()
     const deps = createDependencies()
@@ -205,7 +205,7 @@ describe("executeSync", () => {
 
     //#then
     const promptInput = recorder.getCapturedInput()
-    expect(promptInput?.body.agent).toBe("explore")
+    expect(promptInput?.body.agent).toBe("explorer")
   })
 
   test("returns processed response with task metadata footer", async () => {
@@ -390,7 +390,7 @@ describe("executeSync", () => {
       )
 
       //#then
-      expect(observed[0]?.agent).toBe("explore")
+      expect(observed[0]?.agent).toBe("explorer")
       expect(observed[0]?.tools?.question).toBe(false)
       expect(observed[0]?.tools?.task).toBe(false)
       expect(observed[0]?.bootstrap?.retryParts[0]?.text).toContain("collect bootstrap evidence")
@@ -451,7 +451,7 @@ describe("executeSync", () => {
 
     //#then
     const promptInput = recorder.getCapturedInput()
-    expect(promptInput?.body.agent).toBe("Sisyphus - ultraworker")
+    expect(promptInput?.body.agent).toBe("orchestrator")
   })
 
   test("returns generic prompt failure with task metadata", async () => {
@@ -643,7 +643,7 @@ describe("executeSync", () => {
     await executeSync(args, toolContext, createContext(recorder.promptAsync) as never, deps)
 
     //#then
-    expect(recorder.getCapturedInput()?.body.agent).toBe("Hephaestus - Deep Agent")
+    expect(recorder.getCapturedInput()?.body.agent).toBe("coder")
   })
 })
 

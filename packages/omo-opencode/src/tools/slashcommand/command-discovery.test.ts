@@ -303,15 +303,16 @@ Use nested command.
     expect(nestedCommand?.scope).toBe("opencode-project")
   })
 
-  it("keeps builtin start-work routed to Atlas during static discovery", () => {
+  it("discovers builtin handoff command during static discovery", () => {
     // given
 
     // when
     const commands = discoverCommandsSync(projectDir)
-    const startWorkCommand = commands.find((command) => command.name === "start-work")
+    const handoffCommand = commands.find((command) => command.name === "handoff")
 
     // then
-    expect(startWorkCommand?.metadata.agent).toBe("atlas")
+    expect(handoffCommand).toBeDefined()
+    expect(handoffCommand?.scope).toBe("builtin")
   })
 })
 

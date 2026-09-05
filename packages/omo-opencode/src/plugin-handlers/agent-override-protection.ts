@@ -1,3 +1,8 @@
+import {
+  getAgentConfigKey,
+  getAgentDisplayName,
+} from "../shared/agent-display-names"
+
 const PARENTHETICAL_SUFFIX_PATTERN = /\s*(\([^)]*\)\s*)+$/u
 const DASH_SUFFIX_PATTERN = /\s+-\s+.+$/u
 const ZERO_WIDTH_CHARACTERS_PATTERN = /[\u200B\u200C\u200D\uFEFF]/g
@@ -17,10 +22,33 @@ export function createProtectedAgentNameSet(agentNames: Iterable<string>): Set<s
   const protectedAgentNames = new Set<string>()
 
   for (const agentName of agentNames) {
-    const normalizedAgentName = normalizeProtectedAgentName(agentName)
-    if (normalizedAgentName.length === 0) continue
+    const normalized = normalizeProtectedAgentName(agentName)
+    if (normalized.length > 0) {
+      protectedAgentNames.add(normalized)
+    }
 
-    protectedAgentNames.add(normalizedAgentName)
+    const displayName = getAgentDisplayName(agentName)
+    if (displayName) {
+      const normalizedDisplay = normalizeProtectedAgentName(displayName)
+      if (normalizedDisplay.length > 0) {
+        protectedAgentNames.add(normalizedDisplay)
+      }
+    }
+
+    const configKey = getAgentConfigKey(agentName)
+    if (configKey) {
+      const normalizedKey = normalizeProtectedAgentName(configKey)
+      if (normalizedKey.length > 0) {
+        protectedAgentNames.add(normalizedKey)
+      }
+      const configKeyDisplay = getAgentDisplayName(configKey)
+      if (configKeyDisplay) {
+        const normalizedConfigKeyDisplay = normalizeProtectedAgentName(configKeyDisplay)
+        if (normalizedConfigKeyDisplay.length > 0) {
+          protectedAgentNames.add(normalizedConfigKeyDisplay)
+        }
+      }
+    }
   }
 
   return protectedAgentNames
@@ -32,7 +60,13 @@ export function filterProtectedAgentOverrides<TAgent>(
 ): Record<string, TAgent> {
   return Object.fromEntries(
     Object.entries(agents).filter(([agentName]) => {
-      return !protectedAgentNames.has(normalizeProtectedAgentName(agentName))
+      const normalized = normalizeProtectedAgentName(agentName)
+      if (protectedAgentNames.has(normalized)) return false
+      const configKey = getAgentConfigKey(agentName)
+      if (configKey && protectedAgentNames.has(normalizeProtectedAgentName(configKey))) {
+        return false
+      }
+      return true
     }),
   )
 }

@@ -10,13 +10,29 @@ function hasExplicitAgentModelOverride(
 ): boolean {
   const configuredAgents = pluginConfig.agents
   const normalizedAgent = typeof agent === "string" ? getAgentConfigKey(agent) : undefined
-  if (!normalizedAgent || !configuredAgents || !(normalizedAgent in configuredAgents)) {
+  if (!normalizedAgent || !configuredAgents) {
     return false
   }
 
-  const configuredAgent = configuredAgents[normalizedAgent as keyof typeof configuredAgents]
-  const configuredModel = configuredAgent?.model
-  return typeof configuredModel === "string" && configuredModel.trim().length > 0
+  const candidateKeys = [normalizedAgent]
+  if (normalizedAgent === "planner") candidateKeys.push("prometheus")
+  if (normalizedAgent === "prometheus") candidateKeys.push("planner")
+  if (normalizedAgent === "worker") candidateKeys.push("sisyphus-junior")
+  if (normalizedAgent === "sisyphus-junior") candidateKeys.push("worker")
+  if (normalizedAgent === "orchestrator") candidateKeys.push("sisyphus")
+  if (normalizedAgent === "sisyphus") candidateKeys.push("orchestrator")
+
+  for (const key of candidateKeys) {
+    if (key in configuredAgents) {
+      const configuredAgent = configuredAgents[key as keyof typeof configuredAgents]
+      const configuredModel = configuredAgent?.model
+      if (typeof configuredModel === "string" && configuredModel.trim().length > 0) {
+        return true
+      }
+    }
+  }
+
+  return false
 }
 
 export function getStoredMainSessionModel(

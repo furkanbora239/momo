@@ -204,4 +204,44 @@ describe("buildTuiRuntimeSnapshot", () => {
     ])
     expect(JSON.stringify(snapshot)).not.toContain("sk-live")
   })
+
+  it("#given synchronous task in taskToastManager #when building #then it includes sync tasks in jobBoard and agents in activeAgents", async () => {
+    // given
+    const projectDir = makeTempDir("sync-tasks-project")
+
+    // when
+    const snapshot = await buildTuiRuntimeSnapshot({
+      projectDir,
+      client: createClient({}),
+      backgroundManager: createBackgroundManager([]),
+      taskToastManager: {
+        getRunningTasks: () => [
+          {
+            id: "sync_12345678",
+            description: "Run unit tests",
+            agent: "worker",
+            status: "running",
+            startedAt: new Date(),
+            isBackground: false,
+            toolCalls: 4,
+            activeTool: "bash",
+            lastTool: "read_file",
+          },
+        ],
+      },
+    })
+
+    // then
+    expect(snapshot.activeAgents).toEqual([
+      { name: "worker", status: "running" },
+    ])
+    expect(snapshot.jobBoard).toEqual([
+      {
+        title: "Run unit tests",
+        status: "running",
+        toolCalls: 4,
+        lastTool: "[Running: bash]",
+      },
+    ])
+  })
 })

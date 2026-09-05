@@ -19,6 +19,8 @@ export interface ToolCallWindow {
 export interface TaskProgress {
   toolCalls: number
   lastTool?: string
+  activeTool?: string
+  activeToolStartedAt?: Date
   toolCallWindow?: ToolCallWindow
   countedToolPartIDs?: Set<string>
   lastUpdate: Date

@@ -119,7 +119,7 @@ describe("createSisyphusJuniorAgentWithOverrides", () => {
   })
 
   describe("constrained fields", () => {
-    test("mode is forced to subagent", () => {
+    test("mode is all for Tab access", () => {
       // given
       const override = { mode: "primary" as const }
 
@@ -127,7 +127,7 @@ describe("createSisyphusJuniorAgentWithOverrides", () => {
       const result = createSisyphusJuniorAgentWithOverrides(override)
 
       // then
-      expect(result.mode).toBe("subagent")
+      expect(result.mode).toBe("all")
     })
 
     test("prompt override is ignored in favor of the routed prompt builder", () => {

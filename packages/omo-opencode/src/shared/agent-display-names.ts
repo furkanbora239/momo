@@ -130,6 +130,7 @@ const LEGACY_DISPLAY_NAMES: Record<string, string> = {
 
 function resolveKnownAgentConfigKey(agentName: string): string | undefined {
   const lower = stripAgentListSortPrefix(agentName).trim().toLowerCase()
+  if (lower === "planner") return "planner"
   const reversed = REVERSE_DISPLAY_NAMES[lower]
   if (reversed !== undefined) return reversed
   const legacy = LEGACY_DISPLAY_NAMES[lower]

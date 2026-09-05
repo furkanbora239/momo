@@ -3,7 +3,7 @@ import { loadPromptSync, plannerPromptVariants } from "@oh-my-opencode/prompts-c
 import type { AgentMode, AgentPromptMetadata } from "../types"
 import { createAgentToolRestrictions } from "../../shared/permission-compat"
 
-const MODE: AgentMode = "subagent"
+const MODE: AgentMode = "all"
 
 export const PLANNER_PROMPT_METADATA: AgentPromptMetadata = {
   category: "specialist",

@@ -43,7 +43,7 @@ describe("injectContinuation agent names", () => {
     })
 
     // then
-    expect(capturedAgent).toBe("Hephaestus - Deep Agent")
+    expect(capturedAgent).toBe("coder")
   })
 
   test("#given resolved agent is an invisible-prefixed config key #when continuation is injected #then promptAsync receives the display name", async () => {
@@ -77,6 +77,6 @@ describe("injectContinuation agent names", () => {
     })
 
     // then
-    expect(capturedAgent).toBe("Hephaestus - Deep Agent")
+    expect(capturedAgent).toBe("coder")
   })
 })

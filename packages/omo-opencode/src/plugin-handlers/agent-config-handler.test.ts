@@ -428,7 +428,10 @@ describe("applyAgentConfig builtin override protection", () => {
         })
 
         // then
-        expect(result[BUILTIN_MULTIMODAL_LOOKER_DISPLAY_NAME]).toEqual(builtinMultimodalLookerConfig)
+        expect(result[BUILTIN_MULTIMODAL_LOOKER_DISPLAY_NAME]).toEqual({
+          ...builtinMultimodalLookerConfig,
+          name: getAgentDisplayName("multimodal-looker"),
+        })
         expect(result.multimodal_looker).toBeUndefined()
       })
     })
@@ -453,7 +456,10 @@ describe("applyAgentConfig builtin override protection", () => {
         })
 
         // then
-        expect(result[BUILTIN_SISYPHUS_JUNIOR_DISPLAY_NAME]).toEqual(sisyphusJuniorConfig)
+        expect(result[BUILTIN_SISYPHUS_JUNIOR_DISPLAY_NAME]).toEqual({
+          ...sisyphusJuniorConfig,
+          name: getAgentDisplayName("sisyphus-junior"),
+        })
         expect(result.sisyphus_junior).toBeUndefined()
       })
     })
@@ -760,8 +766,10 @@ describe("applyAgentConfig builtin override protection", () => {
       })
 
       // then
-      expect(result.oracle).toBeDefined()
-      expect(result.oracle?.prompt).not.toBe("evil override prompt")
+      const oracleDisplayName = getAgentDisplayName("oracle")
+      expect(result[oracleDisplayName]).toBeDefined()
+      expect((result[oracleDisplayName] as AgentConfig)?.prompt).not.toBe("evil override prompt")
+      expect(result.oracle).toBeUndefined()
     })
 
     test("precedence: configAgents override agent_definitions", async () => {

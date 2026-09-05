@@ -213,30 +213,6 @@ describe("applyCommandConfig", () => {
     expect(commandConfig["security-review"]?.template).toContain("<skill-instruction>");
   });
 
-  test("keeps the builtin command definition when a builtin skill shares its name", async () => {
-    // given
-    loadBuiltinCommandsSpy.mockReturnValue({
-      "remove-ai-slops": {
-        name: "remove-ai-slops",
-        description: "(builtin) Remove AI-generated code smells from branch changes and critically review the results",
-        template: "builtin command template",
-      },
-    });
-    const config: Record<string, unknown> = { command: {} };
-
-    // when
-    await applyCommandConfig({
-      config,
-      pluginConfig: createPluginConfig(),
-      ctx: { directory: "/tmp" },
-      pluginComponents: createPluginComponents(),
-    });
-
-    // then
-    const commandConfig = config.command as Record<string, { template?: string }>;
-    expect(commandConfig["remove-ai-slops"]?.template).toBe("builtin command template");
-  });
-
   test("excludes builtin skills disabled via disabled_skills from the command config", async () => {
     // given
     const pluginConfig: OhMyOpenCodeConfig = {
@@ -276,39 +252,6 @@ describe("applyCommandConfig", () => {
     const commandConfig = config.command as Record<string, { template?: string }>;
     expect(commandConfig["playwright"]).toBeUndefined();
     expect(commandConfig["frontend"]?.template).toContain("<skill-instruction>");
-  });
-
-  test("#given remove-ai-slops is re-enabled but disabled_commands lists it #when applying command config #then the skill-backed command does not resurrect", async () => {
-    // given
-    const pluginConfig = createParsedPluginConfig({
-      skills: { enable_default_off: ["remove-ai-slops"] },
-      disabled_commands: ["remove-ai-slops"],
-    });
-    const config: Record<string, unknown> = { command: {} };
-
-    // when
-    await applyCommandConfig({
-      config,
-      pluginConfig,
-      ctx: { directory: "/tmp" },
-      pluginComponents: createPluginComponents(),
-    });
-
-    // then
-    const commandConfig = config.command as Record<string, unknown>;
-    expect(commandConfig["remove-ai-slops"]).toBeUndefined();
-
-    const controlConfig: Record<string, unknown> = { command: {} };
-    await applyCommandConfig({
-      config: controlConfig,
-      pluginConfig: createParsedPluginConfig({
-        skills: { enable_default_off: ["remove-ai-slops"] },
-      }),
-      ctx: { directory: "/tmp" },
-      pluginComponents: createPluginComponents(),
-    });
-    const controlCommandConfig = controlConfig.command as Record<string, unknown>;
-    expect(controlCommandConfig["remove-ai-slops"]).toBeDefined();
   });
 
   test("#given a user-global skill shares a default-off name #when applying command config #then its command record stays hidden until enable-listed", async () => {

@@ -157,7 +157,7 @@ describe("stop continuation entrypoints", () => {
     await handler(
       { sessionID: "ses-stop", agent: "atlas" },
       {
-        message: {},
+        message: { model: { providerID: "test", id: "test-model" } },
         parts: [{ type: "text", text: "Explain ```/stop-continuation``` without running it." }],
       },
     )

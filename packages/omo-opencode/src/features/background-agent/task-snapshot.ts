@@ -1,11 +1,13 @@
 import type { BackgroundTask, BackgroundTaskSnapshot } from "./types"
 
 function toSnapshot(task: BackgroundTask): BackgroundTaskSnapshot {
+  const activeTool = task.progress?.activeTool
+  const lastTool = activeTool ? `[Running: ${activeTool}]` : (task.progress?.lastTool ?? null)
   return Object.freeze({
     title: task.description || `${task.agent} background task`,
     status: task.status,
     toolCalls: task.progress?.toolCalls ?? null,
-    lastTool: task.progress?.lastTool ?? null,
+    lastTool,
     agent: task.agent,
   })
 }

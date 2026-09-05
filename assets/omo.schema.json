@@ -1869,14 +1869,14 @@
             "type": "string",
             "enum": [
               "goal",
-              "refactor",
-              "start-work",
               "stop-continuation",
               "handoff",
-              "remove-ai-slops",
-              "hyperplan",
               "advisor",
-              "help"
+              "help",
+              "start-work",
+              "refactor",
+              "remove-ai-slops",
+              "hyperplan"
             ]
           }
         },
@@ -13220,7 +13220,7 @@
               "type": "string"
             },
             "timeout_ms": {
-              "description": "Translation timeout in milliseconds. Default: 30000.",
+              "description": "Translation timeout in milliseconds. Default: 60000.",
               "type": "number"
             },
             "auto_install": {
@@ -13233,6 +13233,10 @@
             },
             "log_translations": {
               "description": "Log translation I/O to ~/.omo/local-translator-logs/ for finetuning. Default: true.",
+              "type": "boolean"
+            },
+            "show_notifications": {
+              "description": "Show TUI toast notifications during and after prompt translation. Default: true.",
               "type": "boolean"
             },
             "num_ctx": {
@@ -13258,7 +13262,7 @@
                   "type": "string"
                 },
                 "max_output_tokens": {
-                  "description": "Max output tokens per translation call (reasoning tokens included). Default: 1024.",
+                  "description": "Max output tokens per translation call (reasoning tokens included). Default: 4096.",
                   "type": "number"
                 }
               },
@@ -18453,14 +18457,14 @@
                   "type": "string",
                   "enum": [
                     "goal",
-                    "refactor",
-                    "start-work",
                     "stop-continuation",
                     "handoff",
-                    "remove-ai-slops",
-                    "hyperplan",
                     "advisor",
-                    "help"
+                    "help",
+                    "start-work",
+                    "refactor",
+                    "remove-ai-slops",
+                    "hyperplan"
                   ]
                 }
               },
@@ -29804,7 +29808,7 @@
                     "type": "string"
                   },
                   "timeout_ms": {
-                    "description": "Translation timeout in milliseconds. Default: 30000.",
+                    "description": "Translation timeout in milliseconds. Default: 60000.",
                     "type": "number"
                   },
                   "auto_install": {
@@ -29817,6 +29821,10 @@
                   },
                   "log_translations": {
                     "description": "Log translation I/O to ~/.omo/local-translator-logs/ for finetuning. Default: true.",
+                    "type": "boolean"
+                  },
+                  "show_notifications": {
+                    "description": "Show TUI toast notifications during and after prompt translation. Default: true.",
                     "type": "boolean"
                   },
                   "num_ctx": {
@@ -29842,7 +29850,7 @@
                         "type": "string"
                       },
                       "max_output_tokens": {
-                        "description": "Max output tokens per translation call (reasoning tokens included). Default: 1024.",
+                        "description": "Max output tokens per translation call (reasoning tokens included). Default: 4096.",
                         "type": "number"
                       }
                     },

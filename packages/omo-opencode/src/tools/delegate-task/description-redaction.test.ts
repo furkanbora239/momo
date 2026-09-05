@@ -67,7 +67,7 @@ describe("background task description redaction", () => {
     )
 
     // then
-    expect(launchedDescription).toBe("Sisyphus-Junior background task")
+    expect(launchedDescription).toBe("worker background task")
     expect(launchedDescription).not.toContain("SECRET_TOKEN")
   })
 

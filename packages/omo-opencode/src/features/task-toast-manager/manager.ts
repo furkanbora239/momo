@@ -64,6 +64,18 @@ export class TaskToastManager {
   }
 
   /**
+   * Update task progress (tool calls, last tool, active tool)
+   */
+  updateTaskProgress(id: string, progress: { toolCalls?: number; lastTool?: string; activeTool?: string }): void {
+    const task = this.tasks.get(id)
+    if (task) {
+      if (progress.toolCalls !== undefined) task.toolCalls = progress.toolCalls
+      if (progress.lastTool !== undefined) task.lastTool = progress.lastTool
+      task.activeTool = progress.activeTool
+    }
+  }
+
+  /**
    * Update model info for a task by session ID
    */
   updateTaskModelBySession(sessionID: string, modelInfo: ModelFallbackInfo): void {

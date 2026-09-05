@@ -5,6 +5,7 @@ import type { ConcurrencyManager } from "./concurrency"
 import type { OpencodeClient } from "./opencode-client"
 
 import {
+  DEFAULT_ACTIVE_TOOL_TIMEOUT_MS,
   DEFAULT_MESSAGE_STALENESS_TIMEOUT_MS,
   DEFAULT_SESSION_GONE_TIMEOUT_MS,
   DEFAULT_STALE_TIMEOUT_MS,
@@ -264,6 +265,18 @@ export async function checkAndInterruptStaleTasks(args: {
     }
 
     if (shouldSkipInactivityTimeout) continue
+
+    const activeToolTimeoutMs = (config as { activeToolTimeoutMs?: number })?.activeToolTimeoutMs ?? DEFAULT_ACTIVE_TOOL_TIMEOUT_MS
+    const hasActiveRunningTool = Boolean(task.progress?.activeTool)
+    const activeToolElapsed = task.progress?.activeToolStartedAt
+      ? now - task.progress.activeToolStartedAt.getTime()
+      : 0
+
+    // If an external tool (e.g. bash test suite or build) is currently executing,
+    // do not abort for LLM silence unless the tool itself has exceeded activeToolTimeoutMs.
+    if (hasActiveRunningTool && activeToolElapsed < activeToolTimeoutMs) {
+      continue
+    }
 
     if (runtime < MIN_RUNTIME_BEFORE_STALE_MS) continue
 

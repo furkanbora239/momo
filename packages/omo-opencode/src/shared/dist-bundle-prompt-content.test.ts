@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { describe, expect, test } from "bun:test"
 
 const DIST_INDEX = "dist/index.js"
-const PROMETHEUS_SOURCE = "packages/prompts-core/prompts/prometheus/default.md"
+const PLANNER_SOURCE = "packages/prompts-core/prompts/planner/default.md"
 const BUNDLE_PROBE_SCRIPT = `
 const [distUrl, projectDirectory] = process.argv.slice(1);
 const module = await import(distUrl);
@@ -85,17 +85,18 @@ describe("dist bundle prompt content", () => {
 
       const runtimeAgents = JSON.parse(stdout) as RuntimeAgent[]
 
-      const sourcePrompt = await readFile(PROMETHEUS_SOURCE, "utf8")
+      const sourcePrompt = await readFile(PLANNER_SOURCE, "utf8")
       const runtimeAgent = runtimeAgents.find((agent) => agent.prompt === sourcePrompt)
-      expect(runtimeAgent, `${PROMETHEUS_SOURCE} was not returned by the built plugin runtime`).toBeDefined()
+      expect(runtimeAgent, `${PLANNER_SOURCE} was not returned by the built plugin runtime`).toBeDefined()
       expect(runtimeAgent).toMatchObject({
-        mode: "primary",
+        mode: "all",
         permission: {
-          call_omo_agent: "deny",
-          edit: "allow",
-          question: "allow",
           task: "allow",
-          webfetch: "allow",
+          write: "deny",
+          edit: "deny",
+          apply_patch: "deny",
+          call_omo_agent: "deny",
+          question: "allow",
         },
       })
     } finally {

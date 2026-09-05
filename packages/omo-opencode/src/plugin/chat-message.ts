@@ -133,9 +133,9 @@ export function createChatMessageHandler(args: {
     const agentConfiguredModel = agentKey ? pluginConfig.agents?.[agentKey as keyof typeof pluginConfig.agents]?.model : undefined
 
     const hasExplicitModel = Boolean(
-      (input.model?.modelID && input.model.modelID.trim().length > 0) ||
+      (input.model && ((input.model.modelID && input.model.modelID.trim().length > 0) || ((input.model as unknown as { id?: string }).id && (input.model as unknown as { id: string }).id.trim().length > 0))) ||
       (typeof output.message.model === "string" && output.message.model.trim().length > 0) ||
-      (output.message.model && typeof output.message.model === "object" && (output.message.model as { modelID?: string }).modelID) ||
+      (output.message.model && typeof output.message.model === "object" && Boolean((output.message.model as { modelID?: string }).modelID || (output.message.model as { id?: string }).id)) ||
       getSessionModel(input.sessionID)
     )
 

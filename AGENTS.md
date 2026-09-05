@@ -147,9 +147,36 @@ harness (`bunx oh-my-opencode run <msg>` or opencode) to confirm the change actu
 takes effect — a green typecheck is not behavioral proof. Use the `opencode-qa` skill
 for evidence (isolated XDG, no touching the real user opencode DB).
 
+## Recent Architectural Updates (2026-09-05)
+
+- **Active Tool Protection & Stall Watchdog**:
+  - `ACTIVE_TOOL_TIMEOUT_MS = 60m` (`3600_000 ms`) protects active tools (`bash`, test runners, builds).
+  - `STALL_TIMEOUT_MS = 3m` (`180_000 ms`) aborts unresponsive/stalled LLMs when no tool is active.
+  - `sync-session-poller.ts` tracks activity signatures and active tools rather than resetting on busy status.
+- **Tab-Switchable Dedicated Agents (`planner` & `worker`)**:
+  - `planner` (`packages/omo-opencode/src/agents/planner/default.ts`) configured with `mode: "all"` for high-reasoning read-only planning.
+  - `worker` / `sisyphus-junior` (`packages/omo-opencode/src/agents/sisyphus-junior/agent.ts`) configured with `mode: "all"` for direct execution (`commit and push`, test runner, single-file edits) without orchestrator overhead.
+  - Zero hardcoded models: orchestrator and subagents unpinned in code, inheriting session model via `/models`.
+  - Resolved `resolveKnownAgentConfigKey("planner")` so `"planner"` maps directly to `"planner"` instead of legacy prometheus.
+- **TUI Sidebar Live Visibility & Subagent Idle Fix**:
+  - `snapshot-builder.ts` integrated with `TaskToastManager.getRunningTasks()` to include sync tasks in `jobBoard` and active subagents in `activeAgents`.
+  - Live tool tracking displayed on task cards (e.g. `[Running: bash]`).
+- **Cold-Start Context Savings**:
+  - Root `PROJECT_STATE.md` established. `planner` instructed to read it first before any directory exploration.
+- **Smart Compaction Context**:
+  - `compaction-context-prompt.ts` updated to preserve architectural decisions and current milestone status, and to prune raw tool dumps.
+
+## Current State & Next Steps
+
+- **Current State**: All 5 waves of architecture refinement implemented and fully passing tests (`854 pass, 0 fail`) and monorepo typecheck across 30 packages (`bun run typecheck`).
+- **Next Steps**:
+  1. Builtin Model Catalog MCP (`packages/omo-opencode/src/mcp/model-catalog.ts` and `catalog_pick`).
+  2. Heavy chat-injection token-burn pruning audit (`agentUsageReminder`, `categorySkillReminder`, etc.).
+
 ## References
 
 - `README.md` (this fork) / `README.upstream.md` (original)
+- `PROJECT_STATE.md` — Project architecture, active status, and cold-start context
 - `plan.md` — momo workstream, phases, and execution waves
 - `notes/deepseek-harness.md` — reference note (not the fork's target)
 - `packages/*/AGENTS.md` — per-package details

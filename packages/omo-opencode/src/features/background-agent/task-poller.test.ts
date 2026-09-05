@@ -935,6 +935,34 @@ describe("checkAndInterruptStaleTasks", () => {
     expect(task.status).toBe("cancelled")
     expect(task.error).toContain("Stale timeout")
   })
+
+  it("should NOT interrupt task when an active tool (e.g. bash test) is running even if lastUpdate exceeds stale timeout", async () => {
+    //#given - lastUpdate was 15 minutes ago, but bash is actively running
+    const task = createRunningTask({
+      startedAt: new Date(Date.now() - 20 * 60 * 1000),
+      progress: {
+        toolCalls: 5,
+        lastTool: "bash",
+        activeTool: "bash",
+        activeToolStartedAt: new Date(Date.now() - 15 * 60 * 1000),
+        lastUpdate: new Date(Date.now() - 15 * 60 * 1000),
+      },
+    })
+
+    //#when
+    await checkAndInterruptStaleTasks({
+      tasks: [task],
+      client: mockClient as never,
+      config: { staleTimeoutMs: 180_000 },
+      concurrencyManager: mockConcurrencyManager as never,
+      notifyParentSession: mockNotify,
+      sessionStatuses: { "ses-1": { type: "busy" } },
+    })
+
+    //#then - task should remain running because activeTool is still executing
+    expect(task.status).toBe("running")
+    expect(mockClient.session.abort).not.toHaveBeenCalled()
+  })
 })
 
 describe("pruneStaleTasksAndNotifications", () => {

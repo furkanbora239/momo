@@ -251,7 +251,7 @@ describe("resolveSubagentExecution", () => {
     //#then
     expect(result.agentToUse).toBe("")
     expect(result.error).toBeDefined()
-    expect(result.error).toContain('Cannot use subagent_type="Sisyphus-Junior" directly')
+    expect(result.error).toContain('Cannot use subagent_type="worker" directly')
   })
 
   test("requires explicit all or subagent mode for task-callable agents", async () => {
