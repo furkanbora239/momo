@@ -3,7 +3,7 @@ import type { PluginInput } from "@opencode-ai/plugin"
 import { isSyntheticOrInternalUserMessage, normalizeSDKResponse } from "../../shared"
 import { isCompactionMessage } from "../../shared/compaction-marker"
 
-import type { MessageInfo, MessageWithInfo, ResolveLatestMessageInfoResult } from "./types"
+import type { MessageWithInfo, ResolveLatestMessageInfoResult } from "./types"
 
 export async function resolveLatestMessageInfo(
   ctx: PluginInput,

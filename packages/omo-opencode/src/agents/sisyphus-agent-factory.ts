@@ -11,7 +11,6 @@ import {
   buildGptSisyphusAgentConfig,
   buildGrokSisyphusAgentConfig,
 } from "./sisyphus-agent-config";
-import { buildFallbackSisyphusPrompt } from "./sisyphus-dynamic-prompt";
 import { applyGeminiFallbackOverrides } from "./sisyphus-gemini-fallback-overrides";
 import { buildClaudeFable5SisyphusPrompt } from "./sisyphus/claude-fable-5";
 import { buildClaudeOpus47SisyphusPrompt } from "./sisyphus/claude-opus-4-7";

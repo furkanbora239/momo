@@ -6,14 +6,6 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
-function messageText(msg: SessionMessage): string {
-  return (msg.parts ?? [])
-    .filter((p) => p.type === "text" || p.type === "reasoning")
-    .map((p) => p.text ?? "")
-    .filter(Boolean)
-    .join("\n")
-}
-
 // Final text output only — excludes reasoning. The deliverable envelope applies
 // to the agent's final response, not its chain-of-thought, so envelope selection
 // must not pick up a complete `<plan>...</plan>` that the model merely sketched

@@ -14,7 +14,6 @@ import {
   readSettings,
   removeLegacyBuiltinShadows,
   removeSupersededOmoPackages,
-  type SettingsRecord,
   writeSettingsAtomically,
 } from "./senpi-settings"
 

@@ -11,7 +11,6 @@ import {
   generateCodeChallenge,
   generateCodeVerifier,
   runAuthorizationCodeRedirect,
-  startCallbackServer,
 } from "./oauth-authorization-flow"
 
 export type McpOAuthProviderOptions = {

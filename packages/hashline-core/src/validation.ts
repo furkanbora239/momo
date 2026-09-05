@@ -83,8 +83,8 @@ export class HashlineMismatchError extends Error {
   readonly remaps: ReadonlyMap<string, string>
 
   constructor(
-    private readonly mismatches: HashMismatch[],
-    private readonly fileLines: string[]
+    mismatches: HashMismatch[],
+    fileLines: string[]
   ) {
     super(HashlineMismatchError.formatMessage(mismatches, fileLines))
     this.name = "HashlineMismatchError"

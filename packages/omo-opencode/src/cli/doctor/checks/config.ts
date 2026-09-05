@@ -1,6 +1,6 @@
 import type { OhMyOpenCodeConfig } from "../../../config"
 import { validatePluginConfig } from "../../../config/validate"
-import { CHECK_IDS, CHECK_NAMES, PACKAGE_NAME } from "../framework/constants"
+import { CHECK_IDS, CHECK_NAMES } from "../framework/constants"
 import type { CheckResult, DoctorIssue } from "../framework/types"
 import { loadAvailableModelsFromCache } from "./model-resolution-cache"
 import { getModelResolutionInfoWithOverrides } from "./model-resolution"

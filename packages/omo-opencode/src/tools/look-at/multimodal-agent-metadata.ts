@@ -113,17 +113,6 @@ async function resolveDynamicAgentMetadata(
   }
 }
 
-function isConfiguredVisionModel(
-  configuredModel: AgentModel | undefined,
-  dynamicModel: AgentModel | undefined,
-): boolean {
-  if (!configuredModel || !dynamicModel) {
-    return false
-  }
-
-  return getFullModelKey(configuredModel) === getFullModelKey(dynamicModel)
-}
-
 export async function resolveMultimodalLookerAgentMetadata(
   ctx: PluginInput
 ): Promise<ResolvedAgentMetadata> {

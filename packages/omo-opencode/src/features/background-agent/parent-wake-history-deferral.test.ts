@@ -51,7 +51,7 @@ describe("ParentWakeNotifier — assistant history deferral", () => {
 
     try {
       // when
-      const decision = await notifier["shouldDeferParentWakeForSessionHistory"]("parent-message-error", pendingWake)
+      const decision = await notifier["sessionInspector"].shouldDeferForHistory("parent-message-error", pendingWake)
 
       // then
       expect(decision).toEqual({ defer: true, skipPromptGateToolStateCheck: false })
@@ -123,7 +123,7 @@ describe("ParentWakeNotifier — assistant history deferral", () => {
 
     try {
       // when
-      const decision = await notifier["shouldDeferParentWakeForSessionHistory"]("parent-fresh-tool-activity", pendingWake)
+      const decision = await notifier["sessionInspector"].shouldDeferForHistory("parent-fresh-tool-activity", pendingWake)
 
       // then
       expect(decision).toEqual({ defer: true, skipPromptGateToolStateCheck: false })
@@ -195,7 +195,7 @@ describe("ParentWakeNotifier — assistant history deferral", () => {
 
     try {
       // when
-      const decision = await notifier["shouldDeferParentWakeForSessionHistory"](
+      const decision = await notifier["sessionInspector"].shouldDeferForHistory(
         "parent-fresh-tool-state-activity",
         pendingWake,
       )

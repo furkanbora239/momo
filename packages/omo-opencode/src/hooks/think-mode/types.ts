@@ -6,11 +6,3 @@ export interface ThinkModeState {
   modelID?: string
 }
 
-interface ModelRef {
-  providerID: string
-  modelID: string
-}
-
-interface MessageWithModel {
-  model?: ModelRef
-}

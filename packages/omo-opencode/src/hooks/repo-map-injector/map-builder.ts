@@ -155,7 +155,7 @@ export function formatRepoMap(ranked: RankedSymbol[], graph: RepoMapGraph): stri
 
 export function buildRepoMapBody(
   graph: RepoMapGraph,
-  options: RepoMapBuildOptions,
+  _options: RepoMapBuildOptions,
 ): string {
   const ranked = rankSymbolsByCentrality(graph, graph.symbols)
   return formatRepoMap(ranked, graph)
