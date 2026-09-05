@@ -44,7 +44,7 @@ export function buildMomoOrchestratorPrompt(
   availableTools: AvailableTool[] = [],
   availableSkills: AvailableSkill[] = [],
   availableCategories: AvailableCategory[] = [],
-  useTaskSystem = false,
+  _useTaskSystem = false,
 ): string {
   const keyTriggers = buildKeyTriggersSection(availableAgents, availableSkills);
   const toolSelection = buildToolSelectionTable(
