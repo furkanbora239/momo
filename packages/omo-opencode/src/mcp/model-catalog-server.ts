@@ -284,6 +284,26 @@ function blendedPrice(row: CatalogRow): number {
   return (row.pricing.input_per_m + row.pricing.output_per_m) / 2
 }
 
+function sweBenchScore(row: CatalogRow): number | null {
+  return getModelProfile(row.id)?.benchmarks.sweBenchScorePercentEst ?? null
+}
+
+function sweBenchDiff(a: CatalogRow, b: CatalogRow): number {
+  const aScore = sweBenchScore(a)
+  const bScore = sweBenchScore(b)
+  if (aScore === null && bScore === null) return 0
+  if (aScore === null) return 1
+  if (bScore === null) return -1
+  return bScore - aScore
+}
+
+function priceDiff(a: CatalogRow, b: CatalogRow): number {
+  const aPrice = blendedPrice(a)
+  const bPrice = blendedPrice(b)
+  if (aPrice === bPrice) return 0
+  return aPrice - bPrice
+}
+
 function matchesRoleNeed(row: CatalogRow, need: string): boolean {
   if (!row.recommended_roles || row.recommended_roles.length === 0) return false
   const n = need.toLowerCase()
@@ -300,7 +320,7 @@ function matchesRoleNeed(row: CatalogRow, need: string): boolean {
 function pickCatalog(
   state: CatalogState,
   params: unknown,
-): { picks: Array<{ id: string; provider: string; tier: CatalogRow["tier"]; cost_tier: CostTier | null; pricing: Pricing | null; reason: string; description?: string; best_for?: string[]; recommended_roles?: string[] }> } {
+): { picks: Array<{ id: string; provider: string; tier: CatalogRow["tier"]; cost_tier: CostTier | null; pricing: Pricing | null; reason: string; description?: string; best_for?: string[]; recommended_roles?: string[]; weaknesses: string[] }> } {
   const cache = readCacheFile(state.cacheFile)
   if (!cache) return { picks: [] }
   const need = isPlainRecord(params) && typeof params["need"] === "string" ? params["need"].toLowerCase() : "default"
@@ -333,6 +353,16 @@ function pickCatalog(
   if (!mediaNeed) rows = rows.filter((row) => row.tool_call)
   if (!mediaNeed) rows = rows.filter((row) => row.text_output !== false)
 
+  const connectedIds = new Set(rows.map((row) => row.id))
+  const supersededIds = new Set(
+    rows
+      .filter((row) => {
+        const successor = getModelProfile(row.id)?.supersededBy
+        return typeof successor === "string" && successor !== row.id && connectedIds.has(successor)
+      })
+      .map((row) => row.id),
+  )
+
   const boosted = state.prefer[need]
   const preferBoostSet = Array.isArray(boosted) ? new Set(boosted) : new Set<string>()
   const providerBoostSet = new Set(state.preferProviders)
@@ -341,12 +371,9 @@ function pickCatalog(
     const preferDiff = Number(preferBoostSet.has(b.id)) - Number(preferBoostSet.has(a.id))
     if (preferDiff !== 0) return preferDiff
 
-    // If task_complexity is complex, prefer neuralwatt provider if connected (orchestrator cache synergy)
-    if (taskComplexity === "complex") {
-      const aIsNw = a.provider.toLowerCase() === "neuralwatt" ? 1 : 0
-      const bIsNw = b.provider.toLowerCase() === "neuralwatt" ? 1 : 0
-      if (bIsNw !== aIsNw) return bIsNw - aIsNw
-    }
+    // Demote superseded models whose successor is connected
+    const supersededDiff = Number(supersededIds.has(a.id)) - Number(supersededIds.has(b.id))
+    if (supersededDiff !== 0) return supersededDiff
 
     // Role affinity boost if need maps to a known role
     const aRole = matchesRoleNeed(a, need) ? 1 : 0
@@ -359,10 +386,27 @@ function pickCatalog(
     if (tierDiff !== 0) return tierDiff
     const providerDiff = Number(providerBoostSet.has(b.provider.toLowerCase())) - Number(providerBoostSet.has(a.provider.toLowerCase()))
     if (providerDiff !== 0) return providerDiff
+
     if (budgetProfile === "max_performance") {
-      return Number(b.reasoning) + Number(b.tool_call) - (Number(a.reasoning) + Number(a.tool_call))
+      const capabilityDiff = Number(b.reasoning) + Number(b.tool_call) - (Number(a.reasoning) + Number(a.tool_call))
+      if (capabilityDiff !== 0) return capabilityDiff
+      const sweDiff = sweBenchDiff(a, b)
+      if (sweDiff !== 0) return sweDiff
+      return priceDiff(a, b)
     }
-    return blendedPrice(a) - blendedPrice(b)
+    const costDiff = priceDiff(a, b)
+    if (costDiff !== 0) return costDiff
+    const sweDiff = sweBenchDiff(a, b)
+    if (sweDiff !== 0) return sweDiff
+
+    // LAST tie-break only: prefer the neuralwatt provider for complex tasks
+    // (orchestrator cache synergy); fires only when rows are otherwise fully equal
+    if (taskComplexity === "complex") {
+      const aIsNw = a.provider.toLowerCase() === "neuralwatt" ? 1 : 0
+      const bIsNw = b.provider.toLowerCase() === "neuralwatt" ? 1 : 0
+      if (bIsNw !== aIsNw) return bIsNw - aIsNw
+    }
+    return 0
   })
 
   const picks = rows.slice(0, 5).map((row) => ({
@@ -374,6 +418,7 @@ function pickCatalog(
     description: row.description,
     best_for: row.best_for,
     recommended_roles: row.recommended_roles,
+    weaknesses: row.weaknesses,
     reason: need.includes("vision")
       ? "vision-capable"
       : need.includes("reason") || taskComplexity === "complex"

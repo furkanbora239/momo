@@ -92,6 +92,33 @@ const MIXED_TIERS = {
   ],
 }
 
+const GLM_PAIR = {
+  neuralwatt: [
+    model({ id: "glm-5.2", name: "GLM 5.2", providerID: "neuralwatt", reasoning: true, toolcall: true, costInput: 0.95, costOutput: 4 }),
+  ],
+  "opencode-go": [
+    model({ id: "glm-5.3-flash", name: "GLM 5.3 Flash", providerID: "opencode-go", reasoning: true, toolcall: true, costInput: 0.1, costOutput: 0.4 }),
+  ],
+}
+
+const GLM_WITHOUT_SUCCESSOR = {
+  openai: [
+    model({ id: "gpt-flash", name: "GPT Flash", providerID: "openai", toolcall: true, costInput: 0.15, costOutput: 0.6 }),
+  ],
+  neuralwatt: [
+    model({ id: "glm-5.2", name: "GLM 5.2", providerID: "neuralwatt", reasoning: true, toolcall: true, costInput: 0.95, costOutput: 4 }),
+  ],
+}
+
+const SWE_TIE = {
+  openai: [
+    model({ id: "model-alpha", name: "Model Alpha", providerID: "openai", reasoning: true, toolcall: true, costInput: 1, costOutput: 3 }),
+  ],
+  neuralwatt: [
+    model({ id: "kimi-k3", name: "Kimi K3", providerID: "neuralwatt", reasoning: true, toolcall: true, costInput: 1, costOutput: 3 }),
+  ],
+}
+
 function call(state: CatalogState, method: string, params?: unknown) {
   return handleCatalogRequest({ jsonrpc: "2.0", id: 1, method, params }, state)
 }
@@ -285,6 +312,55 @@ describe("catalog MCP", () => {
     const picks = result.picks as Array<{ id: string }>
     expect(picks[0].id).toBe("gpt-flash")
     expect(picks[1].id).toBe("kimi-flash")
+  })
+
+  it("ranks glm-5.3-flash above superseded glm-5.2 when both are connected", async () => {
+    const state = stateWith(makeCache(GLM_PAIR))
+    const response = await call(state, "tools/call", {
+      name: "catalog_pick",
+      arguments: { need: "code", budget_profile: "balanced" },
+    })
+    const result = parseToolPayload(response)
+    const picks = result.picks as Array<{ id: string; weaknesses: string[] }>
+    expect(picks[0].id).toBe("glm-5.3-flash")
+    expect(picks[1].id).toBe("glm-5.2")
+    expect(Array.isArray(picks[0].weaknesses)).toBe(true)
+    expect(picks[0].weaknesses.length).toBeGreaterThan(0)
+  })
+
+  it("keeps glm-5.3-flash first for complex tasks despite the neuralwatt provider preference", async () => {
+    const state = stateWith(makeCache(GLM_PAIR))
+    const response = await call(state, "tools/call", {
+      name: "catalog_pick",
+      arguments: { need: "code", budget_profile: "balanced", task_complexity: "complex" },
+    })
+    const result = parseToolPayload(response)
+    const picks = result.picks as Array<{ id: string }>
+    expect(picks[0].id).toBe("glm-5.3-flash")
+    expect(picks[1].id).toBe("glm-5.2")
+  })
+
+  it("does not demote glm-5.2 when glm-5.3-flash is absent from the cache", async () => {
+    const state = stateWith(makeCache(GLM_WITHOUT_SUCCESSOR))
+    const response = await call(state, "tools/call", {
+      name: "catalog_pick",
+      arguments: { need: "code", task_complexity: "complex" },
+    })
+    const result = parseToolPayload(response)
+    const picks = result.picks as Array<{ id: string }>
+    expect(picks[0].id).toBe("glm-5.2")
+  })
+
+  it("breaks balanced price ties with the knowledge-base sweBench estimate", async () => {
+    const state = stateWith(makeCache(SWE_TIE))
+    const response = await call(state, "tools/call", {
+      name: "catalog_pick",
+      arguments: { need: "default", budget_profile: "balanced" },
+    })
+    const result = parseToolPayload(response)
+    const picks = result.picks as Array<{ id: string }>
+    expect(picks[0].id).toBe("kimi-k3")
+    expect(picks[1].id).toBe("model-alpha")
   })
 
   it("refreshes from the cache file", async () => {
