@@ -534,4 +534,122 @@ describe("createAutoSlashCommandHook", () => {
       expect(output.parts[0].text).toContain("Lazy loaded skill content here")
     })
   })
+
+  describe("multi-command expansion", () => {
+    function createTestSkill(name: string, template: string): LoadedSkill {
+      return {
+        name,
+        path: `/test/skills/${name}/SKILL.md`,
+        definition: {
+          name,
+          description: `Test skill: ${name}`,
+          template,
+        },
+        scope: "user",
+      }
+    }
+
+    it("keeps leading single command behavior unchanged", async () => {
+      // given a leading known command
+      const hook = createAutoSlashCommandHook()
+      const sessionID = `test-session-leading-${Date.now()}`
+      const input = createMockInput(sessionID)
+      const output = createMockOutput("/start-work fix the parser")
+
+      // when hook processes the message
+      await hook["chat.message"](input, output)
+
+      // then the whole part is replaced with the tagged template
+      expect(output.parts[0].text).toContain("<auto-slash-command>")
+      expect(output.parts[0].text).toContain("/start-work Command")
+      expect(output.parts[0].text).toContain("fix the parser")
+    })
+
+    it("preserves prose before a mid-text command and expands it", async () => {
+      // given a known command after prose
+      const hook = createAutoSlashCommandHook()
+      const sessionID = `test-session-midtext-${Date.now()}`
+      const input = createMockInput(sessionID)
+      const output = createMockOutput("read the file first /git-master")
+
+      // when hook processes the message
+      await hook["chat.message"](input, output)
+
+      // then prose is preserved and the command template is appended
+      expect(output.parts[0].text).toContain("read the file first")
+      expect(output.parts[0].text).toContain("<auto-slash-command>")
+      expect(output.parts[0].text).toContain("/git-master Command")
+    })
+
+    it("expands multiple known commands in order", async () => {
+      // given two known commands in one prompt
+      const hook = createAutoSlashCommandHook()
+      const sessionID = `test-session-multi-${Date.now()}`
+      const input = createMockInput(sessionID)
+      const output = createMockOutput("implement X /review-work then /opencode-qa db")
+
+      // when hook processes the message
+      await hook["chat.message"](input, output)
+
+      // then both templates are present in order with prose preserved
+      const text = output.parts[0].text ?? ""
+      expect(text).toContain("implement X")
+      expect(text).toContain("/review-work Command")
+      expect(text).toContain("/opencode-qa Command")
+      expect(text.indexOf("/review-work Command")).toBeLessThan(text.indexOf("/opencode-qa Command"))
+      expect(text).toContain("db")
+    })
+
+    it("expands two skills in one prompt", async () => {
+      // given two skills in one prompt
+      const skillA = createTestSkill("alpha-skill", "Alpha skill template content")
+      const skillB = createTestSkill("beta-skill", "Beta skill template content")
+      const hook = createAutoSlashCommandHook({ skills: [skillA, skillB] })
+      const sessionID = `test-session-two-skills-${Date.now()}`
+      const input = createMockInput(sessionID)
+      const output = createMockOutput("do /alpha-skill then /beta-skill")
+
+      // when hook processes the message
+      await hook["chat.message"](input, output)
+
+      // then both skill templates are present in order
+      const text = output.parts[0].text ?? ""
+      expect(text).toContain("do ")
+      expect(text).toContain("/alpha-skill Command")
+      expect(text).toContain("Alpha skill template content")
+      expect(text).toContain("/beta-skill Command")
+      expect(text).toContain("Beta skill template content")
+      expect(text.indexOf("/alpha-skill Command")).toBeLessThan(text.indexOf("/beta-skill Command"))
+    })
+
+    it("leaves fenced slash commands untouched", async () => {
+      // given a command inside a code fence
+      const hook = createAutoSlashCommandHook()
+      const sessionID = `test-session-fenced-${Date.now()}`
+      const input = createMockInput(sessionID)
+      const output = createMockOutput("```sh\n/quick\n```")
+      const originalText = output.parts[0].text
+
+      // when hook processes the message
+      await hook["chat.message"](input, output)
+
+      // then the message is unchanged
+      expect(output.parts[0].text).toBe(originalText)
+    })
+
+    it("leaves unknown commands as-is", async () => {
+      // given an unknown command
+      const hook = createAutoSlashCommandHook()
+      const sessionID = `test-session-unknown-${Date.now()}`
+      const input = createMockInput(sessionID)
+      const output = createMockOutput("please /nope this")
+      const originalText = output.parts[0].text
+
+      // when hook processes the message
+      await hook["chat.message"](input, output)
+
+      // then the message is unchanged
+      expect(output.parts[0].text).toBe(originalText)
+    })
+  })
 })

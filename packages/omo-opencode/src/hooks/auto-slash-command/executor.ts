@@ -85,6 +85,15 @@ async function findCommand(commandName: string, options?: ExecutorOptions): Prom
   ) ?? null
 }
 
+export async function commandExists(commandName: string, options?: ExecutorOptions): Promise<boolean> {
+  return (await findCommand(commandName, options)) !== null
+}
+
+export async function listCommandNames(options?: ExecutorOptions): Promise<string[]> {
+  const allCommands = await discoverAllCommands(options)
+  return allCommands.map((cmd) => cmd.name.toLowerCase())
+}
+
 function substituteCommandTemplate(content: string, args: string, sessionID: string | undefined): string {
   if (content.includes("$SESSION_ID") && !sessionID) {
     throw new MissingCommandSessionIDError()
