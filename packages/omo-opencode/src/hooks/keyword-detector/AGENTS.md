@@ -6,7 +6,7 @@
 
 Transform Tier hook on `messages.transform`. Scans the first user message for mode keywords and injects mode-specific system prompts. The detector and routing logic stay in `src/hooks/keyword-detector/`; prompt bodies now live in [`packages/prompts-core/prompts/`](../../../../prompts-core/prompts) so they can be shared by future harness adapters.
 
-This matches the package layering direction in [`ROADMAP.md`](../../../../../ROADMAP.md): `packages/prompts-core` owns static prompt content, while this OpenCode hook owns keyword detection, model routing, and message injection.
+This matches the package layering direction: `packages/prompts-core` owns static prompt content, while this OpenCode hook owns keyword detection, model routing, and message injection.
 
 ## KEYWORDS
 

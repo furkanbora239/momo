@@ -209,7 +209,7 @@ oh-my-opencode/
 └── dist/                        # Build output (ESM + .d.ts)
 ```
 
-The multi-harness refactor is in progress. See `ROADMAP.md` for the current state.
+The multi-harness adapters are kept in-tree (disabled by default); see `AGENTS.md` for the current layout.
 
 ## Development Workflow
 

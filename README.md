@@ -381,7 +381,7 @@ omo/
 │   ├── hashline-core/       # Hash-anchored line editing engine
 │   └── lsp-core/            # Language Server Protocol client & daemon
 ├── .agents/skills/          # Project skills and automated workflows
-├── plan.md                  # Development plan and roadmap
+├── PROJECT_STATE.md         # Architecture, active status, and next steps
 └── LICENSE.md               # SUL-1.0 License terms
 ```
 
