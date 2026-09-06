@@ -5,10 +5,12 @@ export const BuiltinCommandNameSchema = z.enum([
   "stop-continuation",
   "handoff",
   "advisor",
-  "help",
   "momo",
   "caveman",
+  "cavemen",
+  "c",
   // Removed builtin command names kept for backward compat; treated as no-ops.
+  "help",
   "start-work",
   "refactor",
   "remove-ai-slops",

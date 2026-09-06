@@ -218,7 +218,8 @@ export function createLocalTranslatorHook(
         ? triggerExtraction.prompt
         : originalText
 
-      if (shouldSkipTranslation(textToTranslate, config.minLength).skip) {
+      const effectiveMinLength = triggerExtraction.isTriggered ? 1 : config.minLength
+      if (shouldSkipTranslation(textToTranslate, effectiveMinLength).skip) {
         if (triggerExtraction.isTriggered) {
           ;(lastUserMessage.parts[textPartIndex] as { text: string }).text = textToTranslate
         }
@@ -252,7 +253,10 @@ export function createLocalTranslatorHook(
         return
       }
 
-      const result = await translateMessage(config, textToTranslate)
+      const activeConfig = triggerExtraction.isTriggered
+        ? { ...config, minLength: 1 }
+        : config
+      const result = await translateMessage(activeConfig, textToTranslate)
 
       if (result.skipped) {
         log("[local-translator] Skipped translation", { reason: result.skipReason })

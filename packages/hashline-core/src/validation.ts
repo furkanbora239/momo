@@ -80,6 +80,8 @@ export function validateLineRef(lines: string[], ref: string): void {
 }
 
 export class HashlineMismatchError extends Error {
+  readonly mismatches: readonly HashMismatch[]
+  readonly fileLines: readonly string[]
   readonly remaps: ReadonlyMap<string, string>
 
   constructor(
@@ -88,6 +90,8 @@ export class HashlineMismatchError extends Error {
   ) {
     super(HashlineMismatchError.formatMessage(mismatches, fileLines))
     this.name = "HashlineMismatchError"
+    this.mismatches = mismatches
+    this.fileLines = fileLines
     const remaps = new Map<string, string>()
     for (const mismatch of mismatches) {
       const actual = computeLineHash(mismatch.line, fileLines[mismatch.line - 1] ?? "")

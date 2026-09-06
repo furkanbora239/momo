@@ -3,7 +3,7 @@ export interface CavemanExtraction {
   readonly prompt: string
 }
 
-const CAVEMAN_TAG_REGEX = /<(?:caveman|cavemen)-prompt>([\s\S]*?)<\/(?:caveman|cavemen)-prompt>/i
+const CAVEMAN_TAG_REGEX = /<(?:caveman|cavemen|c)-prompt>([\s\S]*?)<\/(?:caveman|cavemen|c)-prompt>/i
 const CAVEMAN_PREFIX_REGEX = /^\/(?:caveman|cavemen|c)(?:[:\s]+([\s\S]*))?$/i
 
 export function extractCavemanPrompt(text: string): CavemanExtraction {

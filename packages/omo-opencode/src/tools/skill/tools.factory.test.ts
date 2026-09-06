@@ -221,6 +221,18 @@ describe("createSkillTool", () => {
         scope: "builtin",
       },
       {
+        name: "cavemen",
+        metadata: { name: "cavemen", description: "Cavemen command" },
+        content: "Cavemen body",
+        scope: "builtin",
+      },
+      {
+        name: "c",
+        metadata: { name: "c", description: "C command" },
+        content: "C body",
+        scope: "builtin",
+      },
+      {
         name: "active-command",
         metadata: { name: "active-command", description: "Active command" },
         content: "Active command body",
@@ -239,9 +251,14 @@ describe("createSkillTool", () => {
     expect(skillTool.description).not.toContain("<name>/help</name>")
     expect(skillTool.description).not.toContain("<name>/momo</name>")
     expect(skillTool.description).not.toContain("<name>/caveman</name>")
+    expect(skillTool.description).not.toContain("<name>/cavemen</name>")
+    expect(skillTool.description).not.toContain("<name>/c</name>")
 
     await expect(skillTool.execute({ name: "help" }, mockContext)).rejects.toThrow(
       'Skill or command "help" not found',
+    )
+    await expect(skillTool.execute({ name: "cavemen" }, mockContext)).rejects.toThrow(
+      'Skill or command "cavemen" not found',
     )
   })
 })

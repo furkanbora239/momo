@@ -64,7 +64,7 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
     return allSkills
   }
 
-  const AGENT_EXCLUDED_COMMAND_NAMES = new Set(["help", "momo", "caveman"])
+  const AGENT_EXCLUDED_COMMAND_NAMES = new Set(["help", "momo", "caveman", "cavemen", "c"])
 
   const filterAgentVisibleCommands = (cmds: CommandInfo[]): CommandInfo[] =>
     cmds.filter((cmd) => !AGENT_EXCLUDED_COMMAND_NAMES.has(cmd.name.toLowerCase()))

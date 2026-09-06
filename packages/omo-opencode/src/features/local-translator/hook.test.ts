@@ -659,6 +659,48 @@ describe("local-translator hook", () => {
       }
     })
 
+    it("#given trigger 'command' and short prompt under minLength #when transform runs #then it is NOT skipped and translated", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchBody = ""
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        fetchBody = String(init?.body ?? "")
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "SHORT_TRANSLATED" }],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          minLength: 20,
+          logTranslations: false,
+        })
+        const output = {
+          messages: [makeUserMessage("/cavemen test")],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchBody).toContain("test")
+        expect(fetchBody).not.toContain("/cavemen")
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe("SHORT_TRANSLATED")
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
+
     it("#given trigger 'command' and <caveman-prompt> tag #when transform runs #then tag is stripped and prompt is translated", async () => {
       process.env["GOOGLE_API_KEY"] = "test-key"
       let fetchBody = ""

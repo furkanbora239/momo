@@ -1,4 +1,4 @@
-export const HELP_TEMPLATE = `# /momo (or /help) — momo Features & Usage Guide
+export const HELP_TEMPLATE = `# /momo — momo Features & Usage Guide
 
 ## Purpose
 
@@ -26,19 +26,19 @@ Format your response cleanly in GitHub-flavored Markdown with clear sections, ta
 
 | Command | Syntax | Description |
 | :--- | :--- | :--- |
-| \`/caveman\` (or \`/c\`) | \`/caveman <prompt>\` | Translates prompt to English and compresses it into terse Caveman style (30-50% token savings). |
+| \`/caveman\` (\`/cavemen\`, \`/c\`) | \`/caveman <prompt>\` | Translates prompt to English and compresses it into terse Caveman style (30-50% token savings). |
 | \`/advisor\` | \`/advisor <model\|off\|report>\` | Binds/unbinds a senior model for on-demand architectural guidance (zero surprise cost). |
 | \`/goal\` | \`/goal <objective> \| pause \| resume \| clear\` | Sets and manages an autonomous multi-step execution loop until done. |
 | \`/handoff\` | \`/handoff [goal]\` | Generates a concise, self-contained summary to continue work in a fresh session. |
 | \`/stop-continuation\` | \`/stop-continuation\` | Immediately aborts all active background loops, todo continuations, and goal loops. |
-| \`/momo\` (or \`/help\`) | \`/momo [topic]\` | Displays this feature guide or a deep-dive on a specific momo feature. |
+| \`/momo\` | \`/momo [topic]\` | Displays this interactive feature guide or deep-dive on a specific momo feature. (Use OpenCode's native \`/help\` for the client command list). |
 | \`/remove-deadcode\` | \`/remove-deadcode\` | Clean up unused code across the project safely with LSP diagnostics. |
 | \`/tech-debt-audit\` | \`/tech-debt-audit\` | Runs a 9-dimension technical debt audit across the repository. |
 
 ### 3. 🪓 /caveman — Prompt Translator & Token Compressor
 - **What it does:** Translates prompts (e.g., from Turkish) into concise, high-density Caveman English before the main orchestrator receives them. Slashes input token consumption by 30-50% while boosting model comprehension.
 - **Trigger Modes (\`trigger\` in \`~/.omo/omo.jsonc\`):**
-  - \`command\` (default): Only translates when you start your prompt with \`/caveman <prompt>\` or \`/c <prompt>\`.
+  - \`command\` (default): Only translates when you start your prompt with \`/caveman <prompt>\`, \`/cavemen <prompt>\`, or \`/c <prompt>\`.
   - \`always\`: Automatically translates and compresses every single prompt you enter.
 - **Provider Modes (\`mode\`):**
   - \`cloud\` (default): Free Google Gemma via Gemini API (zero local GPU/RAM consumption).

@@ -72,15 +72,16 @@ describe("loadBuiltinCommands", () => {
       "stop-continuation",
       "handoff",
       "advisor",
-      "help",
       "momo",
       "caveman",
+      "cavemen",
+      "c",
     ])
   })
 })
 
-describe("loadBuiltinCommands - caveman", () => {
-  test("should include caveman command in loaded commands", () => {
+describe("loadBuiltinCommands - caveman and aliases", () => {
+  test("should include caveman, cavemen, and c in loaded commands", () => {
     //#given
     const disabledCommands: BuiltinCommandName[] = []
 
@@ -92,43 +93,27 @@ describe("loadBuiltinCommands - caveman", () => {
     expect(commands.caveman.name).toBe("caveman")
     expect(commands.caveman.template).toContain("<caveman-prompt>")
     expect(commands.caveman.template).toContain("$ARGUMENTS")
+
+    expect(commands.cavemen).toBeDefined()
+    expect(commands.cavemen.name).toBe("cavemen")
+    expect(commands.cavemen.template).toContain("<caveman-prompt>")
+
+    expect(commands.c).toBeDefined()
+    expect(commands.c.name).toBe("c")
+    expect(commands.c.template).toContain("<caveman-prompt>")
   })
 
-  test("should exclude caveman when disabled", () => {
+  test("should exclude caveman and aliases when disabled", () => {
     //#given
-    const disabledCommands: BuiltinCommandName[] = ["caveman"]
+    const disabledCommands: BuiltinCommandName[] = ["caveman", "cavemen", "c"]
 
     //#when
     const commands = loadBuiltinCommands(disabledCommands)
 
     //#then
     expect(commands.caveman).toBeUndefined()
-  })
-})
-
-describe("loadBuiltinCommands - help", () => {
-  test("should include help command in loaded commands", () => {
-    //#given
-    const disabledCommands: BuiltinCommandName[] = []
-
-    //#when
-    const commands = loadBuiltinCommands(disabledCommands)
-
-    //#then
-    expect(commands.help).toBeDefined()
-    expect(commands.help.name).toBe("help")
-    expect(commands.help.description).toContain("momo")
-  })
-
-  test("should exclude help when disabled", () => {
-    //#given
-    const disabledCommands: BuiltinCommandName[] = ["help"]
-
-    //#when
-    const commands = loadBuiltinCommands(disabledCommands)
-
-    //#then
-    expect(commands.help).toBeUndefined()
+    expect(commands.cavemen).toBeUndefined()
+    expect(commands.c).toBeUndefined()
   })
 })
 

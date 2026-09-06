@@ -96,8 +96,9 @@ opencode
 
 ## 3. Complete Slash Commands Reference
 
-### `/momo` & `/help` — Interactive Guide
+### `/momo` — Interactive Guide
 - **Purpose:** Displays interactive help and comprehensive command descriptions directly inside the chat session. Responds in Turkish if queried in Turkish, English otherwise.
+  *(Note: OpenCode's native `/help` command shows the client command list without sending a prompt to chat).*
 - **Usage:**
   ```text
   /momo               # Shows the full command & feature index
@@ -111,10 +112,10 @@ opencode
 
 ---
 
-### `/caveman` — Prompt Translator & Token Compressor
+### `/caveman` (Aliases: `/cavemen`, `/c`) — Prompt Translator & Token Compressor
 - **Purpose:** Translates user prompt (e.g. from Turkish) into concise, high-density Caveman English before reaching the main LLM. Cuts input tokens by 30-50%.
 - **Modes:**
-  - `trigger: "command"` (default): Only translates when prompt starts with `/caveman <prompt>` or `/c <prompt>`.
+  - `trigger: "command"` (default): Only translates when prompt starts with `/caveman <prompt>`, `/cavemen <prompt>`, or `/c <prompt>`.
   - `trigger: "always"`: Translates all prompts automatically.
   - `mode: "cloud"` (default): Free Google Gemma via Gemini API (zero local resource load).
   - `mode: "local"`: Local Ollama model (`qwen2.5:1.5b` or `gemma3:1b`).

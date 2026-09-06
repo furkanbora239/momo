@@ -94,17 +94,6 @@ $ARGUMENTS
 </user-request>`,
       argumentHint: "<model-id> | off | (no args to report)",
     },
-    help: {
-      description: "(builtin) Display momo features, command reference, agent roles, and usage guide",
-      template: `<command-instruction>
-${HELP_TEMPLATE}
-</command-instruction>
-
-<user-request>
-$ARGUMENTS
-</user-request>`,
-      argumentHint: "[command | topic | agents | config]",
-    },
     momo: {
       description: "(builtin) Display momo features, command reference, agent roles, and usage guide",
       template: `<command-instruction>
@@ -118,6 +107,20 @@ $ARGUMENTS
     },
     caveman: {
       description: "(builtin) Translate and compress prompt into Caveman English using the translator",
+      template: `<caveman-prompt>
+$ARGUMENTS
+</caveman-prompt>`,
+      argumentHint: "<prompt>",
+    },
+    cavemen: {
+      description: "(builtin) Translate and compress prompt into Caveman English (alias for /caveman)",
+      template: `<caveman-prompt>
+$ARGUMENTS
+</caveman-prompt>`,
+      argumentHint: "<prompt>",
+    },
+    c: {
+      description: "(builtin) Translate and compress prompt into Caveman English (short alias for /caveman)",
       template: `<caveman-prompt>
 $ARGUMENTS
 </caveman-prompt>`,

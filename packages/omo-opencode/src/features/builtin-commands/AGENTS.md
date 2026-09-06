@@ -23,9 +23,10 @@ Registry of built-in commands shipped inside the plugin. Each command is a templ
 | `stop-continuation` | `templates/stop-continuation.ts` | Stop all continuations (todo enforcer, ralph loop, goal, boulder) |
 | `handoff` | `templates/handoff.ts` | Session context summary |
 | `advisor` | `commands.ts` (inline) | Session-scoped advisor model binder |
-| `help` | `templates/help.ts` | Interactive help & momo feature guide |
 | `momo` | `templates/help.ts` | momo features, command reference, and usage guide |
 | `caveman` | `commands.ts` (inline) | Translate prompt to English & compress via translator |
+| `cavemen` | `commands.ts` (inline) | Alias for `/caveman` |
+| `c` | `commands.ts` (inline) | Short alias for `/caveman` |
 
 ## STRUCTURE
 
