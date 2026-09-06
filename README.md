@@ -299,7 +299,7 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 ## 💬 Slash Commands & Daily Usage
 
-> 💡 **For full documentation and in-depth guides, see [HELP.md](./HELP.md) (English) or [KULLANIM_KILAVUZU.md](./KULLANIM_KILAVUZU.md) (Türkçe).**
+> 💡 **For full documentation and in-depth guides, see [HELP.md](./HELP.md).**
 
 | Command | Description |
 | :--- | :--- |
