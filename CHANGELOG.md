@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Prompt Translator & `/caveman`** (`/cavemen`, `/c`): Dual-backend prompt translator (free cloud Google Gemma via Gemini API or local Ollama `qwen2.5:1.5b`) that translates non-English prompts to English and compresses them into high-density Caveman format, saving 30-50% tokens. Bypasses `minLength` on explicit commands so short prompts are translated cleanly.
+- **Interactive Guide (`/momo`) & Clean Native Help**: Restored OpenCode's native client `/help` command (clean TUI table without chat prompt pollution) and added dedicated `/momo` slash command for interactive in-chat feature guides.
+- **Tab-Switchable Dedicated Agents**: Enabled `planner` (strategic read-only planning) and `worker` (direct execution without orchestrator overhead) with `mode: "all"`, selectable via Tab in OpenCode.
+- **Multi-Slash Command Expansion**: Supports multiple slash commands in a single prompt (e.g. `/caveman test and /momo`).
 - New npm package `omo-ai` (beta channel only): the senpi-native edition. `npm i -g omo-ai@beta` installs the `omo` command, which launches the pinned senpi release with the full OMO extension loaded, and `omo setup` imports API credentials from sibling harnesses with consent. Channel contract: every version is a prerelease published with `--tag beta`, so a bare `npm i -g omo-ai` fails with ETARGET by design and `latest` never advances past the deprecated placeholder. Upgrade order: machines with oh-my-openagent/oh-my-opencode 4.19.4 or earlier must upgrade or uninstall that package first (it owns the old global `omo` bin), then install `omo-ai@beta`. See docs/reference/omo-ai-publishing.md.
 
 - Unified `omo.jsonc` configuration surface across all three harnesses: `~/.omo/omo.jsonc` plus walked project `.omo/omo.jsonc` layers, VSCode-style `[opencode]` / `[senpi]` / `[codex]` harness blocks, opt-in `profiles` activated by `OMO_PROFILE` > `OCX_PROFILE` > `OPENCODE_CONFIG_DIR` tail, and a shared `models` catalog whose entries fill unset tuning while site tuning wins.

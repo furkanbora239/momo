@@ -91,7 +91,7 @@ Standard AI coding harnesses send massive context windows, entire project trees,
 
 | | Feature | Description & Benefits |
 | :---: | :--- | :--- |
-| ⚡ | **Prompt Translator & `/caveman`** | Intercepts user prompts before cloud submission. Runs on-demand when prefixed with `/caveman <prompt>` (or `/c <prompt>`), or automatically on every prompt when configured (`trigger: "always"`). Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
+| ⚡ | **Prompt Translator & `/caveman`** | Intercepts user prompts before cloud submission. Runs on-demand when prefixed with `/caveman <prompt>` (or `/cavemen <prompt>`, `/c <prompt>`), or automatically on every prompt when configured (`trigger: "always"`). Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
 | 🗂️ | **Live Model Catalog (`catalog` MCP)** | Queries all connected providers dynamically at session startup (`client.provider.list()`), enriched with a built-in model knowledge base (benchmarks, coding profiles, recommended roles). `catalog_pick` ranks by capability and price with `cost_tier` filters and dynamic role matching. |
 | 🧠 | **On-Demand Advisor (`/advisor`)** | Frontier models stay unbound by default to eliminate surprise billing. When facing architectural roadblocks or tricky bugs, bind an advisor for concise, high-value guidance (<300 tokens). |
 | 🧗 | **Ponytail YAGNI Solution Ladder** | Built-in system prompt discipline: models climb a strict ladder (YAGNI → reuse existing code → stdlib → native feature → existing dependency → 1 line → minimal code). |
@@ -139,26 +139,26 @@ momo keeps the always-on roster lean to minimize context overhead. A manager hie
    - **Role:** Technical Lead / Coordinator.
    - **Behavior:** Analyzes the repo map, clarifies requirements, builds executable task plans, and delegates to subagents.
    - **Model:** Zero-config — automatically inherits whatever model you selected in OpenCode (`/models`).
-2. **explore (Codebase Search Specialist)**
+2. **planner (Dedicated Read-Only Planner — Tab Switchable)**
+   - **Role:** High-reasoning strategic planner (`mode: "all"`).
+   - **Behavior:** Gathers context, reads `PROJECT_STATE.md` and repository maps, and emits structured plans without modifying code. Switch to it directly via **Tab** in OpenCode.
+3. **worker / sisyphus-junior (Dedicated Direct Execution — Tab Switchable)**
+   - **Role:** Focused task executor without orchestrator overhead (`mode: "all"`).
+   - **Behavior:** Direct execution of fast tasks: test running, single-file edits, git commit and push. Switch to it directly via **Tab** in OpenCode.
+4. **explore (Codebase Search Specialist)**
    - **Role:** Fast contextual search inside your local repository.
    - **Trigger:** Locating symbol definitions, tracing references, finding relevant files.
-3. **librarian (External Research Specialist)**
+5. **librarian (External Research Specialist)**
    - **Role:** External documentation lookups, library API references, and web searches.
    - **Trigger:** Researching third-party libraries, unfamiliar frameworks, or web resources.
-4. **advisor (On-Demand Senior Architect)**
+6. **advisor (On-Demand Senior Architect)**
    - **Role:** High-level architectural decision-making, debugging stuck failure loops.
    - **Trigger:** Explicitly bound via `/advisor <model>`. Returns concise, decisive directives.
-5. **research (Deep Research Worker)**
-   - **Role:** Multi-module codebase investigation, call-hierarchy analysis, and technical documentation research. Read-only.
-   - **Trigger:** Deep "how does X work" questions that span many modules.
-6. **manager (Tier-2 Dispatcher)**
+7. **manager (Tier-2 Dispatcher)**
    - **Role:** Evaluates each task, routes it to the planner or executor, and picks lead models via `catalog_pick`. Never edits directly.
    - **Trigger:** Sits between the orchestrator and the department leads in the manager hierarchy.
-7. **planner / executor / reviewer (Department Leads)**
-   - **Role:** planner gathers context via explore/librarian and produces structured work plans; executor consumes approved plans and delegates to category workers, collecting diff + test evidence; reviewer audits changes, runs test verification, and checks edge cases and security. None of them edit directly.
-   - **Gate:** Registered while `delegation.managers` is `true` (the default). Set it to `false` to unregister all three.
-8. **sisyphus-junior (Lightweight Worker)**
-   - **Role:** Focused task executor with no delegation rights; the downcast target when category routing needs a cheaper worker.
+8. **executor / reviewer (Department Leads)**
+   - **Role:** `executor` consumes approved plans and delegates to category workers, collecting diff + test evidence; `reviewer` audits changes, runs test verification, and checks edge cases and security. None of them edit directly.
 
 Legacy agents (`prometheus`, `metis`, `momus`, `hephaestus`, `oracle`, `atlas`, `multimodal-looker`) remain in the codebase but ship disabled by default; re-enable any via `disabled_agents` in `omo.jsonc`.
 
@@ -254,7 +254,7 @@ momo works out of the box with zero configuration. To customize behavior, create
   "local_translator": {
     "enabled": true,                 // Enable prompt translation & compression
     "mode": "cloud",                 // "cloud" = free Google Gemma via Gemini API (default), "local" = Ollama
-    "trigger": "command",            // "command" = only on /caveman or /c (default), "always" = all messages
+    "trigger": "command",            // "command" = only on /caveman, /cavemen, or /c (default), "always" = all messages
     "model": "qwen2.5:1.5b",          // Ollama model tag used when mode is "local"
     "ollama_host": "http://localhost:11434",
     "timeout_ms": 30000,
@@ -302,23 +302,22 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 > 💡 **For full documentation and in-depth guides, see [HELP.md](./HELP.md).**
 
-| Command | Description |
-| :--- | :--- |
-| `/help [topic]` | Display comprehensive interactive help, command references, and guides. |
-| `/models` | Select your primary model inside OpenCode (automatically sets the orchestrator). |
-| `/advisor <model\|off\|report>` | Bind/unbind an on-demand senior advisor model (e.g. `/advisor anthropic/claude-opus-5`). |
-| `/goal <objective> \| pause \| resume \| clear` | Set or manage a continuous execution loop goal until completion criteria are met. |
-| `/refactor <target>` | Intelligent refactoring with LSP diagnostics, AST-grep, and TDD verification. |
-| `/hyperplan [request]` | Adversarial multi-agent planning with cross-critique across 5 specialist categories. |
-| `/start-work [plan]` | Start executing a planned work session with task breakdown and optional worktrees. |
-| `/handoff [goal]` | Create a detailed context summary to resume work seamlessly in a fresh session. |
-| `/remove-ai-slops` | Clean AI code smells, verbose commentary, and boilerplate code from changes. |
-| `/stop-continuation` | Stop all active continuation mechanisms (goal loops, todo continuation, background tasks). |
-| `/security-research` | Run team-mode security research audit with vulnerability hunters and PoC engineers. |
-| `/remove-deadcode` | Remove unused code across the project with LSP-verified safety. |
-| `omo doctor` | Run CLI diagnostics on connected providers, active models, catalog MCP, and plugin health. |
+| Command | Syntax | Description |
+| :--- | :--- | :--- |
+| `/help` | `/help` | OpenCode native command list. Displays all available commands and descriptions in a clean TUI table without sending any prompt to chat or consuming tokens. |
+| `/momo` | `/momo [topic]` | momo Interactive AI Guide. Explains architecture, agents, commands, and configuration directly in chat (responds in Turkish if queried in Turkish). |
+| `/caveman`<br>`/cavemen`<br>`/c` | `/caveman <prompt>`<br>`/cavemen <prompt>`<br>`/c <prompt>` | Prompt Translator & Token Compressor. Translates foreign text (e.g. Turkish) to English and compresses it into high-density Caveman style (30-50% token savings). |
+| `/models` | `/models` | Select your primary model inside OpenCode (automatically sets the momo orchestrator). |
+| `/advisor` | `/advisor <model\|off\|report>` | Bind/unbind an on-demand senior advisor model (e.g. `/advisor anthropic/claude-opus-5`). Zero surprise cost. |
+| `/goal` | `/goal <objective> \| pause \| resume \| clear` | Set or manage an autonomous multi-step execution loop until completion criteria are met. |
+| `/handoff` | `/handoff [goal]` | Create a detailed context summary to resume work seamlessly in a fresh session. |
+| `/stop-continuation` | `/stop-continuation` | Immediately stop all active continuation mechanisms (goal loops, todo continuation, background tasks). |
+| `/remove-deadcode` | `/remove-deadcode` | Remove unused code across the project with LSP-verified safety. |
+| `/tech-debt-audit` | `/tech-debt-audit` | Run a 9-dimension technical debt audit across the repository. |
+| `/security-research` | `/security-research` | Run team-mode security research audit with vulnerability hunters and PoC engineers. |
+| `omo doctor` | `omo doctor` | Run CLI diagnostics on connected providers, active models, catalog MCP, and plugin health. |
 
-> ℹ️ `/refactor`, `/hyperplan`, and `/remove-ai-slops` ship disabled by default (token-saving v1 defaults). Re-enable them by setting `disabled_commands` to `[]`, or list only the ones you want kept off.
+> ℹ️ Legacy heavy planning commands (`/refactor`, `/hyperplan`, and `/remove-ai-slops`) ship disabled by default (token-saving v1 defaults). Re-enable them by setting `disabled_commands` in `omo.jsonc`.
 
 
 ---

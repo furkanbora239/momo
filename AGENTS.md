@@ -165,10 +165,16 @@ for evidence (isolated XDG, no touching the real user opencode DB).
   - Root `PROJECT_STATE.md` established. `planner` instructed to read it first before any directory exploration.
 - **Smart Compaction Context**:
   - `compaction-context-prompt.ts` updated to preserve architectural decisions and current milestone status, and to prune raw tool dumps.
+- **Prompt Translator & Clean Help (`/caveman`, `/cavemen`, `/c`, `/momo`)**:
+  - Dual backend translator: cloud (free Google Gemma via Gemini API) or local (Ollama `qwen2.5:1.5b`).
+  - Commands `/caveman`, `/cavemen`, `/c` trigger translation and Caveman compression, bypassing `minLength` so short inputs translate cleanly.
+  - Chat-polluting `help` prompt template removed, restoring OpenCode's clean native client `/help` command.
+  - `/momo` serves as the interactive in-chat guide for momo architecture and features.
+  - Multi-command expansion support.
 
 ## Current State & Next Steps
 
-- **Current State**: All 5 waves of architecture refinement implemented and fully passing tests (`854 pass, 0 fail`) and monorepo typecheck across 30 packages (`bun run typecheck`).
+- **Current State**: Prompt translator, clean native help, dedicated planner/worker, stall watchdog, and TUI tracking fully implemented and passing all tests and monorepo typecheck across 30 packages (`bun run typecheck`).
 - **Next Steps**:
   1. Builtin Model Catalog MCP (`packages/omo-opencode/src/mcp/model-catalog.ts` and `catalog_pick`).
   2. Heavy chat-injection token-burn pruning audit (`agentUsageReminder`, `categorySkillReminder`, etc.).
