@@ -31,7 +31,7 @@ Build, publish, QA, and repo-invariant automation. Run via `bun run <script>` fr
 
 ## SUBDIRS
 
-- `agent/` -- dev-env contract: `setup.sh`, `cleanup.sh`, `cleanup-hook.sh`, `docker-dev.sh`, `qa-sandbox.sh`, `qa-docker.sh` (see root AGENTS.md DEVELOPMENT ENVIRONMENT).
+- `agent/` -- dev-env contract: `setup.sh`, `qa-sandbox.sh`, `qa-docker.sh` (see CONTRIBUTING.md Development Environment).
 - `qa/` -- QA drivers: `codex-marketplace-e2e.sh`, `web-terminal-visual-qa.mjs` (renders TUI evidence through real xterm.js + node-pty in a browser, true color; NEVER tmux capture-pane), `xterm-live-terminal.mjs` (live capture core), `strip-ansi.mjs`, `web-terminal-redaction.mjs`.
 
 ## TESTS (~40 `*.test.ts`)

@@ -2,9 +2,8 @@
 # Cross-harness dev-environment bootstrap for oh-my-openagent.
 #
 # Single source of truth for setting up a working tree so an agent (or human)
-# can build and QA the plugin. Wired into Codex App (.codex/setup.sh), Cursor
-# (.cursor/environment.json install), Claude Code (.claude/settings.json
-# SessionStart), and the devcontainer (postCreateCommand). Idempotent and safe
+# can build and QA the plugin. Run directly, or via script/agent/qa-docker.sh
+# for an isolated container QA environment. Idempotent and safe
 # to re-run: it skips the (slow) build when dist/index.js already exists unless
 # OMO_AGENT_FORCE_BUILD=1.
 set -euo pipefail

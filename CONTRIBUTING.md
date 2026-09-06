@@ -122,24 +122,13 @@ After making changes, you can test your local build in OpenCode:
 
 ## Development Environment
 
-The cross-harness one-command bootstrap is the single source of truth for all development environments.
-
-- **`script/agent/setup.sh`** verifies Bun, Node, and git, warns if tmux is missing, runs `bun install`, initializes the frontend provenance submodules and materializes their references (both non-fatal so an offline checkout still builds), and builds when `dist/index.js` is missing or `OMO_AGENT_FORCE_BUILD=1` is set.
-- **`script/agent/cleanup.sh`** removes regenerable transients by default. Pass `--deep` to also drop `dist/` and `node_modules/`; it leaves the `packages/shared-skills/upstreams/` submodules in place.
-- **`script/agent/cleanup-hook.sh`** launches cleanup from Claude Code `SessionEnd` without blocking shutdown.
-
-All harnesses delegate to these scripts:
+`script/agent/setup.sh` is the single one-command bootstrap. It verifies Bun, Node, and git, warns if tmux is missing, runs `bun install`, initializes the frontend provenance submodules and materializes their references (both non-fatal so an offline checkout still builds), and builds when `dist/index.js` is missing or `OMO_AGENT_FORCE_BUILD=1` is set.
 
 | Harness | Wiring |
 | ------- | ------ |
-| GitHub Codespaces / VS Code Dev Containers | `.devcontainer/devcontainer.json` runs `postCreateCommand: script/agent/setup.sh` on `.devcontainer/Dockerfile` (Node 24 + Bun 1.3.12 + tmux) |
-| Plain Docker | `script/agent/docker-dev.sh` builds the Dockerfile and opens a shell |
-| Cursor cloud agents | `.cursor/environment.json` `install` runs setup on environment creation |
-| Claude Code | `.claude/settings.json` `SessionStart` hook runs setup; `SessionEnd` hook launches cleanup |
-| Codex App (local environments) | `.codex/setup.sh` runs at project root on worktree creation |
 | OpenCode (this plugin's own harness) | reads `AGENTS.md` + `CLAUDE.md` (a symlink); run `script/agent/setup.sh` directly |
 
-The single source of truth is the `script/agent/` dev-environment contract: `setup.sh`, `cleanup.sh`, and harness launchers such as `cleanup-hook.sh`. Maintenance means keeping those scripts, harness wiring files, and pinned Dockerfile versions in sync.
+`script/agent/qa-sandbox.sh` and `script/agent/qa-docker.sh` provide the isolated QA environments used by the QA skills.
 
 ## Credentials & Isolation
 
@@ -159,7 +148,7 @@ source script/agent/qa-sandbox.sh
 
 This exports an isolated, throwaway environment with its own `XDG_*` directories and a fresh `CODEX_HOME` under a `mktemp` directory. It also sets `OPENCODE_DISABLE_AUTOUPDATE=1` and `OPENCODE_DISABLE_MODELS_FETCH=1`. QA never reads or writes the host's real `~/.config/opencode` or `~/.codex`. This mirrors the conventions used by the `opencode-qa` and `codex-qa` skills.
 
-For containerized environments (Codespaces, Dev Containers, Docker), see [`.devcontainer/README.md`](.devcontainer/README.md). It documents injecting provider credentials (via `.env`, Codespaces secrets, or `remoteEnv`) and bind-mounting your `~/.codex`, `~/.claude`, and `~/.config/opencode` config into the container so OpenCode, Codex, and Claude Code all work inside it.
+For containerized environments, run `script/agent/qa-docker.sh` (isolated QA container) or set up your own container mounting this repo.
 
 ## Project Structure
 

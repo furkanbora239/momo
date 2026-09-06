@@ -21,8 +21,7 @@
   "docs": [
     ".agents/skills/codex-qa/SKILL.md: omo get-local-version",
     ".github/workflows/publish.yml: /bin/omo",
-    "AGENTS.md: omo doctor",
-    "CLAUDE.md: omo doctor",
+    "README.md: omo doctor x2",
     "packages/omo-codex/README.md: omo get-local-version",
     "packages/omo-native/AGENTS.md: omo doctor",
     "packages/omo-native/bin/lib/agent-dir.js: omo doctor",

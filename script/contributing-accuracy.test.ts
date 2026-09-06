@@ -59,7 +59,7 @@ describe("CONTRIBUTING.md accuracy", () => {
     expect(content).toContain("codex-qa")
   })
 
-  test("#given the contributor guide #when scanned for the dev-environment sections #then cross-harness setup, credentials, and isolation are documented", () => {
+  test("#given the contributor guide #when scanned for the dev-environment sections #then setup, credentials, and isolation are documented", () => {
     // given
     const content = readContributing()
     const lower = content.toLowerCase()
@@ -67,7 +67,6 @@ describe("CONTRIBUTING.md accuracy", () => {
     // then
     expect(content).toContain("Development Environment")
     expect(content).toContain("script/agent/setup.sh")
-    expect(content).toContain("script/agent/cleanup.sh")
     expect(content).toContain(".env.example")
     expect(lower).toContain("credential")
     expect(lower).toContain("isolat")
