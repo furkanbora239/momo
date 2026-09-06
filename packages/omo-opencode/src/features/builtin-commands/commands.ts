@@ -95,7 +95,7 @@ $ARGUMENTS
       argumentHint: "<model-id> | off | (no args to report)",
     },
     help: {
-      description: "(builtin) Display comprehensive help, command reference, agent roles, and usage guide for momo",
+      description: "(builtin) Display momo features, command reference, agent roles, and usage guide",
       template: `<command-instruction>
 ${HELP_TEMPLATE}
 </command-instruction>
@@ -104,6 +104,24 @@ ${HELP_TEMPLATE}
 $ARGUMENTS
 </user-request>`,
       argumentHint: "[command | topic | agents | config]",
+    },
+    momo: {
+      description: "(builtin) Display momo features, command reference, agent roles, and usage guide",
+      template: `<command-instruction>
+${HELP_TEMPLATE}
+</command-instruction>
+
+<user-request>
+$ARGUMENTS
+</user-request>`,
+      argumentHint: "[topic | commands | agents | config]",
+    },
+    caveman: {
+      description: "(builtin) Translate and compress prompt into Caveman English using the translator",
+      template: `<caveman-prompt>
+$ARGUMENTS
+</caveman-prompt>`,
+      argumentHint: "<prompt>",
     },
   }
 }

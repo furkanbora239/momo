@@ -36,6 +36,7 @@ Logs all I/O to `~/.omo/local-translator-logs/<date>.jsonl` for finetuning
 | `ollama-installer.ts` | System+local Ollama detection, no-sudo user-local install, daemon start |
 | `model-puller.ts` | Auto-pull model with SSE progress bar |
 | `translation-logger.ts` | JSONL I/O logging for finetuning data collection |
+| `prompt-trigger.ts` | Detect and extract `/caveman`, `/cavemen`, `/c`, and `<caveman-prompt>` triggers |
 | `translator.ts` | Mode routing, system prompt, skip rules, fallback |
 | `hook.ts` | `experimental.chat.messages.transform` hook creator (per-mode readiness) |
 | `index.ts` | Barrel exports |
@@ -47,6 +48,7 @@ Logs all I/O to `~/.omo/local-translator-logs/<date>.jsonl` for finetuning
   "local_translator": {
     "enabled": true,             // default: true
     "mode": "cloud",             // default: cloud | "local" uses Ollama
+    "trigger": "command",        // default: "command" (only on /caveman, /c) | "always" (all messages)
     "cloud": {
       "provider": "google",      // only google supported
       "model": "gemma-4-31b-it", // free-tier Gemma
@@ -67,6 +69,7 @@ Logs all I/O to `~/.omo/local-translator-logs/<date>.jsonl` for finetuning
 ## SKIP RULES
 
 Messages are NOT translated when:
+- `trigger` is `"command"` (default) and message does not start with `/caveman`, `/cavemen`, `/c`, or `<caveman-prompt>`
 - Length < min_length (default 20 chars)
 - Pure code block (starts/ends with ```)
 - Only a file path or URL (no spaces)

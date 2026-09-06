@@ -9,6 +9,7 @@ export {
 } from "./ollama-installer"
 export { pullModel, ensureModelPulled } from "./model-puller"
 export { translateMessage, shouldSkipTranslation } from "./translator"
+export { extractCavemanPrompt, type CavemanExtraction } from "./prompt-trigger"
 export { logTranslation } from "./translation-logger"
 export { DEFAULT_TRANSLATION_CONFIG } from "./types"
 export type {
@@ -16,5 +17,6 @@ export type {
   TranslationResult,
   LogEntry,
   TranslationMode,
+  TranslationTrigger,
   CloudTranslationConfig,
 } from "./types"

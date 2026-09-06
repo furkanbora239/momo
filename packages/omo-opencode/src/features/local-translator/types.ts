@@ -1,4 +1,5 @@
 export type TranslationMode = "cloud" | "local"
+export type TranslationTrigger = "command" | "always"
 
 export interface CloudTranslationConfig {
   readonly provider: string
@@ -9,6 +10,7 @@ export interface CloudTranslationConfig {
 export interface TranslationConfig {
   readonly enabled: boolean
   readonly mode: TranslationMode
+  readonly trigger: TranslationTrigger
   readonly model: string
   readonly ollamaHost: string
   readonly timeoutMs: number
@@ -53,6 +55,7 @@ export const DEFAULT_CLOUD_CONFIG: CloudTranslationConfig = {
 export const DEFAULT_TRANSLATION_CONFIG: TranslationConfig = {
   enabled: true,
   mode: "cloud",
+  trigger: "command",
   model: "qwen2.5:1.5b",
   ollamaHost: "http://localhost:11434",
   timeoutMs: 60000,

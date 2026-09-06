@@ -11,7 +11,7 @@
 > [!NOTE]
 > **Multi-Harness Agent OS Refactor in Progress**
 >
-> We are restructuring the codebase to support multiple agent harnesses (OpenCode, Codex, Pi, and others). If you are interested in contributing, please read the [ROADMAP](./ROADMAP.md) first. PRs related to roadmap work should use the `ROADMAP` label.
+> We are restructuring the codebase to support multiple agent harnesses (OpenCode, Codex, Pi, and others). If you are interested in contributing, please read the [ROADMAP](https://github.com/code-yeongyu/oh-my-openagent/blob/dev/ROADMAP.md) first. PRs related to roadmap work should use the `ROADMAP` label.
 
 > [!TIP]
 > **Building in Public**
@@ -68,7 +68,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/code-yeongyu/oh-my-openagent)
 [![Docs](https://img.shields.io/badge/docs-omo.vibetip.help-369eff?labelColor=black&logo=readthedocs&logoColor=white&style=flat-square)](https://omo.vibetip.help/docs)
 
-[English](README.md) | [한국어](README.ko.md) | [日本語](README.ja.md) | [简体中文](README.zh-cn.md)
+English | 한국어 | 日本語 | 简体中文
 
 </div>
 
@@ -203,7 +203,7 @@ Read this and tell me why it's not just another boilerplate: https://raw.githubu
 
 We are restructuring the codebase to support multiple agent harnesses (OpenCode, Codex, Pi, Claude Code, and others). The most urgent work is the package layering refactor: separating pure TypeScript core logic, MCP servers, skills, and adapter shims into distinct layers so the same logic can be reused across harnesses without duplication.
 
-If you want to contribute, read the [ROADMAP](./ROADMAP.md) first. PRs related to this refactor should use the `ROADMAP` label so we can track them.
+If you want to contribute, read the [ROADMAP](https://github.com/code-yeongyu/oh-my-openagent/blob/dev/ROADMAP.md) first. PRs related to this refactor should use the `ROADMAP` label so we can track them.
 
 ## Highlights
 

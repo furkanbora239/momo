@@ -29,6 +29,12 @@ export const LocalTranslatorConfigSchema = z
       .describe(
         "Translation backend. cloud = free Google Gemma via Gemini API, local = Ollama on this machine. Default: cloud.",
       ),
+    trigger: z
+      .enum(["command", "always"])
+      .optional()
+      .describe(
+        'When to trigger prompt translation. "command" = only when prompt starts with /caveman (or /c), "always" = all eligible user prompts. Default: "command".',
+      ),
     model: z
       .string()
       .optional()

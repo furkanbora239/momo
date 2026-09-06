@@ -64,13 +64,20 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
     return allSkills
   }
 
-  const getCommands = (): CommandInfo[] => {
-    if (options.commands) return [...options.commands]
+  const AGENT_EXCLUDED_COMMAND_NAMES = new Set(["help", "momo", "caveman"])
 
-    return commandDiscovery.discoverCommandsSync(undefined, {
+  const filterAgentVisibleCommands = (cmds: CommandInfo[]): CommandInfo[] =>
+    cmds.filter((cmd) => !AGENT_EXCLUDED_COMMAND_NAMES.has(cmd.name.toLowerCase()))
+
+  const getCommands = (): CommandInfo[] => {
+    if (options.commands) return filterAgentVisibleCommands(options.commands)
+
+    const discovered = commandDiscovery.discoverCommandsSync(undefined, {
       pluginsEnabled: options.pluginsEnabled,
       enabledPluginsOverride: options.enabledPluginsOverride,
     }) ?? []
+
+    return filterAgentVisibleCommands(discovered)
   }
 
   const buildDescription = async (force = false): Promise<string> => {
@@ -91,7 +98,7 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
   if (options.skills !== undefined) {
     const publicSkills = options.skills.filter((s) => !s.definition.agent)
     const skillInfos = publicSkills.map(loadedSkillToInfo)
-    const commandsForDescription = options.commands ?? []
+    const commandsForDescription = filterAgentVisibleCommands(options.commands ?? [])
     let needsAsyncRefresh = false
 
     if (options.nativeSkills) {
@@ -114,7 +121,7 @@ export function createSkillTool(options: SkillLoadOptions): ToolDefinition {
       void buildDescription(true)
     }
   } else if (options.commands !== undefined) {
-    cachedDescription = formatCombinedDescription([], options.commands, {
+    cachedDescription = formatCombinedDescription([], filterAgentVisibleCommands(options.commands), {
       includeSkills: options.includeSkillsInDescription,
     })
   }

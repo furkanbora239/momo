@@ -64,6 +64,8 @@
           "handoff",
           "advisor",
           "help",
+          "momo",
+          "caveman",
           "start-work",
           "refactor",
           "remove-ai-slops",
@@ -11407,6 +11409,14 @@
           "enum": [
             "cloud",
             "local"
+          ]
+        },
+        "trigger": {
+          "description": "When to trigger prompt translation. \"command\" = only when prompt starts with /caveman (or /c), \"always\" = all eligible user prompts. Default: \"command\".",
+          "type": "string",
+          "enum": [
+            "command",
+            "always"
           ]
         },
         "model": {

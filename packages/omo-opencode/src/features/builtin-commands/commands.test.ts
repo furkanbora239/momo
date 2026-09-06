@@ -60,7 +60,7 @@ describe("loadBuiltinCommands", () => {
     expect(commands.handoff.template).toContain("$ARGUMENTS")
   })
 
-  test("should only surface the five retained builtin commands when nothing is disabled", () => {
+  test("should surface the retained builtin commands when nothing is disabled", () => {
     //#given
 
     //#when
@@ -73,7 +73,36 @@ describe("loadBuiltinCommands", () => {
       "handoff",
       "advisor",
       "help",
+      "momo",
+      "caveman",
     ])
+  })
+})
+
+describe("loadBuiltinCommands - caveman", () => {
+  test("should include caveman command in loaded commands", () => {
+    //#given
+    const disabledCommands: BuiltinCommandName[] = []
+
+    //#when
+    const commands = loadBuiltinCommands(disabledCommands)
+
+    //#then
+    expect(commands.caveman).toBeDefined()
+    expect(commands.caveman.name).toBe("caveman")
+    expect(commands.caveman.template).toContain("<caveman-prompt>")
+    expect(commands.caveman.template).toContain("$ARGUMENTS")
+  })
+
+  test("should exclude caveman when disabled", () => {
+    //#given
+    const disabledCommands: BuiltinCommandName[] = ["caveman"]
+
+    //#when
+    const commands = loadBuiltinCommands(disabledCommands)
+
+    //#then
+    expect(commands.caveman).toBeUndefined()
   })
 })
 
@@ -100,5 +129,31 @@ describe("loadBuiltinCommands - help", () => {
 
     //#then
     expect(commands.help).toBeUndefined()
+  })
+})
+
+describe("loadBuiltinCommands - momo", () => {
+  test("should include momo command in loaded commands", () => {
+    //#given
+    const disabledCommands: BuiltinCommandName[] = []
+
+    //#when
+    const commands = loadBuiltinCommands(disabledCommands)
+
+    //#then
+    expect(commands.momo).toBeDefined()
+    expect(commands.momo.name).toBe("momo")
+    expect(commands.momo.description).toContain("momo")
+  })
+
+  test("should exclude momo when disabled", () => {
+    //#given
+    const disabledCommands: BuiltinCommandName[] = ["momo"]
+
+    //#when
+    const commands = loadBuiltinCommands(disabledCommands)
+
+    //#then
+    expect(commands.momo).toBeUndefined()
   })
 })

@@ -87,13 +87,51 @@ describe("local translator through the transform wiring", () => {
 
       // when
       const output = {
-        messages: [createUserMessage("ses_lt_a", "bu mesaj ingilizceye cevrilsin")],
+        messages: [createUserMessage("ses_lt_a", "/caveman bu mesaj ingilizceye cevrilsin")],
       }
       await handler({}, unsafeTestValue(output))
 
       // then
       expect(hits.chat).toBe(1)
       expect(output.messages[0]!.parts[0]!.text).toBe("COMPRESSED_EN")
+    } finally {
+      server.stop(true)
+    }
+  })
+
+  it("#given local_translator enabled with default command trigger and plain message #when the messages transform handler runs #then translation is bypassed and message is unchanged", async () => {
+    // given
+    const host = { port: 0 }
+    const hits = { chat: 0, tags: 0 }
+    const server = await startFakeOllama(host, hits)
+    try {
+      const transformHooks = createTransformHooks({
+        ctx: createCtx(process.cwd()),
+        pluginConfig: unsafeTestValue({
+          local_translator: {
+            mode: "local",
+            ollama_host: `http://127.0.0.1:${host.port}`,
+            auto_install: false,
+            min_length: 5,
+            timeout_ms: 2000,
+            log_translations: false,
+          },
+        }),
+        isHookEnabled: () => true,
+      })
+      const handler = createMessagesTransformHandler({
+        hooks: unsafeTestValue({ localTranslator: transformHooks.localTranslator }),
+      })
+
+      // when
+      const output = {
+        messages: [createUserMessage("ses_lt_bypass", "bu duz mesaj cevrilmemeli")],
+      }
+      await handler({}, unsafeTestValue(output))
+
+      // then
+      expect(hits.chat).toBe(0)
+      expect(output.messages[0]!.parts[0]!.text).toBe("bu duz mesaj cevrilmemeli")
     } finally {
       server.stop(true)
     }

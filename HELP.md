@@ -9,19 +9,14 @@ This document provides a comprehensive, in-depth guide on how **momo** (My Oh My
 1. [Architecture & Core Concepts](#1-architecture--core-concepts)
 2. [Quick Start & Installation](#2-quick-start--installation)
 3. [Complete Slash Commands Reference](#3-complete-slash-commands-reference)
-   - [`/help` — Interactive Guide](#help--interactive-guide)
+   - [`/momo` & `/help` — Interactive Guide](#momo--help--interactive-guide)
+   - [`/caveman` — Prompt Translator & Token Compressor](#caveman--prompt-translator--token-compressor)
    - [`/advisor` — On-Demand Senior Advisor](#advisor--on-demand-senior-advisor)
    - [`/goal` — Autonomous Execution Loop](#goal--autonomous-execution-loop)
-   - [`/refactor` — Intelligent Codebase Refactoring](#refactor--intelligent-codebase-refactoring)
-   - [`/hyperplan` — Adversarial Multi-Agent Planning](#hyperplan--adversarial-multi-agent-planning)
-   - [`/start-work` — Execute Plan Breakdown](#start-work--execute-plan-breakdown)
    - [`/handoff` — Context Summary & Session Transfer](#handoff--context-summary--session-transfer)
-   - [`/remove-ai-slops` — Clean AI Boilerplate & Code Smells](#remove-ai-slops--clean-ai-boilerplate--code-smells)
    - [`/stop-continuation` — Stop Active Loops](#stop-continuation--stop-active-loops)
-   - [`/security-research` — Security Audit & Exploit Verification](#security-research--security-audit--exploit-verification)
    - [`/remove-deadcode` — Dead Code Cleanup](#remove-deadcode--dead-code-cleanup)
-   - [`/get-unpublished-changes` — Changelog Inspection](#get-unpublished-changes--changelog-inspection)
-   - [`/publish` — Release Automation](#publish--release-automation)
+   - [`/tech-debt-audit` — Technical Debt Audit](#tech-debt-audit--technical-debt-audit)
 4. [Agent System & Delegation Categories](#4-agent-system--delegation-categories)
 5. [CLI Tool Commands (`oh-my-opencode` / `omo`)](#5-cli-tool-commands-oh-my-opencode--omo)
 6. [Configuration Reference (`~/.omo/omo.jsonc`)](#6-configuration-reference-omoomojsonc)
@@ -101,28 +96,45 @@ opencode
 
 ## 3. Complete Slash Commands Reference
 
-### `/help` — Interactive Guide
-- **Purpose:** Displays interactive help and comprehensive command descriptions directly inside the chat session.
+### `/momo` & `/help` — Interactive Guide
+- **Purpose:** Displays interactive help and comprehensive command descriptions directly inside the chat session. Responds in Turkish if queried in Turkish, English otherwise.
 - **Usage:**
   ```text
-  /help               # Shows the full command & feature index
-  /help advisor       # Deep dive into /advisor
-  /help goal          # Deep dive into /goal
-  /help refactor      # Deep dive into /refactor
-  /help config        # Configuration guidance
-  /help agents        # Explains agent roles and category routing
+  /momo               # Shows the full command & feature index
+  /momo caveman       # Deep dive into /caveman prompt translator
+  /momo advisor       # Deep dive into /advisor binding
+  /momo goal          # Deep dive into /goal autonomous loop
+  /momo planner       # Explains the dedicated planner agent
+  /momo worker        # Explains the direct execution worker agent
+  /momo config        # Configuration guidance (~/.omo/omo.jsonc)
+  ```
+
+---
+
+### `/caveman` — Prompt Translator & Token Compressor
+- **Purpose:** Translates user prompt (e.g. from Turkish) into concise, high-density Caveman English before reaching the main LLM. Cuts input tokens by 30-50%.
+- **Modes:**
+  - `trigger: "command"` (default): Only translates when prompt starts with `/caveman <prompt>` or `/c <prompt>`.
+  - `trigger: "always"`: Translates all prompts automatically.
+  - `mode: "cloud"` (default): Free Google Gemma via Gemini API (zero local resource load).
+  - `mode: "local"`: Local Ollama model (`qwen2.5:1.5b` or `gemma3:1b`).
+- **Usage:**
+  ```text
+  /caveman bu dosyadaki bellek sızıntısını bul ve düzelt
+  /c optimize SQL queries in user service
   ```
 
 ---
 
 ### `/advisor` — On-Demand Senior Advisor
-- **Purpose:** Binds a flagship frontier model (e.g. Claude Opus 5, GPT-5.6 Sol, Gemini 3 Pro) for architectural decisions or debugging tough issues. Unbound by default to prevent unexpected API costs.
+- **Purpose:** Binds a flagship frontier model (e.g. Claude Opus 5, Kimi K3, GPT-5.6 Sol) for architectural decisions or debugging tough issues. Unbound by default to prevent unexpected API costs.
 - **Usage:**
   ```text
-  /advisor anthropic/claude-opus-5    # Bind advisor for current session
+  /advisor neuralwatt/kimi-k3          # Bind advisor for current session
   /advisor report                      # Check current binding status
   /advisor off                         # Unbind advisor
   ```
+- **Persistent Alternative:** Configure `agents.advisor.model` in `~/.omo/omo.jsonc`.
 
 ---
 
@@ -138,51 +150,12 @@ opencode
 
 ---
 
-### `/refactor` — Intelligent Codebase Refactoring
-- **Purpose:** Executes safe, systematic refactoring with LSP diagnostics, AST-grep, and TDD verification.
-- **Usage:**
-  ```text
-  /refactor packages/omo-opencode/src/tools --scope=module --strategy=safe
-  /refactor src/auth.ts --strategy=aggressive
-  ```
-
----
-
-### `/hyperplan` — Adversarial Multi-Agent Planning
-- **Purpose:** Spawns 5 hostile specialist category members (deep, ultrabrain, artistry, etc.) in team mode to cross-critique and battle-test assumptions before finalizing an executable plan.
-- **Usage:**
-  ```text
-  /hyperplan Redesign the state management pipeline for offline sync
-  ```
-
----
-
-### `/start-work` — Execute Plan Breakdown
-- **Purpose:** Takes a structured work plan and executes it step-by-step, optionally creating isolated git worktrees and PRs.
-- **Usage:**
-  ```text
-  /start-work
-  /start-work plan-name --worktree ./feature-auth --make-pr
-  ```
-
----
-
 ### `/handoff` — Context Summary & Session Transfer
 - **Purpose:** When session context gets too long, generates a clean, self-contained summary to resume seamlessly in a new session.
 - **Usage:**
   ```text
   /handoff
   /handoff "Continue with frontend integration in the next session"
-  ```
-
----
-
-### `/remove-ai-slops` — Clean AI Boilerplate & Code Smells
-- **Purpose:** Strips out redundant AI commentary, generic greetings, and boilerplate code smells.
-- **Usage:**
-  ```text
-  /remove-ai-slops
-  /remove-ai-slops src/components/
   ```
 
 ---
@@ -197,10 +170,8 @@ opencode
 ---
 
 ### Project & Skill Commands:
-- `/security-research`: Parallel team security audit (3 vulnerability hunters + 2 PoC engineers).
 - `/remove-deadcode`: LSP-verified dead code removal across the project.
-- `/get-unpublished-changes`: Compares git HEAD against the latest release.
-- `/publish <patch|minor|major>`: Release automation via GitHub Actions.
+- `/tech-debt-audit`: Comprehensive 9-dimension technical debt audit across the repository.
 
 ---
 
@@ -209,6 +180,8 @@ opencode
 | Agent | Role | Usage |
 | :--- | :--- | :--- |
 | **momo Orchestrator (`sisyphus`)** | Lead Architect / Coordinator | Plans, analyzes repo-map, delegates subtasks. Inherits model from `/models`. |
+| **`planner`** | Dedicated Strategic Planner | Tab-switchable (`mode: "all"`). Read-only architectural and execution planning. |
+| **`worker` (`sisyphus-junior`)** | Direct Execution Agent | Tab-switchable (`mode: "all"`). Edits single files, runs tests, commits without orchestrator overhead. |
 | **`explore`** | Codebase Search Specialist | Fast contextual grep, symbol lookups, and reference tracing. |
 | **`librarian`** | External Research Specialist | Online documentation, library APIs, and web search. |
 | **`advisor`** | On-Demand Senior Advisor | Consulted only when bound via `/advisor`. Returns short, high-value directives. |
@@ -250,6 +223,7 @@ bunx oh-my-opencode config migrate
   // 1. Local Prompt Translator (Ollama)
   "local_translator": {
     "enabled": true,
+    "trigger": "command",            // "command" = only on /caveman or /c (default), "always" = all messages
     "model": "qwen2.5:1.5b",
     "ollama_host": "http://localhost:11434",
     "timeout_ms": 30000,

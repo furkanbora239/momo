@@ -133,6 +133,7 @@ export function createTransformHooks(args: {
             {
               enabled: localTranslatorConfig?.enabled !== false,
               mode: localTranslatorConfig?.mode,
+              trigger: localTranslatorConfig?.trigger,
               model: localTranslatorConfig?.model,
               ollamaHost: localTranslatorConfig?.ollama_host,
               timeoutMs: localTranslatorConfig?.timeout_ms,

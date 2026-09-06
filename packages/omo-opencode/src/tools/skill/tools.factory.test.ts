@@ -198,4 +198,50 @@ describe("createSkillTool", () => {
     expect(skillTool.description).toContain("<name>/lazy-skill</name>")
     expect(skillTool.description).toContain("<name>/seeded-command</name>")
   })
+
+  it("filters out user-only commands (help, momo, caveman) from description and execution", async () => {
+    // given
+    const seededCommands: CommandInfo[] = [
+      {
+        name: "help",
+        metadata: { name: "help", description: "Help command" },
+        content: "Help body",
+        scope: "builtin",
+      },
+      {
+        name: "momo",
+        metadata: { name: "momo", description: "Momo command" },
+        content: "Momo body",
+        scope: "builtin",
+      },
+      {
+        name: "caveman",
+        metadata: { name: "caveman", description: "Caveman command" },
+        content: "Caveman body",
+        scope: "builtin",
+      },
+      {
+        name: "active-command",
+        metadata: { name: "active-command", description: "Active command" },
+        content: "Active command body",
+        scope: "project",
+      },
+    ]
+
+    // when
+    const skillTool = await createSkillTool({
+      skills: [],
+      commands: seededCommands,
+    })
+
+    // then
+    expect(skillTool.description).toContain("<name>/active-command</name>")
+    expect(skillTool.description).not.toContain("<name>/help</name>")
+    expect(skillTool.description).not.toContain("<name>/momo</name>")
+    expect(skillTool.description).not.toContain("<name>/caveman</name>")
+
+    await expect(skillTool.execute({ name: "help" }, mockContext)).rejects.toThrow(
+      'Skill or command "help" not found',
+    )
+  })
 })

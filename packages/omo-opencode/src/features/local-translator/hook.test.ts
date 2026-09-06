@@ -118,6 +118,7 @@ describe("local-translator hook", () => {
       const hook = createLocalTranslatorHook({
         enabled: true,
         mode: "cloud",
+        trigger: "always",
         logTranslations: false,
       })
       const output = { messages: [makeUserMessage("bu mesaj ingilizceye cevrilsin")] }
@@ -196,6 +197,7 @@ describe("local-translator hook", () => {
         {
           enabled: true,
           mode: "cloud",
+          trigger: "always",
           showNotifications: true,
           logTranslations: false,
         },
@@ -438,6 +440,7 @@ describe("local-translator hook", () => {
       const hook = createLocalTranslatorHook({
         enabled: true,
         mode: "cloud",
+        trigger: "always",
         logTranslations: false,
       })
       const taggedText = `${AUTO_SLASH_COMMAND_TAG_OPEN}\ntemplate body\n${AUTO_SLASH_COMMAND_TAG_CLOSE}`
@@ -467,7 +470,7 @@ describe("local-translator hook", () => {
     }
   })
 
-  it("#given a plain prose part with no tags #when transform runs #then translation is still invoked", async () => {
+  it("#given a plain prose part with no tags when trigger is always #when transform runs #then translation is still invoked", async () => {
     process.env["GOOGLE_API_KEY"] = "test-key"
     let fetchCalled = false
     globalThis.fetch = (async () => {
@@ -490,6 +493,7 @@ describe("local-translator hook", () => {
       const hook = createLocalTranslatorHook({
         enabled: true,
         mode: "cloud",
+        trigger: "always",
         logTranslations: false,
       })
       const proseText = "bu duz kullanici metni etiketsizdir ve cevrilmelidir"
@@ -503,5 +507,291 @@ describe("local-translator hook", () => {
       globalThis.fetch = originalFetch
       delete process.env["GOOGLE_API_KEY"]
     }
+  })
+
+  describe("trigger modes", () => {
+    it("#given default trigger 'command' and untagged plain message #when transform runs #then translation is bypassed", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchCalled = false
+      globalThis.fetch = (async () => {
+        fetchCalled = true
+        return new Response("{}", { status: 200 })
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          logTranslations: false,
+        })
+        const text = "bu duz bir mesajdir ve cevrilmemelidir"
+        const output = { messages: [makeUserMessage(text)] }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchCalled).toBe(false)
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe(text)
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
+
+    it("#given trigger 'command' and /caveman prefix #when transform runs #then prefix is stripped and prompt is translated", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchBody = ""
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        fetchBody = String(init?.body ?? "")
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "REFACTORED_MODULE_EN" }],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          logTranslations: false,
+        })
+        const output = {
+          messages: [makeUserMessage("/caveman bu fonksiyonu refactor et ve temizle")],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchBody).toContain("bu fonksiyonu refactor et ve temizle")
+        expect(fetchBody).not.toContain("/caveman")
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe("REFACTORED_MODULE_EN")
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
+
+    it("#given trigger 'command' and /c prefix #when transform runs #then /c is stripped and prompt is translated", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchBody = ""
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        fetchBody = String(init?.body ?? "")
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "COMPRESSED_SHORTCUT" }],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          logTranslations: false,
+        })
+        const output = {
+          messages: [makeUserMessage("/c bu kisa komutla gonderilen bir testtir")],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchBody).toContain("bu kisa komutla gonderilen bir testtir")
+        expect(fetchBody).not.toContain("/c ")
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe("COMPRESSED_SHORTCUT")
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
+
+    it("#given trigger 'command' and /cavemen prefix (typo) #when transform runs #then prefix is stripped and translated", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchBody = ""
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        fetchBody = String(init?.body ?? "")
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "COMPRESSED_TYPO" }],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          logTranslations: false,
+        })
+        const output = {
+          messages: [makeUserMessage("/cavemen yazim hatasi olsa da calismalidir")],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchBody).toContain("yazim hatasi olsa da calismalidir")
+        expect(fetchBody).not.toContain("/cavemen")
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe("COMPRESSED_TYPO")
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
+
+    it("#given trigger 'command' and <caveman-prompt> tag #when transform runs #then tag is stripped and prompt is translated", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchBody = ""
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        fetchBody = String(init?.body ?? "")
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "TAGGED_PROMPT_RESULT" }],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          logTranslations: false,
+        })
+        const output = {
+          messages: [
+            makeUserMessage("<caveman-prompt>\nsisteme yeni bir api endpoint ekle\n</caveman-prompt>"),
+          ],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchBody).toContain("sisteme yeni bir api endpoint ekle")
+        expect(fetchBody).not.toContain("<caveman-prompt>")
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe("TAGGED_PROMPT_RESULT")
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
+
+    it("#given trigger 'command' and /caveman with empty prompt #when transform runs #then warning toast is fired and prompt is not modified", async () => {
+      const toasts: Array<{ title?: string; message: string; variant: string }> = []
+      const mockShowToast = async (opts: { body: { title?: string; message: string; variant: "info" | "success" | "warning" | "error" } }) => {
+        toasts.push(opts.body)
+        return {}
+      }
+      const hook = createLocalTranslatorHook(
+        {
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          showNotifications: true,
+          logTranslations: false,
+        },
+        { client: { tui: { showToast: mockShowToast } } },
+      )
+      const output = { messages: [makeUserMessage("/caveman   ")] }
+
+      await hook["experimental.chat.messages.transform"]({}, output)
+
+      expect(toasts.length).toBe(1)
+      expect(toasts[0]?.variant).toBe("warning")
+      expect(toasts[0]?.message).toContain("Please provide a prompt after /caveman")
+      expect((output.messages[0].parts[0] as { text: string }).text).toBe("/caveman   ")
+    })
+
+    it("#given trigger 'command' and /caveman when translator not ready #when transform runs #then /caveman is stripped and clean prompt is passed through", async () => {
+      const savedEnv = process.env["GOOGLE_API_KEY"]
+      delete process.env["GOOGLE_API_KEY"]
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "command",
+          logTranslations: false,
+          showNotifications: false,
+        })
+        const output = {
+          messages: [makeUserMessage("/caveman bu uzun prompt gecis yapmali ve calismalidir")],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe(
+          "bu uzun prompt gecis yapmali ve calismalidir",
+        )
+      } finally {
+        if (savedEnv) process.env["GOOGLE_API_KEY"] = savedEnv
+      }
+    })
+
+    it("#given trigger 'always' and /caveman prefix #when transform runs #then prefix is stripped and translated", async () => {
+      process.env["GOOGLE_API_KEY"] = "test-key"
+      let fetchBody = ""
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        fetchBody = String(init?.body ?? "")
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "ALWAYS_MODE_CAVEMAN" }],
+                },
+                finishReason: "STOP",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        )
+      }) as unknown as typeof fetch
+      try {
+        const hook = createLocalTranslatorHook({
+          enabled: true,
+          mode: "cloud",
+          trigger: "always",
+          logTranslations: false,
+        })
+        const output = {
+          messages: [makeUserMessage("/caveman her zaman ceviri modunda da calis")],
+        }
+
+        await hook["experimental.chat.messages.transform"]({}, output)
+
+        expect(fetchBody).toContain("her zaman ceviri modunda da calis")
+        expect(fetchBody).not.toContain("/caveman")
+        expect((output.messages[0].parts[0] as { text: string }).text).toBe("ALWAYS_MODE_CAVEMAN")
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env["GOOGLE_API_KEY"]
+      }
+    })
   })
 })

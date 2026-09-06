@@ -5,6 +5,7 @@ import { getMainSessionID, subagentSessions, syncSubagentSessions } from "../cla
 import type { TranslationConfig, TranslationConfigInput } from "./types"
 import { DEFAULT_TRANSLATION_CONFIG } from "./types"
 import { translateMessage, shouldSkipTranslation } from "./translator"
+import { extractCavemanPrompt } from "./prompt-trigger"
 import { isSupportedCloudProvider, resolveGoogleApiKey } from "./cloud-client"
 import { ensureOllamaRunning, isOllamaInstalled, installOllama } from "./ollama-installer"
 import { ensureModelPulled } from "./model-puller"
@@ -195,7 +196,34 @@ export function createLocalTranslatorHook(
       const originalText = (textPart as { text: string }).text
       if (!originalText) return
 
-      if (shouldSkipTranslation(originalText, config.minLength).skip) return
+      const triggerExtraction = extractCavemanPrompt(originalText)
+
+      if (config.trigger === "command" && !triggerExtraction.isTriggered) {
+        return
+      }
+
+      if (triggerExtraction.isTriggered && triggerExtraction.prompt.length === 0) {
+        if (config.showNotifications) {
+          void showToastSafely(deps, {
+            title: "momo translator",
+            message: "Please provide a prompt after /caveman (e.g. /caveman refactor this module)",
+            variant: "warning",
+            duration: 4000,
+          })
+        }
+        return
+      }
+
+      const textToTranslate = triggerExtraction.isTriggered
+        ? triggerExtraction.prompt
+        : originalText
+
+      if (shouldSkipTranslation(textToTranslate, config.minLength).skip) {
+        if (triggerExtraction.isTriggered) {
+          ;(lastUserMessage.parts[textPartIndex] as { text: string }).text = textToTranslate
+        }
+        return
+      }
 
       if (config.showNotifications) {
         const backendModel = config.mode === "cloud" ? config.cloud.model : config.model
@@ -210,6 +238,9 @@ export function createLocalTranslatorHook(
       const ready = await ensureTranslatorReady()
       if (!ready) {
         log("[local-translator] Translator not ready, passing through original text")
+        if (triggerExtraction.isTriggered) {
+          ;(lastUserMessage.parts[textPartIndex] as { text: string }).text = textToTranslate
+        }
         if (config.showNotifications) {
           void showToastSafely(deps, {
             title: "momo translator",
@@ -221,10 +252,13 @@ export function createLocalTranslatorHook(
         return
       }
 
-      const result = await translateMessage(config, originalText)
+      const result = await translateMessage(config, textToTranslate)
 
       if (result.skipped) {
         log("[local-translator] Skipped translation", { reason: result.skipReason })
+        if (triggerExtraction.isTriggered) {
+          ;(lastUserMessage.parts[textPartIndex] as { text: string }).text = textToTranslate
+        }
         if (config.showNotifications && result.skipReason) {
           const isError = result.skipReason.startsWith("error:")
           void showToastSafely(deps, {
@@ -243,12 +277,12 @@ export function createLocalTranslatorHook(
 
       log("[local-translator] Translated user message", {
         latencyMs: result.latencyMs,
-        originalLength: originalText.length,
+        originalLength: textToTranslate.length,
         translatedLength: result.translatedText.length,
       })
 
       if (config.showNotifications) {
-        const origLen = originalText.length
+        const origLen = textToTranslate.length
         const transLen = result.translatedText.length
         const pct = Math.round(((origLen - transLen) / origLen) * 100)
         const stats = pct > 0

@@ -91,7 +91,7 @@ Standard AI coding harnesses send massive context windows, entire project trees,
 
 | | Feature | Description & Benefits |
 | :---: | :--- | :--- |
-| ⚡ | **Prompt Translator** | Intercepts user prompts before cloud submission. Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
+| ⚡ | **Prompt Translator & `/caveman`** | Intercepts user prompts before cloud submission. Runs on-demand when prefixed with `/caveman <prompt>` (or `/c <prompt>`), or automatically on every prompt when configured (`trigger: "always"`). Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
 | 🗂️ | **Live Model Catalog (`catalog` MCP)** | Queries all connected providers dynamically at session startup (`client.provider.list()`), enriched with a built-in model knowledge base (benchmarks, coding profiles, recommended roles). `catalog_pick` ranks by capability and price with `cost_tier` filters and dynamic role matching. |
 | 🧠 | **On-Demand Advisor (`/advisor`)** | Frontier models stay unbound by default to eliminate surprise billing. When facing architectural roadblocks or tricky bugs, bind an advisor for concise, high-value guidance (<300 tokens). |
 | 🧗 | **Ponytail YAGNI Solution Ladder** | Built-in system prompt discipline: models climb a strict ladder (YAGNI → reuse existing code → stdlib → native feature → existing dependency → 1 line → minimal code). |
@@ -254,6 +254,7 @@ momo works out of the box with zero configuration. To customize behavior, create
   "local_translator": {
     "enabled": true,                 // Enable prompt translation & compression
     "mode": "cloud",                 // "cloud" = free Google Gemma via Gemini API (default), "local" = Ollama
+    "trigger": "command",            // "command" = only on /caveman or /c (default), "always" = all messages
     "model": "qwen2.5:1.5b",          // Ollama model tag used when mode is "local"
     "ollama_host": "http://localhost:11434",
     "timeout_ms": 30000,

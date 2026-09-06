@@ -19,15 +19,13 @@ Registry of built-in commands shipped inside the plugin. Each command is a templ
 
 | Command | Source File | Notes |
 |---------|-------------|-------|
-| `goal` | `templates/goal.ts` | Persistent thread objective (set / pause / resume / clear); replaces removed `/ralph-loop`, `/ulw-loop`, `/cancel-ralph` |
-| `refactor` | `templates/refactor.ts` | LSP + AST-grep refactoring |
-| `start-work` | `templates/start-work.ts` | Prometheus plan executor |
+| `goal` | `templates/goal.ts` | Persistent thread objective (set / pause / resume / clear) |
 | `stop-continuation` | `templates/stop-continuation.ts` | Stop all continuations (todo enforcer, ralph loop, goal, boulder) |
 | `handoff` | `templates/handoff.ts` | Session context summary |
-| `remove-ai-slops` | `templates/remove-ai-slops.ts` | AI code smell cleanup |
-| `hyperplan` | `templates/hyperplan.ts` | Adversarial team-mode planning |
 | `advisor` | `commands.ts` (inline) | Session-scoped advisor model binder |
-| `help` | `templates/help.ts` | Interactive help & command reference |
+| `help` | `templates/help.ts` | Interactive help & momo feature guide |
+| `momo` | `templates/help.ts` | momo features, command reference, and usage guide |
+| `caveman` | `commands.ts` (inline) | Translate prompt to English & compress via translator |
 
 ## STRUCTURE
 
