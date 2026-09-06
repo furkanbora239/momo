@@ -55,7 +55,7 @@ in-tree (disabled, not deleted) so they can be revisited or repurposed later.
 
 ## momo work — where to change things
 
-The fork's goals live in [`plan.md`](./plan.md). Key touchpoints:
+The fork's goals live in [`PROJECT_STATE.md`](./PROJECT_STATE.md). Key touchpoints:
 
 ### Orchestrator prompt variants (per model family)
 
@@ -177,6 +177,5 @@ for evidence (isolated XDG, no touching the real user opencode DB).
 
 - `README.md` (this fork) / `README.upstream.md` (original)
 - `PROJECT_STATE.md` — Project architecture, active status, and cold-start context
-- `plan.md` — momo workstream, phases, and execution waves
 - `notes/deepseek-harness.md` — reference note (not the fork's target)
 - `packages/*/AGENTS.md` — per-package details
