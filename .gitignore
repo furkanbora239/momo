@@ -48,7 +48,6 @@ oauth-success.html
 .dori-sync/
 .dori/
 .playwright-mcp/
-.momo/
 
 # Debugging / session artifacts (skill workspace residue)
 .debugging

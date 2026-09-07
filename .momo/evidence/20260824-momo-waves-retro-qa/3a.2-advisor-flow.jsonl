@@ -1,0 +1,7 @@
+{"step":"1-unbound-delegation","gateKind":"unbound","gateError":"The advisor agent is UNBOUND (zero surprise cost by default). Bind a model first: run /advisor <model-id> for a session-scoped binding, or set agents.advisor.model in ~/.omo/omo.jsonc for a persistent one. Then retry the delegation."}
+{"step":"2-bind-via-advisor-tool","toolOutput":"advisor: bound to \"neuralwatt/glm-5.2\" for this session. Delegation to the advisor agent is now enabled and will use this model. Use action=\"off\" to unbind.","sessionBinding":"neuralwatt/glm-5.2"}
+{"step":"3-bound-delegation","gateKind":"bound","gateSessionModel":"neuralwatt/glm-5.2","sessionBinding":"neuralwatt/glm-5.2"}
+{"step":"4-off-via-advisor-tool","toolOutput":"advisor: session binding cleared. The advisor is now UNBOUND; delegation to it will be rejected."}
+{"step":"5-unbound-again","gateKind":"unbound","gateError":"The advisor agent is UNBOUND (zero surprise cost by default). Bind a model first: run /advisor <model-id> for a session-scoped binding, or set agents.advisor.model in ~/.omo/omo.jsonc for a persistent one. Then retry the delegation."}
+{"step":"6-report-after-off","toolOutput":"advisor: UNBOUND. No session binding and no agents.advisor.model config. Bind one with the advisor tool (action=\"bind\", model=\"<provider/model>\") or set agents.advisor.model in ~/.omo/omo.jsonc."}
+{"step":"7-off-with-config-binding","toolOutput":"advisor: session binding cleared. The config binding \"google/gemini-3.1-pro\" (agents.advisor.model) still applies."}
