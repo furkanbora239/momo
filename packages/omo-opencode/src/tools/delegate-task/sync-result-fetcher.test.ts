@@ -319,6 +319,61 @@ describe("fetchSyncResult", () => {
     expect(result.error).toContain("No assistant text output found in latest response")
   })
 
+  test("strict abort recovery: refuses mid-tool thought text even when text exists", async () => {
+    //#given - the worker was stopped mid-tool: its last message is a thought
+    // followed by a tool part that never completed
+    const { fetchSyncResult } = require("./sync-result-fetcher")
+
+    const mockClient = {
+      session: {
+        messages: async () => ({
+          data: [
+            { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
+            {
+              info: { id: "msg_002", role: "assistant", time: { created: 2000 } },
+              parts: [
+                { type: "text", text: "let me update the repo..." },
+                { type: "tool", tool: "edit", state: { status: "running" } },
+              ],
+            },
+          ],
+        }),
+      },
+    }
+
+    //#when
+    const result = await fetchSyncResult(mockClient, "ses_test", 1, { strictAbortRecovery: true })
+
+    //#then - the thought must not be salvaged as a completed deliverable
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain("mid_tool_incomplete")
+  })
+
+  test("strict abort recovery: accepts clean text without tool parts", async () => {
+    //#given - a finished turn with text and no tool parts
+    const { fetchSyncResult } = require("./sync-result-fetcher")
+
+    const mockClient = {
+      session: {
+        messages: async () => ({
+          data: [
+            { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
+            {
+              info: { id: "msg_002", role: "assistant", time: { created: 2000 } },
+              parts: [{ type: "text", text: "Recovered result" }],
+            },
+          ],
+        }),
+      },
+    }
+
+    //#when
+    const result = await fetchSyncResult(mockClient, "ses_test", 1, { strictAbortRecovery: true })
+
+    //#then
+    expect(result).toEqual({ ok: true, textContent: "Recovered result" })
+  })
+
   test("strict abort recovery: does not salvage an older envelope when latest assistant is error", async () => {
     //#given - an earlier turn carries a complete <plan>, but the latest turn aborted.
     // The abort guard must take precedence over tagged extraction.

@@ -1,5 +1,6 @@
 import type { OpencodeClient } from "./types"
 import type { SessionMessage } from "./executor-types"
+import { hasPendingToolPart } from "./sync-session-turns"
 import { normalizeSDKResponse } from "../../shared"
 
 function escapeRegExp(value: string): string {
@@ -108,6 +109,13 @@ export async function fetchSyncResult(
       return {
         ok: false,
         error: `No assistant text output found in latest response.\n\nSession ID: ${sessionID}`,
+      }
+    }
+
+    if (hasPendingToolPart(lastMessage)) {
+      return {
+        ok: false,
+        error: `Latest assistant message has a pending tool call (reason: mid_tool_incomplete); refusing abort recovery.\n\nSession ID: ${sessionID}`,
       }
     }
 

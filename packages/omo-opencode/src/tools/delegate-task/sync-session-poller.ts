@@ -1,7 +1,7 @@
 import type { ToolContextWithMetadata, OpencodeClient } from "./types"
 import type { SessionMessage } from "./executor-types"
 import { getDefaultSyncPollTimeoutMs, getTimingConfig } from "./timing"
-import { getTerminalSessionError, isSessionComplete } from "./sync-session-turns"
+import { getTerminalSessionError, hasPendingToolPart, isSessionComplete } from "./sync-session-turns"
 import { log } from "../../shared/logger"
 import { normalizeSDKResponse } from "../../shared"
 
@@ -123,6 +123,7 @@ export const SYNC_ABORT_REASONS = {
   timeout: "timeout",
   provider_error: "provider_error",
   no_progress: "no_progress",
+  mid_tool_incomplete: "mid_tool_incomplete",
 } as const
 
 export type SyncAbortReason = (typeof SYNC_ABORT_REASONS)[keyof typeof SYNC_ABORT_REASONS]
@@ -470,6 +471,15 @@ export async function pollSyncSession(
     const hasAssistantTextNow = hasAssistantText(relevantMessages)
 
     if (!lastAssistant?.info?.finish && hasAssistantTextNow) {
+      // A pending tool part means the text is a mid-work thought, not a
+      // deliverable: the worker was stopped mid-tool. Never report completion.
+      if (lastAssistant !== undefined && hasPendingToolPart(lastAssistant)) {
+        log("[task] Poll stopped: assistant text present but a tool part is still pending", {
+          sessionID: input.sessionID,
+          pollCount,
+        })
+        return `Task incomplete (reason: ${SYNC_ABORT_REASONS.mid_tool_incomplete}): the subagent emitted text while a tool call was still pending, so the result is not a finished deliverable. Resume the task with task_id instead of treating this as completion. Session ID: ${input.sessionID}`
+      }
       if (isAwaitingChildContinuation(lastAssistant?.info?.id)) {
         continue
       }
