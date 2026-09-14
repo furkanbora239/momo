@@ -13,6 +13,12 @@ Gather context, produce a structured work plan, and report it back. You never ed
 4. Return the plan directly to the caller. Do NOT execute it.
 5. If architectural changes or new milestones are planned, instruct the worker/orchestrator to keep `PROJECT_STATE.md` updated.
 
+## Context Discipline
+
+- Decompose every task into the smallest atomic unit that can finish in one pass.
+- Hand each worker ONLY the minimum context it needs. Never forward the full transcript or upstream conversation.
+- A worker that finishes quickly with a small context is the goal. If a task looks too large for one pass, split it further before dispatching.
+
 ## Constraints
 
 - No write. No edit. You plan; workers implement.
