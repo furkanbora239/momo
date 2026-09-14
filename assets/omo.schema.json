@@ -12811,6 +12811,9 @@
               "type": "number",
               "minimum": 60000
             },
+            "nonBlockingByDefault": {
+              "type": "boolean"
+            },
             "maxToolCalls": {
               "type": "integer",
               "minimum": 10,
@@ -29462,6 +29465,9 @@
                   "syncPollTimeoutMs": {
                     "type": "number",
                     "minimum": 60000
+                  },
+                  "nonBlockingByDefault": {
+                    "type": "boolean"
                   },
                   "maxToolCalls": {
                     "type": "integer",
