@@ -2064,7 +2064,11 @@ describe("sisyphus-task", () => {
             data: [
               ...initialMessages,
               {
-                info: { id: "msg_003", role: "assistant", time: { created: baseTime + 2 }, finish: "end_turn" },
+                info: { id: "msg_003", role: "user", time: { created: baseTime + 2 } },
+                parts: [{ type: "text", text: "Continue the task" }],
+              },
+              {
+                info: { id: "msg_004", role: "assistant", time: { created: baseTime + 3 }, finish: "end_turn" },
                 parts: [{ type: "text", text: "Continued." }],
               },
             ],

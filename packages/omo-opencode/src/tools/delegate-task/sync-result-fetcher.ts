@@ -69,7 +69,7 @@ export async function fetchSyncResult(
   if (anchorMessageCount !== undefined && messagesAfterAnchor.length === 0) {
     return {
       ok: false,
-      error: `Session completed but no new response was generated. The model may have failed silently.\n\nSession ID: ${sessionID}`,
+      error: `Session completed but no new response was generated (reason: no_progress). The model may have failed silently.\n\nSession ID: ${sessionID}`,
     }
   }
 
@@ -81,7 +81,7 @@ export async function fetchSyncResult(
   if (anchorMessageCount !== undefined && !lastMessage) {
     return {
       ok: false,
-      error: `Session completed but no new response was generated. The model may have failed silently.\n\nSession ID: ${sessionID}`,
+      error: `Session completed but no new response was generated (reason: no_progress). The model may have failed silently.\n\nSession ID: ${sessionID}`,
     }
   }
 

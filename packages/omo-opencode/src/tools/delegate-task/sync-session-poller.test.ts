@@ -898,4 +898,194 @@ describe("pollSyncSession", () => {
       expect(result).toContain("Poll inactivity timeout reached")
     })
   })
+
+  describe("continuation anchoring", () => {
+    test("returns no_progress when the session looks complete but no new assistant turn appeared", async () => {
+      // given: a continuation whose only assistant turn predates the anchor,
+      // the pre-anchor turn still reports terminal completion, and the
+      // resumed session went active (busy) before settling back to idle
+      const { pollSyncSession } = require("./sync-session-poller")
+
+      let statusCallCount = 0
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_1", role: "user", time: { created: 1000 } } },
+              {
+                info: { id: "msg_9", role: "assistant", time: { created: 2000 }, finish: "stop" },
+                parts: [{ type: "text", text: "Done" }],
+              },
+              { info: { id: "msg_10", role: "user", time: { created: 3000 } } },
+            ],
+          }),
+          status: async () => {
+            statusCallCount++
+            if (statusCallCount <= 2) {
+              return { data: { ses_test: { type: "running" } } }
+            }
+            return { data: { ses_test: { type: "idle" } } }
+          },
+        },
+      }
+
+      // when: polling the resumed session with the pre-resume anchor
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_test",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+        anchorMessageCount: 2,
+      })
+
+      // then: reports no_progress instead of success
+      expect(result).toBe(
+        "Task produced no new work (reason: no_progress). The session may be exhausted or poisoned; retry with a fresh session instead of reusing this task id. Session ID: ses_test"
+      )
+    })
+
+    test("does not return no_progress when the resumed session never went active", async () => {
+      // given: same stale-looking session, but status never reports active
+      const { pollSyncSession } = require("./sync-session-poller")
+
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_1", role: "user", time: { created: 1000 } } },
+              {
+                info: { id: "msg_9", role: "assistant", time: { created: 2000 }, finish: "stop" },
+                parts: [{ type: "text", text: "Done" }],
+              },
+              { info: { id: "msg_10", role: "user", time: { created: 3000 } } },
+            ],
+          }),
+          status: async () => ({ data: { ses_test: { type: "idle" } } }),
+          abort: async () => ({}),
+        },
+      }
+
+      // when: polling with the pre-resume anchor and a short timeout
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_test",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+        anchorMessageCount: 2,
+      }, 50)
+
+      // then: keeps polling to the inactivity bound instead of failing fast
+      expect(result).toContain("Poll inactivity timeout reached")
+      expect(result).not.toContain("no_progress")
+    })
+
+    test("returns success when a new assistant turn finishes after the anchor", async () => {
+      // given: continuation with a fresh assistant turn that reaches a terminal finish
+      const { pollSyncSession } = require("./sync-session-poller")
+
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_1", role: "user", time: { created: 1000 } } },
+              {
+                info: { id: "msg_9", role: "assistant", time: { created: 2000 }, finish: "stop" },
+                parts: [{ type: "text", text: "Old result" }],
+              },
+              { info: { id: "msg_10", role: "user", time: { created: 3000 } } },
+              {
+                info: { id: "msg_11", role: "assistant", time: { created: 4000 }, finish: "stop" },
+                parts: [{ type: "text", text: "New result" }],
+              },
+            ],
+          }),
+          status: async () => ({ data: { ses_test: { type: "idle" } } }),
+        },
+      }
+
+      // when: polling the resumed session with the pre-resume anchor
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_test",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+        anchorMessageCount: 2,
+      })
+
+      // then: returns null (success)
+      expect(result).toBeNull()
+    })
+
+    test("keeps current completion behavior for a fresh task without an anchor", async () => {
+      // given: no anchor and a user turn that sorts before the finished assistant turn
+      const { pollSyncSession } = require("./sync-session-poller")
+
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_1", role: "user", time: { created: 1000 } } },
+              {
+                info: { id: "msg_9", role: "assistant", time: { created: 2000 }, finish: "stop" },
+                parts: [{ type: "text", text: "Done" }],
+              },
+              { info: { id: "msg_10", role: "user", time: { created: 3000 } } },
+            ],
+          }),
+          status: async () => ({ data: { ses_test: { type: "idle" } } }),
+        },
+      }
+
+      // when: polling without an anchorMessageCount
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_test",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+      })
+
+      // then: full-session completion detection applies as before
+      expect(result).toBeNull()
+    })
+
+    test("ignores a pre-anchor terminal error when the post-anchor slice is clean", async () => {
+      // given: pre-anchor assistant error plus a clean continuation user turn
+      const { pollSyncSession } = require("./sync-session-poller")
+
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_1", role: "user", time: { created: 1000 } } },
+              {
+                info: {
+                  id: "msg_9",
+                  role: "assistant",
+                  time: { created: 2000 },
+                  error: { data: { message: "Forbidden: Selected provider is forbidden" } },
+                },
+                parts: [],
+              },
+              { info: { id: "msg_10", role: "user", time: { created: 3000 } } },
+            ],
+          }),
+          status: async () => ({ data: { ses_test: { type: "idle" } } }),
+          abort: async () => ({}),
+        },
+      }
+
+      // when: polling with the pre-resume anchor and a short timeout
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_test",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+        anchorMessageCount: 2,
+      }, 50)
+
+      // then: the stale error does not abort the poll
+      expect(result).toContain("Poll inactivity timeout reached")
+      expect(result).not.toContain("Forbidden")
+    })
+  })
 })
