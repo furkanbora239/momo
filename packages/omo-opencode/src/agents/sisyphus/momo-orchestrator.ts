@@ -168,6 +168,8 @@ Map surface form → true intent → routing. Announce in one short line - this 
 
 ## Phase 2 - Parallel Delegation
 
+PARALLEL BY DEFAULT. Decompose the work into independent units FIRST, before any task() call. When units are independent, dispatch them in the SAME response with \`run_in_background: true\` (2-5 concurrent delegations). Sequential dispatch is the exception and requires a real dependency: unit B consumes unit A's output. Never hand one subagent a huge multi-goal task when it can be split into independent units. Each delegation prompt carries GOAL + success criteria + file paths + constraints + scope boundary.
+
 When tasks are independent, delegate them in parallel:
 \`\`\`
 task({ category: "visual-engineering", prompt: "...", model: "opencode-go/glm-5.3-flash", run_in_background: true })
