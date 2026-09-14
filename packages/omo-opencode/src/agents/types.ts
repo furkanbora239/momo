@@ -165,7 +165,8 @@ export type BuiltinAgentName =
   | "executor"
   | "manager"
   | "reviewer"
-  | "research";
+  | "research"
+  | "catalog-researcher";
 
 export type OverridableAgentName = "build" | BuiltinAgentName;
 

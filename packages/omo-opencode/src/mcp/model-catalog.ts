@@ -2,6 +2,7 @@ import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { getOmoOpenCodeCacheDir } from "../shared/data-path"
+import { resolveModelPoolPath } from "../shared/model-pool"
 import { resolveRuntimeExecutable, type RuntimeExecutableResolver } from "./runtime-executable"
 import { createAncestorCliCandidates, type AncestorCliCandidate } from "./shared/ancestor-cli-resolver"
 import { hasCliSuffix } from "./cli-suffix"
@@ -18,6 +19,7 @@ export type CatalogPrefer = Record<string, string | string[]>
 export type CatalogMcpConfigOptions = {
   readonly cacheFile?: string
   readonly healthFile?: string
+  readonly poolFile?: string
   readonly prefer?: CatalogPrefer
   readonly preferProviders?: readonly string[]
   readonly disabledProviders?: readonly string[]
@@ -60,6 +62,7 @@ export function createCatalogMcpConfig(options: CatalogMcpConfigOptions = {}): L
   const resolvedCommand = resolveCatalogCommand(options)
   const cacheFile = options.cacheFile ?? join(getOmoOpenCodeCacheDir(), CACHE_FILENAME)
   const healthFile = options.healthFile ?? join(getOmoOpenCodeCacheDir(), HEALTH_FILENAME)
+  const poolFile = options.poolFile ?? resolveModelPoolPath()
   return {
     type: "local",
     command: resolvedCommand.command,
@@ -70,6 +73,7 @@ export function createCatalogMcpConfig(options: CatalogMcpConfigOptions = {}): L
       OMO_CATALOG_PREFER_PROVIDERS: (options.preferProviders ?? []).join(","),
       OMO_CATALOG_HEALTH_FILE: healthFile,
       OMO_CATALOG_DISABLED_PROVIDERS: (options.disabledProviders ?? []).join(","),
+      OMO_CATALOG_POOL_FILE: poolFile,
     },
   }
 }

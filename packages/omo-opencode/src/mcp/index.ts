@@ -30,6 +30,7 @@ type BuiltinMcpOptions = {
   readonly cwd?: string
   readonly resolveExecutable?: RuntimeExecutableResolver
   readonly disabledProviders?: readonly string[]
+  readonly poolFile?: string
 }
 
 type BuiltinMcpSourceConfig = {
@@ -80,6 +81,7 @@ export function createBuiltinMcps(disabledMcps: string[] = [], config?: BuiltinM
       prefer: config?.catalog?.prefer,
       preferProviders: config?.catalog?.prefer_providers,
       disabledProviders: options.disabledProviders,
+      poolFile: options.poolFile,
       resolveExecutable: options.resolveExecutable,
     })
   }

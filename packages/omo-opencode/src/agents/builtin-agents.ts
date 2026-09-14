@@ -19,6 +19,7 @@ import { createExecutorAgent, EXECUTOR_PROMPT_METADATA } from "./executor"
 import { createManagerAgent, MANAGER_PROMPT_METADATA } from "./manager"
 import { createReviewerAgent, REVIEWER_PROMPT_METADATA } from "./reviewer"
 import { createResearchAgent, RESEARCH_PROMPT_METADATA } from "./research"
+import { createCatalogResearcherAgent, CATALOG_RESEARCHER_PROMPT_METADATA } from "./catalog-researcher"
 import type { AvailableCategory } from "./dynamic-agent-prompt-builder"
 import {
   fetchAvailableModels,
@@ -54,6 +55,7 @@ const agentSources: Record<BuiltinAgentName, AgentSource> = {
   manager: createManagerAgent,
   reviewer: createReviewerAgent,
   research: createResearchAgent,
+  "catalog-researcher": createCatalogResearcherAgent,
 }
 
 /**
@@ -74,6 +76,7 @@ const agentMetadata: Partial<Record<BuiltinAgentName, AgentPromptMetadata>> = {
   manager: MANAGER_PROMPT_METADATA,
   reviewer: REVIEWER_PROMPT_METADATA,
   research: RESEARCH_PROMPT_METADATA,
+  "catalog-researcher": CATALOG_RESEARCHER_PROMPT_METADATA,
 }
 
 export async function createBuiltinAgents(

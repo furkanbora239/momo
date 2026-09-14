@@ -35,6 +35,19 @@ import {
   type McpToolDescriptor,
   type ParentWatchdogConfig,
 } from "@oh-my-opencode/mcp-stdio-core"
+import { readModelKnowledge, type ModelKnowledge } from "../shared/catalog-knowledge"
+import {
+  createModelPoolStore,
+  isModelAllowed,
+  isModelPreferred,
+  readModelPool,
+  type ModelPool,
+} from "../shared/model-pool"
+import {
+  createCatalogKnowledgeTools,
+  type CatalogKnowledgeEnrichArgs,
+  type CatalogKnowledgeReadArgs,
+} from "./catalog-knowledge-tools"
 
 export const CATALOG_SERVER_NAME = "catalog" as const
 export const CATALOG_SERVER_VERSION = "0.2.0" as const
@@ -45,6 +58,7 @@ const PREFER_ENV = "OMO_CATALOG_PREFER"
 const PREFER_PROVIDERS_ENV = "OMO_CATALOG_PREFER_PROVIDERS"
 const HEALTH_FILE_ENV = "OMO_CATALOG_HEALTH_FILE"
 const DISABLED_PROVIDERS_ENV = "OMO_CATALOG_DISABLED_PROVIDERS"
+const POOL_FILE_ENV = "OMO_CATALOG_POOL_FILE"
 
 type ModelEntry = Record<string, unknown>
 
@@ -156,6 +170,9 @@ interface CatalogRow {
   text_output: boolean | null
   release_date: string | null
   healthy?: boolean
+  allowed?: boolean
+  preferred?: boolean
+  knowledge_sources?: string[]
 }
 
 function readReleaseDate(model: ModelEntry): string | null {
@@ -179,14 +196,39 @@ function flatten(cache: ProviderModelsCache): CatalogRow[] {
       const textOutput = modalities?.output ? modalities.output.includes("text") : null
       const profile = getModelProfile(model.id)
       const genericStrengths = deriveStrengths({ tier, costTier, vision, reasoning, toolCall })
-      const strengths = profile ? [...profile.strengths] : genericStrengths.strengths
-      const weaknesses = profile ? [...profile.weaknesses] : genericStrengths.weaknesses
-      const bestFor = profile ? [...profile.bestUseCases] : []
-      const recommendedRoles = profile ? [profile.primaryRole, ...profile.secondaryRoles] : []
+      const rowProvider = typeof model.providerID === "string" ? model.providerID : provider
+      const knowledge = readModelKnowledge(rowProvider, model.id)
+      let description = profile?.description
+      let strengths = profile ? [...profile.strengths] : genericStrengths.strengths
+      let weaknesses = profile ? [...profile.weaknesses] : genericStrengths.weaknesses
+      let bestFor: string[] = profile ? [...profile.bestUseCases] : []
+      let recommendedRoles: string[] = profile ? [profile.primaryRole, ...profile.secondaryRoles] : []
+
+      // Knowledge overlay: static knowledge-base profile values win. The runtime
+      // knowledge cache fills only fields the static derivation left empty.
+      if (knowledge) {
+        if (description === undefined && knowledge.description !== undefined) {
+          description = knowledge.description
+        }
+        if (bestFor.length === 0 && knowledge.bestFor && knowledge.bestFor.length > 0) {
+          bestFor = [...knowledge.bestFor]
+        }
+        if (recommendedRoles.length === 0 && knowledge.roles && knowledge.roles.length > 0) {
+          recommendedRoles = [...knowledge.roles]
+        }
+        if (!profile) {
+          if (strengths.length === 0 && knowledge.strengths && knowledge.strengths.length > 0) {
+            strengths = [...knowledge.strengths]
+          }
+          if (weaknesses.length === 0 && knowledge.weaknesses && knowledge.weaknesses.length > 0) {
+            weaknesses = [...knowledge.weaknesses]
+          }
+        }
+      }
 
       rows.push({
         id: model.id,
-        provider: typeof model.providerID === "string" ? model.providerID : provider,
+        provider: rowProvider,
         name: typeof model.name === "string" ? model.name : model.id,
         family: typeof model.family === "string" ? model.family : (profile?.family ?? null),
         tier,
@@ -194,11 +236,12 @@ function flatten(cache: ProviderModelsCache): CatalogRow[] {
         output: readRuntimeModelLimitOutput(model) ?? profile?.benchmarks.maxOutputTokens ?? null,
         pricing,
         cost_tier: costTier,
-        description: profile?.description,
+        description,
         strengths,
         weaknesses,
         best_for: bestFor.length > 0 ? bestFor : undefined,
         recommended_roles: recommendedRoles.length > 0 ? recommendedRoles : undefined,
+        knowledge_sources: knowledge?.sources,
         vision,
         reasoning: reasoning || (profile?.benchmarks.reasoningSupported ?? false),
         tool_call: toolCall,
@@ -216,6 +259,7 @@ export interface CatalogState {
   readonly preferProviders: string[]
   readonly healthFile?: string
   readonly disabledProviders: string[]
+  readonly poolFile?: string
 }
 
 function parsePreferProviders(raw: string | undefined): string[] {
@@ -267,7 +311,21 @@ function loadState(): CatalogState {
     preferProviders: parsePreferProviders(process.env[PREFER_PROVIDERS_ENV]),
     healthFile: process.env[HEALTH_FILE_ENV] || undefined,
     disabledProviders: parsePreferProviders(process.env[DISABLED_PROVIDERS_ENV]),
+    poolFile: process.env[POOL_FILE_ENV] || undefined,
   }
+}
+
+/**
+ * Resolve the model pool for a state. A configured poolFile wins over the
+ * default store. Both paths swallow read errors and yield an empty pool,
+ * which means "no restriction" (allow all).
+ */
+function resolvePool(state: CatalogState): ModelPool {
+  const poolFile = state.poolFile
+  if (poolFile !== undefined) {
+    return createModelPoolStore(() => poolFile).readModelPool()
+  }
+  return readModelPool()
 }
 
 function listCatalog(state: CatalogState, params: unknown): { rows: CatalogRow[]; updatedAt: string | null } {
@@ -275,9 +333,16 @@ function listCatalog(state: CatalogState, params: unknown): { rows: CatalogRow[]
   if (!cache) return { rows: [], updatedAt: null }
   const disabledSet = new Set(state.disabledProviders ?? [])
   const unavailable = readUnavailableProviders(state.healthFile)
+  const pool = resolvePool(state)
   let rows = flatten(cache)
     .filter((row) => !disabledSet.has(row.provider.toLowerCase()))
-    .map((row) => ({ ...row, healthy: !unavailable.has(row.provider.toLowerCase()) }))
+    .filter((row) => isModelAllowed(pool, row.provider, row.id))
+    .map((row) => ({
+      ...row,
+      healthy: !unavailable.has(row.provider.toLowerCase()),
+      allowed: true,
+      preferred: isModelPreferred(pool, row.provider, row.id),
+    }))
   if (isPlainRecord(params)) {
     const provider = typeof params["provider"] === "string" ? params["provider"] : undefined
     const capability = typeof params["capability"] === "string" ? (params["capability"] as Capability) : undefined
@@ -364,8 +429,12 @@ function pickCatalog(
   let rows = flatten(cache)
   const disabledSet = new Set(state.disabledProviders ?? [])
   const unavailable = readUnavailableProviders(state.healthFile)
+  const pool = resolvePool(state)
   rows = rows.filter(
-    (row) => !disabledSet.has(row.provider.toLowerCase()) && !unavailable.has(row.provider.toLowerCase()),
+    (row) =>
+      !disabledSet.has(row.provider.toLowerCase()) &&
+      !unavailable.has(row.provider.toLowerCase()) &&
+      isModelAllowed(pool, row.provider, row.id),
   )
 
   const tierOrder: CatalogRow["tier"][] =
@@ -400,10 +469,17 @@ function pickCatalog(
   const boosted = state.prefer[need]
   const preferBoostSet = Array.isArray(boosted) ? new Set(boosted) : new Set<string>()
   const providerBoostSet = new Set(state.preferProviders)
+  const preferredIds = new Set(
+    rows.filter((row) => isModelPreferred(pool, row.provider, row.id)).map((row) => row.id),
+  )
 
   rows.sort((a, b) => {
     const preferDiff = Number(preferBoostSet.has(b.id)) - Number(preferBoostSet.has(a.id))
     if (preferDiff !== 0) return preferDiff
+
+    // Pool-preferred models rank ahead of non-preferred within the same bucket
+    const preferredDiff = Number(preferredIds.has(b.id)) - Number(preferredIds.has(a.id))
+    if (preferredDiff !== 0) return preferredDiff
 
     // Demote superseded models whose successor is connected
     const supersededDiff = Number(supersededIds.has(a.id)) - Number(supersededIds.has(b.id))
@@ -468,7 +544,7 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_list",
     description:
-      "List connected provider models with pricing (USD per million tokens), cost_tier (budget|balanced|premium), context_window, output limit, vision, reasoning and tool_call tags, strengths and weaknesses. Each row includes its provider id and a healthy flag. Providers disabled via config or marked unavailable (out of quota, missing API key) are excluded. Optional filters: provider (id), capability (vision|reasoning|tool_call), tier (flash|pro|max|default), cost_tier.",
+      "List connected provider models with pricing (USD per million tokens), cost_tier (budget|balanced|premium), context_window, output limit, vision, reasoning and tool_call tags, strengths and weaknesses. Each row includes its provider id and a healthy flag. Providers disabled via config or marked unavailable (out of quota, missing API key) are excluded. When a model pool is configured (OMO_CATALOG_POOL_FILE), the returned set is hard-restricted to pooled models and each row carries allowed and preferred flags. Optional filters: provider (id), capability (vision|reasoning|tool_call), tier (flash|pro|max|default), cost_tier.",
     inputSchema: {
       type: "object",
       properties: {
@@ -483,7 +559,7 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_pick",
     description:
-      "Rank model ids for a need using local heuristics (no LLM call). Every pick includes its provider id. Providers disabled via config or marked unavailable (out of quota, missing API key) are excluded before ranking. need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Agent picks require tool_call-capable models unless the need explicitly asks for media, embedding or rerank work. Optional budget_profile ('low_cost'|'balanced'|'max_performance') and task_complexity ('trivial'|'moderate'|'complex', complex requires reasoning-capable). Honors catalog.prefer boosts, then catalog.prefer_providers, then price.",
+      "Rank model ids for a need using local heuristics (no LLM call). Every pick includes its provider id. Providers disabled via config or marked unavailable (out of quota, missing API key) are excluded before ranking, and models outside a configured model pool (OMO_CATALOG_POOL_FILE) are excluded too; pool-preferred models are boosted ahead of non-preferred within the same rank. need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Agent picks require tool_call-capable models unless the need explicitly asks for media, embedding or rerank work. Optional budget_profile ('low_cost'|'balanced'|'max_performance') and task_complexity ('trivial'|'moderate'|'complex', complex requires reasoning-capable). Honors catalog.prefer boosts, then pool-preferred boosts, then catalog.prefer_providers, then price.",
     inputSchema: {
       type: "object",
       properties: {
@@ -519,6 +595,8 @@ export interface CatalogMcpOptions {
   readonly parentWatchdog?: ParentWatchdogConfig
 }
 
+const catalogKnowledgeTools = createCatalogKnowledgeTools()
+
 export async function handleCatalogRequest(
   input: unknown,
   state: CatalogState,
@@ -537,10 +615,64 @@ export async function handleCatalogRequest(
       protocolVersion: DEFAULT_PROTOCOL_VERSION,
     })
   }
-  if (method === "tools/list") return successResponse(id, { tools: pruneToolDescriptors([...CATALOG_MCP_TOOLS]) })
+  if (method === "tools/list") return successResponse(id, { tools: pruneToolDescriptors([...CATALOG_MCP_TOOLS, ...catalogKnowledgeTools.tools]) })
   if (method === "tools/call") return handleToolCall(id, input["params"], state)
 
   return errorResponse(id, -32601, `Method not found: ${String(method)}`)
+}
+
+function pickStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const strings: string[] = []
+  for (const item of value) {
+    if (typeof item !== "string") return undefined
+    strings.push(item)
+  }
+  return strings
+}
+
+function parseKnowledgeReadArgs(args: Record<string, unknown>): CatalogKnowledgeReadArgs {
+  return {
+    model_keys: pickStringArray(args["model_keys"]),
+    provider: typeof args["provider"] === "string" ? args["provider"] : undefined,
+    model: typeof args["model"] === "string" ? args["model"] : undefined,
+  }
+}
+
+function parseKnowledgeEnrichArgs(args: Record<string, unknown>): CatalogKnowledgeEnrichArgs {
+  const rawEntries = args["entries"]
+  if (!Array.isArray(rawEntries)) return { entries: [] }
+  const entries: ModelKnowledge[] = []
+  for (const raw of rawEntries) {
+    if (!isPlainRecord(raw)) continue
+    if (typeof raw["id"] !== "string" || typeof raw["fetchedAt"] !== "string") continue
+    const sources = pickStringArray(raw["sources"])
+    if (!sources || sources.length === 0) continue
+    const entry: ModelKnowledge = {
+      id: raw["id"],
+      fetchedAt: raw["fetchedAt"],
+      sources,
+    }
+    if (typeof raw["provider"] === "string") entry.provider = raw["provider"]
+    if (typeof raw["description"] === "string") entry.description = raw["description"]
+    const strengths = pickStringArray(raw["strengths"])
+    if (strengths) entry.strengths = strengths
+    const weaknesses = pickStringArray(raw["weaknesses"])
+    if (weaknesses) entry.weaknesses = weaknesses
+    if (isPlainRecord(raw["benchmarks"])) {
+      const benchmarks: Record<string, string | number> = {}
+      for (const [key, value] of Object.entries(raw["benchmarks"])) {
+        if (typeof value === "string" || typeof value === "number") benchmarks[key] = value
+      }
+      if (Object.keys(benchmarks).length > 0) entry.benchmarks = benchmarks
+    }
+    const bestFor = pickStringArray(raw["bestFor"])
+    if (bestFor) entry.bestFor = bestFor
+    const roles = pickStringArray(raw["roles"])
+    if (roles) entry.roles = roles
+    entries.push(entry)
+  }
+  return { entries }
 }
 
 async function handleToolCall(id: JsonRpcId, params: unknown, state: CatalogState): Promise<JsonRpcResponse> {
@@ -566,6 +698,12 @@ async function handleToolCall(id: JsonRpcId, params: unknown, state: CatalogStat
         { refreshed: true, updatedAt: cache?.updatedAt ?? null, providerCount: cache ? Object.keys(cache.models).length : 0, modelCount: rows.length },
         false,
       )
+    }
+    if (name === "catalog_knowledge") {
+      return toolResponse(id, catalogKnowledgeTools.handlers.catalog_knowledge(parseKnowledgeReadArgs(args)), false)
+    }
+    if (name === "catalog_enrich") {
+      return toolResponse(id, catalogKnowledgeTools.handlers.catalog_enrich(parseKnowledgeEnrichArgs(args)), false)
     }
     return toolResponse(id, { error: `Unknown catalog tool: ${name}` }, true)
   } catch (error) {

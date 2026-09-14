@@ -69,14 +69,25 @@ function makeHealthFile(entries: Record<string, { reason: string; statusCode?: n
   return file
 }
 
+function makePoolFile(entries: Array<{ providerID: string; modelID: string; preferred?: boolean }>): string {
+  const dir = mkdtempSync(join(tmpdir(), "catalog-pool-"))
+  const file = join(dir, "model-pool.json")
+  writeFileSync(
+    file,
+    JSON.stringify({ version: 1, allowed: entries, updatedAt: "2026-09-02T00:00:00Z" }),
+  )
+  return file
+}
+
 function stateWith(
   file: string,
   prefer: Record<string, string[]> = {},
   preferProviders: string[] = [],
   disabledProviders: string[] = [],
   healthFile?: string,
+  poolFile?: string,
 ): CatalogState {
-  return { cacheFile: file, prefer, preferProviders, disabledProviders, healthFile }
+  return { cacheFile: file, prefer, preferProviders, disabledProviders, healthFile, poolFile }
 }
 
 const SAMPLE = {
@@ -380,10 +391,10 @@ describe("catalog MCP", () => {
     expect(result.modelCount).toBe(5)
   })
 
-  it("advertises three tools", async () => {
+  it("advertises the catalog and knowledge tools", async () => {
     const response = await call(stateWith(makeCache(SAMPLE)), "tools/list")
     const tools = (response as { result?: { tools?: Array<{ name: string }> } }).result?.tools?.map((tool) => tool.name)
-    expect(tools).toEqual(["catalog_list", "catalog_pick", "catalog_refresh"])
+    expect(tools).toEqual(["catalog_list", "catalog_pick", "catalog_refresh", "catalog_knowledge", "catalog_enrich"])
   })
 
   it("drops rows from disabled providers in catalog_list", async () => {
@@ -445,5 +456,79 @@ describe("catalog MCP", () => {
       expect(typeof entry.provider).toBe("string")
       expect((entry.provider as string).length).toBeGreaterThan(0)
     }
+  })
+
+  it("never returns a model outside the pool from catalog_pick", async () => {
+    // given: a pool file allowing exactly one model
+    const poolFile = makePoolFile([{ providerID: "openai", modelID: "gpt-flash" }])
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, poolFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "default" } })
+
+    // then
+    const picks = parseToolPayload(response).picks as Array<{ id: string; provider: string }>
+    expect(picks.length).toBeGreaterThan(0)
+    for (const pick of picks) {
+      expect(pick.provider).toBe("openai")
+      expect(pick.id).toBe("gpt-flash")
+    }
+  })
+
+  it("marks allowed rows and excludes non-pool rows in catalog_list", async () => {
+    // given: a pool allowing only google/gemini-flash
+    const poolFile = makePoolFile([{ providerID: "google", modelID: "gemini-flash" }])
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, poolFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+
+    // then
+    const models = parseToolPayload(response).models as Array<Record<string, unknown>>
+    expect(models.map((entry) => entry.id)).toEqual(["gemini-flash"])
+    expect(models[0].allowed).toBe(true)
+    expect(models[0].preferred).toBe(false)
+  })
+
+  it("allows all models when the pool file is absent", async () => {
+    // given: a poolFile pointing at a path that does not exist
+    const missingPoolFile = join(mkdtempSync(join(tmpdir(), "catalog-pool-")), "model-pool.json")
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, missingPoolFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+
+    // then
+    const result = parseToolPayload(response)
+    expect(result.count).toBe(5)
+  })
+
+  it("allows all models when the pool file is empty", async () => {
+    // given: a pool file with an empty allowed list
+    const poolFile = makePoolFile([])
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, poolFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+
+    // then
+    const result = parseToolPayload(response)
+    expect(result.count).toBe(5)
+  })
+
+  it("boosts pool-preferred models ahead of non-preferred in catalog_pick", async () => {
+    // given: a pool where the more expensive pro model is preferred
+    const poolFile = makePoolFile([
+      { providerID: "openai", modelID: "gpt-flash" },
+      { providerID: "openai", modelID: "gpt-pro", preferred: true },
+    ])
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, poolFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "default" } })
+
+    // then: without the preferred boost the cheaper flash tier would rank first
+    const picks = parseToolPayload(response).picks as Array<{ id: string }>
+    expect(picks[0].id).toBe("gpt-pro")
   })
 })
