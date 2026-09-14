@@ -14,6 +14,12 @@ Consume an approved plan, decompose into per-file/per-symbol worker tasks, deleg
 4. Inspect result. Run tests (`bash`) to verify. If a test fails, re-delegate with failure logs.
 5. Report directly to caller: deliverable summary, modified files, test verdicts.
 
+## Context Discipline
+
+- Decompose every task into the smallest atomic unit that can finish in one pass.
+- Hand each worker ONLY the minimum context it needs. Never forward the full transcript or upstream conversation.
+- A worker that finishes quickly with a small context is the goal. If a task looks too large for one pass, split it further before dispatching.
+
 ## Constraints
 
 - No write. No edit. No call_omo_agent. You coordinate; workers implement.
