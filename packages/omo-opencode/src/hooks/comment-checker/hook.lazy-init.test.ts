@@ -1,5 +1,7 @@
 import { describe, expect, it, mock, afterAll } from "bun:test"
 
+import * as realPendingCalls from "./pending-calls"
+
 const startPendingCallCleanup = mock(() => {})
 const initializeCommentCheckerCli = mock(() => {})
 
@@ -12,10 +14,8 @@ mock.module("./cli-runner", () => ({
 }))
 
 mock.module("./pending-calls", () => ({
-  registerPendingCall: () => {},
+  ...realPendingCalls,
   startPendingCallCleanup,
-  stopPendingCallCleanup: () => {},
-  takePendingCall: () => undefined,
 }))
 
 afterAll(() => {
