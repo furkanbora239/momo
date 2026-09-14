@@ -27,7 +27,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function parseModelPool(value: unknown): ModelPool | null {
   if (!isRecord(value)) return null
   if (value.version !== 1) return null
-  if (typeof value.updatedAt !== "string") return null
   if (!Array.isArray(value.allowed)) return null
   const allowed: ModelPoolEntry[] = []
   for (const entry of value.allowed) {
@@ -44,7 +43,9 @@ function parseModelPool(value: unknown): ModelPool | null {
     }
     allowed.push(poolEntry)
   }
-  return { version: 1, allowed, updatedAt: value.updatedAt }
+  const updatedAt =
+    typeof value.updatedAt === "string" ? value.updatedAt : ""
+  return { version: 1, allowed, updatedAt }
 }
 
 function emptyPool(): ModelPool {
@@ -58,7 +59,14 @@ export function createModelPoolStore(
     try {
       const raw = readFileSync(getPoolPath(), "utf-8")
       const parsed: unknown = JSON.parse(raw)
-      return parseModelPool(parsed) ?? emptyPool()
+      const pool = parseModelPool(parsed)
+      if (pool === null) {
+        log("[model-pool] Model pool file exists but failed to parse; falling back to empty pool", {
+          path: getPoolPath(),
+        })
+        return emptyPool()
+      }
+      return pool
     } catch (error) {
       log("[model-pool] Error reading model pool", { error: String(error) })
       return emptyPool()
