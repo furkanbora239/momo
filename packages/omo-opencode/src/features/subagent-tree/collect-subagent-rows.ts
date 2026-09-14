@@ -5,6 +5,7 @@ import type { CollectSubagentRowsInput, SubagentRow } from "./types"
 function rowFromSnapshot(task: BackgroundTaskSnapshot): SubagentRow {
   return {
     id: task.sessionId ?? `bg:${task.agent}:${task.title}`,
+    sessionId: task.sessionId ?? null,
     parentId: task.parentSessionId ?? null,
     agent: task.agent,
     modelID: task.modelID ?? null,
@@ -21,6 +22,7 @@ function rowFromSnapshot(task: BackgroundTaskSnapshot): SubagentRow {
 function rowFromTrackedTask(task: TrackedTask): SubagentRow {
   return {
     id: task.sessionID ?? `task:${task.id}`,
+    sessionId: task.sessionID ?? null,
     parentId: null,
     agent: task.agent,
     modelID: task.modelInfo?.model ?? null,
