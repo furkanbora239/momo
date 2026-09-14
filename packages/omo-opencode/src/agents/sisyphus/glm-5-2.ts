@@ -137,6 +137,8 @@ ${buildAntiDuplicationSection()}
   const delegationBlock = `<delegation>
 Prefer delegation when a specialist fits, the work spans multiple files, the domain is visual/frontend/security/performance, or the module is unfamiliar. Execute directly only for small, local, fully understood changes.
 
+PARALLEL BY DEFAULT: before delegating, decompose the work into independent units FIRST. When units are independent, dispatch them in the SAME response with \`run_in_background: true\` (2-5 concurrent delegations). Sequential dispatch is the exception and requires a real dependency: unit B consumes unit A's output. "One at a time is safer" is the failure mode. Never hand one subagent a huge multi-goal task when it can be split into independent units. Each delegation prompt carries GOAL + success criteria + file paths + constraints + scope boundary.
+
 ${categorySkillsGuide}
 
 ${nonClaudePlannerSection}
