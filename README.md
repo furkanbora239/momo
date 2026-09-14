@@ -359,6 +359,8 @@ momo works out of the box with zero configuration. To customize behavior, create
 | `main` | Stable, everyday-use snapshot. Verified states promoted from `dev` (typecheck clean, tests green, live-verified behavior). What most users should install. |
 | `dev` | Integration branch. All PRs land here first; experimental or in-progress work stays on `dev` until verified. |
 
+`main` is protected: changes land only via pull request (direct pushes rejected, including for admins), force-push and branch deletion are rejected. See [Branching & Repository Rules](./CONTRIBUTING.md#branching--repository-rules) in CONTRIBUTING.md for the full policy.
+
 ### Common Development Commands
 
 ```bash

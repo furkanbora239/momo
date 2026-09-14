@@ -154,6 +154,12 @@ harness (`bunx oh-my-opencode run <msg>` or opencode) to confirm the change actu
 takes effect — a green typecheck is not behavioral proof. Use the `opencode-qa` skill
 for evidence (isolated XDG, no touching the real user opencode DB).
 
+### Branch strategy
+
+- `main`: protected stable snapshot (default branch; ruleset `protect-main`: `pull_request` + `non_fast_forward` + `deletion`; direct pushes rejected, GH013).
+- `dev`: integration branch; all work lands on `dev` via PR (`gh pr create --base dev ...`).
+- Promote a verified `dev` state (typecheck clean, `bun test` green, live-verified) via a dev-to-main PR; that is the only way `main` advances.
+
 ## Recent Architectural Updates (2026-09-14)
 
 - **Provider Catalog Correctness**: live per-provider `GET /models` reconciliation, disabled/unavailable provider eviction with health flags, startup stale-cache refresh.
