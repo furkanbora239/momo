@@ -93,6 +93,8 @@ Standard AI coding harnesses send massive context windows, entire project trees,
 | :---: | :--- | :--- |
 | ⚡ | **Prompt Translator & `/caveman`** | Intercepts user prompts before cloud submission. Runs on-demand when prefixed with `/caveman <prompt>` (or `/cavemen <prompt>`, `/c <prompt>`), or automatically on every prompt when configured (`trigger: "always"`). Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
 | 🗂️ | **Live Model Catalog (`catalog` MCP)** | Queries all connected providers dynamically at session startup (`client.provider.list()`), enriched with a built-in model knowledge base (benchmarks, coding profiles, recommended roles). `catalog_pick` ranks by capability and price with `cost_tier` filters and dynamic role matching. |
+| 🎛️ | **Model Pool (`/pool`)** | Interactive TUI panel managing the hard-allow model pool at `~/.omo/model-pool.json`. Toggling a model off removes it from the allowed set: the catalog MCP hard-filters rows by the pool and the delegation engine enforces it at `task()` time, so blocked models fall back or fail with an actionable error. An empty pool means allow all. |
+| 👁️ | **Subagent Visibility (`/tasks`)** | Renders the running subagent tree in the TUI: agent, model id, task, and status with nesting for child sessions, plus the currently running tool. Selecting a subagent shows the exact prompt the orchestrator gave it. |
 | 🧠 | **On-Demand Advisor (`/advisor`)** | Frontier models stay unbound by default to eliminate surprise billing. When facing architectural roadblocks or tricky bugs, bind an advisor for concise, high-value guidance (<300 tokens). |
 | 🧗 | **Ponytail YAGNI Solution Ladder** | Built-in system prompt discipline: models climb a strict ladder (YAGNI → reuse existing code → stdlib → native feature → existing dependency → 1 line → minimal code). |
 | 🗺️ | **Repo-Map Auto-Injector** | Reads `.codegraph` SQLite indexes and injects a high-level summary of key files, symbols, and dependencies on turn 1, eliminating costly exploratory grep loops. |
@@ -151,13 +153,16 @@ momo keeps the always-on roster lean to minimize context overhead. A manager hie
 5. **librarian (External Research Specialist)**
    - **Role:** External documentation lookups, library API references, and web searches.
    - **Trigger:** Researching third-party libraries, unfamiliar frameworks, or web resources.
-6. **advisor (On-Demand Senior Architect)**
+6. **catalog-researcher (Model Knowledge Specialist)**
+   - **Role:** Researches unknown models (benchmarks, coding profile, price) into the persistent catalog knowledge cache (`~/.omo/catalog-knowledge.json`), surfaced through the `catalog_knowledge` and `catalog_enrich` MCP tools. Catalog rows overlay these facts.
+   - **Trigger:** When the live catalog contains models missing from the knowledge base.
+7. **advisor (On-Demand Senior Architect)**
    - **Role:** High-level architectural decision-making, debugging stuck failure loops.
    - **Trigger:** Explicitly bound via `/advisor <model>`. Returns concise, decisive directives.
-7. **manager (Tier-2 Dispatcher)**
+ 8. **manager (Tier-2 Dispatcher)**
    - **Role:** Evaluates each task, routes it to the planner or executor, and picks lead models via `catalog_pick`. Never edits directly.
    - **Trigger:** Sits between the orchestrator and the department leads in the manager hierarchy.
-8. **executor / reviewer (Department Leads)**
+ 9. **executor / reviewer (Department Leads)**
    - **Role:** `executor` consumes approved plans and delegates to category workers, collecting diff + test evidence; `reviewer` audits changes, runs test verification, and checks edge cases and security. None of them edit directly.
 
 Legacy agents (`prometheus`, `metis`, `momus`, `hephaestus`, `oracle`, `atlas`, `multimodal-looker`) remain in the codebase but ship disabled by default; re-enable any via `disabled_agents` in `omo.jsonc`.
@@ -292,7 +297,28 @@ momo works out of the box with zero configuration. To customize behavior, create
   // 5. Disabled Hooks (Optional token-saving optimization)
   "disabled_hooks": [
     // "todoDescriptionOverride"
-  ]
+  ],
+
+  // 6. Model Pool (managed by the /pool command, stored at ~/.omo/model-pool.json; empty = allow all)
+
+  // 7. Background Delegation
+  "background_task": {
+    "nonBlockingByDefault": false    // true = task() without run_in_background runs in the background, keeping the orchestrator responsive
+  },
+
+  // 8. Comment & Slop Checker Hook
+  "comment_checker": {
+    "enabled": true,                 // Toggle the comment/docstring checker hook
+    "ignore_paths": []               // Paths the checker should skip
+  },
+
+  // 9. Sync Subagent Tuning
+  "experimental": {
+    "sync_stall_timeout_ms": 180000,        // Abort unresponsive subagents after 3 minutes of no activity
+    "sync_production_timeout_ms": 720000,   // Max time for a producing subagent to finish
+    "sync_active_tool_timeout_ms": 3600000, // Max time for an active tool (bash, builds, tests)
+    "preemptive_compaction": false          // Compact the session at 78% context usage (recommended against subagent context bloat)
+  }
 }
 ```
 
@@ -309,6 +335,8 @@ momo works out of the box with zero configuration. To customize behavior, create
 | `/caveman`<br>`/cavemen`<br>`/c` | `/caveman <prompt>`<br>`/cavemen <prompt>`<br>`/c <prompt>` | Prompt Translator & Token Compressor. Translates foreign text (e.g. Turkish) to English and compresses it into high-density Caveman style (30-50% token savings). |
 | `/models` | `/models` | Select your primary model inside OpenCode (automatically sets the momo orchestrator). |
 | `/advisor` | `/advisor <model\|off\|report>` | Bind/unbind an on-demand senior advisor model (e.g. `/advisor anthropic/claude-opus-5`). Zero surprise cost. |
+| `/pool` | `/pool` | Interactive TUI panel for the hard-allow model pool (`~/.omo/model-pool.json`). Toggle models off to block them from catalog and delegation; empty pool = allow all. |
+| `/tasks` | `/tasks` (aliases: `/agents`, `/subagents`) | Show the running subagent tree (agent, model, task, status, running tool). Select one to read the exact prompt it received. |
 | `/goal` | `/goal <objective> \| pause \| resume \| clear` | Set or manage an autonomous multi-step execution loop until completion criteria are met. |
 | `/handoff` | `/handoff [goal]` | Create a detailed context summary to resume work seamlessly in a fresh session. |
 | `/stop-continuation` | `/stop-continuation` | Immediately stop all active continuation mechanisms (goal loops, todo continuation, background tasks). |
