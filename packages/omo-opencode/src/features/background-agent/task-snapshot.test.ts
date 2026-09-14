@@ -88,6 +88,7 @@ describe("toBackgroundTaskSnapshots", () => {
       toolCalls: 3,
       lastTool: "grep",
       agent: "sisyphus",
+      parentSessionId: "parent-session",
     })
     expect(Object.getPrototypeOf(first)).toBe(Object.prototype)
     expect(Object.isFrozen(first)).toBe(true)
@@ -100,6 +101,7 @@ describe("toBackgroundTaskSnapshots", () => {
       toolCalls: 3,
       lastTool: "grep",
       agent: "sisyphus",
+      parentSessionId: "parent-session",
     }])
   })
 
@@ -122,6 +124,7 @@ describe("toBackgroundTaskSnapshots", () => {
       toolCalls: null,
       lastTool: null,
       agent: "atlas",
+      parentSessionId: "parent-session",
     })
     expect(JSON.stringify(snapshots)).not.toContain("SECRET_TOKEN")
   })
@@ -150,6 +153,8 @@ describe("toBackgroundTaskSnapshots", () => {
       toolCalls: 5,
       lastTool: "[Running: bash]",
       agent: "worker",
+      parentSessionId: "parent-session",
+      activeTool: "bash",
     })
   })
 })

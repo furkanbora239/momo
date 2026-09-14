@@ -6,6 +6,7 @@ import type {
   AgentsState,
   ConfigBanner,
   JobBoardState,
+  JobRow,
   LoopState,
   RosterState,
   SidebarView,
@@ -160,9 +161,15 @@ function jobNodes(jobs: JobBoardState, theme: ThemeLike): ViewNode[] {
         section(
           "Jobs",
           theme,
-          jobs.jobs.map((job) =>
-            text({ fg: theme.text }, `${truncate(job.title)} ${job.status} ${job.toolCalls ?? 0} ${job.lastTool ?? "none"}`),
-          ),
+          jobs.jobs.flatMap((job) => [
+            text(
+              { fg: theme.text },
+              `${indentFor(job)}${truncate(job.title)}${modelSuffix(job)} ${job.status} ${job.toolCalls ?? 0} ${job.lastTool ?? "none"}`,
+            ),
+            ...(job.promptPreview
+              ? [text({ fg: theme.textMuted }, `${indentFor(job)}  ${truncate(job.promptPreview)}`)]
+              : []),
+          ]),
         ),
       ]
     default:
@@ -177,11 +184,20 @@ function jobLines(jobs: JobBoardState): string[] {
     case "list":
       return jobs.jobs.flatMap((job) => [
         "Jobs",
-        `${job.title} ${job.status} calls ${job.toolCalls ?? 0} last ${job.lastTool ?? "none"}`,
+        `${indentFor(job)}${job.title}${modelSuffix(job)} ${job.status} calls ${job.toolCalls ?? 0} last ${job.lastTool ?? "none"}`,
+        ...(job.promptPreview ? [`${indentFor(job)}  ${job.promptPreview}`] : []),
       ])
     default:
       return assertNever(jobs)
   }
+}
+
+function indentFor(job: JobRow): string {
+  return job.parentSessionId !== undefined ? "  " : ""
+}
+
+function modelSuffix(job: JobRow): string {
+  return job.model ? ` ${job.model}` : ""
 }
 
 function brokenNodes(messages: readonly string[], theme: ThemeLike): ViewNode[] {

@@ -109,6 +109,18 @@ export interface BackgroundTaskSnapshot {
   readonly toolCalls: number | null
   readonly lastTool: string | null
   readonly agent: string
+  /** Session id of the spawned subagent session, when one was created. */
+  readonly sessionId?: string
+  /** Session id of the task that launched this subagent, for tree ordering. */
+  readonly parentSessionId?: string
+  /** Provider/model label of the resolved subagent model, when known. */
+  readonly modelID?: string | null
+  /** Truncated original-prompt preview, when a source provides one. */
+  readonly promptPreview?: string | null
+  /** Tool currently executing inside the subagent, when known. */
+  readonly activeTool?: string | null
+  /** Epoch ms the task started (or was queued), when known. */
+  readonly startedAt?: number
 }
 
 export interface LaunchInput {

@@ -12,6 +12,12 @@ export type JobRow = {
   readonly status: BackgroundTaskStatus
   readonly toolCalls: number | null
   readonly lastTool: string | null
+  readonly agent?: string
+  readonly sessionId?: string
+  readonly parentSessionId?: string
+  readonly model?: string | null
+  readonly promptPreview?: string | null
+  readonly startedAt?: number
 }
 
 export type RosterRow = {

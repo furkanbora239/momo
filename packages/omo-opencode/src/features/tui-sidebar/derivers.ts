@@ -60,8 +60,42 @@ export function deriveJobBoard(snap: TuiRuntimeSnapshot | null): JobBoardState {
 
   return {
     kind: "list",
-    jobs: [...snap.jobBoard].sort(compareJobs).slice(0, MAX_JOBS),
+    jobs: orderJobsForDisplay(snap.jobBoard).slice(0, MAX_JOBS),
   }
+}
+
+function orderJobsForDisplay(jobs: readonly JobRow[]): readonly JobRow[] {
+  const sorted = [...jobs].sort(compareJobs)
+  const ids = new Set(
+    sorted
+      .map((job) => job.sessionId)
+      .filter((sessionId): sessionId is string => sessionId !== undefined),
+  )
+  const placed = new Set<string>()
+  const ordered: JobRow[] = []
+  let remaining = sorted
+  let changed = true
+  while (changed && remaining.length > 0) {
+    changed = false
+    const next: JobRow[] = []
+    for (const job of remaining) {
+      const parentID = job.parentSessionId
+      const parentKnown =
+        parentID !== undefined && parentID !== job.sessionId && ids.has(parentID)
+      if (!parentKnown || placed.has(parentID)) {
+        ordered.push(job)
+        if (job.sessionId !== undefined) {
+          placed.add(job.sessionId)
+        }
+        changed = true
+      } else {
+        next.push(job)
+      }
+    }
+    remaining = next
+  }
+  ordered.push(...remaining)
+  return ordered
 }
 
 export function deriveLoop(snap: TuiRuntimeSnapshot | null): LoopState {

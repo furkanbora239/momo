@@ -92,7 +92,18 @@ function jobsKeyParts(jobs: JobBoardState): readonly unknown[] {
       return [
         "jobs",
         "list",
-        jobs.jobs.map((job) => [job.title, job.status, job.toolCalls, job.lastTool]),
+        jobs.jobs.map((job) => [
+          job.title,
+          job.status,
+          job.toolCalls,
+          job.lastTool,
+          job.agent,
+          job.sessionId,
+          job.parentSessionId,
+          job.model,
+          job.promptPreview,
+          job.startedAt,
+        ]),
       ]
     default:
       return assertNever(jobs)

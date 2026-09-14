@@ -28,6 +28,7 @@ export type TuiBackgroundSnapshotProvider = {
 
 export type TuiTaskToastSnapshotProvider = {
   readonly getRunningTasks: () => readonly TrackedTask[]
+  readonly getQueuedTasks?: () => readonly TrackedTask[]
 }
 
 export type SessionAgentResolver = (sessionID: string, client: TuiMirrorClient) => Promise<string | null>
@@ -84,17 +85,17 @@ export async function buildTuiRuntimeSnapshot(
 
   const bgJobs = bgSnapshots.map(toJobRow)
 
+  const queuedToastTasks = toastManager?.getQueuedTasks?.() ?? []
+
   const syncJobs: JobRow[] = []
   for (const task of runningToastTasks) {
     if (!task.isBackground) {
-      const activeTool = task.activeTool
-      const lastTool = activeTool ? `[Running: ${activeTool}]` : (task.lastTool ?? null)
-      syncJobs.push({
-        title: task.description || `${task.agent} task`,
-        status: "running",
-        toolCalls: task.toolCalls ?? null,
-        lastTool,
-      })
+      syncJobs.push(toSyncJobRow(task, "running"))
+    }
+  }
+  for (const task of queuedToastTasks) {
+    if (!task.isBackground) {
+      syncJobs.push(toSyncJobRow(task, "pending"))
     }
   }
 
@@ -151,6 +152,26 @@ function toJobRow(task: BackgroundTaskSnapshot): JobRow {
     status: task.status,
     toolCalls: task.toolCalls,
     lastTool: task.lastTool,
+    agent: task.agent,
+    ...(task.sessionId !== undefined ? { sessionId: task.sessionId } : {}),
+    ...(task.parentSessionId !== undefined ? { parentSessionId: task.parentSessionId } : {}),
+    ...(task.modelID !== undefined ? { model: task.modelID } : {}),
+    ...(task.promptPreview !== undefined ? { promptPreview: task.promptPreview } : {}),
+    ...(task.startedAt !== undefined ? { startedAt: task.startedAt } : {}),
+  }
+}
+
+function toSyncJobRow(task: TrackedTask, status: "running" | "pending"): JobRow {
+  const activeTool = task.activeTool
+  const lastTool = activeTool ? `[Running: ${activeTool}]` : (task.lastTool ?? null)
+  return {
+    title: task.description || `${task.agent} task`,
+    status,
+    toolCalls: task.toolCalls ?? null,
+    lastTool,
+    agent: task.agent,
+    ...(task.sessionID !== undefined ? { sessionId: task.sessionID } : {}),
+    ...(task.modelInfo?.model !== undefined ? { model: task.modelInfo.model } : {}),
   }
 }
 

@@ -31,6 +31,12 @@ const JobRowSchema = z.object({
   status: z.enum(BACKGROUND_TASK_STATUS_VALUES),
   toolCalls: z.number().int().nonnegative().nullable(),
   lastTool: z.string().nullable(),
+  agent: z.string().optional(),
+  sessionId: z.string().optional(),
+  parentSessionId: z.string().optional(),
+  model: z.string().nullable().optional(),
+  promptPreview: z.string().nullable().optional(),
+  startedAt: z.number().optional(),
 })
 
 const LoopLiveSchema = z.object({

@@ -141,7 +141,7 @@ describe("buildTuiRuntimeSnapshot", () => {
       { name: "atlas", status: "retry" },
     ])
     expect(snapshot.jobBoard).toEqual([
-      { title: "Explore runtime", status: "running", toolCalls: 3, lastTool: "grep" },
+      { title: "Explore runtime", status: "running", toolCalls: 3, lastTool: "grep", agent: "sisyphus" },
     ])
     expect(snapshot.loop).toEqual({
       kind: "live",
@@ -200,7 +200,7 @@ describe("buildTuiRuntimeSnapshot", () => {
     // then
     expect(snapshot.loop?.activeGoal).toBeNull()
     expect(snapshot.jobBoard).toEqual([
-      { title: "atlas background task", status: "running", toolCalls: 1, lastTool: "read" },
+      { title: "atlas background task", status: "running", toolCalls: 1, lastTool: "read", agent: "atlas" },
     ])
     expect(JSON.stringify(snapshot)).not.toContain("sk-live")
   })
@@ -241,6 +241,88 @@ describe("buildTuiRuntimeSnapshot", () => {
         status: "running",
         toolCalls: 4,
         lastTool: "[Running: bash]",
+        agent: "worker",
+      },
+    ])
+  })
+
+  it("#given an enriched background snapshot #when building #then it carries session model prompt and parent fields into job rows", async () => {
+    // given
+    const projectDir = makeTempDir("enriched-bg-project")
+
+    // when
+    const snapshot = await buildTuiRuntimeSnapshot({
+      projectDir,
+      client: createClient({}),
+      backgroundManager: createBackgroundManager([
+        {
+          title: "Index repository",
+          status: "running",
+          toolCalls: 2,
+          lastTool: "read",
+          agent: "explore",
+          sessionId: "ses-child",
+          parentSessionId: "ses-main",
+          modelID: "google/gemini-2.5-flash",
+          activeTool: "grep",
+          startedAt: 1_718_000_000_000,
+        },
+      ]),
+    })
+
+    // then
+    expect(snapshot.jobBoard).toEqual([
+      {
+        title: "Index repository",
+        status: "running",
+        toolCalls: 2,
+        lastTool: "read",
+        agent: "explore",
+        sessionId: "ses-child",
+        parentSessionId: "ses-main",
+        model: "google/gemini-2.5-flash",
+        startedAt: 1_718_000_000_000,
+      },
+    ])
+  })
+
+  it("#given a queued synchronous task #when building #then it appears as a pending job row", async () => {
+    // given
+    const projectDir = makeTempDir("queued-sync-project")
+
+    // when
+    const snapshot = await buildTuiRuntimeSnapshot({
+      projectDir,
+      client: createClient({}),
+      backgroundManager: createBackgroundManager([]),
+      taskToastManager: {
+        getRunningTasks: () => [],
+        getQueuedTasks: () => [
+          {
+            id: "sync_queued_1",
+            description: "Deploy staging",
+            agent: "worker",
+            status: "queued",
+            startedAt: new Date(),
+            isBackground: false,
+            sessionID: "ses-queued",
+            modelInfo: { model: "openai/gpt-5.6-flash", type: "category-default" },
+          },
+        ],
+      },
+    })
+
+    // then
+    expect(snapshot.activeAgents).toEqual([])
+    expect(snapshot.jobBoard).toEqual([
+      {
+        title: "Deploy staging",
+        status: "pending",
+        toolCalls: null,
+        lastTool: null,
+        agent: "worker",
+        sessionId: "ses-queued",
+        model: "openai/gpt-5.6-flash",
       },
     ])
   })
