@@ -3,6 +3,8 @@ import type { TrackedTask } from "../task-toast-manager/types"
 
 export type SubagentRow = {
   readonly id: string
+  /** Session id of the subagent's own session, when one exists; null otherwise. */
+  readonly sessionId: string | null
   readonly parentId: string | null
   readonly agent: string
   readonly modelID: string | null

@@ -11,6 +11,9 @@ import type { JobRow } from "../tui-sidebar/state-types"
 import { buildSubagentTree, flattenSubagentTree, type FlatSubagentNode } from "./build-subagent-tree"
 import { collectSubagentRows } from "./collect-subagent-rows"
 import { formatSubagentLine } from "./format-subagent-line"
+import { renderPromptDetailDialog } from "./prompt-detail-dialog"
+import { extractSubagentPrompt } from "./prompt-reader"
+import type { SubagentRow } from "./types"
 
 type SolidRuntime<Node> = {
   readonly createElement: (tag: string) => Node
@@ -28,7 +31,9 @@ type SolidRuntime<Node> = {
   ) => unknown
 }
 
-type TaskOptionValue = { readonly kind: "close" }
+type TaskOptionValue =
+  | { readonly kind: "close" }
+  | { readonly kind: "detail"; readonly row: SubagentRow }
 
 function jobRowToSnapshot(job: JobRow): BackgroundTaskSnapshot {
   return {
@@ -45,15 +50,21 @@ function jobRowToSnapshot(job: JobRow): BackgroundTaskSnapshot {
   }
 }
 
-function buildOptions(lines: readonly FlatSubagentNode[]): TuiDialogSelectOption<TaskOptionValue>[] {
+function buildOptions(
+  lines: readonly FlatSubagentNode[],
+): TuiDialogSelectOption<TaskOptionValue>[] {
   const closeOption: TuiDialogSelectOption<TaskOptionValue> = {
     title: "Close subagent view",
     value: { kind: "close" },
-    description: "Read-only view; selecting any row also closes it",
+    description: "Read-only view; rows with a session open a prompt detail view",
   }
   const rowOptions: TuiDialogSelectOption<TaskOptionValue>[] = lines.map((line) => ({
     title: formatSubagentLine(line.row, line.depth),
-    value: { kind: "close" },
+    value:
+      line.row.sessionId !== null
+        ? { kind: "detail", row: line.row }
+        : { kind: "close" },
+    description: line.row.sessionId !== null ? "Select to view the prompt detail" : undefined,
   }))
   return [closeOption, ...rowOptions]
 }
@@ -68,11 +79,33 @@ function renderTasksDialog(
       title: "Subagents",
       placeholder: "Filter subagents",
       options: buildOptions(lines),
-      onSelect: () => {
+      onSelect: (option) => {
+        if (option.value.kind === "detail") {
+          openPromptDetail(api, dialogStack, option.value.row)
+          return
+        }
         dialogStack.clear()
         api.renderer.requestRender()
       },
     })
+}
+
+function openPromptDetail(
+  api: TuiPluginApi,
+  dialogStack: TuiDialogStack,
+  row: SubagentRow,
+): void {
+  const sessionId = row.sessionId
+  if (sessionId === null) {
+    return
+  }
+  const prompt = extractSubagentPrompt(
+    api.state.session.messages(sessionId),
+    (messageID) => api.state.part(messageID),
+  )
+  renderPromptDetailDialog(api, dialogStack, row, prompt, () =>
+    openTasksDialog(api, dialogStack),
+  )
 }
 
 function openTasksDialog(api: TuiPluginApi, dialogStack: TuiDialogStack): void {
