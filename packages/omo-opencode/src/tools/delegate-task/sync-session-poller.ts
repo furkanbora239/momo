@@ -116,6 +116,65 @@ export function extractToolProgress(messages: SessionMessage[]): {
 
 const DEFAULT_MAX_ASSISTANT_TURNS = 300
 
+export const SYNC_ABORT_REASONS = {
+  user_cancel: "user_cancel",
+  stall_detector: "stall_detector",
+  max_turns: "max_turns",
+  timeout: "timeout",
+  provider_error: "provider_error",
+} as const
+
+export type SyncAbortReason = (typeof SYNC_ABORT_REASONS)[keyof typeof SYNC_ABORT_REASONS]
+
+export type StallActivityInput = {
+  stallElapsedMs: number
+  producing: boolean
+  hasRunningTool: boolean
+  toolElapsedMs: number
+  stallTimeoutMs: number
+  productionTimeoutMs: number
+  activeToolTimeoutMs: number
+}
+
+export type StallActivityDecision = {
+  action: "continue" | "stall"
+  reason: "producing" | "active_tool" | "stall_detector"
+}
+
+export function decideStallActivity(input: StallActivityInput): StallActivityDecision {
+  if (input.hasRunningTool) {
+    return input.toolElapsedMs >= input.activeToolTimeoutMs
+      ? { action: "stall", reason: "stall_detector" }
+      : { action: "continue", reason: "active_tool" }
+  }
+  if (input.producing) {
+    return input.stallElapsedMs >= input.productionTimeoutMs
+      ? { action: "stall", reason: "stall_detector" }
+      : { action: "continue", reason: "producing" }
+  }
+  return input.stallElapsedMs >= input.stallTimeoutMs
+    ? { action: "stall", reason: "stall_detector" }
+    : { action: "continue", reason: "stall_detector" }
+}
+
+function hasAssistantText(messages: SessionMessage[]): boolean {
+  return messages.some((m) => {
+    if (m.info?.role !== "assistant") return false
+    const parts = m.parts ?? []
+    return parts.some((p) => {
+      if (p.type !== "text" && p.type !== "reasoning") return false
+      return (p.text ?? "").trim().length > 0
+    })
+  })
+}
+
+function isAssistantProducing(messages: SessionMessage[]): boolean {
+  const lastAssistant = [...messages].reverse().find((m) => m.info?.role === "assistant")
+  if (!lastAssistant) return false
+  if (lastAssistant.info?.finish) return false
+  return hasAssistantText([lastAssistant])
+}
+
 export async function pollSyncSession(
   ctx: ToolContextWithMetadata,
   client: OpencodeClient,
@@ -144,6 +203,7 @@ export async function pollSyncSession(
   let lastActivitySig = ""
   let activeToolName: string | undefined
   let activeToolStartedAt: number | undefined
+  let producingSinceAt: number | undefined
   let pollCount = 0
   let timedOut = false
   let assistantTurnCount = 0
@@ -219,9 +279,9 @@ export async function pollSyncSession(
       }
 
       log("[task] Aborted by user", { sessionID: input.sessionID })
-      abortSyncSession(client, input.sessionID, "parent_abort")
+      abortSyncSession(client, input.sessionID, SYNC_ABORT_REASONS.user_cancel)
       if (input.toastManager && input.taskId) input.toastManager.removeTask(input.taskId)
-      return `Task aborted.\n\nSession ID: ${input.sessionID}`
+      return `Task aborted (reason: ${SYNC_ABORT_REASONS.user_cancel}).\n\nSession ID: ${input.sessionID}`
     }
 
     await wait(syncTiming.POLL_INTERVAL_MS)
@@ -269,38 +329,58 @@ export async function pollSyncSession(
             lastActivitySig = currentSig
             lastActivityAt = loopNow
             inactiveStart = loopNow
+            producingSinceAt = undefined
             continue
           }
         }
 
         const runningTool = findRunningTool(activeMessages)
-        if (runningTool) {
-          if (activeToolName !== runningTool.tool) {
-            activeToolName = runningTool.tool
-            activeToolStartedAt = runningTool.startedAt ?? loopNow
-          }
-          const toolElapsed = loopNow - (activeToolStartedAt ?? loopNow)
-          if (toolElapsed < syncTiming.ACTIVE_TOOL_TIMEOUT_MS) {
-            lastActivityAt = loopNow
-            inactiveStart = loopNow
-            continue
-          }
-        } else {
+        if (runningTool && activeToolName !== runningTool.tool) {
+          activeToolName = runningTool.tool
+          activeToolStartedAt = runningTool.startedAt ?? loopNow
+        }
+        if (!runningTool) {
           activeToolName = undefined
           activeToolStartedAt = undefined
         }
-
-        if (stallElapsed >= syncTiming.STALL_TIMEOUT_MS) {
-          const stallMinutes = Math.max(1, Math.round(stallElapsed / 60000))
-          log("[task] Poll stall detected: session busy with no activity and no active tool", {
-            sessionID: input.sessionID,
-            stallElapsed,
-            stallTimeoutMs: syncTiming.STALL_TIMEOUT_MS,
-          })
-          abortSyncSession(client, input.sessionID, "stalled_no_activity")
-          if (input.toastManager && input.taskId) input.toastManager.removeTask(input.taskId)
-          return `Task aborted: subagent stalled (no activity for ${stallMinutes}min while session was busy with no active tool). Session ID: ${input.sessionID}`
+        const toolElapsed = loopNow - (activeToolStartedAt ?? loopNow)
+        const producing = isAssistantProducing(activeMessages)
+        if (producing) {
+          producingSinceAt ??= loopNow
+        } else {
+          producingSinceAt = undefined
         }
+        const decisionStallElapsed = producing
+          ? loopNow - (producingSinceAt ?? loopNow)
+          : stallElapsed
+        const decision = decideStallActivity({
+          stallElapsedMs: decisionStallElapsed,
+          producing,
+          hasRunningTool: runningTool !== undefined,
+          toolElapsedMs: toolElapsed,
+          stallTimeoutMs: syncTiming.STALL_TIMEOUT_MS,
+          productionTimeoutMs: syncTiming.PRODUCTION_TIMEOUT_MS,
+          activeToolTimeoutMs: syncTiming.ACTIVE_TOOL_TIMEOUT_MS,
+        })
+        if (decision.action === "continue") {
+          inactiveStart = loopNow
+          if (decision.reason === "producing" || decision.reason === "active_tool") {
+            lastActivityAt = loopNow
+          }
+          continue
+        }
+
+        const stallMinutes = Math.max(1, Math.round(decisionStallElapsed / 60000))
+        log("[task] Poll stall detected: session busy with no activity and no active tool", {
+          sessionID: input.sessionID,
+          stallElapsed: decisionStallElapsed,
+          stallTimeoutMs: syncTiming.STALL_TIMEOUT_MS,
+          productionTimeoutMs: syncTiming.PRODUCTION_TIMEOUT_MS,
+          producing,
+        })
+        abortSyncSession(client, input.sessionID, SYNC_ABORT_REASONS.stall_detector)
+        if (input.toastManager && input.taskId) input.toastManager.removeTask(input.taskId)
+        return `Task aborted (reason: ${SYNC_ABORT_REASONS.stall_detector}): subagent stalled (no activity for ${stallMinutes}min while session was busy with no active tool). Session ID: ${input.sessionID}`
       }
 
       inactiveStart = loopNow
@@ -335,7 +415,7 @@ export async function pollSyncSession(
     const sessionError = getTerminalSessionError(messages)
     if (sessionError) {
       log("[task] Poll detected terminal session error", { sessionID: input.sessionID, sessionError })
-      return sessionError
+      return `Task aborted (reason: ${SYNC_ABORT_REASONS.provider_error}): ${sessionError}`
     }
 
     if (isSessionComplete(messages)) {
@@ -358,23 +438,15 @@ export async function pollSyncSession(
           assistantTurnCount,
           maxTurns,
         })
-        abortSyncSession(client, input.sessionID, "max_turns_exceeded")
+        abortSyncSession(client, input.sessionID, SYNC_ABORT_REASONS.max_turns)
         if (input.toastManager && input.taskId) input.toastManager.removeTask(input.taskId)
-        return `Task aborted: subagent exceeded ${maxTurns} assistant turns without completing. This usually indicates an infinite tool-call loop. Session ID: ${input.sessionID}`
+        return `Task aborted (reason: ${SYNC_ABORT_REASONS.max_turns}): subagent exceeded ${maxTurns} assistant turns without completing. This usually indicates an infinite tool-call loop. Session ID: ${input.sessionID}`
       }
     }
 
-    const hasAssistantText = messages.some((m) => {
-      if (m.info?.role !== "assistant") return false
-      const parts = m.parts ?? []
-      return parts.some((p) => {
-        if (p.type !== "text" && p.type !== "reasoning") return false
-        const text = (p.text ?? "").trim()
-        return text.length > 0
-      })
-    })
+    const hasAssistantTextNow = hasAssistantText(messages)
 
-    if (!lastAssistant?.info?.finish && hasAssistantText) {
+    if (!lastAssistant?.info?.finish && hasAssistantTextNow) {
       if (isAwaitingChildContinuation(lastAssistant?.info?.id)) {
         continue
       }
@@ -388,10 +460,10 @@ export async function pollSyncSession(
 
   if (timedOut) {
     log("[task] Poll inactivity timeout reached", { sessionID: input.sessionID, pollCount })
-    abortSyncSession(client, input.sessionID, "poll_timeout")
+    abortSyncSession(client, input.sessionID, SYNC_ABORT_REASONS.timeout)
   }
 
   return timedOut
-    ? `Poll inactivity timeout reached after ${maxPollTimeMs}ms without active OpenCode status for session ${input.sessionID}`
+    ? `Poll inactivity timeout reached after ${maxPollTimeMs}ms without active OpenCode status for session ${input.sessionID} (reason: ${SYNC_ABORT_REASONS.timeout})`
     : null
 }

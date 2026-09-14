@@ -60,8 +60,8 @@ describe("pollSyncSession", () => {
         taskId: undefined,
       })
 
-      // then: returns error message
-      expect(result).toBe("Forbidden: Selected provider is forbidden")
+      // then: returns error message with the provider_error reason code
+      expect(result).toBe("Task aborted (reason: provider_error): Forbidden: Selected provider is forbidden")
     })
 
     test("ignores stale prior-turn assistant errors after a new user turn starts", async () => {
@@ -489,8 +489,8 @@ describe("pollSyncSession", () => {
         taskId: undefined,
       }, 0)
 
-      // then: returns timeout error
-      expect(result).toBe("Poll inactivity timeout reached after 50ms without active OpenCode status for session ses_timeout")
+      // then: returns timeout error with the timeout reason code
+      expect(result).toBe("Poll inactivity timeout reached after 50ms without active OpenCode status for session ses_timeout (reason: timeout)")
       expect(abortCount).toBe(1)
     })
   })
@@ -555,7 +555,7 @@ describe("pollSyncSession", () => {
               { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
               {
                 info: { id: "msg_002", role: "assistant", time: { created: 2000 } },
-                parts: [{ type: "text", text: "Working..." }],
+                parts: [],
               },
             ],
           }),
@@ -575,6 +575,48 @@ describe("pollSyncSession", () => {
       })
 
       expect(abortCalled).toBe(true)
+      expect(result).toContain("subagent stalled")
+      expect(result).toContain("reason: stall_detector")
+    })
+
+    test("#when session is busy and producing #then aborts only after the production timeout", async () => {
+      const { pollSyncSession } = require("./sync-session-poller")
+      __setTimingConfig({
+        POLL_INTERVAL_MS: 10,
+        STALL_TIMEOUT_MS: 40,
+        PRODUCTION_TIMEOUT_MS: 160,
+        MAX_POLL_TIME_MS: 5000,
+      })
+
+      let abortCalled = false
+      const mockClient = {
+        session: {
+          messages: async () => ({
+            data: [
+              { info: { id: "msg_001", role: "user", time: { created: 1000 } } },
+              {
+                info: { id: "msg_002", role: "assistant", time: { created: 2000 } },
+                parts: [{ type: "text", text: "Working..." }],
+              },
+            ],
+          }),
+          status: async () => ({ data: { "ses_producing": { type: "busy" } } }),
+          abort: async () => {
+            abortCalled = true
+            return {}
+          },
+        },
+      }
+
+      const result = await pollSyncSession(createMockCtx(), mockClient, {
+        sessionID: "ses_producing",
+        agentToUse: "test-agent",
+        toastManager: null,
+        taskId: undefined,
+      })
+
+      expect(abortCalled).toBe(true)
+      expect(result).toContain("reason: stall_detector")
       expect(result).toContain("subagent stalled")
     })
 

@@ -40,3 +40,29 @@ describe("timing sync poll timeout defaults", () => {
     expect(config.WAIT_FOR_SESSION_TIMEOUT_MS).toBe(60_000)
   })
 })
+
+describe("sync production timeout defaults", () => {
+  test("default production timeout is 4 times the stall timeout", () => {
+    // #given
+    __resetTimingConfig()
+
+    // #when
+    const config = getTimingConfig()
+
+    // #then
+    expect(config.PRODUCTION_TIMEOUT_MS).toBe(4 * config.STALL_TIMEOUT_MS)
+  })
+
+  test("production timeout accessor follows PRODUCTION_TIMEOUT_MS config", () => {
+    // #given
+    __resetTimingConfig()
+
+    // #when
+    __setTimingConfig({ PRODUCTION_TIMEOUT_MS: 456_789 })
+
+    // #then
+    expect(getTimingConfig().PRODUCTION_TIMEOUT_MS).toBe(456_789)
+
+    __resetTimingConfig()
+  })
+})

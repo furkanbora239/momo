@@ -10686,6 +10686,21 @@
         },
         "disable_live_parent_wake_routing": {
           "type": "boolean"
+        },
+        "sync_stall_timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 9007199254740991
+        },
+        "sync_production_timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 9007199254740991
+        },
+        "sync_active_tool_timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 9007199254740991
         }
       },
       "required": [
