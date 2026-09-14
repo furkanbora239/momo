@@ -101,6 +101,11 @@ export interface DelegateTaskToolOptions {
    * Test hook: bypass fetchAvailableModels() by providing an explicit available model set.
    */
   availableModelsOverride?: Set<string>
+  /**
+   * Test hook: bypass readModelPool() by providing an explicit model pool.
+   * When provided, the model pool enforcement uses this instead of reading from disk.
+   */
+  modelPoolOverride?: import("../../shared/model-pool").ModelPool
   userCategories?: CategoriesConfig
   gitMasterConfig?: GitMasterConfig
   sisyphusJuniorModel?: string
@@ -114,6 +119,8 @@ export interface DelegateTaskToolOptions {
   modelFallbackControllerAccessor?: ModelFallbackControllerAccessor
   onSyncSessionCreated?: (event: SyncSessionCreatedEvent) => Promise<void>
   syncPollTimeoutMs?: number
+  /** Resolved from background_task.nonBlockingByDefault. When true, an omitted run_in_background resolves to background (non-blocking). */
+  nonBlockingByDefault?: boolean
   managersEnabled?: boolean
   /** OpenCode native skill accessor for skills registered via config.skills.paths. Same shape as SkillLoadOptions.nativeSkills. */
   nativeSkills?: {

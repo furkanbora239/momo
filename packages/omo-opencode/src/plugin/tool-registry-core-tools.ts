@@ -65,6 +65,7 @@ export function createCoreTools(args: {
     getLoadedSkills,
     sisyphusAgentConfig: pluginConfig.sisyphus_agent,
     syncPollTimeoutMs: pluginConfig.background_task?.syncPollTimeoutMs,
+    nonBlockingByDefault: pluginConfig.background_task?.nonBlockingByDefault,
     managersEnabled: pluginConfig.delegation?.managers ?? true,
     modelFallbackControllerAccessor: managers.modelFallbackControllerAccessor,
     onSyncSessionCreated: async (event) => {

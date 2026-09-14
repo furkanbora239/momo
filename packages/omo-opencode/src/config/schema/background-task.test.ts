@@ -72,4 +72,36 @@ describe("BackgroundTaskConfigSchema", () => {
       })
     })
   })
+
+  describe("nonBlockingByDefault", () => {
+    describe("#given valid nonBlockingByDefault (true)", () => {
+      test("#when parsed #then returns correct value", () => {
+        const result = BackgroundTaskConfigSchema.parse({ nonBlockingByDefault: true })
+
+        expect(result.nonBlockingByDefault).toBe(true)
+      })
+    })
+
+    describe("#given nonBlockingByDefault not provided", () => {
+      test("#when parsed #then field is undefined", () => {
+        const result = BackgroundTaskConfigSchema.parse({})
+
+        expect(result.nonBlockingByDefault).toBeUndefined()
+      })
+    })
+
+    describe('#given nonBlockingByDefault is non-boolean ("yes")', () => {
+      test("#when parsed #then throws ZodError", () => {
+        let thrownError: unknown
+
+        try {
+          BackgroundTaskConfigSchema.parse({ nonBlockingByDefault: "yes" })
+        } catch (error) {
+          thrownError = error
+        }
+
+        expect(thrownError).toBeInstanceOf(ZodError)
+      })
+    })
+  })
 })

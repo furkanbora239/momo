@@ -2,7 +2,11 @@ import type { DelegateTaskArgs, ToolContextWithMetadata } from "./types"
 import { SISYPHUS_JUNIOR_AGENT } from "./sisyphus-junior-agent"
 import { log } from "../../shared/logger"
 
-export async function prepareDelegateTaskArgs(args: Record<string, unknown>, ctx: ToolContextWithMetadata): Promise<DelegateTaskArgs> {
+export async function prepareDelegateTaskArgs(
+  args: Record<string, unknown>,
+  ctx: ToolContextWithMetadata,
+  options?: { nonBlockingByDefault?: boolean },
+): Promise<DelegateTaskArgs> {
   const category = typeof args.category === "string" ? args.category : undefined
   const prompt = typeof args.prompt === "string" ? args.prompt : ""
   const originalSubagentType = typeof args.subagent_type === "string" ? args.subagent_type : undefined
@@ -37,11 +41,17 @@ export async function prepareDelegateTaskArgs(args: Record<string, unknown>, ctx
     // explicit, but a missing flag should not fail an otherwise valid call —
     // hard-failing here burns turns and silently downgrades parallel work to
     // synchronous fallbacks. See issue #4119.
-    runInBackground = false
-    log("[task] run_in_background omitted; defaulting to false (sync delegation)", {
-      category: args.category,
-      subagent_type: originalSubagentType,
-    })
+    const nonBlockingByDefault = options?.nonBlockingByDefault === true
+    runInBackground = nonBlockingByDefault
+    log(
+      nonBlockingByDefault
+        ? "[task] run_in_background omitted; defaulting to true (background delegation via background_task.nonBlockingByDefault)"
+        : "[task] run_in_background omitted; defaulting to false (sync delegation)",
+      {
+        category: args.category,
+        subagent_type: originalSubagentType,
+      },
+    )
   }
 
   let loadSkills = args.load_skills
