@@ -69,13 +69,20 @@ The fork's goals live in [`PROJECT_STATE.md`](./PROJECT_STATE.md). Key touchpoin
 
 ### Model Catalog MCP (built-in Tier-1)
 
-- `packages/omo-opencode/src/mcp/model-catalog.ts` (to add) + register in
-  `createBuiltinMcps()` in `src/mcp/index.ts`; extend `McpNameSchema`.
+- `packages/omo-opencode/src/mcp/model-catalog.ts` exists and is registered in
+  `createBuiltinMcps()` in `src/mcp/index.ts`.
 - Data source: `client.provider.list()` at plugin init (connected providers + models),
-  enriched with models.dev metadata. Cached **per session**.
-- Tools: `catalog_list`, `catalog_pick` (local heuristics, no LLM call), `catalog_refresh`.
-- `src/shared/connected-providers-cache.ts` and `src/shared/model-availability.ts`
-  already call `client.provider.list()` — reuse this plumbing.
+  enriched with models.dev metadata; reconciled against each connected OpenAI-compatible
+  provider's live `GET /models`; stale cache refreshed at startup; disabled/unavailable
+  providers evicted with health flags. Cached **per session**.
+- Tools: `catalog_list`, `catalog_pick` (local heuristics, no LLM call), `catalog_refresh`,
+  `catalog_knowledge`, `catalog_enrich`.
+- Hard-allow model pool: `~/.omo/model-pool.json` (managed by the `/pool` command;
+  empty = allow all); the catalog server hard-filters rows by it (env
+  `OMO_CATALOG_POOL_FILE` for the stdio server) and the delegate-task engine enforces
+  it at task() time.
+- Knowledge base: `src/shared/catalog-knowledge.ts` persists researched model facts to
+  `~/.omo/catalog-knowledge.json`; the `catalog-researcher` agent enriches it.
 
 ### Zero-config main model
 
@@ -147,6 +154,15 @@ harness (`bunx oh-my-opencode run <msg>` or opencode) to confirm the change actu
 takes effect — a green typecheck is not behavioral proof. Use the `opencode-qa` skill
 for evidence (isolated XDG, no touching the real user opencode DB).
 
+## Recent Architectural Updates (2026-09-14)
+
+- **Provider Catalog Correctness**: live per-provider `GET /models` reconciliation, disabled/unavailable provider eviction with health flags, startup stale-cache refresh.
+- **Model Pool Cost Control**: `~/.omo/model-pool.json` hard-allow pool with `/pool` TUI panel; enforced both in the catalog MCP and at task() time in the delegate-task engine with fallback-chain rescue.
+- **Catalog Knowledge**: runtime cache `~/.omo/catalog-knowledge.json`, `catalog-researcher` agent, `catalog_knowledge`/`catalog_enrich` tools; overlays catalog rows.
+- **Subagent Visibility**: `/tasks` command (aliases `/agents`, `/subagents`) renders the subagent tree with model id, task, status, running tool; prompt detail read from the subagent session store.
+- **Sync Reliability**: producing-aware stall detection + explicit abort reason codes + configurable timeouts; truncated tool output paginable via `/tmp/omo-tool-output`; anchor-aware continuation completion with `no_progress`; `mid_tool_incomplete` flag.
+- **Delegation Behavior**: parallel-by-default directive in orchestrator prompts; Context Discipline (atomic tasks, minimal context) in manager/executor/planner prompts; `background_task.nonBlockingByDefault`.
+
 ## Recent Architectural Updates (2026-09-05)
 
 - **Active Tool Protection & Stall Watchdog**:
@@ -174,10 +190,20 @@ for evidence (isolated XDG, no touching the real user opencode DB).
 
 ## Current State & Next Steps
 
-- **Current State**: Prompt translator, clean native help, dedicated planner/worker, stall watchdog, and TUI tracking fully implemented and passing all tests and monorepo typecheck across 30 packages (`bun run typecheck`).
+- **Current State**: Prompt translator, clean native help, dedicated planner/worker,
+  stall watchdog, and TUI tracking fully implemented and passing all tests and monorepo
+  typecheck across 30 packages (`bun run typecheck`). PLUS: built-in Model Catalog MCP
+  shipped (live provider reconciliation, provider health eviction, catalog knowledge
+  cache + `catalog-researcher` agent), hard-allow model pool with `/pool` panel and
+  task-time enforcement, subagent visibility via `/tasks` (tree + prompt detail), sync
+  reliability fixes (producing-aware stall detection with explicit abort reasons,
+  paginable truncated tool output, anchor-aware continuation completion, mid-tool
+  incomplete flagging), parallel-by-default and context-discipline prompt directives,
+  `background_task.nonBlockingByDefault`. All merged to dev with typecheck clean and
+  tests passing.
 - **Next Steps**:
-  1. Builtin Model Catalog MCP (`packages/omo-opencode/src/mcp/model-catalog.ts` and `catalog_pick`).
-  2. Heavy chat-injection token-burn pruning audit (`agentUsageReminder`, `categorySkillReminder`, etc.).
+  1. Heavy chat-injection token-burn pruning audit (`agentUsageReminder`, `categorySkillReminder`, etc.).
+  2. Verify parallel-by-default delegation and pool enforcement behavior in live sessions; grow the catalog knowledge cache for remaining models.
 
 ## References
 

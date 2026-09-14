@@ -85,6 +85,15 @@ All agents start unpinned to any specific provider/model; the user configures mo
    - Excluded user-facing slash commands from agent `skill` tool description to prevent agent confusion.
    - Multi-slash command expansion support.
 
+### Milestone: Catalog Cost Control & Reliability (2026-09-14)
+
+- **Provider Catalog Correctness**: The catalog now reconciles against each connected OpenAI-compatible provider's live `GET /models` at startup, refreshes stale caches, and evicts disabled/unavailable providers with health flags, so catalog rows always reflect reality.
+- **Model Pool Cost Control**: A hard-allow model pool at `~/.omo/model-pool.json` (managed by the `/pool` TUI panel; empty = allow all) is enforced both in the catalog MCP and at task() time in the delegate-task engine, with fallback-chain rescue. Key files: `src/shared/model-pool.ts`, `src/features/model-pool/`.
+- **Catalog Knowledge**: Researched model facts persist to `~/.omo/catalog-knowledge.json` and overlay catalog rows. Key files: `src/mcp/catalog-knowledge-tools.ts`, `src/agents/catalog-researcher/`.
+- **Subagent Visibility**: The `/tasks` command (aliases `/agents`, `/subagents`) renders the subagent tree with model id, task, status, and running tool, with prompt detail read from the subagent session store. Key file: `src/features/subagent-tree/`.
+- **Sync Reliability**: Producing-aware stall detection with explicit abort reason codes and configurable timeouts; truncated tool output paginable via `/tmp/omo-tool-output`; anchor-aware continuation completion with `no_progress`; `mid_tool_incomplete` flagging. Key file: `src/tools/delegate-task/sync-session-poller.ts`.
+ - **Delegation Behavior**: Orchestrator prompts now direct parallel-by-default delegation; manager/executor/planner prompts carry Context Discipline (atomic tasks, minimal context); the opt-in `background_task.nonBlockingByDefault` config makes omitted `run_in_background` resolve to background.
+
 ---
 
 ## 5. Working Rules & Constraints

@@ -12,6 +12,8 @@ This document provides a comprehensive, in-depth guide on how **momo** (My Oh My
    - [`/momo` & `/help` — Interactive Guide](#momo--help--interactive-guide)
    - [`/caveman` — Prompt Translator & Token Compressor](#caveman--prompt-translator--token-compressor)
    - [`/advisor` — On-Demand Senior Advisor](#advisor--on-demand-senior-advisor)
+   - [`/pool` - Model Pool Panel](#pool---model-pool-panel)
+   - [`/tasks` - Subagent Visibility](#tasks---subagent-visibility)
    - [`/goal` — Autonomous Execution Loop](#goal--autonomous-execution-loop)
    - [`/handoff` — Context Summary & Session Transfer](#handoff--context-summary--session-transfer)
    - [`/stop-continuation` — Stop Active Loops](#stop-continuation--stop-active-loops)
@@ -139,6 +141,27 @@ opencode
 
 ---
 
+### `/pool` - Model Pool Panel
+- **Purpose:** Opens an interactive TUI panel that manages the hard-allow model pool stored at `~/.omo/model-pool.json`. Toggling a model off removes it from the allowed set: the catalog MCP hard-filters rows by the pool and the delegation engine enforces it at `task()` time, so blocked models fall back or fail with an actionable error.
+- **Usage:**
+  ```text
+  /pool               # Open the model pool panel and toggle models on/off
+  ```
+- **Note:** An empty pool means allow all.
+
+---
+
+### `/tasks` - Subagent Visibility
+- **Purpose:** Renders the running subagent tree in the TUI. Each row shows the agent, model id, task, and status with nesting for child sessions, plus the currently running tool. Selecting a subagent shows the actual prompt the orchestrator gave it, read from the subagent's session store.
+- **Usage:**
+  ```text
+  /tasks              # Show the running subagent tree
+  /agents             # Alias for /tasks
+  /subagents          # Alias for /tasks
+  ```
+
+---
+
 ### `/goal` — Autonomous Execution Loop
 - **Purpose:** Sets a persistent objective. The orchestrator and subagents continuously work through tasks until all criteria and verification tests pass.
 - **Usage:**
@@ -186,6 +209,8 @@ opencode
 | **`explore`** | Codebase Search Specialist | Fast contextual grep, symbol lookups, and reference tracing. |
 | **`librarian`** | External Research Specialist | Online documentation, library APIs, and web search. |
 | **`advisor`** | On-Demand Senior Advisor | Consulted only when bound via `/advisor`. Returns short, high-value directives. |
+
+The **`catalog-researcher`** agent researches unknown models (benchmarks, coding profile, price) into the persistent catalog knowledge cache (`~/.omo/catalog-knowledge.json`). Its findings surface through the `catalog_knowledge` and `catalog_enrich` MCP tools, and catalog rows overlay these facts.
 
 ### Delegation Categories (`task(category=...)`):
 - **`quick`:** Single-file edits, typos, small fixes (flash-tier models).
@@ -249,6 +274,27 @@ bunx oh-my-opencode config migrate
     "quick": { "model": "google/gemini-3-flash" },
     "deep": { "model": "opencode-go/glm-5.3-flash" },
     "ultrabrain": { "model": "openai/gpt-5.6-sol" }
+  },
+
+  // 5. Model Pool (managed by the /pool command, stored at ~/.omo/model-pool.json; empty = allow all)
+
+  // 6. Background Delegation
+  "background_task": {
+    "nonBlockingByDefault": false    // true = task() without run_in_background runs in the background
+  },
+
+  // 7. Comment & Slop Checker Hook
+  "comment_checker": {
+    "enabled": true,                 // Toggle the comment/docstring checker hook
+    "ignore_paths": []               // Paths the checker should skip
+  },
+
+  // 8. Sync Subagent Tuning
+  "experimental": {
+    "sync_stall_timeout_ms": 180000,        // Abort unresponsive subagents (default 180000)
+    "sync_production_timeout_ms": 720000,   // Max time for a producing subagent (default 720000)
+    "sync_active_tool_timeout_ms": 3600000, // Max time for an active tool (default 3600000)
+    "preemptive_compaction": false          // Compact the session at 78% context usage
   }
 }
 ```

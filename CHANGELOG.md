@@ -22,12 +22,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CodeGraph upgraded to 1.5.0; managed 1.0.1 and 1.4.1 runtimes re-provision automatically, while existing project stores remain compatible without a manual re-index.
 - Opt-in CodeGraph shared daemon across all three adapters: `codegraph.daemon` config key (default false) on OpenCode and Codex, `OMO_CODEGRAPH_DAEMON=1` on Senpi, plus `codegraph.excluded_roots` parity. (PR #6251)
 - Process hygiene: parent-liveness watchdogs exit MCP server processes when their parent dies, new lsp daemons reap older-version daemons at startup, and a startup family sweep removes orphaned codegraph and lsp processes on every adapter. (PR #6262)
+- **Model Pool & `/pool` Command**: Hard-allow list at `~/.omo/model-pool.json` managed via the `/pool` TUI panel; an empty pool means allow all, and the catalog MCP hard-filters rows by it. Task-time enforcement of the pool is covered under Fixed (PR #6).
+- **Catalog Knowledge Cache & `catalog-researcher`**: Researched model facts (strengths, benchmarks, roles) persist in `~/.omo/catalog-knowledge.json` and overlay catalog rows, exposed through the `catalog-researcher` agent and the `catalog_knowledge` / `catalog_enrich` MCP tools.
+- **Provider Catalog Correctness**: Per-provider live `GET /models` reconciliation, disabled/unavailable provider eviction with health flags, and stale-cache refresh at plugin startup.
+- **`/tasks` Command** (aliases `/agents`, `/subagents`): Indented subagent tree in the TUI with model id, task, status and running tool; selecting a subagent shows the actual prompt read from its session store (the TUI mirror stays redacted). (PR #5, #10)
+- **`background_task.nonBlockingByDefault` Config**: When true, an omitted `run_in_background` on `task()` resolves to background so the orchestrator is not blocked.
+- **Configurable Comment Checker**: The comment checker is now governed by top-level config via `comment_checker.enabled` + `comment_checker.ignore_paths`. (PR #3)
+- **Parallel-by-Default Delegation Directive**: The glm-5-2 and momo-default orchestrator prompts now instruct decompose-first dispatch of 2-5 concurrent subagents with `run_in_background`, sequential only for a real dependency. (PR #8)
+- **Context Discipline in Prompts**: Manager/executor/planner prompts gained a Context Discipline section: smallest atomic unit, minimum-context handoff, never forward full transcripts. (PR #9)
 
 ### Changed
 
 - **Breaking**: the `omo` command is renamed to `omo-agent-toolkit` on every edition, and the old name is removed in the same release. The `omo` npm bin entry and the Codex `~/.local/bin/omo` runtime wrapper are both gone; `omo-agent-toolkit` replaces them with identical behaviour. This is a major release because a published bin entry is removed. Migration: replace `omo ` with `omo-agent-toolkit ` in scripts, prompts, and CI. Migration is automatic for existing installs — an npm upgrade prunes the old `omo` bin link, and Codex installs delete the generated wrapper at the next session start or installer run (a user-owned `omo` file that the installer did not generate is left untouched). One-time caveat: an agent running at the moment of the Codex relink can see a single failed `omo ulw-loop` call and must re-issue it as `omo-agent-toolkit ulw-loop`. The `omo` name is reserved for the future native edition (npm `omo-ai`), which is not shipped in this release.
 - **Breaking**: the OpenCode plugin, Senpi adapter, and Codex codegraph loader no longer read `oh-my-openagent.json[c]` / `oh-my-opencode.json[c]` or `~/.omo/config.jsonc` at runtime; the first startup migrates them into `~/.omo/omo.jsonc` (existing values win, skipped values become diagnostics) and moves the sources into the migration backup directory. Older strict config cores reject a newer `omo.jsonc` containing `models` / `profiles` / harness blocks; restore the legacy files from `~/.omo/migration-backup-*` when downgrading.
 - **Breaking**: `shared/<name>` skill invocations and `disabled_skills: ["shared/<name>"]` entries no longer resolve. Skills from the shared catalog now register under their bare name (e.g. `ulw-plan`, `frontend`). Update configs and prompts to use bare names. (PR #6180)
+
+### Fixed
+
+- **Producing-Aware Sync Stall Detection**: The sync stall detector no longer aborts sessions that are actively streaming tokens; abort messages now carry explicit reason codes, and new config keys `experimental.sync_stall_timeout_ms`, `experimental.sync_production_timeout_ms`, and `experimental.sync_active_tool_timeout_ms` tune the thresholds. (PR #1)
+- **Paginable Truncated Tool Output**: Full tool output is now saved to `<tmp>/omo-tool-output/*.txt` and the truncation notice points at the file. (PR #2)
+- **Continuation Progress Judged After Resume Anchor**: Continuation completion is judged after the resume anchor, and a new `no_progress` abort reason detects continuation sessions returning without progress. (PR #4)
+- **Hard-Allow Model Pool Enforced at `task()` Time**: The delegation engine now enforces the hard-allow model pool at `task()` time: a blocked resolved model falls back through the category chain or fails with an actionable error (previously the pool only filtered the catalog MCP). (PR #6)
+- **Model Pool No Longer Fails Open Silently**: A pool file missing `updatedAt` now parses, and a pool file that exists but fails to parse logs a loud warning instead of silently allowing all models. (PR #7)
+- **Mid-Tool Sync Stops No Longer Reported as Completion**: A sync task result returned while a tool part is still pending is flagged `mid_tool_incomplete`, and abort recovery is refused in that state. (PR #11)
 
 ## [4.14.0] - 2026-06-29
 
