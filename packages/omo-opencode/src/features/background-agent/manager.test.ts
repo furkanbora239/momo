@@ -1489,6 +1489,8 @@ describe("BackgroundManager.getTasksSnapshot", () => {
       toolCalls: 2,
       lastTool: "glob",
       agent: "sisyphus",
+      parentSessionId: "parent-session",
+      startedAt: expect.any(Number),
     })
     expect(first ? Object.isFrozen(first) : false).toBe(true)
     expect(manager.getTasksSnapshot()).toEqual([{
@@ -1497,6 +1499,8 @@ describe("BackgroundManager.getTasksSnapshot", () => {
       toolCalls: 2,
       lastTool: "glob",
       agent: "sisyphus",
+      parentSessionId: "parent-session",
+      startedAt: expect.any(Number),
     }])
 
     manager.shutdown()
