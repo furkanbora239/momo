@@ -2,6 +2,7 @@ import { isRecord } from "@oh-my-opencode/utils"
 import { log } from "./logger"
 import * as dataPath from "./data-path"
 import { createJsonFileCacheStore } from "./json-file-cache-store"
+import { refreshProviderModelsLive } from "./provider-model-live-refresh"
 
 // Track if provider models cache has been successfully written in the current process
 // This helps in sandbox environments where filesystem state may not persist across contexts
@@ -9,6 +10,7 @@ let providerModelsCacheWrittenInCurrentProcess = false
 
 const CONNECTED_PROVIDERS_CACHE_FILE = "connected-providers.json"
 const PROVIDER_MODELS_CACHE_FILE = "provider-models.json"
+const LIVE_REFRESH_TIMEOUT_MS = 6000
 
 interface ConnectedProvidersCache {
 	connected: string[]
@@ -156,7 +158,15 @@ export function createConnectedProvidersCacheStore(
 			list?: () => Promise<{
 				data?: {
 					connected?: string[]
-					all?: Array<{ id: string; models?: Record<string, unknown> }>
+					all?: Array<{
+						id: string
+						name?: string
+						source?: string
+						env?: string[]
+						key?: string
+						options?: Record<string, unknown>
+						models?: Record<string, unknown>
+					}>
 				}
 			}>
 		}
@@ -213,8 +223,26 @@ export function createConnectedProvidersCacheStore(
 				totalModels: Object.values(mergedModelsByProvider).reduce((sum, ids) => sum + ids.length, 0),
 			})
 
+			const connectedProviders = allProviders.filter((provider) => connected.includes(provider.id))
+			let finalModelsByProvider: Record<string, string[] | ModelMetadata[]> = mergedModelsByProvider
+			try {
+				let timeoutId: ReturnType<typeof setTimeout> | undefined
+				const refreshed = await Promise.race([
+					refreshProviderModelsLive(connectedProviders, mergedModelsByProvider),
+					new Promise<never>((_, reject) => {
+						timeoutId = setTimeout(() => reject(new Error("Live model refresh timed out")), LIVE_REFRESH_TIMEOUT_MS)
+					}),
+				])
+				if (timeoutId) clearTimeout(timeoutId)
+				if (refreshed && Object.keys(refreshed).length > 0) {
+					finalModelsByProvider = refreshed
+				}
+			} catch (err) {
+				log("[connected-providers-cache] Live model refresh failed, keeping registry models", { error: String(err) })
+			}
+
 			writeProviderModelsCache({
-				models: mergedModelsByProvider,
+				models: finalModelsByProvider,
 				connected,
 			})
 		} catch (err) {
