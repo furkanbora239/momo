@@ -93,12 +93,12 @@ describe("updateConnectedProvidersCache", () => {
 		}
 	})
 
-	test("preserves last-good providers and models when a refresh returns a narrower partial list", async () => {
+	test("evicts providers absent from connected and all", async () => {
 		const { createConnectedProvidersCacheStore } = await importFreshConnectedProvidersCacheModule()
 		const { testCacheStore, fakeUserCacheRoot } = createTestCacheContext(createConnectedProvidersCacheStore)
 
 		try {
-			//#given - a previous complete provider snapshot includes the Sisyphus fallback provider
+			//#given - a previous complete provider snapshot includes two connected providers
 			await testCacheStore.updateConnectedProvidersCache({
 				provider: {
 					list: async () => ({
@@ -123,7 +123,8 @@ describe("updateConnectedProvidersCache", () => {
 				},
 			})
 
-			//#when - a transient cold-start refresh only reports one connected provider
+			//#when - a non-empty refresh reports only one connected provider and drops
+			// the other from both `connected` and `all` (as a disabled provider is dropped)
 			await testCacheStore.updateConnectedProvidersCache({
 				provider: {
 					list: async () => ({
@@ -142,7 +143,62 @@ describe("updateConnectedProvidersCache", () => {
 				},
 			})
 
-			//#then - the partial refresh does not poison the model gate cache
+			//#then - the absent provider is evicted, not resurrected
+			expect(testCacheStore.readConnectedProvidersCache()).toEqual(["google"])
+			expect(testCacheStore.readProviderModelsCache()).toMatchObject({
+				connected: ["google"],
+				models: {
+					google: [{ id: "gemini-3.1-pro" }],
+				},
+			})
+		} finally {
+			cleanupTestCacheContext(fakeUserCacheRoot)
+		}
+	})
+
+	test("preserves the previous snapshot when a refresh returns a completely empty list", async () => {
+		const { createConnectedProvidersCacheStore } = await importFreshConnectedProvidersCacheModule()
+		const { testCacheStore, fakeUserCacheRoot } = createTestCacheContext(createConnectedProvidersCacheStore)
+
+		try {
+			//#given - a previous complete provider snapshot
+			await testCacheStore.updateConnectedProvidersCache({
+				provider: {
+					list: async () => ({
+						data: {
+							connected: ["google", "anthropic"],
+							all: [
+								{
+									id: "google",
+									models: {
+										"gemini-3.1-pro": { id: "gemini-3.1-pro" },
+									},
+								},
+								{
+									id: "anthropic",
+									models: {
+										"claude-opus-4-7": { id: "claude-opus-4-7" },
+									},
+								},
+							],
+						},
+					}),
+				},
+			})
+
+			//#when - a transient cold-start refresh reports nothing at all
+			await testCacheStore.updateConnectedProvidersCache({
+				provider: {
+					list: async () => ({
+						data: {
+							connected: [],
+							all: [],
+						},
+					}),
+				},
+			})
+
+			//#then - the empty fetch does not poison the last-good snapshot
 			expect(testCacheStore.readConnectedProvidersCache()).toEqual(["google", "anthropic"])
 			expect(testCacheStore.readProviderModelsCache()).toMatchObject({
 				connected: ["google", "anthropic"],

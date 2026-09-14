@@ -10,6 +10,8 @@ import {
 } from "./fallback-state"
 import { getFallbackModelsForSession } from "./fallback-models"
 import { SessionCategoryRegistry } from "../../shared/session-category-registry"
+import { getModelProvider } from "../../shared/disabled-providers"
+import { markProviderUnavailable } from "../../shared/provider-health"
 import { isAbortError } from "../../shared/is-abort-error"
 import { resolveFallbackBootstrapModel } from "./fallback-bootstrap-model"
 import { dispatchFallbackRetry } from "./fallback-retry-dispatcher"
@@ -188,6 +190,36 @@ export function createEventHandler(deps: HookDeps, helpers: AutoRetryHelpers) {
     }
   }
 
+  const markFailingProviderUnavailable = (
+    sessionID: string,
+    props: Record<string, unknown> | undefined,
+    errorType: string | undefined,
+    statusCode: number | undefined,
+  ) => {
+    if (
+      errorType !== "missing_api_key" &&
+      errorType !== "quota_exceeded" &&
+      statusCode !== 401 &&
+      statusCode !== 402 &&
+      statusCode !== 403
+    ) {
+      return
+    }
+
+    const model = resolveEventModel(props) ?? sessionStates.get(sessionID)?.currentModel
+    const providerID = model ? getModelProvider(model) : undefined
+    if (!providerID) {
+      log(`[${HOOK_NAME}] Cannot resolve provider for health marking`, { sessionID, model })
+      return
+    }
+
+    const reason = errorType ?? (statusCode !== undefined ? `http_status_${statusCode}` : "unknown")
+    markProviderUnavailable(
+      providerID,
+      statusCode !== undefined ? { reason, statusCode } : { reason },
+    )
+  }
+
   const handleSessionError = async (props: Record<string, unknown> | undefined) => {
     const sessionID = resolveSessionEventID(props)
     const error = props?.error
@@ -239,22 +271,27 @@ export function createEventHandler(deps: HookDeps, helpers: AutoRetryHelpers) {
     sessionAwaitingFallbackResult.delete(sessionID)
     helpers.clearSessionFallbackTimeout(sessionID)
 
+    const errorType = classifyErrorType(error)
+    const statusCode = extractStatusCode(error, config.retry_on_errors)
+
     log(`[${HOOK_NAME}] session.error received`, {
       sessionID,
       agent,
       resolvedAgent,
-      statusCode: extractStatusCode(error, config.retry_on_errors),
+      statusCode,
       errorName: extractErrorName(error),
-      errorType: classifyErrorType(error),
+      errorType,
     })
+
+    markFailingProviderUnavailable(sessionID, props, errorType, statusCode)
 
     if (!isRetryableError(error, config.retry_on_errors)) {
       log(`[${HOOK_NAME}] Error not retryable, skipping fallback`, {
         sessionID,
         retryable: false,
-        statusCode: extractStatusCode(error, config.retry_on_errors),
+        statusCode,
         errorName: extractErrorName(error),
-        errorType: classifyErrorType(error),
+        errorType,
       })
       return
     }

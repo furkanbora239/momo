@@ -62,12 +62,21 @@ function makeCache(models: Record<string, Record<string, unknown>[]>): string {
   return file
 }
 
+function makeHealthFile(entries: Record<string, { reason: string; statusCode?: number; unavailableUntil: number }>): string {
+  const dir = mkdtempSync(join(tmpdir(), "catalog-health-"))
+  const file = join(dir, "provider-health.json")
+  writeFileSync(file, JSON.stringify(entries))
+  return file
+}
+
 function stateWith(
   file: string,
   prefer: Record<string, string[]> = {},
   preferProviders: string[] = [],
+  disabledProviders: string[] = [],
+  healthFile?: string,
 ): CatalogState {
-  return { cacheFile: file, prefer, preferProviders }
+  return { cacheFile: file, prefer, preferProviders, disabledProviders, healthFile }
 }
 
 const SAMPLE = {
@@ -375,5 +384,66 @@ describe("catalog MCP", () => {
     const response = await call(stateWith(makeCache(SAMPLE)), "tools/list")
     const tools = (response as { result?: { tools?: Array<{ name: string }> } }).result?.tools?.map((tool) => tool.name)
     expect(tools).toEqual(["catalog_list", "catalog_pick", "catalog_refresh"])
+  })
+
+  it("drops rows from disabled providers in catalog_list", async () => {
+    const state = stateWith(makeCache(MIXED_TIERS), {}, [], ["neuralwatt"])
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+    const result = parseToolPayload(response)
+    const models = result.models as Array<Record<string, unknown>>
+    const providers = new Set(models.map((entry) => entry.provider))
+    expect(providers.has("neuralwatt")).toBe(false)
+    expect(providers.has("openai")).toBe(true)
+  })
+
+  it("excludes disabled providers from catalog_pick ranking", async () => {
+    const state = stateWith(makeCache(MIXED_TIERS), {}, [], ["neuralwatt"])
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "fast" } })
+    const result = parseToolPayload(response)
+    const picks = result.picks as Array<Record<string, unknown>>
+    expect(picks.map((pick) => pick.provider)).not.toContain("neuralwatt")
+    expect(picks[0].provider).toBe("openai")
+  })
+
+  it("lists an unavailable provider with healthy:false but excludes it from pick", async () => {
+    const health = makeHealthFile({
+      neuralwatt: { reason: "quota_exceeded", unavailableUntil: Date.now() + 60_000 },
+    })
+    const state = stateWith(makeCache(MIXED_TIERS), {}, [], [], health)
+
+    const listResponse = await call(state, "tools/call", { name: "catalog_list" })
+    const listResult = parseToolPayload(listResponse)
+    const models = listResult.models as Array<Record<string, unknown>>
+    const kimi = models.find((entry) => entry.id === "kimi-flash") as Record<string, unknown>
+    expect(kimi.healthy).toBe(false)
+    expect(kimi.provider).toBe("neuralwatt")
+
+    const pickResponse = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "fast" } })
+    const pickResult = parseToolPayload(pickResponse)
+    const picks = pickResult.picks as Array<Record<string, unknown>>
+    expect(picks.map((pick) => pick.provider)).not.toContain("neuralwatt")
+    expect(picks[0].provider).toBe("openai")
+  })
+
+  it("marks a healthy provider healthy:true in catalog_list rows", async () => {
+    const state = stateWith(makeCache(MIXED_TIERS))
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+    const result = parseToolPayload(response)
+    const models = result.models as Array<Record<string, unknown>>
+    for (const entry of models) {
+      expect(entry.healthy).toBe(true)
+    }
+  })
+
+  it("includes the provider id in every catalog_list row", async () => {
+    const state = stateWith(makeCache(SAMPLE))
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+    const result = parseToolPayload(response)
+    const models = result.models as Array<Record<string, unknown>>
+    expect(models.length).toBeGreaterThan(0)
+    for (const entry of models) {
+      expect(typeof entry.provider).toBe("string")
+      expect((entry.provider as string).length).toBeGreaterThan(0)
+    }
   })
 })

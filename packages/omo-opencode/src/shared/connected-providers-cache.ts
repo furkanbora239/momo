@@ -61,19 +61,13 @@ function mergeConnectedProviders(
 		return previous
 	}
 
-	const fetchedSet = new Set(fetched)
-	const droppedPreviousProvider = previous.some((provider) => !fetchedSet.has(provider))
-	if (!droppedPreviousProvider) {
-		return fetched
-	}
-
-	const fetchedSetWithConfirmedDisconnects = new Set(fetched)
-	for (const provider of previous) {
-		if (!reportedProviderIDs.has(provider)) {
-			fetchedSetWithConfirmedDisconnects.add(provider)
-		}
-	}
-	return Array.from(fetchedSetWithConfirmedDisconnects)
+	// The fetched list is authoritative whenever it is non-empty: opencode's
+	// `connected` list omits both disconnected and disabled providers, and its
+	// `all` list is the full registry. A previously-connected provider that is
+	// missing from both is gone on purpose (disabled or removed), so it must be
+	// evicted, never resurrected. The previous snapshot is only preserved when
+	// the fetch came back completely empty (the branch above).
+	return fetched
 }
 
 function mergeProviderModels(

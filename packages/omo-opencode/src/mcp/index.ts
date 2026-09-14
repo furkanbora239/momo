@@ -29,6 +29,7 @@ type BuiltinMcpOptions = {
   >
   readonly cwd?: string
   readonly resolveExecutable?: RuntimeExecutableResolver
+  readonly disabledProviders?: readonly string[]
 }
 
 type BuiltinMcpSourceConfig = {
@@ -78,6 +79,7 @@ export function createBuiltinMcps(disabledMcps: string[] = [], config?: BuiltinM
     mcps.catalog = createCatalogMcpConfig({
       prefer: config?.catalog?.prefer,
       preferProviders: config?.catalog?.prefer_providers,
+      disabledProviders: options.disabledProviders,
       resolveExecutable: options.resolveExecutable,
     })
   }

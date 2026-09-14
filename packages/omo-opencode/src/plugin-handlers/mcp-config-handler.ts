@@ -64,7 +64,10 @@ export async function applyMcpConfig(params: {
     }
   }
 
-  const builtinMcps = createBuiltinMcps(disabledMcps, params.pluginConfig, { cwd: params.ctx.directory });
+  const builtinMcps = createBuiltinMcps(disabledMcps, params.pluginConfig, {
+    cwd: params.ctx.directory,
+    disabledProviders: params.pluginConfig.disabled_providers,
+  });
 
   const claudeCodeServers: Record<string, unknown> = {};
   for (const [name, server] of Object.entries(mcpResult.servers)) {

@@ -11,13 +11,16 @@ const PACKAGE_REL = "packages/omo-opencode"
 const SOURCE_CLI_REL = "src/mcp/model-catalog-cli.ts"
 const DIST_CLI_REL = "dist/mcp/model-catalog-cli.js"
 const CACHE_FILENAME = "provider-models.json"
+const HEALTH_FILENAME = "provider-health.json"
 
 export type CatalogPrefer = Record<string, string | string[]>
 
 export type CatalogMcpConfigOptions = {
   readonly cacheFile?: string
+  readonly healthFile?: string
   readonly prefer?: CatalogPrefer
   readonly preferProviders?: readonly string[]
+  readonly disabledProviders?: readonly string[]
   readonly resolveExecutable?: RuntimeExecutableResolver
   readonly moduleUrl?: string
   readonly exists?: (path: string) => boolean
@@ -56,6 +59,7 @@ function resolveCatalogCommand(options: CatalogMcpConfigOptions = {}): AncestorC
 export function createCatalogMcpConfig(options: CatalogMcpConfigOptions = {}): LocalMcpConfig {
   const resolvedCommand = resolveCatalogCommand(options)
   const cacheFile = options.cacheFile ?? join(getOmoOpenCodeCacheDir(), CACHE_FILENAME)
+  const healthFile = options.healthFile ?? join(getOmoOpenCodeCacheDir(), HEALTH_FILENAME)
   return {
     type: "local",
     command: resolvedCommand.command,
@@ -64,6 +68,8 @@ export function createCatalogMcpConfig(options: CatalogMcpConfigOptions = {}): L
       OMO_CATALOG_CACHE_FILE: cacheFile,
       OMO_CATALOG_PREFER: JSON.stringify(normalizePrefer(options.prefer)),
       OMO_CATALOG_PREFER_PROVIDERS: (options.preferProviders ?? []).join(","),
+      OMO_CATALOG_HEALTH_FILE: healthFile,
+      OMO_CATALOG_DISABLED_PROVIDERS: (options.disabledProviders ?? []).join(","),
     },
   }
 }

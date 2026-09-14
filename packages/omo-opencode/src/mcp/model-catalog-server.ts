@@ -43,6 +43,8 @@ const DEFAULT_PROTOCOL_VERSION = "2024-11-05"
 const CACHE_FILE_ENV = "OMO_CATALOG_CACHE_FILE"
 const PREFER_ENV = "OMO_CATALOG_PREFER"
 const PREFER_PROVIDERS_ENV = "OMO_CATALOG_PREFER_PROVIDERS"
+const HEALTH_FILE_ENV = "OMO_CATALOG_HEALTH_FILE"
+const DISABLED_PROVIDERS_ENV = "OMO_CATALOG_DISABLED_PROVIDERS"
 
 type ModelEntry = Record<string, unknown>
 
@@ -153,6 +155,7 @@ interface CatalogRow {
   tool_call: boolean
   text_output: boolean | null
   release_date: string | null
+  healthy?: boolean
 }
 
 function readReleaseDate(model: ModelEntry): string | null {
@@ -211,6 +214,8 @@ export interface CatalogState {
   cacheFile: string | undefined
   prefer: Record<string, string[]>
   readonly preferProviders: string[]
+  readonly healthFile?: string
+  readonly disabledProviders: string[]
 }
 
 function parsePreferProviders(raw: string | undefined): string[] {
@@ -219,6 +224,24 @@ function parsePreferProviders(raw: string | undefined): string[] {
     .split(",")
     .map((entry) => entry.trim().toLowerCase())
     .filter((entry) => entry.length > 0)
+}
+
+function readUnavailableProviders(healthFile: string | undefined): Set<string> {
+  if (!healthFile) return new Set()
+  try {
+    const parsed = JSON.parse(readFileSync(healthFile, "utf-8")) as unknown
+    if (!isPlainRecord(parsed)) return new Set()
+    const now = Date.now()
+    const unavailable = new Set<string>()
+    for (const [provider, entry] of Object.entries(parsed)) {
+      if (isPlainRecord(entry) && typeof entry.unavailableUntil === "number" && entry.unavailableUntil > now) {
+        unavailable.add(provider.toLowerCase())
+      }
+    }
+    return unavailable
+  } catch {
+    return new Set()
+  }
 }
 
 function loadState(): CatalogState {
@@ -242,13 +265,19 @@ function loadState(): CatalogState {
     cacheFile,
     prefer,
     preferProviders: parsePreferProviders(process.env[PREFER_PROVIDERS_ENV]),
+    healthFile: process.env[HEALTH_FILE_ENV] || undefined,
+    disabledProviders: parsePreferProviders(process.env[DISABLED_PROVIDERS_ENV]),
   }
 }
 
 function listCatalog(state: CatalogState, params: unknown): { rows: CatalogRow[]; updatedAt: string | null } {
   const cache = readCacheFile(state.cacheFile)
   if (!cache) return { rows: [], updatedAt: null }
+  const disabledSet = new Set(state.disabledProviders ?? [])
+  const unavailable = readUnavailableProviders(state.healthFile)
   let rows = flatten(cache)
+    .filter((row) => !disabledSet.has(row.provider.toLowerCase()))
+    .map((row) => ({ ...row, healthy: !unavailable.has(row.provider.toLowerCase()) }))
   if (isPlainRecord(params)) {
     const provider = typeof params["provider"] === "string" ? params["provider"] : undefined
     const capability = typeof params["capability"] === "string" ? (params["capability"] as Capability) : undefined
@@ -333,6 +362,11 @@ function pickCatalog(
       ? (params["task_complexity"] as TaskComplexity)
       : "moderate"
   let rows = flatten(cache)
+  const disabledSet = new Set(state.disabledProviders ?? [])
+  const unavailable = readUnavailableProviders(state.healthFile)
+  rows = rows.filter(
+    (row) => !disabledSet.has(row.provider.toLowerCase()) && !unavailable.has(row.provider.toLowerCase()),
+  )
 
   const tierOrder: CatalogRow["tier"][] =
     budgetProfile === "max_performance" || taskComplexity === "complex"
@@ -434,7 +468,7 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_list",
     description:
-      "List connected provider models with pricing (USD per million tokens), cost_tier (budget|balanced|premium), context_window, output limit, vision, reasoning and tool_call tags, strengths and weaknesses. Optional filters: provider (id), capability (vision|reasoning|tool_call), tier (flash|pro|max|default), cost_tier.",
+      "List connected provider models with pricing (USD per million tokens), cost_tier (budget|balanced|premium), context_window, output limit, vision, reasoning and tool_call tags, strengths and weaknesses. Each row includes its provider id and a healthy flag. Providers disabled via config or marked unavailable (out of quota, missing API key) are excluded. Optional filters: provider (id), capability (vision|reasoning|tool_call), tier (flash|pro|max|default), cost_tier.",
     inputSchema: {
       type: "object",
       properties: {
@@ -449,7 +483,7 @@ export const CATALOG_MCP_TOOLS: readonly McpToolDescriptor[] = [
   {
     name: "catalog_pick",
     description:
-      "Rank model ids for a need using local heuristics (no LLM call). need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Agent picks require tool_call-capable models unless the need explicitly asks for media, embedding or rerank work. Optional budget_profile ('low_cost'|'balanced'|'max_performance') and task_complexity ('trivial'|'moderate'|'complex', complex requires reasoning-capable). Honors catalog.prefer boosts, then catalog.prefer_providers, then price.",
+      "Rank model ids for a need using local heuristics (no LLM call). Every pick includes its provider id. Providers disabled via config or marked unavailable (out of quota, missing API key) are excluded before ranking. need values: 'speed'/'fast'/'cheap' -> flash-class first; 'vision' -> vision models; 'reasoning' -> reasoning models; default -> cheapest adequate. Agent picks require tool_call-capable models unless the need explicitly asks for media, embedding or rerank work. Optional budget_profile ('low_cost'|'balanced'|'max_performance') and task_complexity ('trivial'|'moderate'|'complex', complex requires reasoning-capable). Honors catalog.prefer boosts, then catalog.prefer_providers, then price.",
     inputSchema: {
       type: "object",
       properties: {
