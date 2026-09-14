@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it, spyOn } from "bun:test"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { basename, dirname, join } from "node:path"
 
+import * as logger from "./logger"
 import {
   createModelPoolStore,
   isModelAllowed,
@@ -178,6 +179,77 @@ describe("model pool", () => {
 
     // then
     expect(pool.allowed).toEqual([])
+  })
+
+  it("#given a pool file without updatedAt #when reading #then parses and enforces its entries", () => {
+    // given
+    const { store, poolPath } = createStoreInTempDir()
+    mkdirSync(dirname(poolPath), { recursive: true })
+    writeFileSync(
+      poolPath,
+      JSON.stringify({
+        version: 1,
+        allowed: [{ providerID: "openai", modelID: "gpt-5.6" }],
+      }),
+      "utf-8",
+    )
+
+    // when
+    const pool = store.readModelPool()
+
+    // then
+    expect(pool.allowed).toEqual([{ providerID: "openai", modelID: "gpt-5.6" }])
+    expect(pool.updatedAt).toBe("")
+    expect(isModelAllowed(pool, "openai", "gpt-5.6")).toBe(true)
+    expect(isModelAllowed(pool, "anthropic", "claude-opus-5")).toBe(false)
+  })
+
+  it("#given an invalid pool file #when reading #then returns an empty pool and logs a warning", async () => {
+    // given
+    const logSpy = spyOn(logger, "log").mockImplementation(() => {})
+    const { createModelPoolStore: freshCreate } = await import(
+      `./model-pool?invalid=${Date.now()}-${Math.random()}`
+    )
+    const dir = createTempDir()
+    const poolPath = join(dir, "model-pool.json")
+    mkdirSync(dirname(poolPath), { recursive: true })
+    writeFileSync(poolPath, "{not-json", "utf-8")
+    const store = freshCreate(() => poolPath)
+
+    // when
+    const pool = store.readModelPool()
+
+    // then
+    expect(pool.allowed).toEqual([])
+    expect(logSpy).toHaveBeenCalled()
+    logSpy.mockRestore()
+  })
+
+  it("#given a pool file with a wrong version #when reading #then returns an empty pool and logs a warning", async () => {
+    // given
+    const logSpy = spyOn(logger, "log").mockImplementation(() => {})
+    const { createModelPoolStore: freshCreate } = await import(
+      `./model-pool?wrongversion=${Date.now()}-${Math.random()}`
+    )
+    const dir = createTempDir()
+    const poolPath = join(dir, "model-pool.json")
+    mkdirSync(dirname(poolPath), { recursive: true })
+    writeFileSync(
+      poolPath,
+      JSON.stringify({ version: 2, allowed: [] }),
+      "utf-8",
+    )
+    const store = freshCreate(() => poolPath)
+
+    // when
+    const pool = store.readModelPool()
+
+    // then
+    expect(pool.allowed).toEqual([])
+    expect(logSpy).toHaveBeenCalled()
+    const [message] = logSpy.mock.calls[0]
+    expect(String(message)).toContain("failed to parse")
+    logSpy.mockRestore()
   })
 
   it("#given a pool #when writing then reading #then round-trips the entries", () => {
