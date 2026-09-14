@@ -1,6 +1,8 @@
 import type { PluginInput } from "@opencode-ai/plugin"
 import type { ExperimentalConfig } from "../config/schema"
 import { createDynamicTruncator } from "../shared/dynamic-truncator"
+import { writeFullToolOutput, buildTruncationNotice } from "./tool-output-capture"
+import { log } from "../shared/logger"
 
 const DEFAULT_MAX_TOKENS = 50_000 // ~200k chars
 const WEBFETCH_MAX_TOKENS = 10_000 // ~40k chars - web pages need aggressive truncation
@@ -64,7 +66,27 @@ export function createToolOutputTruncatorHook(ctx: PluginInput, options?: ToolOu
     }
 
     if (maxOutputChars > 0 && output.output.length > maxOutputChars) {
-      output.output = `${output.output.slice(0, maxOutputChars)}\n[output truncated at ${maxOutputChars} characters by momo tool-output cap]`
+      const sliced = output.output.slice(0, maxOutputChars)
+      let notice: string
+      try {
+        const capturedPath = await writeFullToolOutput({
+          sessionID: input.sessionID,
+          callID: input.callID,
+          content: output.output,
+        })
+        notice = buildTruncationNotice({
+          maxOutputChars,
+          capturedPath,
+          capturedChars: capturedPath ? output.output.length : undefined,
+          totalChars: output.output.length,
+        })
+      } catch (error) {
+        if (error instanceof Error) {
+          log(`tool-output capture failed, falling back to dead-end marker: ${error.message}`)
+        }
+        notice = buildTruncationNotice({ maxOutputChars, totalChars: output.output.length })
+      }
+      output.output = `${sliced}${notice}`
     }
   }
 
