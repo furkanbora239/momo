@@ -244,7 +244,7 @@ bunx oh-my-opencode config migrate
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/furkanbora239/momo/dev/assets/oh-my-opencode.schema.json",
+  "$schema": "https://raw.githubusercontent.com/furkanbora239/momo/main/assets/oh-my-opencode.schema.json",
 
   // 1. Local Prompt Translator (Ollama)
   "local_translator": {
