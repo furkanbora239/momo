@@ -22,6 +22,8 @@ export const BackgroundTaskConfigSchema = z.object({
   /** Delay before removing completed/cancelled/errored tasks from memory in milliseconds (default: 600000 = 10 minutes, minimum: 60000 = 1 minute). */
   taskCleanupDelayMs: z.number().min(60000).optional(),
   syncPollTimeoutMs: z.number().min(60000).optional(),
+  /** When true, an omitted `run_in_background` on `task()` resolves to background (non-blocking) so the orchestrator is not held waiting on the subagent. Explicit `run_in_background` values always win. Default: false (sync). */
+  nonBlockingByDefault: z.boolean().optional(),
   /** Maximum tool calls per subagent task before circuit breaker triggers (default: 200, minimum: 10). Prevents runaway loops from burning unlimited tokens. */
   maxToolCalls: z.number().int().min(10).optional(),
   circuitBreaker: CircuitBreakerConfigSchema.optional(),

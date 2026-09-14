@@ -18,6 +18,8 @@ import { createDelegateTaskPresentation } from "./tool-description"
 import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { mergeNativeSkillInfos, type NativeSkillEntry } from "../skill/native-skills"
 import type { SkillInfo } from "../skill/types"
+import * as modelPoolModule from "../../shared/model-pool"
+import { applyCategoryParams } from "./delegated-model-config"
 
 async function loadNativeSkillEntries(
   nativeSkills: DelegateTaskToolOptions["nativeSkills"] | undefined,
@@ -90,7 +92,9 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
     args: delegateTaskArgsSchema,
     async execute(args, toolContext) {
       const ctx = toolContext as ToolContextWithMetadata
-      const delegateTaskArgs = await prepareDelegateTaskArgs(args, ctx)
+      const delegateTaskArgs = await prepareDelegateTaskArgs(args, ctx, {
+        nonBlockingByDefault: options.nonBlockingByDefault,
+      })
 
       const runInBackground = delegateTaskArgs.run_in_background === true
 
@@ -170,7 +174,58 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
         isUnstableAgent = resolution.isUnstableAgent
         fallbackChain = resolution.fallbackChain
         maxPromptTokens = resolution.maxPromptTokens
+      } else {
+        const resolution = await resolveSubagentExecution(delegateTaskArgs, options, parentContext.agent, categoryExamples, { parentSessionID: parentContext.sessionID })
+        if (resolution.error) {
+          return resolution.error
+        }
+        agentToUse = resolution.agentToUse
+        categoryModel = resolution.categoryModel
+        fallbackChain = resolution.fallbackChain
+      }
 
+      // --- Model pool enforcement ---
+      // The "hard allow" pool (~/.omo/model-pool.json) gates which models the
+      // delegation engine may use. An empty pool means "no restriction".
+      if (categoryModel) {
+        const modelPool = options.modelPoolOverride ?? modelPoolModule.readModelPool()
+        if (!modelPoolModule.isModelAllowed(modelPool, categoryModel.providerID, categoryModel.modelID)) {
+          const blockedModel = `${categoryModel.providerID}/${categoryModel.modelID}`
+          log("[model-pool] Resolved model blocked by pool; attempting fallback", {
+            blockedModel,
+            hasFallbackChain: Boolean(fallbackChain?.length),
+          })
+
+          let resolved = false
+          if (fallbackChain) {
+            for (const entry of fallbackChain) {
+              const allowedProvider = entry.providers.find((p) =>
+                modelPoolModule.isModelAllowed(modelPool, p, entry.model),
+              )
+              if (allowedProvider) {
+                categoryModel = applyCategoryParams(
+                  { providerID: allowedProvider, modelID: entry.model, variant: entry.variant },
+                  undefined,
+                )
+                actualModel = `${allowedProvider}/${entry.model}`
+                log("[model-pool] Falling back to allowed alternative from chain", {
+                  blockedModel,
+                  fallbackModel: actualModel,
+                })
+                resolved = true
+                break
+              }
+            }
+          }
+
+          if (!resolved) {
+            const poolPath = modelPoolModule.resolveModelPoolPath()
+            return `[model-pool] Model "${blockedModel}" is blocked by the hard-allow pool (${poolPath}). Either add it to the pool or use a different model.`
+          }
+        }
+      }
+
+      if (delegateTaskArgs.category) {
         const isRunInBackgroundExplicitlyFalse = isExplicitSyncRun(delegateTaskArgs.run_in_background)
 
         log("[task] unstable agent detection", {
@@ -197,14 +252,6 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
           })
           return executeUnstableAgentTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, actualModel)
         }
-      } else {
-        const resolution = await resolveSubagentExecution(delegateTaskArgs, options, parentContext.agent, categoryExamples, { parentSessionID: parentContext.sessionID })
-        if (resolution.error) {
-          return resolution.error
-        }
-        agentToUse = resolution.agentToUse
-        categoryModel = resolution.categoryModel
-        fallbackChain = resolution.fallbackChain
       }
 
       const systemContent = buildSystemContent({

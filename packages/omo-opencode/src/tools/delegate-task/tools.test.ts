@@ -8,6 +8,7 @@ import { __resetModelCache } from "../../shared/model-availability"
 import { clearSkillCache } from "../../features/opencode-skill-loader/skill-content"
 import { __setTimingConfig, __resetTimingConfig } from "./timing"
 import * as connectedProvidersCache from "../../shared/connected-providers-cache"
+import * as modelPoolModule from "../../shared/model-pool"
 import * as executor from "./executor"
 import { releaseAllPromptAsyncReservationsForTesting } from "../../shared/prompt-async-gate"
 
@@ -122,6 +123,7 @@ function createTestAvailableModels(): Set<string> {
 describe("sisyphus-task", () => {
   let cacheSpy: ReturnType<typeof spyOn>
   let providerModelsSpy: ReturnType<typeof spyOn>
+  let modelPoolSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     mock.restore()
@@ -147,6 +149,7 @@ describe("sisyphus-task", () => {
       connected: ["anthropic", "google", "openai", "kimi-for-coding"],
       updatedAt: "2026-01-01T00:00:00.000Z",
     })
+    modelPoolSpy = spyOn(modelPoolModule, "readModelPool").mockReturnValue({ version: 1, allowed: [], updatedAt: "" })
   })
 
   afterEach(() => {
@@ -154,6 +157,7 @@ describe("sisyphus-task", () => {
     releaseAllPromptAsyncReservationsForTesting()
     cacheSpy?.mockRestore()
     providerModelsSpy?.mockRestore()
+    modelPoolSpy?.mockRestore()
   })
 
   describe("DEFAULT_CATEGORIES", () => {
@@ -4784,6 +4788,181 @@ describe("sisyphus-task", () => {
       expect(result).toContain("session_id: ses_bg_metadata")
       expect(result).toContain("</task_metadata>")
     }, { timeout: 10000 })
+  })
+
+  describe("model pool enforcement", () => {
+    test("blocked model returns actionable error when no fallback available", async () => {
+      // given - pool only allows "anthropic/claude-sonnet-4-6"
+      modelPoolSpy.mockRestore()
+      modelPoolSpy = spyOn(modelPoolModule, "readModelPool").mockReturnValue({
+        version: 1,
+        allowed: [{ providerID: "anthropic", modelID: "claude-sonnet-4-6" }],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })
+
+      const { createDelegateTask } = require("./tools")
+      const mockManager = {
+        launch: async () => ({ id: "t", sessionID: "s", description: "d", agent: "a", status: "running" }),
+      }
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        session: {
+          create: async () => ({ data: { id: "test-session" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async () => ({ data: [] }),
+        },
+      }
+
+      const tool = createDelegateTask({
+        manager: mockManager,
+        client: mockClient,
+        userCategories: {
+          quick: { model: "openai/gpt-5.5" },
+        },
+        connectedProvidersOverride: TEST_CONNECTED_PROVIDERS,
+        availableModelsOverride: createTestAvailableModels(),
+      })
+
+      const toolContext = {
+        sessionID: "parent-session",
+        messageID: "parent-message",
+        agent: "sisyphus",
+        abort: new AbortController().signal,
+      }
+
+      // when
+      const result = await tool.execute(
+        { description: "test", prompt: "do stuff", category: "quick", run_in_background: true, load_skills: [] },
+        toolContext,
+      )
+
+      // then - should return error naming the blocked model
+      expect(typeof result).toBe("string")
+      expect(result).toContain("model-pool")
+      expect(result).toContain("openai/gpt-5.5")
+      expect(result).toContain("blocked")
+    })
+
+    test("blocked model falls back to allowed alternative from fallback chain", async () => {
+      // given - pool blocks the default quick model but allows anthropic/claude-haiku-4-5 (a fallback chain rung)
+      modelPoolSpy.mockRestore()
+      modelPoolSpy = spyOn(modelPoolModule, "readModelPool").mockReturnValue({
+        version: 1,
+        allowed: [
+          { providerID: "anthropic", modelID: "claude-haiku-4-5" },
+          { providerID: "anthropic", modelID: "claude-sonnet-4-6" },
+        ],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })
+
+      const { createDelegateTask } = require("./tools")
+      let launchInput: Record<string, unknown> = {}
+      const mockManager = {
+        launch: async (input: Record<string, unknown>) => {
+          launchInput = input
+          return { id: "t", sessionID: "s", description: "d", agent: "a", status: "running" }
+        },
+        getTask: () => undefined,
+      }
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        session: {
+          create: async () => ({ data: { id: "test-session" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async () => ({ data: [] }),
+        },
+      }
+
+      const tool = createDelegateTask({
+        manager: mockManager,
+        client: mockClient,
+        connectedProvidersOverride: TEST_CONNECTED_PROVIDERS,
+        availableModelsOverride: createTestAvailableModels(),
+      })
+
+      const toolContext = {
+        sessionID: "parent-session",
+        messageID: "parent-message",
+        agent: "sisyphus",
+        abort: new AbortController().signal,
+      }
+
+      // when - quick category default (kimi-for-coding/kimi-for-coding-highspeed) is blocked;
+      // fallback chain for quick includes anthropic/claude-haiku-4-5 which IS allowed
+      const result = await tool.execute(
+        { description: "test", prompt: "do stuff", category: "quick", run_in_background: true, load_skills: [] },
+        toolContext,
+      )
+
+      // then - should have fallen back to an allowed model
+      expect(launchInput.model).toBeDefined()
+      const model = launchInput.model as { providerID: string; modelID: string }
+      expect(model.providerID).toBe("anthropic")
+      expect(model.modelID).toBe("claude-haiku-4-5")
+    })
+
+    test("empty pool allows all models (backward compatible)", async () => {
+      // given - empty pool (no restrictions)
+      modelPoolSpy.mockRestore()
+      modelPoolSpy = spyOn(modelPoolModule, "readModelPool").mockReturnValue({
+        version: 1,
+        allowed: [],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })
+
+      const { createDelegateTask } = require("./tools")
+      let launchInput: Record<string, unknown> = {}
+      const mockManager = {
+        launch: async (input: Record<string, unknown>) => {
+          launchInput = input
+          return { id: "t", sessionID: "s", description: "d", agent: "a", status: "running" }
+        },
+      }
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        session: {
+          create: async () => ({ data: { id: "test-session" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async () => ({ data: [] }),
+        },
+      }
+
+      const tool = createDelegateTask({
+        manager: mockManager,
+        client: mockClient,
+        userCategories: {
+          ultrabrain: { model: "openai/gpt-5.5", variant: "xhigh" },
+        },
+        connectedProvidersOverride: TEST_CONNECTED_PROVIDERS,
+        availableModelsOverride: createTestAvailableModels(),
+      })
+
+      const toolContext = {
+        sessionID: "parent-session",
+        messageID: "parent-message",
+        agent: "sisyphus",
+        abort: new AbortController().signal,
+      }
+
+      // when
+      await tool.execute(
+        { description: "test", prompt: "do stuff", category: "ultrabrain", run_in_background: true, load_skills: [] },
+        toolContext,
+      )
+
+      // then - model should pass through unchanged
+      expect(launchInput.model).toEqual({
+        providerID: "openai",
+        modelID: "gpt-5.5",
+        variant: "xhigh",
+      })
+    })
   })
 })
 
