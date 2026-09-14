@@ -10,10 +10,15 @@ const DEFAULT_STALL_TIMEOUT_MS = 180_000 // 3 minutes
 let STALL_TIMEOUT_MS = DEFAULT_STALL_TIMEOUT_MS
 const DEFAULT_ACTIVE_TOOL_TIMEOUT_MS = 60 * 60 * 1000 // 60 minutes
 let ACTIVE_TOOL_TIMEOUT_MS = DEFAULT_ACTIVE_TOOL_TIMEOUT_MS
+// While the session is still producing output (unfinished assistant message with
+// text/reasoning parts), allow this much no-signature-change time before stalling.
+const DEFAULT_PRODUCTION_TIMEOUT_MS = 4 * DEFAULT_STALL_TIMEOUT_MS // 12 minutes
+let PRODUCTION_TIMEOUT_MS = DEFAULT_PRODUCTION_TIMEOUT_MS
 
 export const DEFAULT_SYNC_POLL_TIMEOUT_MS = DEFAULT_POLL_TIMEOUT_MS
 export const DEFAULT_SYNC_STALL_TIMEOUT_MS = DEFAULT_STALL_TIMEOUT_MS
 export const DEFAULT_SYNC_ACTIVE_TOOL_TIMEOUT_MS = DEFAULT_ACTIVE_TOOL_TIMEOUT_MS
+export const DEFAULT_SYNC_PRODUCTION_TIMEOUT_MS = DEFAULT_PRODUCTION_TIMEOUT_MS
 
 export function getDefaultSyncPollTimeoutMs(): number {
   return MAX_POLL_TIME_MS
@@ -30,6 +35,7 @@ export function getTimingConfig() {
     SESSION_CONTINUATION_STABILITY_MS,
     STALL_TIMEOUT_MS,
     ACTIVE_TOOL_TIMEOUT_MS,
+    PRODUCTION_TIMEOUT_MS,
   }
 }
 
@@ -43,6 +49,7 @@ export function __resetTimingConfig(): void {
   SESSION_CONTINUATION_STABILITY_MS = 5000
   STALL_TIMEOUT_MS = DEFAULT_STALL_TIMEOUT_MS
   ACTIVE_TOOL_TIMEOUT_MS = DEFAULT_ACTIVE_TOOL_TIMEOUT_MS
+  PRODUCTION_TIMEOUT_MS = DEFAULT_PRODUCTION_TIMEOUT_MS
 }
 
 export function __setTimingConfig(overrides: Partial<ReturnType<typeof getTimingConfig>>): void {
@@ -55,4 +62,5 @@ export function __setTimingConfig(overrides: Partial<ReturnType<typeof getTiming
   if (overrides.SESSION_CONTINUATION_STABILITY_MS !== undefined) SESSION_CONTINUATION_STABILITY_MS = overrides.SESSION_CONTINUATION_STABILITY_MS
   if (overrides.STALL_TIMEOUT_MS !== undefined) STALL_TIMEOUT_MS = overrides.STALL_TIMEOUT_MS
   if (overrides.ACTIVE_TOOL_TIMEOUT_MS !== undefined) ACTIVE_TOOL_TIMEOUT_MS = overrides.ACTIVE_TOOL_TIMEOUT_MS
+  if (overrides.PRODUCTION_TIMEOUT_MS !== undefined) PRODUCTION_TIMEOUT_MS = overrides.PRODUCTION_TIMEOUT_MS
 }

@@ -25,6 +25,12 @@ export const ExperimentalConfigSchema = z.object({
   max_tools: z.number().int().min(1).optional(),
   /** Disable routing parent-targeted internal prompts through the live opencode listener (rollback to pre-migration in-process dispatch) */
   disable_live_parent_wake_routing: z.boolean().optional(),
+  /** Stall timeout (ms) for a busy sync session with no activity and no running tool (default: 180000) */
+  sync_stall_timeout_ms: z.number().int().min(1000).optional(),
+  /** Grace timeout (ms) for a busy sync session still producing output before it is treated as stalled (default: 720000) */
+  sync_production_timeout_ms: z.number().int().min(1000).optional(),
+  /** Timeout (ms) for a continuously running tool in a busy sync session (default: 3600000) */
+  sync_active_tool_timeout_ms: z.number().int().min(1000).optional(),
 })
 
 export type ExperimentalConfig = z.infer<typeof ExperimentalConfigSchema>

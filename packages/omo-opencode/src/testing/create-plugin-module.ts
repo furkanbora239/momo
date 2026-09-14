@@ -47,6 +47,7 @@ import {
 } from "../shared/live-server-route"
 import { startBackgroundCheck as startTmuxCheck } from "../tools/interactive-bash"
 import { runOpenCodeStartupMigration } from "../startup-migration"
+import { __setTimingConfig } from "../tools/delegate-task/timing"
 
 type StartupToastClient = {
   readonly tui?: {
@@ -266,6 +267,11 @@ export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): P
     }
     deps.initLiveServerRoute({ serverUrl: input.serverUrl, directory: input.directory, inProcessClient: input.client })
     deps.setLiveParentWakeRoutingDisabled(pluginConfig.experimental?.disable_live_parent_wake_routing === true)
+    __setTimingConfig({
+      STALL_TIMEOUT_MS: pluginConfig.experimental?.sync_stall_timeout_ms,
+      PRODUCTION_TIMEOUT_MS: pluginConfig.experimental?.sync_production_timeout_ms,
+      ACTIVE_TOOL_TIMEOUT_MS: pluginConfig.experimental?.sync_active_tool_timeout_ms,
+    })
     deps.warmLiveServerProbe()
     const runtimeSecuritySkills = selectRuntimeSecuritySkills(pluginConfig)
     let runtimeSkillSource: Awaited<ReturnType<PluginModuleDeps["createRuntimeSkillSourceServer"]>> | undefined

@@ -75,7 +75,7 @@ describe("syncPollTimeoutMs threading", () => {
             taskId: undefined,
           }, 120_000)
 
-          expect(result).toBe("Poll inactivity timeout reached after 120000ms without active OpenCode status for session ses_custom")
+          expect(result).toBe("Poll inactivity timeout reached after 120000ms without active OpenCode status for session ses_custom (reason: timeout)")
           expect(abortCount).toBe(1)
         })
       })
@@ -141,7 +141,7 @@ describe("syncPollTimeoutMs threading", () => {
             taskId: undefined,
           })
 
-          expect(result).toBe(`Poll inactivity timeout reached after ${MAX_POLL_TIME_MS}ms without active OpenCode status for session ses_default`)
+          expect(result).toBe(`Poll inactivity timeout reached after ${MAX_POLL_TIME_MS}ms without active OpenCode status for session ses_default (reason: timeout)`)
         })
       })
 
@@ -159,7 +159,7 @@ describe("syncPollTimeoutMs threading", () => {
             taskId: undefined,
           })
 
-          expect(result).toBe("Poll inactivity timeout reached after 120000ms without active OpenCode status for session ses_legacy")
+          expect(result).toBe("Poll inactivity timeout reached after 120000ms without active OpenCode status for session ses_legacy (reason: timeout)")
         })
       })
     })
@@ -177,7 +177,7 @@ describe("syncPollTimeoutMs threading", () => {
             taskId: undefined,
           }, 10)
 
-          expect(result).toBe("Poll inactivity timeout reached after 50ms without active OpenCode status for session ses_guard")
+          expect(result).toBe("Poll inactivity timeout reached after 50ms without active OpenCode status for session ses_guard (reason: timeout)")
         })
       })
     })
