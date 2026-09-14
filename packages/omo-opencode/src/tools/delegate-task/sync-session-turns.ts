@@ -39,12 +39,16 @@ function getLastSessionTurns(messages: readonly SessionMessage[]): LastSessionTu
   return { lastAssistant, lastRelevantUser }
 }
 
+export function hasPendingToolPart(message: SessionMessage): boolean {
+  return (message.parts ?? []).some((part) => part.type !== undefined && PENDING_TOOL_PART_TYPES.has(part.type))
+}
+
 export function isSessionComplete(messages: readonly SessionMessage[]): boolean {
   const { lastAssistant, lastRelevantUser } = getLastSessionTurns(messages)
 
   if (!lastAssistant?.info?.finish) return false
   if (NON_TERMINAL_FINISH_REASONS.has(lastAssistant.info.finish)) return false
-  if (lastAssistant.parts?.some((part) => part.type && PENDING_TOOL_PART_TYPES.has(part.type))) return false
+  if (hasPendingToolPart(lastAssistant)) return false
   if (!lastRelevantUser?.info?.id || !lastAssistant?.info?.id) return false
   return lastRelevantUser.info.id < lastAssistant.info.id
 }
