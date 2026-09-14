@@ -208,15 +208,16 @@ describe("createToolOutputTruncatorHook", () => {
     describe("#given max_tool_output_chars hard cap", () => {
       const longOutput = "a".repeat(9000)
 
-      it("#then should cap oversized output on non-listed tools at 8000 chars by default", async () => {
+      it("#then should cap oversized output on non-listed tools at 8000 chars by default and mention the saved path", async () => {
         const input = createInput("Read")
         const output = createOutput(longOutput)
 
         await hook["tool.execute.after"](input, output)
 
         expect(output.output.startsWith("a".repeat(8000))).toBe(true)
-        expect(output.output).toContain("[output truncated at 8000 characters by momo tool-output cap]")
-        expect(output.output.length).toBeLessThan(8100)
+        expect(output.output).toContain("[output truncated at 8000 characters by momo tool-output cap")
+        expect(output.output).toMatch(/saved to \S+\.txt/)
+        expect(output.output).toContain("page through the rest")
       })
 
       it("#then should honor a custom cap value", async () => {
@@ -229,7 +230,8 @@ describe("createToolOutputTruncatorHook", () => {
         await hook["tool.execute.after"](input, output)
 
         expect(output.output.startsWith("a".repeat(100))).toBe(true)
-        expect(output.output).toContain("[output truncated at 100 characters by momo tool-output cap]")
+        expect(output.output).toContain("[output truncated at 100 characters by momo tool-output cap")
+        expect(output.output).toMatch(/saved to \S+\.txt/)
       })
 
       it("#then should not cap when max_tool_output_chars is 0", async () => {
