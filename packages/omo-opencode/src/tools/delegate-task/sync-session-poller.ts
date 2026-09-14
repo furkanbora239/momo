@@ -122,6 +122,7 @@ export const SYNC_ABORT_REASONS = {
   max_turns: "max_turns",
   timeout: "timeout",
   provider_error: "provider_error",
+  no_progress: "no_progress",
 } as const
 
 export type SyncAbortReason = (typeof SYNC_ABORT_REASONS)[keyof typeof SYNC_ABORT_REASONS]
@@ -208,6 +209,7 @@ export async function pollSyncSession(
   let timedOut = false
   let assistantTurnCount = 0
   let lastSeenAssistantId: string | undefined
+  let sawActiveAfterAnchor = false
   const childSettleMs = input.childWakeGraceMs ?? CHILD_WAKE_GRACE_MS
   let childWaitAssistantId: string | undefined
   let childSettleStartedAt = 0
@@ -308,6 +310,7 @@ export async function pollSyncSession(
     }
 
     if (isActiveSessionStatus(sessionStatus)) {
+      sawActiveAfterAnchor = true
       const stallElapsed = loopNow - lastActivityAt
       if (pollCount % 3 === 0 || stallElapsed >= syncTiming.STALL_TIMEOUT_MS) {
         let activeMessages: SessionMessage[] = []
@@ -412,14 +415,34 @@ export async function pollSyncSession(
       continue
     }
 
-    const sessionError = getTerminalSessionError(messages)
+    // Continuation-aware slice: terminal/error/turn checks must only see
+    // messages produced after the resume prompt, not pre-anchor turns.
+    const relevantMessages =
+      input.anchorMessageCount !== undefined ? messages.slice(input.anchorMessageCount) : messages
+
+    // Pre-anchor turns make the session report completion while the resumed
+    // session produced no new assistant turn. That completion is stale:
+    // surface no_progress so the caller retries with a fresh session. The
+    // sawActiveAfterAnchor gate prevents a fast-fail when the resume prompt
+    // has not produced a busy status yet and the turn has simply not started.
+    if (
+      input.anchorMessageCount !== undefined &&
+      sawActiveAfterAnchor &&
+      isSessionComplete(messages) &&
+      !relevantMessages.some((m) => m.info?.role === "assistant")
+    ) {
+      log("[task] Continuation made no progress", { sessionID: input.sessionID, pollCount })
+      return `Task produced no new work (reason: ${SYNC_ABORT_REASONS.no_progress}). The session may be exhausted or poisoned; retry with a fresh session instead of reusing this task id. Session ID: ${input.sessionID}`
+    }
+
+    const sessionError = getTerminalSessionError(relevantMessages)
     if (sessionError) {
       log("[task] Poll detected terminal session error", { sessionID: input.sessionID, sessionError })
       return `Task aborted (reason: ${SYNC_ABORT_REASONS.provider_error}): ${sessionError}`
     }
 
-    if (isSessionComplete(messages)) {
-      const currentAssistantId = [...messages].reverse().find((m) => m.info?.role === "assistant")?.info?.id
+    if (isSessionComplete(relevantMessages)) {
+      const currentAssistantId = [...relevantMessages].reverse().find((m) => m.info?.role === "assistant")?.info?.id
       if (isAwaitingChildContinuation(currentAssistantId)) {
         continue
       }
@@ -428,7 +451,7 @@ export async function pollSyncSession(
     }
 
     // Count new assistant turns to circuit-break infinite loops
-    const lastAssistant = [...messages].reverse().find((m) => m.info?.role === "assistant")
+    const lastAssistant = [...relevantMessages].reverse().find((m) => m.info?.role === "assistant")
     if (lastAssistant?.info?.id && lastAssistant.info.id !== lastSeenAssistantId) {
       lastSeenAssistantId = lastAssistant.info.id
       assistantTurnCount++
@@ -444,7 +467,7 @@ export async function pollSyncSession(
       }
     }
 
-    const hasAssistantTextNow = hasAssistantText(messages)
+    const hasAssistantTextNow = hasAssistantText(relevantMessages)
 
     if (!lastAssistant?.info?.finish && hasAssistantTextNow) {
       if (isAwaitingChildContinuation(lastAssistant?.info?.id)) {
