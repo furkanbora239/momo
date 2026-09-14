@@ -253,7 +253,7 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/furkanbora239/momo/dev/assets/oh-my-opencode.schema.json",
+  "$schema": "https://raw.githubusercontent.com/furkanbora239/momo/main/assets/oh-my-opencode.schema.json",
 
   // 1. Prompt Translator (cloud by default, Ollama optional)
   "local_translator": {
@@ -351,6 +351,13 @@ momo works out of the box with zero configuration. To customize behavior, create
 ---
 
 ## 🛠️ Developer & Contributor Guide
+
+### Branches
+
+| Branch | Purpose |
+|---|---|
+| `main` | Stable, everyday-use snapshot. Verified states promoted from `dev` (typecheck clean, tests green, live-verified behavior). What most users should install. |
+| `dev` | Integration branch. All PRs land here first; experimental or in-progress work stays on `dev` until verified. |
 
 ### Common Development Commands
 
