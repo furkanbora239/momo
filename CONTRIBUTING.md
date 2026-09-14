@@ -1,6 +1,6 @@
 # Contributing to Oh My OpenCode
 
-First off, thanks for taking the time to contribute! This document provides guidelines and instructions for contributing to oh-my-opencode.
+First off, thanks for taking the time to contribute! This document provides guidelines and instructions for contributing to momo, the token-efficient fork of oh-my-openagent.
 
 ## Table of Contents
 
@@ -10,6 +10,7 @@ First off, thanks for taking the time to contribute! This document provides guid
   - [Prerequisites](#prerequisites)
   - [Development Setup](#development-setup)
   - [Testing Your Changes Locally](#testing-your-changes-locally)
+- [Branching & Repository Rules](#branching--repository-rules)
 - [Development Environment](#development-environment)
 - [Credentials & Isolation](#credentials--isolation)
 - [Project Structure](#project-structure)
@@ -119,6 +120,35 @@ After making changes, you can test your local build in OpenCode:
 3. **Restart OpenCode** to load the changes.
 
 4. **Verify** the plugin is loaded by checking for OmO agent availability or startup messages.
+
+## Branching & Repository Rules
+
+| Branch | Role |
+| ------ | ---- |
+| `main` | Stable, everyday-use snapshot and the GitHub default branch. Verified states are promoted from `dev`. |
+| `dev` | Integration branch. All pull requests land on `dev` first; experimental or in-progress work stays on `dev` until verified. |
+
+### Protection rules on `main`
+
+The repository ruleset `protect-main` (active) applies to `refs/heads/main` with three rules:
+
+| Rule | What it rejects |
+| ---- | --------------- |
+| `pull_request` | Direct pushes to `main`, including from repository admins. Changes to `main` must go through a pull request. |
+| `non_fast_forward` | Force pushes. |
+| `deletion` | Deleting the branch. |
+
+> **Gotcha**: the repository default branch is `main`, so `gh pr create` without `--base` targets `main`. Feature PRs must pass `--base dev`; only maintainer promotion PRs (below) target `main`. Direct pushes to `main` fail with GH013.
+
+### Promotion flow (maintainers)
+
+When a `dev` state is verified (typecheck clean, `bun test` green, behavior live-verified), promote it to `main`:
+
+```bash
+gh pr create --repo <owner>/<repo> --base main --head dev --title "promote: <summary>"
+```
+
+Then merge that pull request. This is the only way `main` advances.
 
 ## Development Environment
 
@@ -340,6 +370,8 @@ Any change to `packages/omo-opencode` (the OpenCode side) must be QA'd with the 
 
 ### PR Checklist
 
+- [ ] PR targets `dev` (not `main`)
+- [ ] typecheck + focused tests green
 - [ ] Code follows project conventions
 - [ ] `bun run typecheck` passes
 - [ ] `bun run build` succeeds
