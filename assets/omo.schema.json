@@ -12335,6 +12335,15 @@
         "comment_checker": {
           "type": "object",
           "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "ignore_paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "custom_prompt": {
               "type": "string"
             }
@@ -28963,6 +28972,15 @@
               "comment_checker": {
                 "type": "object",
                 "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "ignore_paths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
                   "custom_prompt": {
                     "type": "string"
                   }

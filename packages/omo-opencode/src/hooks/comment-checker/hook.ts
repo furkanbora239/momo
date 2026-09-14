@@ -16,6 +16,7 @@ import {
   takePendingCall,
 } from "./pending-calls"
 import { ensureCommentCheckerInitialization } from "./initialization-gate"
+import { matchesIgnorePath } from "./path-ignore"
 
 import * as fs from "fs"
 import { tmpdir } from "os"
@@ -52,6 +53,14 @@ export function createCommentCheckerHooks(
   }
   debugLog("createCommentCheckerHooks called", { config })
 
+  if (config?.enabled === false) {
+    return {
+      "tool.execute.before": async (): Promise<void> => {},
+      "tool.execute.after": async (): Promise<void> => {},
+      dispose: (): void => {},
+    }
+  }
+
   return {
     "tool.execute.before": async (
       input: { tool: string; sessionID: string; callID: string },
@@ -86,6 +95,11 @@ export function createCommentCheckerHooks(
 
       if (!filePath) {
         debugLog("no filePath found")
+        return
+      }
+
+      if (config?.ignore_paths && matchesIgnorePath(filePath, config.ignore_paths)) {
+        debugLog("skipping ignored path:", filePath)
         return
       }
 
