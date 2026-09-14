@@ -34,6 +34,11 @@ import { logLegacyPluginStartupWarning } from "../shared/log-legacy-plugin-start
 import { migrateLegacyWorkspaceDirectory } from "../shared/legacy-workspace-migration"
 import { sweepOmoFamiliesBestEffort } from "../shared/omo-process-sweep"
 import { injectServerAuthIntoClient } from "../shared/opencode-server-auth"
+import {
+	isProviderModelsCacheStale,
+	PROVIDER_CACHE_MAX_AGE_MS,
+	updateConnectedProvidersCache,
+} from "../shared/connected-providers-cache"
 import { recordPluginTelemetry } from "../shared/posthog"
 import {
   initLiveServerRoute,
@@ -232,6 +237,17 @@ export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): P
     }
 
     deps.injectServerAuthIntoClient(input.client)
+
+    // The provider-models cache is only refreshed on session.created, so
+    // restarting OpenCode and resuming an existing session never refreshes it.
+    // Fire a non-blocking startup refresh when the cache is missing or stale.
+    if (isProviderModelsCacheStale(PROVIDER_CACHE_MAX_AGE_MS)) {
+      void updateConnectedProvidersCache(input.client).catch((error) => {
+        deps.log("[connected-providers-cache] startup refresh failed", {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      })
+    }
 
     const pluginConfig = startupValidation.config
     try {

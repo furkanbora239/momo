@@ -608,3 +608,81 @@ describe("updateConnectedProvidersCache", () => {
 		}
 	})
 })
+
+describe("isProviderModelsCacheStale", () => {
+	function setupCacheDir(): string {
+		const fakeCacheRoot = mkdtempSync(join(tmpdir(), "provider-cache-stale-"))
+		process.env.XDG_CACHE_HOME = fakeCacheRoot
+		return fakeCacheRoot
+	}
+
+	function writeProviderModelsCache(updatedAt: string): void {
+		const cacheDir = join(process.env.XDG_CACHE_HOME!, "oh-my-opencode")
+		mkdirSync(cacheDir, { recursive: true })
+		writeFileSync(
+			join(cacheDir, "provider-models.json"),
+			JSON.stringify({ models: {}, connected: [], updatedAt }),
+		)
+	}
+
+	function cleanupCacheDir(fakeCacheRoot: string): void {
+		delete process.env.XDG_CACHE_HOME
+		if (existsSync(fakeCacheRoot)) {
+			rmSync(fakeCacheRoot, { recursive: true, force: true })
+		}
+	}
+
+	test("reports stale when the cache file is missing", async () => {
+		const fakeCacheRoot = setupCacheDir()
+		try {
+			//#given - no provider-models.json on disk
+			const { isProviderModelsCacheStale, PROVIDER_CACHE_MAX_AGE_MS } =
+				await importFreshConnectedProvidersCacheModule()
+
+			//#when
+			const stale = isProviderModelsCacheStale(PROVIDER_CACHE_MAX_AGE_MS)
+
+			//#then
+			expect(stale).toBe(true)
+		} finally {
+			cleanupCacheDir(fakeCacheRoot)
+		}
+	})
+
+	test("reports fresh when updatedAt is within the max age", async () => {
+		const fakeCacheRoot = setupCacheDir()
+		try {
+			//#given
+			writeProviderModelsCache(new Date().toISOString())
+			const { isProviderModelsCacheStale, PROVIDER_CACHE_MAX_AGE_MS } =
+				await importFreshConnectedProvidersCacheModule()
+
+			//#when
+			const stale = isProviderModelsCacheStale(PROVIDER_CACHE_MAX_AGE_MS)
+
+			//#then
+			expect(stale).toBe(false)
+		} finally {
+			cleanupCacheDir(fakeCacheRoot)
+		}
+	})
+
+	test("reports stale when updatedAt is older than the max age", async () => {
+		const fakeCacheRoot = setupCacheDir()
+		try {
+			//#given
+			const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString()
+			writeProviderModelsCache(old)
+			const { isProviderModelsCacheStale, PROVIDER_CACHE_MAX_AGE_MS } =
+				await importFreshConnectedProvidersCacheModule()
+
+			//#when
+			const stale = isProviderModelsCacheStale(PROVIDER_CACHE_MAX_AGE_MS)
+
+			//#then
+			expect(stale).toBe(true)
+		} finally {
+			cleanupCacheDir(fakeCacheRoot)
+		}
+	})
+})

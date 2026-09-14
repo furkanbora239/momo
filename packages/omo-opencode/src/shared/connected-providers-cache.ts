@@ -300,3 +300,17 @@ export const {
 	updateConnectedProvidersCache,
 	_resetMemCacheForTesting,
 } = defaultConnectedProvidersCacheStore
+
+// Provider-models cache is refreshed on startup if older than this.
+export const PROVIDER_CACHE_MAX_AGE_MS = 6 * 60 * 60 * 1000
+
+// True when the provider-models cache is missing, has an unparseable
+// updatedAt, or is older than maxAgeMs. Drives the startup refresh so a
+// resumed session after a restart still gets a fresh cache.
+export function isProviderModelsCacheStale(maxAgeMs: number): boolean {
+	const cache = readProviderModelsCache()
+	if (cache === null) return true
+	const updatedAt = Date.parse(cache.updatedAt)
+	if (Number.isNaN(updatedAt)) return true
+	return Date.now() - updatedAt > maxAgeMs
+}
