@@ -1,6 +1,7 @@
 import type { TuiPluginModule } from "@opencode-ai/plugin/tui"
 
 import { registerBtwSideTui } from "./features/btw-side"
+import { registerModelPoolTui } from "./features/model-pool"
 import { computeView, viewKey } from "./features/tui-sidebar/compute-view"
 import { POLL_INTERVAL_MS } from "./features/tui-sidebar/constants"
 import { deriveAgents, deriveConfig, deriveJobBoard, deriveLoop, deriveRoster } from "./features/tui-sidebar/derivers"
@@ -129,6 +130,12 @@ const module: TuiPluginModule = {
       await registerBtwSideTui(api, solid)
     } catch (error) {
       log("[btw-side] TUI registration failed", { error })
+    }
+
+    try {
+      await registerModelPoolTui(api, solid)
+    } catch (error) {
+      log("[model-pool] TUI registration failed", { error })
     }
 
     const directory = api.state.path.directory
