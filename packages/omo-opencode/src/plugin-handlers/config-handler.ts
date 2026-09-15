@@ -2,7 +2,8 @@ import type { OhMyOpenCodeConfig } from "../config";
 import { applyRuntimeSkillSourceConfig } from "../features/opencode-runtime-skills"
 import { setAdditionalAllowedMcpEnvVars } from "../features/claude-code-mcp-loader";
 import type { ModelCacheState } from "../plugin-state";
-import { log } from "../shared";
+import { createLiveModelConfigInjector, log, readModelPool, readProviderModelsCache } from "../shared";
+
 import { applyAgentConfig } from "./agent-config-handler";
 import { applyCommandConfig } from "./command-config-handler";
 import { applyHookConfig } from "./hook-config-handler";
@@ -89,12 +90,20 @@ function replayAgentConfigSideEffects(params: {
 
 export function createConfigHandler(deps: ConfigHandlerDeps) {
   const { ctx, pluginConfig, modelCacheState, runtimeSkillSourceUrl } = deps;
+  const injectLiveProviderModels = createLiveModelConfigInjector({
+    readProviderModelsCache,
+    readModelPool,
+  });
   let agentConfigSnapshot: AgentConfigSnapshot | undefined;
 
   return async (config: Record<string, unknown>) => {
     const formatterConfig = config.formatter;
 
     setAdditionalAllowedMcpEnvVars(pluginConfig.mcp_env_allowlist ?? [])
+    // Inject live-only provider models BEFORE applyProviderConfig so phase 1
+    // also caches the context limits of the injected entries. The injector is
+    // defensive: it never throws and never touches the network.
+    injectLiveProviderModels(config);
     applyProviderConfig({
       config,
       modelCacheState,
