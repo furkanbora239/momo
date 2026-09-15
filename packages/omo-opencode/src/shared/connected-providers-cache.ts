@@ -42,6 +42,10 @@ export interface ModelMetadata {
 
 export interface ProviderModelsCache {
 	models: Record<string, string[] | ModelMetadata[]>
+	// Registry (models.dev) ids per provider, kept separate from `models`
+	// (reconciled against the live /models endpoint) so live-only ids are
+	// distinguishable.
+	registryModels?: Record<string, string[]>
 	connected: string[]
 	updatedAt: string
 }
@@ -139,7 +143,7 @@ export function createConnectedProvidersCacheStore(
 		return providerModelsCacheStore.has()
 	}
 
-	function writeProviderModelsCache(data: { models: Record<string, string[] | ModelMetadata[]>; connected: string[] }): void {
+	function writeProviderModelsCache(data: { models: Record<string, string[] | ModelMetadata[]>; registryModels?: Record<string, string[]>; connected: string[] }): void {
 		providerModelsCacheStore.write({
 			...data,
 			updatedAt: new Date().toISOString(),
@@ -212,6 +216,42 @@ export function createConnectedProvidersCacheStore(
 			}
 			const mergedModelsByProvider = mergeProviderModels(previousProviderModels?.models, modelsByProvider, connected, reportedModelProviderIDs)
 
+			// `client.provider.list()` reports the provider's effective model
+			// list, which includes models the config injector added during this
+			// session. Those ids are live-only, not registry-declared; folding
+			// them into the registry baseline would make the next session treat
+			// them as registry models and stop injecting them (the picker would
+			// oscillate between sessions). Subtract the previous cache's
+			// live-only ids so the baseline stays registry-faithful.
+			const previousLiveOnlyIdsByProvider = new Map<string, Set<string>>()
+			if (previousProviderModels) {
+				for (const provider of connected) {
+					const previousRegistry = previousProviderModels.registryModels?.[provider]
+					const previousLive = previousProviderModels.models?.[provider]
+					if (!Array.isArray(previousLive)) continue
+					const registrySet = new Set(Array.isArray(previousRegistry) ? previousRegistry : [])
+					const liveOnly = new Set<string>()
+					for (const entry of previousLive) {
+						const id = typeof entry === "string" ? entry : isRecord(entry) && typeof entry.id === "string" ? entry.id : null
+						if (id && !registrySet.has(id)) liveOnly.add(id)
+					}
+					if (liveOnly.size > 0) previousLiveOnlyIdsByProvider.set(provider, liveOnly)
+				}
+			}
+
+			const registryModelIdsByProvider: Record<string, string[]> = {}
+			for (const provider of connected) {
+				const fetched = modelsByProvider[provider]
+				if (fetched) {
+					const previousLiveOnly = previousLiveOnlyIdsByProvider.get(provider)
+					registryModelIdsByProvider[provider] = previousLiveOnly
+						? fetched.map((entry) => entry.id).filter((id) => !previousLiveOnly.has(id))
+						: fetched.map((entry) => entry.id)
+				} else if (previousProviderModels?.registryModels?.[provider]) {
+					registryModelIdsByProvider[provider] = previousProviderModels.registryModels[provider]
+				}
+			}
+
 			log("[connected-providers-cache] Extracted models from provider list", {
 				providerCount: Object.keys(mergedModelsByProvider).length,
 				totalModels: Object.values(mergedModelsByProvider).reduce((sum, ids) => sum + ids.length, 0),
@@ -237,6 +277,7 @@ export function createConnectedProvidersCacheStore(
 
 			writeProviderModelsCache({
 				models: finalModelsByProvider,
+				registryModels: registryModelIdsByProvider,
 				connected,
 			})
 		} catch (err) {
