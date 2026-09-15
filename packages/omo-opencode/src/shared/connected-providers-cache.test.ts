@@ -607,6 +607,58 @@ describe("updateConnectedProvidersCache", () => {
 			cleanupTestCacheContext(fakeUserCacheRoot)
 		}
 	})
+
+	test("given a previous cache with live-only ids that provider.list now reports, when updating, then the registry baseline excludes them", async () => {
+		const { createConnectedProvidersCacheStore } = await importFreshConnectedProvidersCacheModule()
+		const { testCacheStore, fakeUserCacheRoot } = createTestCacheContext(createConnectedProvidersCacheStore)
+
+		try {
+			//#given
+			// Previous cache: registry declares glm-5.2; live also has the
+			// live-only glm-5.3-flash (injected into config by a session).
+			testCacheStore.writeProviderModelsCache({
+				models: {
+					neuralwatt: [
+						{ id: "glm-5.2", name: "GLM 5.2" },
+						{ id: "glm-5.3-flash", name: "GLM 5.3 Flash" },
+					],
+				},
+				registryModels: { neuralwatt: ["glm-5.2"] },
+				connected: ["neuralwatt"],
+			})
+			// provider.list reports the effective model list, which includes the
+			// config-injected live-only id.
+			const mockClient = {
+				provider: {
+					list: async () => ({
+						data: {
+							connected: ["neuralwatt"],
+							all: [
+								{
+									id: "neuralwatt",
+									name: "NeuralWatt",
+									env: [],
+									models: {
+										"glm-5.2": { id: "glm-5.2", name: "GLM 5.2" },
+										"glm-5.3-flash": { id: "glm-5.3-flash", name: "GLM 5.3 Flash" },
+									},
+								},
+							],
+						},
+					}),
+				},
+			}
+
+			//#when
+			await testCacheStore.updateConnectedProvidersCache(mockClient)
+
+			//#then
+			const cache = testCacheStore.readProviderModelsCache()
+			expect(cache?.registryModels?.neuralwatt).toEqual(["glm-5.2"])
+		} finally {
+			cleanupTestCacheContext(fakeUserCacheRoot)
+		}
+	})
 })
 
 describe("isProviderModelsCacheStale", () => {
