@@ -1,7 +1,11 @@
 import { describe, expect, it } from "bun:test"
 import type { Message, Part } from "@opencode-ai/sdk/v2"
 
-import { extractSubagentPrompt, promptDetailLines } from "./prompt-reader"
+import {
+  extractSubagentPrompt,
+  extractSubagentPromptFromFetched,
+  promptDetailLines,
+} from "./prompt-reader"
 
 function userMessage(id: string): Message {
   return {
@@ -62,6 +66,33 @@ function subtaskPart(messageID: string, prompt: string): Part {
   }
 }
 
+describe("extractSubagentPromptFromFetched", () => {
+  it("#given fetched messages with a first user message #when extracting #then it returns the subtask prompt", () => {
+    // given
+    const fetched = [
+      { info: userMessage("msg-1"), parts: [subtaskPart("msg-1", "Map every caller")] },
+      { info: assistantMessage("msg-2"), parts: [] },
+    ]
+
+    // when
+    const prompt = extractSubagentPromptFromFetched(fetched)
+
+    // then
+    expect(prompt).toBe("Map every caller")
+  })
+
+  it("#given fetched messages without a user message #when extracting #then it returns null", () => {
+    // given
+    const fetched = [{ info: assistantMessage("msg-2"), parts: [] }]
+
+    // when
+    const prompt = extractSubagentPromptFromFetched(fetched)
+
+    // then
+    expect(prompt).toBeNull()
+  })
+})
+
 describe("extractSubagentPrompt", () => {
   it("#given a first user message with a subtask part #when extracting #then it returns the subtask prompt", () => {
     // given
@@ -119,14 +150,14 @@ describe("extractSubagentPrompt", () => {
 })
 
 describe("promptDetailLines", () => {
-  it("#given a null prompt #when formatting #then it reports the prompt as unavailable", () => {
+  it("#given a null prompt #when formatting #then it reports the prompt as not synced", () => {
     // given
 
     // when
     const lines = promptDetailLines(null)
 
     // then
-    expect(lines.join(" ")).toContain("Prompt unavailable")
+    expect(lines.join(" ")).toContain("not synced")
   })
 
   it("#given a long prompt line #when formatting #then it wraps to the width cap", () => {

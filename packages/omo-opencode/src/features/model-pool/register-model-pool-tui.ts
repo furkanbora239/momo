@@ -1,95 +1,51 @@
-import type {
-  TuiDialogSelectOption,
-  TuiDialogStack,
-  TuiPluginApi,
-} from "@opencode-ai/plugin/tui"
+import type { TuiDialogStack, TuiPluginApi } from "@opencode-ai/plugin/tui"
 
 import { log } from "../../shared/logger"
 import {
   isModelAllowed,
-  isModelPreferred,
   readModelPool,
   toggleModelInPool,
   writeModelPool,
   type ModelPool,
   type ModelPoolEntry,
 } from "../../shared/model-pool"
+import { readProviderHealth } from "../../shared/provider-health"
 import {
-  isProviderAvailable,
-  readProviderHealth,
-} from "../../shared/provider-health"
+  appendFilterChar,
+  backspaceFilter,
+  buildCardListNode,
+  createFocusList,
+  escFilterAction,
+  filterCards,
+  registerCardKeymap,
+  restyleCard,
+  scrollCardIntoView,
+  type CardListNodeRefs,
+  type CardTheme,
+  type FocusList,
+  type SolidRuntime,
+} from "../tui-card"
+import { collectPoolCatalogRows, type PoolCatalogRow } from "./pool-catalog-rows"
 import {
-  collectPoolCatalogRows,
-  type PoolCatalogRow,
-} from "./pool-catalog-rows"
+  buildPoolCards,
+  groupPoolCards,
+  poolFilterTexts,
+  poolProviderHealthNote,
+  type PoolCard,
+} from "./pool-cards"
 
-type SolidRuntime<Node> = {
-  readonly createElement: (tag: string) => Node
-  readonly insert: (
-    parent: Node,
-    child: unknown,
-    marker?: unknown,
-    initial?: unknown,
-  ) => unknown
-  readonly setProp: (
-    node: Node,
-    name: string,
-    value: unknown,
-    previous?: unknown,
-  ) => unknown
-}
+const CARD_MODE = "omo.tui-card.pool"
+const CLEAR_KEY = "alt+c"
 
-type PoolOptionValue =
-  | { readonly kind: "model"; readonly providerID: string; readonly modelID: string }
-  | { readonly kind: "reset" }
-
-function formatPrice(row: PoolCatalogRow): string {
-  if (row.inputPerM === undefined || row.outputPerM === undefined) {
-    return "price unknown"
-  }
-  return `in $${row.inputPerM.toFixed(2)} / out $${row.outputPerM.toFixed(2)} per M`
-}
-
-function providerHealthLabel(providerID: string): string {
-  if (isProviderAvailable(providerID)) return "healthy"
-  const entry = readProviderHealth()[providerID.trim().toLowerCase()]
-  return `unhealthy (${entry?.reason ?? "unknown reason"})`
-}
-
-function stateLabel(pool: ModelPool, row: PoolCatalogRow): string {
-  const allowed = isModelAllowed(pool, row.providerID, row.modelID)
-  const preferred = isModelPreferred(pool, row.providerID, row.modelID)
-  return [allowed ? "ALLOWED" : "EXCLUDED", preferred ? "PREFERRED" : undefined]
-    .filter((part): part is string => part !== undefined)
-    .join(" · ")
-}
-
-function buildOptions(
-  rows: readonly PoolCatalogRow[],
-): TuiDialogSelectOption<PoolOptionValue>[] {
-  const pool = readModelPool()
-  const resetOption: TuiDialogSelectOption<PoolOptionValue> = {
-    title: "Clear pool (allow every model)",
-    value: { kind: "reset" },
-    description: "Removes all entries; an empty pool means no restriction",
-    disabled: pool.allowed.length === 0,
-  }
-  const modelOptions: TuiDialogSelectOption<PoolOptionValue>[] = rows.map(
-    (row) => ({
-      title: `${row.providerID}/${row.modelID}`,
-      value: { kind: "model", providerID: row.providerID, modelID: row.modelID },
-      category: row.providerID,
-      description: [
-        formatPrice(row),
-        row.costTier,
-        providerHealthLabel(row.providerID),
-      ]
-        .filter((part): part is string => part !== undefined)
-        .join(" · "),
-      footer: stateLabel(pool, row),
-    }),
-  )
-  return [resetOption, ...modelOptions]
+type PoolDialogState<Node> = {
+  open: boolean
+  popMode: (() => void) | null
+  rows: readonly PoolCatalogRow[]
+  cards: readonly PoolCard[]
+  visible: readonly PoolCard[]
+  filterQuery: string
+  nodeRefs: CardListNodeRefs<Node> | null
+  focus: FocusList
 }
 
 function poolAfterToggle(
@@ -113,14 +69,195 @@ function poolAfterToggle(
   return toggleModelInPool(pool, providerID, modelID)
 }
 
-function handleSelect(
+function healthNoteFor(providerID: string): string | undefined {
+  return poolProviderHealthNote(readProviderHealth(), providerID, Date.now())
+}
+
+function buildCards(rows: readonly PoolCatalogRow[]): PoolCard[] {
+  return buildPoolCards({ pool: readModelPool(), rows, healthNote: healthNoteFor })
+}
+
+function poolHint(): string {
+  return "up/down or j/k move - Enter toggle - Esc clears filter then closes"
+}
+
+function poolFooterHint(): string {
+  return "alt+c clear pool (allow every model)"
+}
+
+export async function registerModelPoolTui<Node>(
   api: TuiPluginApi,
-  dialogStack: TuiDialogStack,
-  rows: readonly PoolCatalogRow[],
-  option: TuiDialogSelectOption<PoolOptionValue>,
-): void {
-  const value = option.value
-  if (value.kind === "reset") {
+  solid: SolidRuntime<Node>,
+): Promise<void> {
+  log("[model-pool] TUI registration started")
+
+  const dialogStack: TuiDialogStack = api.ui.dialog
+  const state: PoolDialogState<Node> = {
+    open: false,
+    popMode: null,
+    rows: [],
+    cards: [],
+    visible: [],
+    filterQuery: "",
+    nodeRefs: null,
+    focus: createFocusList(0),
+  }
+
+  const theme = (): CardTheme => api.theme.current
+  const scrollRows = (): number => {
+    const height = api.renderer.height
+    const topOffset = Math.floor(height / 4)
+    return Math.max(3, height - topOffset - 7)
+  }
+  const requestRender = (): void => {
+    api.renderer.requestRender()
+  }
+
+  const releaseMode = (): void => {
+    state.popMode?.()
+    state.popMode = null
+  }
+
+  const suspend = (): void => {
+    state.open = false
+    releaseMode()
+  }
+
+  const close = (): void => {
+    if (!state.open) return
+    state.open = false
+    releaseMode()
+    dialogStack.clear()
+    requestRender()
+  }
+
+  const activateMode = (): void => {
+    setTimeout(() => {
+      if (!state.open || state.popMode !== null) return
+      state.popMode = api.mode.push(CARD_MODE)
+    }, 0)
+  }
+
+  const mountDialog = (build: () => CardListNodeRefs<Node>): void => {
+    dialogStack.replace(
+      () => {
+        const refs = build()
+        state.nodeRefs = refs
+        return refs.root
+      },
+      () => suspend(),
+    )
+    dialogStack.setSize("xlarge")
+  }
+
+  const buildNodeList = (): CardListNodeRefs<Node> =>
+    buildCardListNode(solid, {
+      title: "Model pool",
+      hint: poolHint(),
+      filterQuery: state.filterQuery,
+      footerHint: poolFooterHint(),
+      groups: groupPoolCards(state.visible),
+      ghostLine: state.visible.length === 0 ? "no models match the filter" : undefined,
+      focusedIndex: state.focus.current(),
+      theme: theme(),
+      scrollRows: scrollRows(),
+    })
+
+  const followFocus = (): void => {
+    const card = state.visible[state.focus.current()]
+    const refs = state.nodeRefs
+    if (card === undefined || refs === null) return
+    setTimeout(() => {
+      if (!state.open) return
+      scrollCardIntoView(refs, card.id)
+      requestRender()
+    }, 0)
+  }
+
+  const openDialog = (): void => {
+    if (state.open) {
+      close()
+    }
+    const rows = collectPoolCatalogRows()
+    if (rows === null) {
+      api.ui.toast({
+        variant: "warning",
+        message: "No provider model catalog is available yet.",
+      })
+      return
+    }
+    state.rows = rows
+    state.cards = buildCards(rows)
+    state.filterQuery = ""
+    state.visible = state.cards
+    state.focus = createFocusList(state.visible.length)
+    state.open = true
+    mountDialog(buildNodeList)
+    activateMode()
+    requestRender()
+  }
+
+  const remountFiltered = (): void => {
+    if (!state.open) return
+    state.visible = filterCards(state.cards, state.filterQuery, poolFilterTexts)
+    state.focus.reseat(state.visible.length)
+    state.focus.reset()
+    mountDialog(buildNodeList)
+    state.open = true
+    activateMode()
+    requestRender()
+  }
+
+  const moveFocusBy = (delta: number): void => {
+    if (!state.open || state.nodeRefs === null) return
+    const previous = state.focus.current()
+    if (!state.focus.move(delta)) return
+    const next = state.focus.current()
+    const refs = state.nodeRefs.cards
+    const previousRef = refs[previous]
+    const nextRef = refs[next]
+    if (previousRef !== undefined) {
+      restyleCard(solid, previousRef, state.visible[previous], false, theme())
+    }
+    if (nextRef !== undefined) {
+      restyleCard(solid, nextRef, state.visible[next], true, theme())
+    }
+    followFocus()
+    requestRender()
+  }
+
+  const refreshBadges = (): void => {
+    if (!state.open || state.nodeRefs === null) return
+    state.cards = buildCards(state.rows)
+    state.visible = filterCards(state.cards, state.filterQuery, poolFilterTexts)
+    state.focus.reseat(state.visible.length)
+    const refs = state.nodeRefs.cards
+    for (let index = 0; index < refs.length; index += 1) {
+      const card = state.visible[index]
+      const ref = refs[index]
+      if (card === undefined || ref === undefined) continue
+      restyleCard(solid, ref, card, index === state.focus.current(), theme())
+    }
+  }
+
+  const activate = (): void => {
+    if (!state.open) return
+    const card = state.visible[state.focus.current()]
+    if (card === undefined) return
+    const pool = readModelPool()
+    const next = poolAfterToggle(pool, state.rows, card.providerID, card.modelID)
+    writeModelPool(next)
+    const allowed = isModelAllowed(next, card.providerID, card.modelID)
+    api.ui.toast({
+      variant: "info",
+      message: `${card.providerID}/${card.modelID} ${allowed ? "allowed" : "excluded"} in the model pool.`,
+    })
+    refreshBadges()
+    requestRender()
+  }
+
+  const clearPool = (): void => {
+    if (!state.open) return
     writeModelPool({
       version: 1,
       allowed: [],
@@ -130,55 +267,41 @@ function handleSelect(
       variant: "info",
       message: "Model pool cleared; every model is allowed again.",
     })
-  } else {
-    const pool = readModelPool()
-    const next = poolAfterToggle(pool, rows, value.providerID, value.modelID)
-    writeModelPool(next)
-    const allowed = isModelAllowed(next, value.providerID, value.modelID)
-    api.ui.toast({
-      variant: "info",
-      message: `${value.providerID}/${value.modelID} ${allowed ? "allowed" : "excluded"} in the model pool.`,
-    })
+    refreshBadges()
+    requestRender()
   }
-  dialogStack.replace(renderPoolSelect(api, dialogStack, rows))
-  api.renderer.requestRender()
-}
 
-function renderPoolSelect(
-  api: TuiPluginApi,
-  dialogStack: TuiDialogStack,
-  rows: readonly PoolCatalogRow[],
-) {
-  return () =>
-    api.ui.DialogSelect<PoolOptionValue>({
-      title: "Model pool",
-      placeholder: "Filter models",
-      options: buildOptions(rows),
-      onSelect: (option) => handleSelect(api, dialogStack, rows, option),
-    })
-}
-
-function openPanel(api: TuiPluginApi, dialogStack: TuiDialogStack): void {
-  const rows = collectPoolCatalogRows()
-  if (rows === null) {
-    api.ui.toast({
-      variant: "warning",
-      message: "No provider model catalog is available yet.",
-    })
-    return
+  const handleFilterChar = (char: string): void => {
+    if (!state.open) return
+    state.filterQuery = appendFilterChar(state.filterQuery, char)
+    remountFiltered()
   }
-  dialogStack.replace(renderPoolSelect(api, dialogStack, rows))
-}
 
-/**
- * The `solid` runtime is kept for signature parity with the btw-side TUI
- * wiring; this feature renders exclusively through api.ui dialog components.
- */
-export async function registerModelPoolTui<Node>(
-  api: TuiPluginApi,
-  _solid: SolidRuntime<Node>,
-): Promise<void> {
-  log("[model-pool] TUI registration started")
+  const handleFilterBackspace = (): void => {
+    if (!state.open) return
+    state.filterQuery = backspaceFilter(state.filterQuery)
+    remountFiltered()
+  }
+
+  const handleClose = (): void => {
+    if (!state.open) return
+    if (escFilterAction(state.filterQuery) === "clear") {
+      state.filterQuery = ""
+      remountFiltered()
+      return
+    }
+    close()
+  }
+
+  const keymapLayer = registerCardKeymap(api, CARD_MODE, {
+    onMoveUp: () => moveFocusBy(-1),
+    onMoveDown: () => moveFocusBy(1),
+    onActivate: activate,
+    onClose: handleClose,
+    onFilterChar: handleFilterChar,
+    onFilterBackspace: handleFilterBackspace,
+    extraBindings: [{ key: CLEAR_KEY, run: clearPool }],
+  })
 
   const unregisterSlashCommand =
     api.command?.register(() => [
@@ -192,12 +315,16 @@ export async function registerModelPoolTui<Node>(
           name: "pool",
           aliases: ["models-pool"],
         },
-        onSelect: (dialog) => openPanel(api, dialog ?? api.ui.dialog),
+        onSelect: () => openDialog(),
       },
     ]) ?? (() => undefined)
 
   api.lifecycle.onDispose(() => {
     unregisterSlashCommand()
+    keymapLayer.unregister()
+    if (state.open) {
+      suspend()
+    }
   })
 
   log("[model-pool] TUI controls registered")

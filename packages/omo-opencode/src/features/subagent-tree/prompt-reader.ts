@@ -44,6 +44,25 @@ export function extractSubagentPrompt(
   return promptFromParts(partsOf(firstUser.id))
 }
 
+export type FetchedSubagentMessage = {
+  readonly info: Message
+  readonly parts: ReadonlyArray<Part>
+}
+
+/**
+ * Same extraction as extractSubagentPrompt for messages fetched on demand
+ * from the server (live subagent sessions are not in the TUI session store).
+ */
+export function extractSubagentPromptFromFetched(
+  messages: ReadonlyArray<FetchedSubagentMessage>,
+): string | null {
+  const firstUser = messages.find((message) => message.info.role === "user")
+  if (firstUser === undefined) {
+    return null
+  }
+  return promptFromParts(firstUser.parts)
+}
+
 function wrapLine(line: string): string[] {
   if (line.length <= WRAP_WIDTH) {
     return [line]
@@ -62,10 +81,7 @@ function wrapLine(line: string): string[] {
 
 export function promptDetailLines(prompt: string | null): string[] {
   if (prompt === null || prompt.trim().length === 0) {
-    return [
-      "Prompt unavailable: the subagent session store has no readable",
-      "first user message for this task.",
-    ]
+    return ["prompt not synced yet"]
   }
   const lines = prompt.split("\n").flatMap(wrapLine)
   if (lines.length > MAX_PROMPT_LINES) {
