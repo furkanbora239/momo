@@ -79,6 +79,16 @@ function makePoolFile(entries: Array<{ providerID: string; modelID: string; pref
   return file
 }
 
+function makeTogglesFile(disabled: string[]): string {
+  const dir = mkdtempSync(join(tmpdir(), "catalog-toggles-"))
+  const file = join(dir, "provider-toggles.json")
+  writeFileSync(
+    file,
+    JSON.stringify({ version: 1, disabled, updatedAt: "2026-09-02T00:00:00Z" }),
+  )
+  return file
+}
+
 function stateWith(
   file: string,
   prefer: Record<string, string[]> = {},
@@ -86,8 +96,9 @@ function stateWith(
   disabledProviders: string[] = [],
   healthFile?: string,
   poolFile?: string,
+  togglesFile?: string,
 ): CatalogState {
-  return { cacheFile: file, prefer, preferProviders, disabledProviders, healthFile, poolFile }
+  return { cacheFile: file, prefer, preferProviders, disabledProviders, healthFile, poolFile, togglesFile }
 }
 
 const SAMPLE = {
@@ -530,5 +541,36 @@ describe("catalog MCP", () => {
     // then: without the preferred boost the cheaper flash tier would rank first
     const picks = parseToolPayload(response).picks as Array<{ id: string }>
     expect(picks[0].id).toBe("gpt-pro")
+  })
+
+  it("drops disabled-provider rows from catalog_list while keeping others", async () => {
+    // given: google is user-disabled via the provider toggles file, empty pool allows all
+    const togglesFile = makeTogglesFile(["google"])
+    const poolFile = makePoolFile([])
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, poolFile, togglesFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_list" })
+
+    // then: only openai rows remain
+    const models = parseToolPayload(response).models as Array<Record<string, unknown>>
+    expect(models.map((entry) => entry.id)).toEqual(["gpt-flash", "gpt-pro"])
+  })
+
+  it("drops disabled-provider rows from catalog_pick while keeping others", async () => {
+    // given: google is user-disabled via the provider toggles file, empty pool allows all
+    const togglesFile = makeTogglesFile(["google"])
+    const poolFile = makePoolFile([])
+    const state = stateWith(makeCache(SAMPLE), {}, [], [], undefined, poolFile, togglesFile)
+
+    // when
+    const response = await call(state, "tools/call", { name: "catalog_pick", arguments: { need: "default" } })
+
+    // then: every pick comes from a non-disabled provider
+    const picks = parseToolPayload(response).picks as Array<{ provider: string }>
+    expect(picks.length).toBeGreaterThan(0)
+    for (const pick of picks) {
+      expect(pick.provider).toBe("openai")
+    }
   })
 })

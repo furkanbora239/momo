@@ -44,6 +44,12 @@ import {
   type ModelPool,
 } from "../shared/model-pool"
 import {
+  createProviderTogglesStore,
+  isProviderDisabled,
+  readProviderToggles,
+  type ProviderToggles,
+} from "../shared/provider-toggles"
+import {
   createCatalogKnowledgeTools,
   type CatalogKnowledgeEnrichArgs,
   type CatalogKnowledgeReadArgs,
@@ -59,6 +65,7 @@ const PREFER_PROVIDERS_ENV = "OMO_CATALOG_PREFER_PROVIDERS"
 const HEALTH_FILE_ENV = "OMO_CATALOG_HEALTH_FILE"
 const DISABLED_PROVIDERS_ENV = "OMO_CATALOG_DISABLED_PROVIDERS"
 const POOL_FILE_ENV = "OMO_CATALOG_POOL_FILE"
+const PROVIDER_TOGGLES_FILE_ENV = "OMO_PROVIDER_TOGGLES_FILE"
 
 type ModelEntry = Record<string, unknown>
 
@@ -260,6 +267,7 @@ export interface CatalogState {
   readonly healthFile?: string
   readonly disabledProviders: string[]
   readonly poolFile?: string
+  readonly togglesFile?: string
 }
 
 function parsePreferProviders(raw: string | undefined): string[] {
@@ -312,6 +320,7 @@ function loadState(): CatalogState {
     healthFile: process.env[HEALTH_FILE_ENV] || undefined,
     disabledProviders: parsePreferProviders(process.env[DISABLED_PROVIDERS_ENV]),
     poolFile: process.env[POOL_FILE_ENV] || undefined,
+    togglesFile: process.env[PROVIDER_TOGGLES_FILE_ENV] || undefined,
   }
 }
 
@@ -328,14 +337,29 @@ function resolvePool(state: CatalogState): ModelPool {
   return readModelPool()
 }
 
+/**
+ * Resolve the provider toggles for a state. A configured togglesFile wins over
+ * the default store. Both paths swallow read errors and yield an empty store,
+ * which means "no provider disabled".
+ */
+function resolveToggles(state: CatalogState): ProviderToggles {
+  const togglesFile = state.togglesFile
+  if (togglesFile !== undefined) {
+    return createProviderTogglesStore(() => togglesFile).readProviderToggles()
+  }
+  return readProviderToggles()
+}
+
 function listCatalog(state: CatalogState, params: unknown): { rows: CatalogRow[]; updatedAt: string | null } {
   const cache = readCacheFile(state.cacheFile)
   if (!cache) return { rows: [], updatedAt: null }
   const disabledSet = new Set(state.disabledProviders ?? [])
   const unavailable = readUnavailableProviders(state.healthFile)
   const pool = resolvePool(state)
+  const toggles = resolveToggles(state)
   let rows = flatten(cache)
     .filter((row) => !disabledSet.has(row.provider.toLowerCase()))
+    .filter((row) => !isProviderDisabled(toggles, row.provider))
     .filter((row) => isModelAllowed(pool, row.provider, row.id))
     .map((row) => ({
       ...row,
@@ -430,10 +454,12 @@ function pickCatalog(
   const disabledSet = new Set(state.disabledProviders ?? [])
   const unavailable = readUnavailableProviders(state.healthFile)
   const pool = resolvePool(state)
+  const toggles = resolveToggles(state)
   rows = rows.filter(
     (row) =>
       !disabledSet.has(row.provider.toLowerCase()) &&
       !unavailable.has(row.provider.toLowerCase()) &&
+      !isProviderDisabled(toggles, row.provider) &&
       isModelAllowed(pool, row.provider, row.id),
   )
 

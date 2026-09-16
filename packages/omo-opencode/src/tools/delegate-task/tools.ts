@@ -19,6 +19,7 @@ import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { mergeNativeSkillInfos, type NativeSkillEntry } from "../skill/native-skills"
 import type { SkillInfo } from "../skill/types"
 import * as modelPoolModule from "../../shared/model-pool"
+import * as providerTogglesModule from "../../shared/provider-toggles"
 import { applyCategoryParams } from "./delegated-model-config"
 
 async function loadNativeSkillEntries(
@@ -221,6 +222,48 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
           if (!resolved) {
             const poolPath = modelPoolModule.resolveModelPoolPath()
             return `[model-pool] Model "${blockedModel}" is blocked by the hard-allow pool (${poolPath}). Either add it to the pool or use a different model.`
+          }
+        }
+      }
+
+      // --- Provider toggle enforcement ---
+      // A user-disabled provider (~/.omo/provider-toggles.json) gates which
+      // providers the delegation engine may use. An empty disabled list means
+      // "no restriction".
+      if (categoryModel) {
+        const toggles = providerTogglesModule.readProviderToggles()
+        if (providerTogglesModule.isProviderDisabled(toggles, categoryModel.providerID)) {
+          const blockedModel = `${categoryModel.providerID}/${categoryModel.modelID}`
+          log("[provider-toggles] Resolved model on disabled provider; attempting fallback", {
+            blockedModel,
+            hasFallbackChain: Boolean(fallbackChain?.length),
+          })
+
+          let resolved = false
+          if (fallbackChain) {
+            for (const entry of fallbackChain) {
+              const allowedProvider = entry.providers.find(
+                (p) => !providerTogglesModule.isProviderDisabled(toggles, p),
+              )
+              if (allowedProvider) {
+                categoryModel = applyCategoryParams(
+                  { providerID: allowedProvider, modelID: entry.model, variant: entry.variant },
+                  undefined,
+                )
+                actualModel = `${allowedProvider}/${entry.model}`
+                log("[provider-toggles] Falling back to alternative on a non-disabled provider", {
+                  blockedModel,
+                  fallbackModel: actualModel,
+                })
+                resolved = true
+                break
+              }
+            }
+          }
+
+          if (!resolved) {
+            const togglesPath = providerTogglesModule.resolveProviderTogglesPath()
+            return `[provider-toggles] Model "${blockedModel}" is on a user-disabled provider (${togglesPath}). Re-enable the provider or use a different model.`
           }
         }
       }

@@ -9,6 +9,7 @@ import { clearSkillCache } from "../../features/opencode-skill-loader/skill-cont
 import { __setTimingConfig, __resetTimingConfig } from "./timing"
 import * as connectedProvidersCache from "../../shared/connected-providers-cache"
 import * as modelPoolModule from "../../shared/model-pool"
+import * as providerTogglesModule from "../../shared/provider-toggles"
 import * as executor from "./executor"
 import { releaseAllPromptAsyncReservationsForTesting } from "../../shared/prompt-async-gate"
 
@@ -124,6 +125,7 @@ describe("sisyphus-task", () => {
   let cacheSpy: ReturnType<typeof spyOn>
   let providerModelsSpy: ReturnType<typeof spyOn>
   let modelPoolSpy: ReturnType<typeof spyOn>
+  let providerTogglesSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
     mock.restore()
@@ -150,6 +152,7 @@ describe("sisyphus-task", () => {
       updatedAt: "2026-01-01T00:00:00.000Z",
     })
     modelPoolSpy = spyOn(modelPoolModule, "readModelPool").mockReturnValue({ version: 1, allowed: [], updatedAt: "" })
+    providerTogglesSpy = spyOn(providerTogglesModule, "readProviderToggles").mockReturnValue({ version: 1, disabled: [], updatedAt: "" })
   })
 
   afterEach(() => {
@@ -158,6 +161,7 @@ describe("sisyphus-task", () => {
     cacheSpy?.mockRestore()
     providerModelsSpy?.mockRestore()
     modelPoolSpy?.mockRestore()
+    providerTogglesSpy?.mockRestore()
   })
 
   describe("DEFAULT_CATEGORIES", () => {
@@ -1511,12 +1515,12 @@ describe("sisyphus-task", () => {
       expect(promptBody).toBeDefined()
     }, { timeout: 20000 })
 
-    test("#given task_id without run_in_background #when executing #then defaults to sync continuation (fixes #4119)", async () => {
+    test("#given task_id without run_in_background #when executing #then defaults to background continuation (nonBlockingByDefault=true)", async () => {
       // given - mock manager.resume to return a running task, and capture
-      // which session-prompt method gets called. The previous PR removed the
+      // which execution path is entered. The previous PR removed the
       // 'task_id without run_in_background throws' assertion; the maintainer's
       // Oracle review on PR #4121 asked us to rewrite it (not delete it) so
-      // the new contract "default false routes to sync continuation" is
+      // the new contract "omitted flag routes to background continuation" is
       // pinned by a regression test rather than implicit behavior.
       const { createDelegateTask } = require("./tools")
       const managerCalls: string[] = []
@@ -1551,8 +1555,8 @@ describe("sisyphus-task", () => {
       }
       const tool = createDelegateTask({ manager: mockManager, client: mockClient })
 
-      // when - omit run_in_background; task_id + default false must route to
-      // executeSyncContinuation (tools.ts:75). Previously this threw the
+      // when - omit run_in_background; task_id + default true must route to
+      // executeBackgroundContinuation (tools.ts:133). Previously this threw the
       // 'run_in_background REQUIRED' error, which #4119 reported as the cause
       // of Sisyphus's retry storms.
       const result = await tool.execute(
@@ -1566,8 +1570,64 @@ describe("sisyphus-task", () => {
       )
 
       // then - no throw, returned content is a string, and routing stayed on
-      // the sync-continuation branch: the continuation session was read and
-      // neither background path (launch/resume) was entered.
+      // the background-continuation branch: the task was resumed via the
+      // manager and the sync-continuation poll never ran.
+      expect(typeof result).toBe("string")
+      expect(managerCalls).toEqual(["resume"])
+      expect(continuationMessagesCalls).toHaveLength(0)
+    }, { timeout: 20000 })
+
+    test("#given task_id with explicit run_in_background false #when executing #then routes to sync continuation", async () => {
+      // given - explicit false opts out of nonBlockingByDefault=true and must
+      // take the sync continuation path (mnemonic #4119 regression guard).
+      const { createDelegateTask } = require("./tools")
+      const managerCalls: string[] = []
+      const mockManager = {
+        resume: async () => {
+          managerCalls.push("resume")
+          return { id: "task-1", sessionId: "ses_continue_test", status: "running" }
+        },
+        launch: async () => {
+          managerCalls.push("launch")
+          return { id: "task-1" }
+        },
+      }
+      const continuationMessagesCalls: string[] = []
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: SYSTEM_DEFAULT_MODEL } }) },
+        session: {
+          get: async () => ({ data: { directory: "/project" } }),
+          create: async () => ({ data: { id: "ses_continue_test" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async (input: { path: { id: string } }) => {
+            continuationMessagesCalls.push(input.path.id)
+            return {
+              data: [{ info: { id: "msg_1", role: "assistant", time: { created: Date.now() }, finish: "end_turn" }, parts: [{ type: "text", text: "sync-continuation-result-sentinel" }] }],
+            }
+          },
+          status: async () => ({ data: { "ses_continue_test": { type: "idle" } } }),
+          abort: async () => ({ data: {} }),
+        },
+      }
+      const tool = createDelegateTask({ manager: mockManager, client: mockClient })
+
+      // when - explicit false resolves run_in_background to false
+      const result = await tool.execute(
+        {
+          description: "Continue sync explicitly",
+          prompt: "Continue",
+          task_id: "ses_continue_test",
+          run_in_background: false,
+          load_skills: [],
+        },
+        { sessionID: "parent-session", messageID: "parent-message", agent: "sisyphus", abort: new AbortController().signal },
+      )
+
+      // then - routing stayed on the sync-continuation branch: the
+      // continuation session was read and neither background path
+      // (launch/resume) was entered.
       expect(typeof result).toBe("string")
       expect(continuationMessagesCalls).toContain("ses_continue_test")
       expect(managerCalls).toHaveLength(0)
@@ -4961,6 +5021,176 @@ describe("sisyphus-task", () => {
         providerID: "openai",
         modelID: "gpt-5.5",
         variant: "xhigh",
+      })
+    })
+  })
+
+  describe("provider toggle enforcement", () => {
+    test("model on a user-disabled provider returns actionable error when no fallback available", async () => {
+      // given - openai is user-disabled via provider toggles
+      providerTogglesSpy.mockRestore()
+      providerTogglesSpy = spyOn(providerTogglesModule, "readProviderToggles").mockReturnValue({
+        version: 1,
+        disabled: ["openai"],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })
+
+      const { createDelegateTask } = require("./tools")
+      const mockManager = {
+        launch: async () => ({ id: "t", sessionID: "s", description: "d", agent: "a", status: "running" }),
+      }
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        session: {
+          create: async () => ({ data: { id: "test-session" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async () => ({ data: [] }),
+        },
+      }
+
+      const tool = createDelegateTask({
+        manager: mockManager,
+        client: mockClient,
+        userCategories: {
+          quick: { model: "openai/gpt-5.5" },
+        },
+        connectedProvidersOverride: TEST_CONNECTED_PROVIDERS,
+        availableModelsOverride: createTestAvailableModels(),
+      })
+
+      const toolContext = {
+        sessionID: "parent-session",
+        messageID: "parent-message",
+        agent: "sisyphus",
+        abort: new AbortController().signal,
+      }
+
+      // when
+      const result = await tool.execute(
+        { description: "test", prompt: "do stuff", category: "quick", run_in_background: true, load_skills: [] },
+        toolContext,
+      )
+
+      // then - should return error naming the blocked model and provider
+      expect(typeof result).toBe("string")
+      expect(result).toContain("provider-toggles")
+      expect(result).toContain("openai/gpt-5.5")
+      expect(result).toContain("disabled")
+    })
+
+    test("model on a user-disabled provider falls back to a non-disabled provider from the chain", async () => {
+      // given - kimi-for-coding is user-disabled; the quick fallback chain includes anthropic/claude-haiku-4-5
+      providerTogglesSpy.mockRestore()
+      providerTogglesSpy = spyOn(providerTogglesModule, "readProviderToggles").mockReturnValue({
+        version: 1,
+        disabled: ["kimi-for-coding"],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })
+
+      const { createDelegateTask } = require("./tools")
+      let launchInput: Record<string, unknown> = {}
+      const mockManager = {
+        launch: async (input: Record<string, unknown>) => {
+          launchInput = input
+          return { id: "t", sessionID: "s", description: "d", agent: "a", status: "running" }
+        },
+        getTask: () => undefined,
+      }
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        session: {
+          create: async () => ({ data: { id: "test-session" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async () => ({ data: [] }),
+        },
+      }
+
+      const tool = createDelegateTask({
+        manager: mockManager,
+        client: mockClient,
+        connectedProvidersOverride: TEST_CONNECTED_PROVIDERS,
+        availableModelsOverride: createTestAvailableModels(),
+      })
+
+      const toolContext = {
+        sessionID: "parent-session",
+        messageID: "parent-message",
+        agent: "sisyphus",
+        abort: new AbortController().signal,
+      }
+
+      // when - quick category default (kimi-for-coding/kimi-for-coding-highspeed) is on a
+      // user-disabled provider; the quick fallback chain includes anthropic/claude-haiku-4-5
+      const result = await tool.execute(
+        { description: "test", prompt: "do stuff", category: "quick", run_in_background: true, load_skills: [] },
+        toolContext,
+      )
+
+      // then - should have fallen back to a model on a non-disabled provider
+      expect(launchInput.model).toBeDefined()
+      const model = launchInput.model as { providerID: string; modelID: string }
+      expect(model.providerID).not.toBe("kimi-for-coding")
+    })
+
+    test("model on a non-disabled provider passes through unchanged", async () => {
+      // given - only openai is user-disabled; anthropic is allowed
+      providerTogglesSpy.mockRestore()
+      providerTogglesSpy = spyOn(providerTogglesModule, "readProviderToggles").mockReturnValue({
+        version: 1,
+        disabled: ["openai"],
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      })
+
+      const { createDelegateTask } = require("./tools")
+      let launchInput: Record<string, unknown> = {}
+      const mockManager = {
+        launch: async (input: Record<string, unknown>) => {
+          launchInput = input
+          return { id: "t", sessionID: "s", description: "d", agent: "a", status: "running" }
+        },
+      }
+      const mockClient = {
+        app: { agents: async () => ({ data: [] }) },
+        config: { get: async () => ({ data: { model: "anthropic/claude-sonnet-4-6" } }) },
+        session: {
+          create: async () => ({ data: { id: "test-session" } }),
+          prompt: async () => ({ data: {} }),
+          promptAsync: async () => ({ data: {} }),
+          messages: async () => ({ data: [] }),
+        },
+      }
+
+      const tool = createDelegateTask({
+        manager: mockManager,
+        client: mockClient,
+        userCategories: {
+          quick: { model: "anthropic/claude-haiku-4-5" },
+        },
+        connectedProvidersOverride: TEST_CONNECTED_PROVIDERS,
+        availableModelsOverride: createTestAvailableModels(),
+      })
+
+      const toolContext = {
+        sessionID: "parent-session",
+        messageID: "parent-message",
+        agent: "sisyphus",
+        abort: new AbortController().signal,
+      }
+
+      // when
+      await tool.execute(
+        { description: "test", prompt: "do stuff", category: "quick", run_in_background: true, load_skills: [] },
+        toolContext,
+      )
+
+      // then - model should pass through unchanged
+      expect(launchInput.model).toEqual({
+        providerID: "anthropic",
+        modelID: "claude-haiku-4-5",
       })
     })
   })
