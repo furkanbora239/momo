@@ -3,6 +3,7 @@ import type { TuiPluginModule } from "@opencode-ai/plugin/tui"
 import { registerBtwSideTui } from "./features/btw-side"
 import { registerModelPoolTui } from "./features/model-pool"
 import { registerProvidersTui } from "./features/providers"
+import { registerSettingsTui } from "./features/settings"
 import { registerSubagentTreeTui } from "./features/subagent-tree"
 import { computeView, viewKey } from "./features/tui-sidebar/compute-view"
 import { POLL_INTERVAL_MS } from "./features/tui-sidebar/constants"
@@ -150,6 +151,12 @@ const module: TuiPluginModule = {
       await registerProvidersTui(api, solid)
     } catch (error) {
       log("[providers] TUI registration failed", { error })
+    }
+
+    try {
+      await registerSettingsTui(api, solid)
+    } catch (error) {
+      log("[settings] TUI registration failed", { error })
     }
 
     const directory = api.state.path.directory
