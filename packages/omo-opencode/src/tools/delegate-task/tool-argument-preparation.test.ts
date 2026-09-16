@@ -16,10 +16,20 @@ const baseArgs = {
 
 describe("prepareDelegateTaskArgs run_in_background resolution", () => {
   describe("#given run_in_background omitted and no config", () => {
-    test("#when prepared #then resolves to false (sync)", async () => {
+    test("#when prepared #then resolves to true (background default)", async () => {
       const result = await prepareDelegateTaskArgs({ ...baseArgs }, ctx)
 
-      expect(result.run_in_background).toBe(false)
+      expect(result.run_in_background).toBe(true)
+    })
+  })
+
+  describe("#given run_in_background omitted and nonBlockingByDefault undefined", () => {
+    test("#when prepared #then resolves to true (background default)", async () => {
+      const result = await prepareDelegateTaskArgs({ ...baseArgs }, ctx, {
+        nonBlockingByDefault: undefined,
+      })
+
+      expect(result.run_in_background).toBe(true)
     })
   })
 

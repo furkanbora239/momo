@@ -37,16 +37,17 @@ export async function prepareDelegateTaskArgs(
 
   let runInBackground = args.run_in_background
   if (runInBackground === undefined) {
-    // Default to sync delegation. Tool description still nudges the model to be
-    // explicit, but a missing flag should not fail an otherwise valid call —
-    // hard-failing here burns turns and silently downgrades parallel work to
-    // synchronous fallbacks. See issue #4119.
-    const nonBlockingByDefault = options?.nonBlockingByDefault === true
+    // Default to background delegation. `background_task.nonBlockingByDefault`
+    // is the single source of truth: absent/undefined resolves to true and an
+    // explicit false opts back into sync delegation. A missing flag should not
+    // fail an otherwise valid call — hard-failing here burns turns and
+    // silently downgrades parallel work to synchronous fallbacks. See #4119.
+    const nonBlockingByDefault = options?.nonBlockingByDefault !== false
     runInBackground = nonBlockingByDefault
     log(
       nonBlockingByDefault
         ? "[task] run_in_background omitted; defaulting to true (background delegation via background_task.nonBlockingByDefault)"
-        : "[task] run_in_background omitted; defaulting to false (sync delegation)",
+        : "[task] run_in_background omitted; defaulting to false (sync delegation via background_task.nonBlockingByDefault=false)",
       {
         category: args.category,
         subagent_type: originalSubagentType,

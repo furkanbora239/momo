@@ -160,6 +160,10 @@ for evidence (isolated XDG, no touching the real user opencode DB).
 - `dev`: integration branch; all work lands on `dev` via PR (`gh pr create --base dev ...`).
 - Promote a verified `dev` state (typecheck clean, `bun test` green, live-verified) via a dev-to-main PR; that is the only way `main` advances.
 
+## Recent Architectural Updates (2026-09-16)
+
+- **Background Delegation Default Flip**: `background_task.nonBlockingByDefault` now defaults to true (an omitted `run_in_background` resolves to background); an explicit `false` in config opts back into sync delegation. Resolution happens at the delegate-task argument-preparation site (`!== false` semantics); the config schema stays optional.
+
 ## Recent Architectural Updates (2026-09-14)
 
 - **Provider Catalog Correctness**: live per-provider `GET /models` reconciliation, disabled/unavailable provider eviction with health flags, startup stale-cache refresh.

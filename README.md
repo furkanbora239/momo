@@ -303,7 +303,7 @@ momo works out of the box with zero configuration. To customize behavior, create
 
   // 7. Background Delegation
   "background_task": {
-    "nonBlockingByDefault": false    // true = task() without run_in_background runs in the background, keeping the orchestrator responsive
+    "nonBlockingByDefault": true    // default true = task() without run_in_background runs in the background, keeping the orchestrator responsive; set false to make omitted run_in_background resolve to sync (waits)
   },
 
   // 8. Comment & Slop Checker Hook

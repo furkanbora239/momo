@@ -119,7 +119,7 @@ export interface DelegateTaskToolOptions {
   modelFallbackControllerAccessor?: ModelFallbackControllerAccessor
   onSyncSessionCreated?: (event: SyncSessionCreatedEvent) => Promise<void>
   syncPollTimeoutMs?: number
-  /** Resolved from background_task.nonBlockingByDefault. When true, an omitted run_in_background resolves to background (non-blocking). */
+  /** Resolved from background_task.nonBlockingByDefault. An omitted run_in_background resolves to background unless this is explicitly false. */
   nonBlockingByDefault?: boolean
   managersEnabled?: boolean
   /** OpenCode native skill accessor for skills registered via config.skills.paths. Same shape as SkillLoadOptions.nativeSkills. */
