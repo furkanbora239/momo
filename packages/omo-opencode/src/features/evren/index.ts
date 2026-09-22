@@ -4,7 +4,8 @@ export {
   EVREN_PROVIDER_CONFIG,
   applyBuiltinEvrenProvider,
 } from "./provider"
-export type { EvrenModelConfig, EvrenProviderConfig } from "./provider"
+export type { EvrenModelConfig, EvrenProviderConfig, ApplyBuiltinEvrenProviderOptions } from "./provider"
+export { readEvrenLiveContextLimits } from "./live-context-limits"
 export {
   resolveEvrenConsentPath,
   createEvrenConsentStore,

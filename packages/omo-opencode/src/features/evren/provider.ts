@@ -5,7 +5,7 @@ export const EVREN_BASE_URL = "https://evren-llmapi.ssyz.org.tr/v1"
 
 export type EvrenModelConfig = {
   name: string
-  limit: { context: number; output: number }
+  limit: { context: number }
   modalities?: { input: string[] }
 }
 
@@ -16,14 +16,18 @@ export type EvrenProviderConfig = {
   models: Record<string, EvrenModelConfig>
 }
 
-function textOnly(name: string, context: number, output: number): EvrenModelConfig {
-  return { name, limit: { context, output } }
+// The context values are a FALLBACK: compaction uses them until the live
+// /models refresh reports a real serving limit for the model (see
+// live-context-limits.ts). No output limit is declared on purpose - the
+// gateway does not cap output per model.
+function textOnly(name: string, context: number): EvrenModelConfig {
+  return { name, limit: { context } }
 }
 
-function textAndImage(name: string, context: number, output: number): EvrenModelConfig {
+function textAndImage(name: string, context: number): EvrenModelConfig {
   return {
     name,
-    limit: { context, output },
+    limit: { context },
     modalities: { input: ["text", "image"] },
   }
 }
@@ -34,12 +38,12 @@ function buildEvrenProviderConfig(): EvrenProviderConfig {
     name: "EVREN LLM",
     options: { baseURL: EVREN_BASE_URL },
     models: {
-      "auto": textOnly("EVREN Auto", 128000, 8192),
-      "glm-5.3": textOnly("GLM 5.3", 200000, 16384),
-      "deepseek-v4-flash": textOnly("DeepSeek V4 Flash", 128000, 8192),
-      "qwen3.8-flash-next": textAndImage("Qwen3.8 Flash Next", 128000, 8192),
-      "gemma-4-31b": textAndImage("Gemma 4 31B", 128000, 8192),
-      "qwen3-vl-30b": textAndImage("Qwen3 VL 30B", 128000, 8192),
+      "auto": textOnly("EVREN Auto", 250000),
+      "glm-5.3": textOnly("GLM 5.3", 250000),
+      "deepseek-v4-flash": textOnly("DeepSeek V4 Flash", 250000),
+      "qwen3.8-flash-next": textAndImage("Qwen3.8 Flash Next", 250000),
+      "gemma-4-31b": textAndImage("Gemma 4 31B", 250000),
+      "qwen3-vl-30b": textAndImage("Qwen3 VL 30B", 250000),
     },
   }
 }
@@ -74,24 +78,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Injects the built-in EVREN provider into an OpenCode config object.
  *
- * Injection happens ONLY when opts.consented === true (the user accepted the
- * EVREN terms). A missing config.provider map is created; a non-object
- * provider value is left untouched, and an existing evren entry is never
- * overwritten. Never throws.
+ * Injection is unconditional so the provider is always selectable in
+ * `/connect`. The injected entry carries no credential, so the provider stays
+ * inert until the user adds an API key there; consent is enforced at first use
+ * in the TUI, not by hiding the provider. A missing config.provider map is
+ * created; a non-object provider value is left untouched, and an existing
+ * evren entry is never overwritten. opts.liveContextLimits (gateway-reported
+ * context limits from the provider-models cache) override the fallback limits
+ * of the injected clone only. Never throws.
  */
+export interface ApplyBuiltinEvrenProviderOptions {
+  liveContextLimits?: Record<string, number>
+}
+
 export function applyBuiltinEvrenProvider(
   config: Record<string, unknown>,
-  opts: { consented: boolean },
+  opts?: ApplyBuiltinEvrenProviderOptions,
 ): void {
   try {
-    if (opts.consented !== true) return
     const existing = config.provider
     if (existing !== undefined && !isRecord(existing)) return
     const provider = existing === undefined
       ? (config.provider = {} as Record<string, unknown>)
       : existing
     if (Object.prototype.hasOwnProperty.call(provider, EVREN_PROVIDER_ID)) return
-    provider[EVREN_PROVIDER_ID] = cloneEvrenProviderConfig()
+    const injected = cloneEvrenProviderConfig()
+    for (const [modelID, context] of Object.entries(opts?.liveContextLimits ?? {})) {
+      const model = injected.models[modelID]
+      if (model && Number.isFinite(context) && context > 0) {
+        model.limit.context = Math.floor(context)
+      }
+    }
+    provider[EVREN_PROVIDER_ID] = injected
   } catch (error) {
     log("[evren-provider] Error applying built-in evren provider", {
       error: String(error),

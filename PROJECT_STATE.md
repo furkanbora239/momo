@@ -94,6 +94,11 @@ All agents start unpinned to any specific provider/model; the user configures mo
 - **Sync Reliability**: Producing-aware stall detection with explicit abort reason codes and configurable timeouts; truncated tool output paginable via `/tmp/omo-tool-output`; anchor-aware continuation completion with `no_progress`; `mid_tool_incomplete` flagging. Key file: `src/tools/delegate-task/sync-session-poller.ts`.
  - **Delegation Behavior**: Orchestrator prompts now direct parallel-by-default delegation; manager/executor/planner prompts carry Context Discipline (atomic tasks, minimal context); the opt-in `background_task.nonBlockingByDefault` config makes omitted `run_in_background` resolve to background.
 
+### Milestone: EVREN Provider Limits & Live Capture (2026-09-22)
+
+- **EVREN Context Alignment**: Built-in EVREN models declare a 250k context fallback (matching the published gateway value) and no output cap; OpenCode falls back to its 32k default for output. Key file: `src/features/evren/provider.ts`.
+- **Live Limit Capture**: The provider-models live refresh now captures `context_length` / `max_model_len` / `context_window` from `GET /models` (marked `limitSource: "gateway-live-models"` in the cache), and `applyBuiltinEvrenProvider` overrides the injected fallback with those gateway-reported values at config time. The EVREN gateway does not publish these fields yet, so the capture stays dormant until it does. Key files: `src/shared/provider-model-live-refresh.ts`, `src/features/evren/live-context-limits.ts`.
+
 ---
 
 ## 5. Working Rules & Constraints

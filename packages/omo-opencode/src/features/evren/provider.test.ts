@@ -18,22 +18,24 @@ function getInjectedEntry(config: Record<string, unknown>): Record<string, unkno
 }
 
 describe("applyBuiltinEvrenProvider", () => {
-  it("#given consent and an empty provider map #when applied #then the evren entry is injected", () => {
+  it("#given an empty provider map #when applied #then the evren entry is injected", () => {
     const config = createConfigWithProvider()
 
-    applyBuiltinEvrenProvider(config, { consented: true })
+    applyBuiltinEvrenProvider(config)
 
     const provider = config.provider as Record<string, unknown>
     expect(provider[EVREN_PROVIDER_ID]).toBeDefined()
   })
 
-  it("#given consent false #when applied #then nothing is injected", () => {
+  it("#given an already injected config #when applied again #then the injected entry is left as is", () => {
     const config = createConfigWithProvider()
 
-    applyBuiltinEvrenProvider(config, { consented: false })
+    applyBuiltinEvrenProvider(config)
+    const first = getInjectedEntry(config)
 
-    const provider = config.provider as Record<string, unknown>
-    expect(provider[EVREN_PROVIDER_ID]).toBeUndefined()
+    applyBuiltinEvrenProvider(config)
+
+    expect(getInjectedEntry(config)).toBe(first)
   })
 
   it("#given an existing user-defined evren entry #when applied #then it is never overwritten", () => {
@@ -42,7 +44,41 @@ describe("applyBuiltinEvrenProvider", () => {
     const userEntry = { npm: "custom-package", name: "User Evren" }
     provider[EVREN_PROVIDER_ID] = userEntry
 
-    applyBuiltinEvrenProvider(config, { consented: true })
+    applyBuiltinEvrenProvider(config)
+
+    expect(provider[EVREN_PROVIDER_ID]).toBe(userEntry)
+  })
+
+  it("#given live context limits #when injected #then the injected clone carries them and the shared constant stays untouched", () => {
+    const config = createConfigWithProvider()
+
+    applyBuiltinEvrenProvider(config, { liveContextLimits: { "glm-5.3": 131072 } })
+
+    const models = getInjectedEntry(config).models as EvrenModels
+    expect(models["glm-5.3"]?.limit).toEqual({ context: 131072 })
+    expect(models["auto"]?.limit).toEqual({ context: 250000 })
+    expect(EVREN_PROVIDER_CONFIG.models["glm-5.3"]?.limit).toEqual({ context: 250000 })
+  })
+
+  it("#given live context limits for an unknown or invalid model #when injected #then they are ignored", () => {
+    const config = createConfigWithProvider()
+
+    applyBuiltinEvrenProvider(config, {
+      liveContextLimits: { "rogue-model": 999999, "auto": -5 },
+    })
+
+    const models = getInjectedEntry(config).models as EvrenModels
+    expect(models["rogue-model"]).toBeUndefined()
+    expect(models["auto"]?.limit).toEqual({ context: 250000 })
+  })
+
+  it("#given an existing user-defined evren entry #when live context limits exist #then the user entry is still untouched", () => {
+    const config = createConfigWithProvider()
+    const provider = config.provider as Record<string, unknown>
+    const userEntry = { npm: "@ai-sdk/openai-compatible", models: { "glm-5.3": { limit: { context: 7 } } } }
+    provider[EVREN_PROVIDER_ID] = userEntry
+
+    applyBuiltinEvrenProvider(config, { liveContextLimits: { "glm-5.3": 131072 } })
 
     expect(provider[EVREN_PROVIDER_ID]).toBe(userEntry)
   })
@@ -50,7 +86,7 @@ describe("applyBuiltinEvrenProvider", () => {
   it("#given a config without any provider map #when applied #then the provider map is created and the entry injected", () => {
     const missingProvider: Record<string, unknown> = {}
 
-    applyBuiltinEvrenProvider(missingProvider, { consented: true })
+    applyBuiltinEvrenProvider(missingProvider)
 
     const provider = missingProvider.provider as Record<string, unknown>
     expect(provider[EVREN_PROVIDER_ID]).toBeDefined()
@@ -58,18 +94,18 @@ describe("applyBuiltinEvrenProvider", () => {
 
   it("#given a non-object provider value #when applied #then it does not throw and leaves it untouched", () => {
     const nullProvider: Record<string, unknown> = { provider: null }
-    expect(() => applyBuiltinEvrenProvider(nullProvider, { consented: true })).not.toThrow()
+    expect(() => applyBuiltinEvrenProvider(nullProvider)).not.toThrow()
     expect(nullProvider.provider).toBeNull()
 
     const arrayProvider: Record<string, unknown> = { provider: [] }
-    expect(() => applyBuiltinEvrenProvider(arrayProvider, { consented: true })).not.toThrow()
+    expect(() => applyBuiltinEvrenProvider(arrayProvider)).not.toThrow()
     expect(arrayProvider.provider).toEqual([])
   })
 
   it("#given an injected entry #when the result is mutated #then EVREN_PROVIDER_CONFIG stays untouched", () => {
     const config = createConfigWithProvider()
 
-    applyBuiltinEvrenProvider(config, { consented: true })
+    applyBuiltinEvrenProvider(config)
 
     const injected = getInjectedEntry(config)
     injected.name = "MUTATED"
@@ -85,7 +121,7 @@ describe("applyBuiltinEvrenProvider", () => {
 
     expect(EVREN_PROVIDER_CONFIG.name).toBe("EVREN LLM")
     expect(EVREN_PROVIDER_CONFIG.models["auto"]?.name).toBe("EVREN Auto")
-    expect(EVREN_PROVIDER_CONFIG.models["auto"]?.limit.context).toBe(128000)
+    expect(EVREN_PROVIDER_CONFIG.models["auto"]?.limit.context).toBe(250000)
     expect(EVREN_PROVIDER_CONFIG.models["rogue"]).toBeUndefined()
   })
 
@@ -93,8 +129,8 @@ describe("applyBuiltinEvrenProvider", () => {
     const first = createConfigWithProvider()
     const second = createConfigWithProvider()
 
-    applyBuiltinEvrenProvider(first, { consented: true })
-    applyBuiltinEvrenProvider(second, { consented: true })
+    applyBuiltinEvrenProvider(first)
+    applyBuiltinEvrenProvider(second)
     getInjectedEntry(first).name = "MUTATED"
 
     expect(getInjectedEntry(second).name).toBe("EVREN LLM")
@@ -113,12 +149,12 @@ describe("EVREN_PROVIDER_CONFIG", () => {
       "qwen3-vl-30b",
       "qwen3.8-flash-next",
     ])
-    expect(models["auto"]?.limit).toEqual({ context: 128000, output: 8192 })
-    expect(models["glm-5.3"]?.limit).toEqual({ context: 200000, output: 16384 })
-    expect(models["deepseek-v4-flash"]?.limit).toEqual({ context: 128000, output: 8192 })
-    expect(models["qwen3.8-flash-next"]?.limit).toEqual({ context: 128000, output: 8192 })
-    expect(models["gemma-4-31b"]?.limit).toEqual({ context: 128000, output: 8192 })
-    expect(models["qwen3-vl-30b"]?.limit).toEqual({ context: 128000, output: 8192 })
+    expect(models["auto"]?.limit).toEqual({ context: 250000 })
+    expect(models["glm-5.3"]?.limit).toEqual({ context: 250000 })
+    expect(models["deepseek-v4-flash"]?.limit).toEqual({ context: 250000 })
+    expect(models["qwen3.8-flash-next"]?.limit).toEqual({ context: 250000 })
+    expect(models["gemma-4-31b"]?.limit).toEqual({ context: 250000 })
+    expect(models["qwen3-vl-30b"]?.limit).toEqual({ context: 250000 })
   })
 
   it("#given the three vision models #when inspecting modalities #then exactly those accept image input", () => {

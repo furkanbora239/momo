@@ -4,6 +4,7 @@ import { log } from "../../shared/logger"
 import type { SolidRuntime } from "../tui-card"
 import { readEvrenConsentStatus, writeEvrenConsent } from "./consent"
 import { ensureEvrenTermsAccepted } from "./ensure-terms"
+import { EVREN_PROVIDER_ID } from "./provider"
 import { EVREN_TERMS_VERSION } from "./terms"
 
 export function buildEvrenConsentMessage(): string {
@@ -87,17 +88,30 @@ export async function registerEvrenTui<Node>(
         },
       ]) ?? (() => undefined)
 
-    api.lifecycle.onDispose(() => {
-      unregisterSlashCommand()
+    let consentPromptShown = false
+    const promptForFirstUse = (): void => {
+      if (consentPromptShown) return
+      if (readEvrenConsentStatus() !== "unknown") return
+      consentPromptShown = true
+      openConsentDialog()
+    }
+
+    const unsubscribeAccountAdded = api.event.on("account.added", (event) => {
+      if (event.properties.account.serviceID === EVREN_PROVIDER_ID) {
+        promptForFirstUse()
+      }
+    })
+    const unsubscribeModelSwitched = api.event.on("session.next.model.switched", (event) => {
+      if (event.properties.model.providerID === EVREN_PROVIDER_ID) {
+        promptForFirstUse()
+      }
     })
 
-    if (readEvrenConsentStatus() === "unknown") {
-      setTimeout(() => {
-        if (readEvrenConsentStatus() === "unknown") {
-          openConsentDialog()
-        }
-      }, 0)
-    }
+    api.lifecycle.onDispose(() => {
+      unregisterSlashCommand()
+      unsubscribeAccountAdded()
+      unsubscribeModelSwitched()
+    })
 
     log("[evren] TUI controls registered")
   } catch (error) {

@@ -4,9 +4,10 @@ import { describe, expect, test } from "bun:test"
 
 import {
   extractProviderEndpoints,
-  fetchLiveProviderModelIds,
+  fetchLiveProviderModels,
   mergeLiveProviderModels,
   refreshProviderModelsLive,
+  LIVE_MODEL_LIMIT_SOURCE,
   type ModelMetadata,
   type ProviderEndpoint,
   type ProviderLike,
@@ -28,6 +29,12 @@ function okResponse(payload: unknown): Response {
   return new Response(JSON.stringify(payload), { status: 200 })
 }
 
+const ENDPOINT: ProviderEndpoint = {
+  providerID: "neuralwatt",
+  baseURL: "https://api.neuralwatt.com/v1",
+  apiKey: "sk-test",
+}
+
 describe("mergeLiveProviderModels", () => {
   test("appends a new live id while preserving previous metadata", () => {
     //#given
@@ -36,7 +43,7 @@ describe("mergeLiveProviderModels", () => {
     //#when
     const merged = mergeLiveProviderModels(
       previous,
-      ["glm-5.3", "glm-5.3-flash"],
+      [{ id: "glm-5.3" }, { id: "glm-5.3-flash" }],
       "neuralwatt",
       "https://api.neuralwatt.com/v1",
     )
@@ -53,13 +60,13 @@ describe("mergeLiveProviderModels", () => {
     const previous: ModelMetadata[] = [{ id: "ox-alpha-free" }, { id: "glm-5.3" }]
 
     //#when
-    const merged = mergeLiveProviderModels(previous, ["glm-5.3"], "go-b", "https://api.example.com/v1")
+    const merged = mergeLiveProviderModels(previous, [{ id: "glm-5.3" }], "go-b", "https://api.example.com/v1")
 
     //#then
     expect(merged).toEqual([{ id: "glm-5.3" }])
   })
 
-  test("returns previous unchanged when liveIds is empty", () => {
+  test("returns previous unchanged when the live list is empty", () => {
     //#given
     const previous: ModelMetadata[] = [{ id: "glm-5.3" }]
 
@@ -68,6 +75,58 @@ describe("mergeLiveProviderModels", () => {
 
     //#then
     expect(merged).toBe(previous)
+  })
+
+  test("overlays a gateway-reported context limit and marks the source", () => {
+    //#given
+    const previous: ModelMetadata[] = [{ id: "glm-5.3", limit: { context: 250000 }, name: "GLM 5.3" }]
+
+    //#when
+    const merged = mergeLiveProviderModels(
+      previous,
+      [{ id: "glm-5.3", contextLimit: 131072 }],
+      "neuralwatt",
+      "https://api.neuralwatt.com/v1",
+    )
+
+    //#then
+    expect(merged).toEqual([
+      { id: "glm-5.3", name: "GLM 5.3", limit: { context: 131072 }, limitSource: LIVE_MODEL_LIMIT_SOURCE },
+    ])
+  })
+
+  test("strips a stale live marker when the gateway stops reporting the limit", () => {
+    //#given
+    const previous: ModelMetadata[] = [
+      { id: "glm-5.3", limit: { context: 131072 }, limitSource: LIVE_MODEL_LIMIT_SOURCE },
+    ]
+
+    //#when
+    const merged = mergeLiveProviderModels(previous, [{ id: "glm-5.3" }], "neuralwatt", "https://api.neuralwatt.com/v1")
+
+    //#then
+    expect(merged).toEqual([{ id: "glm-5.3", limit: { context: 131072 } }])
+  })
+
+  test("carries the context limit onto brand-new live entries", () => {
+    //#when
+    const merged = mergeLiveProviderModels(
+      [],
+      [{ id: "new-model", contextLimit: 262144 }],
+      "neuralwatt",
+      "https://api.neuralwatt.com/v1",
+    )
+
+    //#then
+    expect(merged).toEqual([
+      {
+        id: "new-model",
+        providerID: "neuralwatt",
+        api: { url: "https://api.neuralwatt.com/v1" },
+        limit: { context: 262144 },
+        limitSource: LIVE_MODEL_LIMIT_SOURCE,
+      },
+    ])
   })
 })
 
@@ -129,40 +188,70 @@ describe("extractProviderEndpoints", () => {
   })
 })
 
-describe("fetchLiveProviderModelIds", () => {
+describe("fetchLiveProviderModels", () => {
   test("parses { data: [{ id }] } shapes", async () => {
     //#given
-    const endpoint: ProviderEndpoint = { providerID: "neuralwatt", baseURL: "https://api.neuralwatt.com/v1", apiKey: "sk-test" }
     const fetchImpl = async () => okResponse({ data: [{ id: "a" }, { id: "b" }] })
 
     //#when
-    const ids = await fetchLiveProviderModelIds(endpoint, { fetchImpl })
+    const models = await fetchLiveProviderModels(ENDPOINT, { fetchImpl })
 
     //#then
-    expect(ids).toEqual(["a", "b"])
+    expect(models).toEqual([{ id: "a" }, { id: "b" }])
+  })
+
+  test("captures context_length and max_model_len when the gateway reports them", async () => {
+    //#given
+    const fetchImpl = async () =>
+      okResponse({
+        data: [
+          { id: "a", context_length: 262144 },
+          { id: "b", max_model_len: 131072 },
+          { id: "c", context_length: 0 },
+        ],
+      })
+
+    //#when
+    const models = await fetchLiveProviderModels(ENDPOINT, { fetchImpl })
+
+    //#then
+    expect(models).toEqual([
+      { id: "a", contextLimit: 262144 },
+      { id: "b", contextLimit: 131072 },
+      { id: "c" },
+    ])
+  })
+
+  test("parses plain string model lists", async () => {
+    //#given
+    const fetchImpl = async () => okResponse(["a", "b"])
+
+    //#when
+    const models = await fetchLiveProviderModels(ENDPOINT, { fetchImpl })
+
+    //#then
+    expect(models).toEqual([{ id: "a" }, { id: "b" }])
   })
 
   test("returns null on non-2xx without throwing", async () => {
     //#given
-    const endpoint: ProviderEndpoint = { providerID: "neuralwatt", baseURL: "https://api.neuralwatt.com/v1", apiKey: "sk-test" }
     const fetchImpl = async () => new Response("nope", { status: 401 })
 
     //#when
-    const ids = await fetchLiveProviderModelIds(endpoint, { fetchImpl })
+    const models = await fetchLiveProviderModels(ENDPOINT, { fetchImpl })
 
     //#then
-    expect(ids).toBeNull()
+    expect(models).toBeNull()
   })
 
   test("never throws when fetchImpl rejects", async () => {
     //#given
-    const endpoint: ProviderEndpoint = { providerID: "neuralwatt", baseURL: "https://api.neuralwatt.com/v1", apiKey: "sk-test" }
     const fetchImpl = async () => {
       throw new Error("network down")
     }
 
     //#when / #then
-    await expect(fetchLiveProviderModelIds(endpoint, { fetchImpl })).resolves.toBeNull()
+    await expect(fetchLiveProviderModels(ENDPOINT, { fetchImpl })).resolves.toBeNull()
   })
 })
 
@@ -191,6 +280,20 @@ describe("refreshProviderModelsLive", () => {
     expect(result.neuralwatt).toEqual([
       { id: "glm-5.3" },
       { id: "glm-5.3-flash", providerID: "neuralwatt", api: { url: "https://api.neuralwatt.com/v1" } },
+    ])
+  })
+
+  test("stores gateway-reported context limits in the cache entries", async () => {
+    //#given
+    const previous: Record<string, ModelMetadata[]> = { neuralwatt: [{ id: "glm-5.3", limit: { context: 250000 } }] }
+    const fetchImpl = async () => okResponse({ data: [{ id: "glm-5.3", context_length: 131072 }] })
+
+    //#when
+    const result = await refreshProviderModelsLive([makeProvider()], previous, { fetchImpl })
+
+    //#then
+    expect(result.neuralwatt).toEqual([
+      { id: "glm-5.3", limit: { context: 131072 }, limitSource: LIVE_MODEL_LIMIT_SOURCE },
     ])
   })
 })
