@@ -1,5 +1,6 @@
 import type { OhMyOpenCodeConfig } from "../config";
 import { applyRuntimeSkillSourceConfig } from "../features/opencode-runtime-skills"
+import { applyBuiltinEvrenProvider, readEvrenConsentStatus } from "../features/evren"
 import { setAdditionalAllowedMcpEnvVars } from "../features/claude-code-mcp-loader";
 import type { ModelCacheState } from "../plugin-state";
 import { createLiveModelConfigInjector, log, readModelPool, readProviderModelsCache } from "../shared";
@@ -100,6 +101,9 @@ export function createConfigHandler(deps: ConfigHandlerDeps) {
     const formatterConfig = config.formatter;
 
     setAdditionalAllowedMcpEnvVars(pluginConfig.mcp_env_allowlist ?? [])
+    applyBuiltinEvrenProvider(config, {
+      consented: readEvrenConsentStatus() === "accepted",
+    })
     // Inject live-only provider models BEFORE applyProviderConfig so phase 1
     // also caches the context limits of the injected entries. The injector is
     // defensive: it never throws and never touches the network.

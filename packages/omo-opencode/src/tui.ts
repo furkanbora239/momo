@@ -1,6 +1,7 @@
 import type { TuiPluginModule } from "@opencode-ai/plugin/tui"
 
 import { registerBtwSideTui } from "./features/btw-side"
+import { registerEvrenTui } from "./features/evren/register-evren-tui"
 import { registerModelPoolTui } from "./features/model-pool"
 import { registerProvidersTui } from "./features/providers"
 import { registerSettingsTui } from "./features/settings"
@@ -151,6 +152,12 @@ const module: TuiPluginModule = {
       await registerProvidersTui(api, solid)
     } catch (error) {
       log("[providers] TUI registration failed", { error })
+    }
+
+    try {
+      await registerEvrenTui(api, solid)
+    } catch (error) {
+      log("[evren] TUI registration failed", { error })
     }
 
     try {

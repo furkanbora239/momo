@@ -1,4 +1,5 @@
 import { isRecord } from "@oh-my-opencode/utils"
+import { ensureEvrenTermsAccepted } from "../features/evren"
 import { getSessionPromptParams } from "../shared/session-prompt-params-state"
 import { getModelCapabilities, log, resolveCompatibleModelSettings } from "../shared"
 
@@ -87,6 +88,10 @@ export function createChatParamsHandler(_args: {
     const normalizedInput = buildChatParamsInput(input)
     if (!normalizedInput) return
     if (!isChatParamsOutput(output)) return
+
+    if (normalizedInput.model.providerID === "evren") {
+      await ensureEvrenTermsAccepted()
+    }
 
     const storedPromptParams = getSessionPromptParams(normalizedInput.sessionID)
     if (storedPromptParams) {

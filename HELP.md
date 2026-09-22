@@ -199,6 +199,13 @@ opencode
 
 ---
 
+### EVREN LLM (Türkiye)
+- **Provider:** EVREN LLM (SSB EVREN LLM Gateway, OpenAI-compatible) ships built-in. On first run a one-time consent box explains that using it sends prompts to the gateway and asks you to accept its terms of service; the box never nags again after you decide, and `/evren` reopens it anytime.
+- **Connect:** Run `/connect`, pick **EVREN LLM**, and paste your `evren_llm_...` API key. Once consent is accepted, the gateway terms are confirmed silently in the background so your first request succeeds.
+- **Terms of service:** Terms may change over time; follow updates at https://evren.ssyz.org.tr.
+
+---
+
 ## 4. Agent System & Delegation Categories
 
 | Agent | Role | Usage |
