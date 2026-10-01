@@ -120,6 +120,10 @@
         "@oh-my-opencode/utils": "workspace:*",
       },
     },
+    "packages/decision-core": {
+      "name": "@oh-my-opencode/decision-core",
+      "version": "0.1.0",
+    },
     "packages/delegate-core": {
       "name": "@oh-my-opencode/delegate-core",
       "version": "0.1.0",
@@ -720,6 +724,8 @@
     "@oh-my-opencode/claude-code-compat-core": ["@oh-my-opencode/claude-code-compat-core@workspace:packages/claude-code-compat-core"],
 
     "@oh-my-opencode/comment-checker-core": ["@oh-my-opencode/comment-checker-core@workspace:packages/comment-checker-core"],
+
+    "@oh-my-opencode/decision-core": ["@oh-my-opencode/decision-core@workspace:packages/decision-core"],
 
     "@oh-my-opencode/delegate-core": ["@oh-my-opencode/delegate-core@workspace:packages/delegate-core"],
 
