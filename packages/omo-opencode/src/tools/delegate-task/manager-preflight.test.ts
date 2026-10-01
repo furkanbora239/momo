@@ -1,7 +1,7 @@
 const { describe, test, expect } = require("bun:test")
 
 const { validateSubagentRequest } = require("./subagent-request-preflight")
-const { MANAGER_AGENT_NAMES } = require("./constants")
+const { MANAGER_AGENT_NAMES, isDispatcherAgent } = require("./constants")
 
 function makeOptions() {
   return { allowSisyphusJuniorDirect: false }
@@ -216,6 +216,10 @@ describe("subagent-request-preflight - manager loop protection", () => {
       makeOptions(),
     )
     expect(result.kind).toBe("invalid")
+  })
+
+  test("#given manager dispatcher #when isDispatcherAgent called #then true (dispatcher role persists under Jev virtualization)", () => {
+    expect(isDispatcherAgent("manager")).toBe(true)
   })
 })
 

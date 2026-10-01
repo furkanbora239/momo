@@ -166,4 +166,49 @@ describe("agent-tool-restrictions - manager entries", () => {
   })
 })
 
+describe("manager dispatcher virtualization under Jev engine", () => {
+  test("#given engine=jev #when a manager delegation is routed #then it never resolves to the LLM manager agent", async () => {
+    const { createDecisionRouter } = require("./decision-router")
+    const { ManagerConfigSchema } = require("../../config/schema/decision-engine")
+
+    const engine = {
+      async decide() {
+        return {
+          source: "jev",
+          stage1: {
+            path: { type: "choice", choice: "planner", confidence: 0.9, probabilities: {} },
+            effort: { type: "score", score: 3, confidence: 0.9 },
+          },
+          candidates: [{ name: "a/b", priceLine: "$0.04/M input", strength: "fast" }],
+          stage2: {
+            model: { type: "choice", choice: "a/b", confidence: 0.9, probabilities: {} },
+            lane: { type: "choice", choice: "direct-worker", confidence: 0.9, probabilities: {} },
+          },
+          resolved: { path: "planner", effort: 3, model: "a/b", lane: "direct-worker" },
+          usage: { inputTokens: 10, costUsd: 0.0004 },
+          latencyMs: 12,
+        }
+      },
+    }
+    const router = createDecisionRouter({
+      client: {},
+      config: ManagerConfigSchema.parse({}),
+      ledger: {
+        record: () => ({ id: "x", ts: 0 }),
+        backfillOutcome: () => true,
+        accumulate: () => {},
+        monthlySpendUsd: () => 0,
+        readAll: () => [],
+      },
+      engine,
+      buildCandidatesImpl: () => [{ name: "a/b", priceLine: "$0.04/M input", strength: "fast" }],
+    })
+
+    const result = await router.route({ description: "t", prompt: "p" })
+
+    expect(result.rewrite.subagent_type).toBe("planner")
+    expect(result.rewrite.subagent_type).not.toBe("manager")
+  })
+})
+
 module.exports = {}

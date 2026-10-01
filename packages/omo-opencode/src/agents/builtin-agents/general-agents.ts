@@ -28,6 +28,8 @@ export function collectPendingBuiltinAgents(input: {
   teamModeEnabled?: boolean
   useTaskSystem?: boolean
   disableOmoEnv?: boolean
+  // "jev" (default) virtualizes the manager dispatcher via the decision router, so the LLM manager agent is not registered.
+  managerDecisionEngine?: string
 }): { pendingAgentConfigs: Map<string, AgentConfig>; availableAgents: AvailableAgent[] } {
   const {
     agentSources,
@@ -45,6 +47,7 @@ export function collectPendingBuiltinAgents(input: {
     disabledSkills,
     teamModeEnabled,
     disableOmoEnv = false,
+    managerDecisionEngine,
   } = input
 
   const availableAgents: AvailableAgent[] = []
@@ -56,6 +59,9 @@ export function collectPendingBuiltinAgents(input: {
     if (agentName === "sisyphus") continue
     if (agentName === "hephaestus") continue
     if (agentName === "atlas") continue
+    // Under the Jev decision engine (default), the manager dispatcher is virtualized
+    // by the decision router; the LLM manager agent is not registered.
+    if (agentName === "manager" && (managerDecisionEngine ?? "jev") === "jev") continue
     if (disabledAgents.some((name) => name.toLowerCase() === agentName.toLowerCase())) continue
 
     const override = agentOverrides[agentName]

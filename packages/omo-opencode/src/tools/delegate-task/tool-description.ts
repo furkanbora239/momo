@@ -75,6 +75,7 @@ export function createDelegateTaskPresentation(options: DelegateTaskPresentation
     Available categories:
   ${categoryList}
   - subagent_type: Use specific agent directly (explore, librarian, oracle, metis, momus)
+  - subagent_type "manager": Virtual dispatcher (default decision_engine: jev). Routes the task through the Jev decision engine to pick the best agent and model — it is NOT an LLM agent. Under decision_engine "llm" it falls back to the LLM manager agent.
   - run_in_background: Optional. Defaults to true (async, returns a background task ID like \`bg_...\` for \`background_output\`) unless background_task.nonBlockingByDefault is false in config, in which case an omitted flag resolves to false (sync, waits). Set false=sync ONLY when the next step strictly depends on this task's result.
     Sync waits use a 30-minute inactivity window: OpenCode busy/retry/running status resets the window, so this is not a total wall-clock limit.
   - task_id: Continuation session id (\`ses_...\`) from task metadata. Continues the same subagent session with FULL CONTEXT PRESERVED; not the background task id (\`bg_...\`).

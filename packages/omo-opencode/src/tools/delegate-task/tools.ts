@@ -15,6 +15,8 @@ import {
 } from "./executor"
 import { prepareDelegateTaskArgs } from "./tool-argument-preparation"
 import { createDelegateTaskPresentation } from "./tool-description"
+import { createDecisionRouter, type DecisionRouterOutcome } from "./decision-router"
+import { ManagerConfigSchema } from "../../config/schema/decision-engine"
 import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { mergeNativeSkillInfos, type NativeSkillEntry } from "../skill/native-skills"
 import type { SkillInfo } from "../skill/types"
@@ -138,6 +140,38 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
 
       if (!delegateTaskArgs.category && !delegateTaskArgs.subagent_type) {
         return `Invalid arguments: Must provide either category or subagent_type.`
+      }
+
+      // --- Manager decision routing ---
+      // When subagent_type is "manager", the Jev decision engine (or the
+      // deterministic heuristic default) replaces the LLM manager agent. The
+      // "llm" engine keeps today's behavior: resolveSubagentExecution below
+      // spawns the LLM manager agent unchanged.
+      let managerDecisionId: string | undefined
+      let managerRouter: ReturnType<typeof createDecisionRouter> | undefined
+      const dispatchStart = Date.now()
+      if (delegateTaskArgs.subagent_type === "manager") {
+        const managerConfig = options.managerConfig ?? ManagerConfigSchema.parse({})
+        const engine = managerConfig.decision_engine
+        if (engine === "jev") {
+          managerRouter = createDecisionRouter({
+            client: options.client,
+            config: managerConfig,
+            sessionId: ctx.sessionID,
+            modelPoolOverride: options.modelPoolOverride,
+          })
+          const routed = await managerRouter.route({
+            description: delegateTaskArgs.description ?? "",
+            prompt: delegateTaskArgs.prompt,
+          })
+          delegateTaskArgs.category = routed.rewrite.category
+          delegateTaskArgs.subagent_type = routed.rewrite.subagent_type
+          delegateTaskArgs.model = routed.rewrite.model ?? delegateTaskArgs.model
+          managerDecisionId = routed.decisionId
+        } else if (engine === "heuristic") {
+          delegateTaskArgs.category = "deep"
+          delegateTaskArgs.subagent_type = undefined
+        }
       }
 
       let systemDefaultModel: string | undefined
@@ -313,7 +347,15 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
         return executeBackgroundTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, fallbackChain)
       }
 
-      return executeSyncTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, modelInfo, fallbackChain)
+      const syncResult = await executeSyncTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, modelInfo, fallbackChain)
+      if (managerRouter && managerDecisionId) {
+        const outcome: DecisionRouterOutcome = {
+          status: "success",
+          durationMs: Date.now() - dispatchStart,
+        }
+        managerRouter.backfill(managerDecisionId, outcome)
+      }
+      return syncResult
     },
   })
 }
