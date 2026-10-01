@@ -67,6 +67,7 @@ export function createCoreTools(args: {
     syncPollTimeoutMs: pluginConfig.background_task?.syncPollTimeoutMs,
     nonBlockingByDefault: pluginConfig.background_task?.nonBlockingByDefault,
     managersEnabled: pluginConfig.delegation?.managers ?? true,
+    managerConfig: pluginConfig.manager,
     modelFallbackControllerAccessor: managers.modelFallbackControllerAccessor,
     onSyncSessionCreated: async (event) => {
       log("[index] onSyncSessionCreated callback", {

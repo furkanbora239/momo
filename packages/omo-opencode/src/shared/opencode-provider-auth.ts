@@ -17,11 +17,13 @@ import { log } from "./logger"
 
 type AuthRecord = {
   type?: unknown
+  key?: unknown
 }
 
 type AuthCacheEntry = {
   mtimeMs: number
   map: Map<string, string>
+  keyMap: Map<string, string>
 }
 
 let cached: AuthCacheEntry | null = null
@@ -30,9 +32,20 @@ function getAuthFilePath(): string {
   return path.join(getDataDir(), "opencode", "auth.json")
 }
 
-
-
 function loadAuthMap(): Map<string, string> {
+  loadAuthStore()
+  return cached?.map ?? new Map()
+}
+
+// Reads a provider API key from OpenCode's auth.json (e.g. Zen key under
+// `opencode-go`). Read on demand; never log or persist the returned value.
+export function getProviderApiKey(providerID: string): string | undefined {
+  loadAuthStore()
+  if (!cached) return undefined
+  return cached.keyMap.get(providerID)
+}
+
+function loadAuthStore(): void {
   const filePath = getAuthFilePath()
 
   let mtimeMs: number
@@ -41,37 +54,41 @@ function loadAuthMap(): Map<string, string> {
   } catch (error) {
     if (error instanceof Error) {
       cached = null
-      return new Map()
+      return
     }
 
     cached = null
-    return new Map()
+    return
   }
 
   if (cached && cached.mtimeMs === mtimeMs) {
-    return cached.map
+    return
   }
 
   try {
     const raw = readFileSync(filePath, "utf-8")
     const parsed: unknown = JSON.parse(raw)
     const map = new Map<string, string>()
+    const keyMap = new Map<string, string>()
     if (isRecord(parsed)) {
-      for (const [providerID, entry] of Object.entries(parsed)) {
+      for (const [providerId, entry] of Object.entries(parsed)) {
         if (!isRecord(entry)) continue
-        const type = (entry as AuthRecord).type
+        const type = entry.type
         if (typeof type === "string") {
-          map.set(providerID, type)
+          map.set(providerId, type)
+        }
+        const key = entry.key
+        if (typeof key === "string" && key.length > 0) {
+          keyMap.set(providerId, key)
         }
       }
     }
-    cached = { mtimeMs, map }
-    return map
+    cached = { mtimeMs, map, keyMap }
   } catch (error) {
     log("[opencode-provider-auth] Failed to read auth.json", {
       error: error instanceof Error ? error.message : String(error),
     })
-    return new Map()
+    cached = null
   }
 }
 

@@ -41,6 +41,7 @@ export async function applyAgentConfig(
     params.pluginConfig.team_mode?.enabled ?? false,
     params.pluginConfig.sisyphus_agent?.thinking_budget_tokens,
     enableDefaultOffList,
+    params.pluginConfig.manager?.decision_engine,
   );
   const disabledAgentNames = new Set(
     (migratedDisabledAgents ?? []).map((agent: string) => agent.toLowerCase()),

@@ -1,5 +1,6 @@
 import type { BackgroundManager } from "../../features/background-agent"
 import type { CategoriesConfig, GitMasterConfig, BrowserAutomationProvider, AgentOverrides, SisyphusAgentConfig } from "../../config/schema"
+import type { ManagerConfig } from "../../config/schema/decision-engine"
 import type { ModelFallbackControllerAccessor } from "../../hooks/model-fallback"
 import type { LoadedSkill } from "../../features/opencode-skill-loader/types"
 import type { SessionPromptAsyncData, SessionPromptData, SessionStatusData } from "@opencode-ai/sdk"
@@ -122,6 +123,7 @@ export interface DelegateTaskToolOptions {
   /** Resolved from background_task.nonBlockingByDefault. An omitted run_in_background resolves to background unless this is explicitly false. */
   nonBlockingByDefault?: boolean
   managersEnabled?: boolean
+  managerConfig?: ManagerConfig
   /** OpenCode native skill accessor for skills registered via config.skills.paths. Same shape as SkillLoadOptions.nativeSkills. */
   nativeSkills?: {
     all(): { name: string; description: string; location: string; content: string }[] | Promise<{ name: string; description: string; location: string; content: string }[]>

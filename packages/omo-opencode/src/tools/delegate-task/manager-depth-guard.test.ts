@@ -32,6 +32,14 @@ describe("sync depth guard", () => {
     const grandchildDepth = 4
     expect(grandchildDepth > max).toBe(true)
   })
+
+  test("#given default depth 3 #when tracing owner-manager(router)-worker chain #then depths fit: owner(0)→manager(1)→worker(2) all ≤ 3", () => {
+    const max = getMaxSubagentDepth(undefined)
+    const ownerChildDepth = 1
+    const managerChildDepth = 2
+    expect(ownerChildDepth).toBeLessThanOrEqual(max)
+    expect(managerChildDepth).toBeLessThanOrEqual(max)
+  })
 })
 
 module.exports = {}

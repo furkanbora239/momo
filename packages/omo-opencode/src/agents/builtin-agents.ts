@@ -96,6 +96,7 @@ export async function createBuiltinAgents(
   teamModeEnabled = false,
   sisyphusThinkingBudgetTokens?: number,
   enableDefaultOffList?: readonly string[],
+  managerDecisionEngine?: string,
 ): Promise<Record<string, AgentConfig>> {
 
   const connectedProviders = readConnectedProvidersCache()
@@ -140,6 +141,7 @@ export async function createBuiltinAgents(
     disabledSkills,
     teamModeEnabled,
     disableOmoEnv,
+    managerDecisionEngine,
   })
 
   const sisyphusConfig = maybeCreateSisyphusConfig({
