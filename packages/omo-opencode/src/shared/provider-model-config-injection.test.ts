@@ -53,6 +53,27 @@ describe("computeLiveOnlyModelConfigEntries", () => {
     })
   })
 
+  test("given gateway metadata with a context but no output limit, when computing, then the entry keeps the context and gains a schema-required output", () => {
+    const entries = computeLiveOnlyModelConfigEntries({
+      providerID: "evren",
+      existingConfigModels: {},
+      registryModelIds: [],
+      liveModelIds: ["deepseek-v4.1-flash"],
+      cachedMetadata: [
+        {
+          id: "deepseek-v4.1-flash",
+          limit: { context: 1048576 },
+          limitSource: "gateway-live-models",
+        },
+      ],
+    })
+
+    expect(entries["deepseek-v4.1-flash"]?.limit).toEqual({
+      context: 1048576,
+      output: 65536,
+    })
+  })
+
   test("given metadata without limits, when computing, then limit keys are omitted instead of invented", () => {
     const entries = computeLiveOnlyModelConfigEntries({
       providerID: "neuralwatt",

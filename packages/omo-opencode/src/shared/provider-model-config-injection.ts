@@ -55,6 +55,15 @@ function readPositiveNumber(value: unknown): number | undefined {
   return value
 }
 
+// OpenCode's config schema (1.18.33+) hard-fails startup when a model's
+// `limit` block is present but `limit.output` is missing. Gateways legitimately
+// report a null per-model output cap (e.g. evren's default_max_output_tokens),
+// so live metadata can carry a context without an output. Over-declaring this
+// fallback satisfies validation without throttling: OpenCode's request layer
+// clamps max_tokens to OUTPUT_TOKEN_MAX regardless. Same trap and remedy as
+// EVREN_OUTPUT_LIMIT in features/evren/provider.ts, on the generic path.
+const LIMIT_OUTPUT_FALLBACK = 65536
+
 function findCachedMetadata(
   cachedMetadata: readonly (ModelMetadata | string)[] | undefined,
   modelID: string,
@@ -82,6 +91,9 @@ function buildModelConfigEntry(
   const output = readPositiveNumber(metadata?.limit?.output) ?? readPositiveNumber(metadata?.output)
   if (context !== undefined) limit.context = context
   if (output !== undefined) limit.output = output
+  if (limit.context !== undefined && limit.output === undefined) {
+    limit.output = LIMIT_OUTPUT_FALLBACK
+  }
   if (limit.context !== undefined || limit.output !== undefined) entry.limit = limit
 
   if (typeof metadata?.reasoning === "boolean") entry.reasoning = metadata.reasoning
