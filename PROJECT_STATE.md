@@ -1,6 +1,6 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-09-07  
+**Last Updated:** 2026-10-02  
 **Version / Branch:** `dev`
 
 ---
@@ -21,14 +21,16 @@ The plugin codebase lives in `packages/omo-opencode/` (not root `src/`):
 
 - `packages/omo-opencode/` — OpenCode plugin (entry: `src/index.ts`)
   - `src/agents/` — Built-in agents (`sisyphus`, `planner`, `worker`, `advisor`, `explore`, `librarian`)
-  - `src/tools/delegate-task/` — Task delegation, sync session polling (`sync-session-poller.ts`), stall detection
+  - `src/tools/delegate-task/` — Task delegation, sync session polling (`sync-session-poller.ts`), stall detection; `decision-router.ts` is the Jev-backed virtual manager
   - `src/features/background-agent/` — Asynchronous background tasks, concurrency, task poller watchdog
   - `src/features/tui-sidebar/` — Real-time TUI sidebar mirror (tracks active agents, sync tasks, background jobs, live tools)
   - `src/features/task-toast-manager/` — Running task tracking and toast notifications
   - `src/hooks/compaction-context-injector/` — Context compaction prompt and session state preservation
+  - `src/features/decision-ledger/` — Append-only routing decision ledger (future fine-tune dataset) + export/calibration
 - `packages/prompts-core/` — Harness-neutral core prompts (`prompts/planner/default.md`, `prompts/ultrawork/`, etc.)
 - `packages/model-core/` — Model requirements and category definitions
 - `packages/delegate-core/` — Category-to-model routing policies
+- `packages/decision-core/` — Harness-neutral Jev (System One) client + two-stage decision engine
 
 ---
 
@@ -41,6 +43,7 @@ All agents start unpinned to any specific provider/model; the user configures mo
 3. **`worker` / `sisyphus-junior` (Worker)**: Mode `all`. Dedicated direct execution agent accessible via Tab in OpenCode. Perfect for tasks like `commit and push`, running tests, or single-file edits without orchestrator overhead.
 4. **`advisor` (Consultant)**: On-demand advisor gated at task time. Unbound calls are rejected with binding instructions. Bound via `/advisor` command.
 5. **`explore` / `librarian` (Discovery)**: Targeted exploration subagents. `explore` for contextual repository grep/search; `librarian` for external docs/web.
+6. **`manager` (Tier-2 Dispatcher)**: Since 2026-10-02 this is a **virtual** agent, not an LLM — `task(subagent_type="manager")` routes through the Jev decision engine (see the Jev-Based Virtual Manager milestone in §4). Driven by `manager.decision_engine` (`"jev"` default; `"llm"` restores the legacy LLM manager).
 
 ---
 
@@ -98,6 +101,18 @@ All agents start unpinned to any specific provider/model; the user configures mo
 
 - **EVREN Context Alignment**: Built-in EVREN models declare a 250k context fallback (matching the published gateway value) and no output cap; OpenCode falls back to its 32k default for output. Key file: `src/features/evren/provider.ts`.
 - **Live Limit Capture**: The provider-models live refresh now captures `context_length` / `max_model_len` / `context_window` from `GET /models` (marked `limitSource: "gateway-live-models"` in the cache), and `applyBuiltinEvrenProvider` overrides the injected fallback with those gateway-reported values at config time. The EVREN gateway does not publish these fields yet, so the capture stays dormant until it does. Key files: `src/shared/provider-model-live-refresh.ts`, `src/features/evren/live-context-limits.ts`.
+
+### Milestone: Jev-Based Virtual Manager (2026-10-02)
+
+The Tier-2 manager is no longer an LLM agent. `task(subagent_type="manager")` routes through a two-stage Jev (TypeSafe System One, hosted on OpenCode Zen) decision engine, gated by `manager.decision_engine` (default `"jev"`; `"llm"` restores the legacy LLM manager; `"heuristic"` skips straight to the deterministic `deep` default).
+
+- **Two-stage schema (live-validated on 80 real-style delegations)**: stage 1 asks `path` (7 lanes — measured 95%) + `effort` (score 1-5, MAE 0.82); a deterministic candidate builder injects 4-6 models with real campaign prices into state; stage 2 asks `model` (82.5% with pricing facts vs 55% blind) + `lane` (direct-worker vs department, 100%).
+- **Fallback ladder**: confidence gate (default 0.75) → circuit breaker (3 consecutive failures / 10 min) → monthly budget cap → deterministic `{category:"deep"}` with available-model rescue. `task()` never blocks on Jev/Zen outages.
+- **Decision ledger**: every decision (questions, answers, full probability distributions, candidates, resolved target, usage) is appended to `~/.omo/decision-ledger.jsonl`, with outcome back-fill — the future fine-tune dataset for momo's own decision model. Export via `script/export-decisions.ts`; threshold calibration via `script/calibrate-decision-threshold.ts`.
+- **Key files**: `packages/decision-core/` (Jev client + two-stage engine), `src/features/decision-ledger/`, `src/tools/delegate-task/decision-router.ts` + wiring in `tools.ts`, `src/config/schema/decision-engine.ts`, `src/shared/opencode-provider-auth.ts`.
+- **Zen API contract**: `POST https://opencode.ai/zen/v1/systemone`, model `jev-1.13` ($0.042/M input, output free); `criteria` must be a dict (an `options` array is rejected with HTTP 422); keys resolve at call time from the OpenCode auth store (`opencode-go`); Cloudflare rejects generic SDK User-Agents (error 1010).
+- **Shipped PRs**: #23 (ledger + config), #24 (decision-core), #25 (virtual manager dispatch), #26 (fine-tune export), #27 (fallback rescue + ledger question fidelity + real outcome status + calibration), #28 (generic `limit.output` fallback).
+- **Next**: accumulate ledger data, calibrate the confidence threshold from real outcomes, then fine-tune a local decision model once enough labeled decisions exist.
 
 ---
 
