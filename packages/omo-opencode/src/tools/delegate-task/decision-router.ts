@@ -1,4 +1,8 @@
 import {
+  buildEffortQuestion,
+  buildLaneQuestion,
+  buildModelQuestion,
+  buildPathQuestion,
   createDecisionEngine,
   createJevClient,
   type BuildCandidatesContext,
@@ -8,7 +12,14 @@ import {
   type ModelCandidate,
   type PathOption,
 } from "@oh-my-opencode/decision-core"
-import { getModelProfile, type ModelCostTier } from "@oh-my-opencode/model-core"
+import {
+  CATEGORY_MODEL_REQUIREMENTS,
+  getModelProfile,
+  type ModelCostTier,
+} from "@oh-my-opencode/model-core"
+import {
+  resolveModelForDelegateTask as resolveModelForDelegateTaskCore,
+} from "@oh-my-opencode/delegate-core"
 
 import { getAvailableModelsForDelegateTask } from "./available-models"
 import type { OpencodeClient } from "./types"
@@ -57,6 +68,8 @@ export interface DecisionRouterDeps {
   engine?: DecisionEngine
   /** Injected for tests; bypasses live model discovery. */
   buildCandidatesImpl?: (ctx: BuildCandidatesContext) => readonly ModelCandidate[]
+  /** Injected for tests; overrides the live available-model set used for fallback rescue. */
+  availableModelsOverride?: ReadonlySet<string>
 }
 
 const TIER_PRICE: Record<ModelCostTier, number> = {
@@ -125,6 +138,88 @@ function excerpt(prompt: string): string {
   return prompt.length > PROMPT_EXCERPT_CAP ? prompt.slice(0, PROMPT_EXCERPT_CAP) : prompt
 }
 
+const TIER_RANK: Record<ModelCostTier, number> = {
+  free: 0,
+  budget: 1,
+  balanced: 2,
+  premium: 3,
+}
+
+/**
+ * When the deterministic fallback fires we still must dispatch to a model that is
+ * actually connected. The deep category default (openai/gpt-5.6-sol) can be
+ * offline in a minimal provider setup, which previously killed the spawned
+ * session with ProviderModelNotFoundError. Resolve an AVAILABLE model instead:
+ * first try the deep category's own fallback chain, then fall back to the
+ * cheapest available adequate model. Returns undefined only when no model is
+ * available at all (in which case the caller keeps the bare { category: "deep" }).
+ */
+function resolveFallbackModel(availableModels: ReadonlySet<string>): string | undefined {
+  if (availableModels.size === 0) return undefined
+
+  const deepRequirement = CATEGORY_MODEL_REQUIREMENTS["deep"]
+  const resolved = resolveModelForDelegateTaskCore(
+    {
+      categoryDefaultModel: "openai/gpt-5.6-sol",
+      fallbackChain: deepRequirement?.fallbackChain,
+      availableModels,
+    },
+    {
+      connectedProviders: null,
+      hasProviderModelsCache: false,
+      hasConnectedProvidersCache: false,
+    },
+  )
+  if (resolved && !("skipped" in resolved) && resolved.model) {
+    return resolved.model
+  }
+
+  return cheapestAvailableModel(availableModels)
+}
+
+function cheapestAvailableModel(availableModels: ReadonlySet<string>): string | undefined {
+  let best: string | undefined
+  let bestRank = Number.POSITIVE_INFINITY
+  for (const model of availableModels) {
+    const modelId = model.split("/")[1] ?? model
+    const tier = getModelProfile(modelId)?.costTier
+    const rank = tier ? TIER_RANK[tier] : TIER_RANK.balanced
+    if (rank < bestRank) {
+      bestRank = rank
+      best = model
+    }
+  }
+  return best
+}
+
+/**
+ * Derive a real outcome status from the sync task completion string. The sync
+ * poller surfaces failure/abort/timeout as human-readable strings; we classify
+ * them so the ledger backfill is no longer hard-coded to "success".
+ *   - timeout: the stall watchdog / poll inactivity timeout fired
+ *   - failure: an abort, incomplete deliverable, no-progress, or error string
+ *   - success: any normal completion message
+ */
+export function classifySyncOutcome(result: string): DecisionRouterOutcome["status"] {
+  if (/timeout/i.test(result)) return "timeout"
+  if (/aborted|incomplete|no new work|no assistant|error/i.test(result)) return "failure"
+  return "success"
+}
+
+function buildStage1Questions(): Record<string, unknown> {
+  return {
+    path: buildPathQuestion(PATH_OPTIONS),
+    effort: buildEffortQuestion(),
+  }
+}
+
+function buildStage2Questions(candidates: readonly ModelCandidate[]): Record<string, unknown> {
+  return {
+    model: buildModelQuestion(candidates),
+    lane: buildLaneQuestion(),
+  }
+}
+
 function fallbackDecision(reason: string): RouterDecision {
   return {
     source: "fallback",
@@ -190,11 +285,20 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
       breakerCooldownMs: jev.circuit_breaker.cooldown_ms,
     })
 
-  function toRewrite(decision: RouterDecision): DecisionRouterRewrite {
-    if (decision.source === "fallback") return { category: "deep" }
+  function toRewrite(
+    decision: RouterDecision,
+    availableModels: ReadonlySet<string>,
+  ): { rewrite: DecisionRouterRewrite; rescued: boolean } {
+    if (decision.source === "fallback") {
+      const rescue = resolveFallbackModel(availableModels)
+      if (rescue) {
+        return { rewrite: { category: "deep", model: rescue }, rescued: true }
+      }
+      return { rewrite: { category: "deep" }, rescued: false }
+    }
     const base = PATH_REWRITE[decision.resolved.path ?? ""] ?? { category: "deep" }
-    if (decision.resolved.model) return { ...base, model: decision.resolved.model }
-    return { ...base }
+    if (decision.resolved.model) return { rewrite: { ...base, model: decision.resolved.model }, rescued: false }
+    return { rewrite: { ...base }, rescued: false }
   }
 
   function toLedgerEntry(task: DecisionTask, decision: RouterDecision): DecisionLedgerRecordInput {
@@ -203,7 +307,7 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
       task: { description: task.description, promptExcerpt: excerpt(task.prompt) },
       stage1: decision.stage1
         ? {
-            questions: {},
+            questions: buildStage1Questions(),
             answers: decision.stage1,
             confidence: decision.stage1.path?.confidence,
             latencyMs: decision.latencyMs,
@@ -215,7 +319,11 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
         strength: c.strength,
       })),
       stage2: decision.stage2
-        ? { questions: {}, answers: decision.stage2, latencyMs: decision.latencyMs }
+        ? {
+            questions: buildStage2Questions(decision.candidates ?? []),
+            answers: decision.stage2,
+            latencyMs: decision.latencyMs,
+          }
         : undefined,
       resolved: decision.resolved,
       source: decision.source,
@@ -234,10 +342,16 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
     }
   }
 
-  function finalize(task: DecisionTask, decision: RouterDecision): DecisionRouterResult {
-    const rewrite = toRewrite(decision)
-    const decisionId = recordDecision(task, decision)
-    return { source: decision.source, reason: decision.reason, rewrite, decisionId }
+  function finalize(
+    task: DecisionTask,
+    decision: RouterDecision,
+    availableModels: ReadonlySet<string>,
+  ): DecisionRouterResult {
+    const { rewrite, rescued } = toRewrite(decision, availableModels)
+    const reason = rescued ? `${decision.reason}+model-rescue` : decision.reason
+    const decisionForLedger = rescued ? { ...decision, reason } : decision
+    const decisionId = recordDecision(task, decisionForLedger)
+    return { source: decision.source, reason, rewrite, decisionId }
   }
 
   async function route(task: DecisionTask): Promise<DecisionRouterResult> {
@@ -248,10 +362,12 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
       log("[decision-router] budget read failed; proceeding", { error: errMsg(error) })
     }
     if (overBudget) {
-      return finalize(task, fallbackDecision("budget-cap"))
+      return finalize(task, fallbackDecision("budget-cap"), availableModels())
     }
 
-    if (!deps.buildCandidatesImpl) {
+    if (deps.availableModelsOverride) {
+      candidateModels = deps.availableModelsOverride as Set<string>
+    } else if (!deps.buildCandidatesImpl) {
       try {
         candidateModels = await getAvailableModelsForDelegateTask(deps.client)
         candidatePool = deps.modelPoolOverride ?? readModelPool()
@@ -261,6 +377,8 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
       }
     }
 
+    const available = candidateModels ?? new Set<string>()
+
     let result: DecisionResult
     try {
       result = await engine.decide(task)
@@ -268,10 +386,14 @@ export function createDecisionRouter(deps: DecisionRouterDeps) {
       log("[decision-router] engine.decide threw; using deterministic default", {
         error: errMsg(error),
       })
-      return finalize(task, fallbackDecision("jev-error"))
+      return finalize(task, fallbackDecision("jev-error"), available)
     }
 
-    return finalize(task, result)
+    return finalize(task, result, available)
+  }
+
+  function availableModels(): ReadonlySet<string> {
+    return candidateModels ?? new Set<string>()
   }
 
   function backfill(decisionId: string | undefined, outcome: DecisionRouterOutcome): void {

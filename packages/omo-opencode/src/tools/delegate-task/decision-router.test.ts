@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test"
-import { createDecisionRouter } from "./decision-router"
+import { classifySyncOutcome, createDecisionRouter } from "./decision-router"
 import { ManagerConfigSchema } from "../../config/schema/decision-engine"
 import type { DecisionEngine, DecisionResult, ModelCandidate } from "@oh-my-opencode/decision-core"
 import type { DecisionLedger } from "../../features/decision-ledger/ledger"
@@ -264,5 +264,111 @@ describe("createDecisionRouter - ledger integration", () => {
 
     expect(result.rewrite).toEqual({ category: "quick", model: "a/b" })
     expect(result.decisionId).toBeUndefined()
+  })
+})
+
+describe("createDecisionRouter - fallback model rescue", () => {
+  test("#given engine fallback and available models exclude deep default #when route called #then rewrite carries available model override and rescue reason", async () => {
+    const fallback: DecisionResult = {
+      ...baseJevResult(),
+      source: "fallback",
+      reason: "low-confidence-stage1",
+      resolved: {},
+    }
+    const engine = mockEngine(fallback)
+    const { ledger } = mockLedger()
+    const router = createDecisionRouter({
+      client: {} as never,
+      config: managerConfig,
+      ledger,
+      engine,
+      buildCandidatesImpl: () => candidates,
+      availableModelsOverride: new Set(["neuralwatt/kimi-k3", "opencode-go/glm-5.3-flash"]),
+    })
+
+    const result = await router.route({ description: "t", prompt: "p" })
+
+    expect(result.source).toBe("fallback")
+    expect(result.reason).toBe("low-confidence-stage1+model-rescue")
+    expect(result.rewrite.category).toBe("deep")
+    expect(result.rewrite.model).toBeDefined()
+    expect(["neuralwatt/kimi-k3", "opencode-go/glm-5.3-flash"]).toContain(result.rewrite.model)
+  })
+
+  test("#given engine fallback and no available models #when route called #then plain deep default without rescue", async () => {
+    const fallback: DecisionResult = {
+      ...baseJevResult(),
+      source: "fallback",
+      reason: "low-confidence-stage1",
+      resolved: {},
+    }
+    const engine = mockEngine(fallback)
+    const { ledger } = mockLedger()
+    const router = createDecisionRouter({
+      client: {} as never,
+      config: managerConfig,
+      ledger,
+      engine,
+      buildCandidatesImpl: () => candidates,
+    })
+
+    const result = await router.route({ description: "t", prompt: "p" })
+
+    expect(result.reason).toBe("low-confidence-stage1")
+    expect(result.rewrite).toEqual({ category: "deep" })
+  })
+})
+
+describe("createDecisionRouter - ledger question fidelity", () => {
+  test("#given jev decision #when route called #then ledger records real stage1/stage2 question payloads", async () => {
+    const engine = mockEngine(jevResultFor("executor", "a/b"))
+    const { ledger, records } = mockLedger()
+    const router = createDecisionRouter({
+      client: {} as never,
+      config: managerConfig,
+      ledger,
+      engine,
+      buildCandidatesImpl: () => candidates,
+    })
+
+    await router.route({ description: "build it", prompt: "implement the feature" })
+
+    const entry = records[0] as Record<string, unknown>
+    const stage1 = entry.stage1 as Record<string, unknown>
+    const stage2 = entry.stage2 as Record<string, unknown>
+    const stage1Questions = stage1.questions as Record<string, unknown>
+    const stage2Questions = stage2.questions as Record<string, unknown>
+    expect(stage1Questions.path).toBeDefined()
+    expect((stage1Questions.path as Record<string, unknown>).criteria).toBeDefined()
+    expect(stage1Questions.effort).toBeDefined()
+    expect((stage1Questions.effort as Record<string, unknown>).criteria).toBeDefined()
+    expect(stage2Questions.model).toBeDefined()
+    expect((stage2Questions.model as Record<string, unknown>).criteria).toBeDefined()
+    expect(stage2Questions.lane).toBeDefined()
+    expect((stage2Questions.lane as Record<string, unknown>).criteria).toBeDefined()
+  })
+})
+
+describe("classifySyncOutcome", () => {
+  test("#given stall timeout string #when classified #then timeout", () => {
+    const result =
+      "Poll inactivity timeout reached after 60000ms without active OpenCode status for session ses_x (reason: timeout)"
+    expect(classifySyncOutcome(result)).toBe("timeout")
+  })
+
+  test("#given aborted string #when classified #then failure", () => {
+    expect(classifySyncOutcome("Task aborted (reason: stall_detector): subagent stalled")).toBe("failure")
+  })
+
+  test("#given incomplete deliverable string #when classified #then failure", () => {
+    expect(classifySyncOutcome("Task incomplete (reason: mid_tool_incomplete): pending tool call")).toBe("failure")
+  })
+
+  test("#given no-progress string #when classified #then failure", () => {
+    expect(classifySyncOutcome("Task produced no new work (reason: no_progress).")).toBe("failure")
+  })
+
+  test("#given normal completion string #when classified #then success", () => {
+    expect(classifySyncOutcome("Task completed in 12s.\n\nAgent: executor\n\n---\n\ndone")).toBe("success")
   })
 })

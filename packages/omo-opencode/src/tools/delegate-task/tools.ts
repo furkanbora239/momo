@@ -15,7 +15,7 @@ import {
 } from "./executor"
 import { prepareDelegateTaskArgs } from "./tool-argument-preparation"
 import { createDelegateTaskPresentation } from "./tool-description"
-import { createDecisionRouter, type DecisionRouterOutcome } from "./decision-router"
+import { classifySyncOutcome, createDecisionRouter, type DecisionRouterOutcome } from "./decision-router"
 import { ManagerConfigSchema } from "../../config/schema/decision-engine"
 import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { mergeNativeSkillInfos, type NativeSkillEntry } from "../skill/native-skills"
@@ -350,7 +350,7 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
       const syncResult = await executeSyncTask(delegateTaskArgs, ctx, options, parentContext, agentToUse, categoryModel, systemContent, modelInfo, fallbackChain)
       if (managerRouter && managerDecisionId) {
         const outcome: DecisionRouterOutcome = {
-          status: "success",
+          status: classifySyncOutcome(syncResult),
           durationMs: Date.now() - dispatchStart,
         }
         managerRouter.backfill(managerDecisionId, outcome)
