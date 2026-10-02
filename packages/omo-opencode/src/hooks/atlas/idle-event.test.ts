@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -101,7 +102,7 @@ describe("handleAtlasSessionIdle completion nudge", () => {
       return { data: {} }
     })
 
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {
@@ -175,7 +176,7 @@ describe("handleAtlasSessionIdle completion nudge", () => {
     const promptAsyncMock = mock(async () => {
       throw new Error("JSON Parse error: Unexpected EOF")
     })
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {
@@ -227,7 +228,7 @@ describe("handleAtlasSessionIdle completion nudge", () => {
     writeBoulderState(testDirectory, boulder)
 
     const promptAsyncMock = mock(async () => ({ data: {} }))
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {
@@ -286,7 +287,7 @@ describe("handleAtlasSessionIdle completion nudge", () => {
     writeBoulderState(testDirectory, boulder)
 
     const promptAsyncMock = mock(async () => ({ data: {} }))
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {
@@ -364,7 +365,7 @@ describe("handleAtlasSessionIdle completion nudge", () => {
     }
 
     const promptAsyncMock = mock(async () => ({ data: {} }))
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {
@@ -406,7 +407,7 @@ describe("handleAtlasSessionIdle completion nudge", () => {
     writeBoulderState(testDirectory, boulder)
 
     const promptAsyncMock = mock(async () => ({ data: {} }))
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {

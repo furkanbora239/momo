@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { BackgroundTaskConfig, TmuxConfig } from "../../config/schema"
 import type { ModelFallbackControllerAccessor } from "../../hooks/model-fallback"
 import {
@@ -122,7 +123,7 @@ import type {
   ResumeInput,
 } from "./types"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 type ResumeTaskSnapshot = {
   status: BackgroundTask["status"]
@@ -231,7 +232,7 @@ const MAX_COMPLETED_TASK_ARCHIVE_SIZE = 100
 const PARENT_WAKE_FAILURE_REQUEUE_WINDOW_MS = 5_000
 
 export interface BackgroundManagerConfig {
-  pluginContext: PluginInput
+  pluginContext: PluginContext
   config?: BackgroundTaskConfig
   tmuxConfig?: TmuxConfig
   onSubagentSessionCreated?: OnSubagentSessionCreated

@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { handleDetectedCompletion } from "./completion-handler"
 import { continueIteration } from "./iteration-continuation"
@@ -27,7 +28,7 @@ function createState(overrides: Partial<RalphLoopState> = {}): RalphLoopState {
 describe("ralph-loop catch fallbacks", () => {
 	test("#given session.messages throws a non-Error #when checking no-progress #then detector returns false", async () => {
 		// given
-		const ctx = unsafeTestValue<PluginInput>({
+		const ctx = unsafeTestValue<PluginContext>({
 			client: {
 				session: {
 					messages: async () => {
@@ -50,7 +51,7 @@ describe("ralph-loop catch fallbacks", () => {
 
 	test("#given continuation prompt lookup throws a non-Error #when continuing iteration #then dispatch rejection is returned", async () => {
 		// given
-		const ctx = unsafeTestValue<PluginInput>({
+		const ctx = unsafeTestValue<PluginContext>({
 			directory: "/tmp",
 			client: {
 				session: {
@@ -79,7 +80,7 @@ describe("ralph-loop catch fallbacks", () => {
 
 	test("#given reset session APIs throw non-Errors #when best-effort reset helpers run #then fallback values are returned", async () => {
 		// given
-		const createCtx = unsafeTestValue<PluginInput>({
+		const createCtx = unsafeTestValue<PluginContext>({
 			client: {
 				session: {
 					create: async () => {
@@ -88,7 +89,7 @@ describe("ralph-loop catch fallbacks", () => {
 				},
 			},
 		})
-		const selectClient = unsafeTestValue<PluginInput["client"]>({
+		const selectClient = unsafeTestValue<PluginContext["client"]>({
 			tui: {
 				selectSession: async () => {
 					throw NON_ERROR_FAILURE
@@ -107,7 +108,7 @@ describe("ralph-loop catch fallbacks", () => {
 
 	test("#given verification retry reads throw a non-Error #when handling failed verification #then handler returns false", async () => {
 		// given
-		const ctx = unsafeTestValue<PluginInput>({
+		const ctx = unsafeTestValue<PluginContext>({
 			client: {
 				session: {
 					messages: async () => {
@@ -139,7 +140,7 @@ describe("ralph-loop catch fallbacks", () => {
 	test("#given completion toast throws a non-Error #when completion is handled #then loop still clears", async () => {
 		// given
 		let cleared = false
-		const ctx = unsafeTestValue<PluginInput>({
+		const ctx = unsafeTestValue<PluginContext>({
 			client: {
 				tui: {
 					showToast: () => {
@@ -170,7 +171,7 @@ describe("ralph-loop catch fallbacks", () => {
 
 	test("#given pending verification scan throws a non-Error #when parent idles #then handler resolves", async () => {
 		// given
-		const ctx = unsafeTestValue<PluginInput>({
+		const ctx = unsafeTestValue<PluginContext>({
 			client: {
 				session: {
 					messages: async () => {
@@ -204,7 +205,7 @@ describe("ralph-loop catch fallbacks", () => {
 	test("#given recovered verification completion toast throws a non-Error #when parent evidence completes loop #then loop still clears", async () => {
 		// given
 		let cleared = false
-		const ctx = unsafeTestValue<PluginInput>({
+		const ctx = unsafeTestValue<PluginContext>({
 			client: {
 				session: {
 					messages: async () => ({

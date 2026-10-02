@@ -1,10 +1,11 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { normalizeSessionId } from "../../features/boulder-state"
 import { log } from "../../shared/logger"
 import { HOOK_NAME } from "./hook-name"
 
 export async function isSessionInBoulderLineage(input: {
-  client: PluginInput["client"]
+  client: PluginContext["client"]
   sessionID: string
   boulderSessionIDs: string[]
 }): Promise<boolean> {

@@ -4,8 +4,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { PLUGIN_NAME } from "../../../shared"
+import type { OpenCodeVersionProbe } from "../../../shared/opencode-version-probe"
 import { ensureTuiPluginEntry } from "../../config-manager/add-tui-plugin-to-tui-config"
 import { checkTuiPluginConfig } from "./tui-plugin-config"
+
+const v1Probe: OpenCodeVersionProbe = () => ({ available: true, version: "1.18.34", major: 1 })
 
 let testConfigDir: string
 let originalConfigDir: string | undefined
@@ -101,7 +104,7 @@ describe("tui-plugin-config check", () => {
     writeInstalledPackage(PLUGIN_NAME, { ".": "./dist/index.js", "./tui": "./dist/tui.js" })
     writeOpenCodeConfig([PLUGIN_NAME])
 
-    const ensureResult = ensureTuiPluginEntry({ configDir: testConfigDir })
+    const ensureResult = ensureTuiPluginEntry({ configDir: testConfigDir, versionProbe: v1Probe })
     const result = await checkTuiPluginConfig()
 
     expect(ensureResult).toEqual({ changed: true, reason: "added" })

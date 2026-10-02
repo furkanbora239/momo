@@ -1,12 +1,13 @@
+import type { PluginContext } from "../../../plugin/types"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { StoredMessageMeta } from "./types"
 import { getMessageDir } from "./message-dir"
 import { isSqliteBackend, normalizeSDKResponse } from "../../../shared"
 import { isRecord } from "../../../shared/record-type-guard"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 function normalizeSDKMessage(
   sessionID: string,

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { HOOK_NAME } from "./constants"
 import { handleDetectedCompletion } from "./completion-handler"
@@ -10,7 +11,7 @@ import type { RalphLoopState } from "./types"
 import type { RalphLoopEventHandlerOptions } from "./event-handler-types"
 
 async function completionDetectedForState(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	sessionID: string,
 	state: RalphLoopState,
@@ -47,7 +48,7 @@ async function completionDetectedForState(
 }
 
 export async function handleCompletionIfDetected(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	input: {
 		readonly sessionID: string

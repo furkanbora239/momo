@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../../plugin/types"
 import { updateConnectedProvidersCache } from "../../../shared/connected-providers-cache"
 import { isModelCacheAvailable } from "../../../shared/model-availability"
 import { log } from "../../../shared/logger"
@@ -6,7 +7,7 @@ import { ignoreToastError } from "./ignore-toast-error"
 
 const CACHE_UPDATE_TIMEOUT_MS = 10000
 
-export async function updateAndShowConnectedProvidersCacheStatus(ctx: PluginInput): Promise<void> {
+export async function updateAndShowConnectedProvidersCacheStatus(ctx: PluginContext): Promise<void> {
   const hadCache = isModelCacheAvailable()
 
   if (!hadCache) {

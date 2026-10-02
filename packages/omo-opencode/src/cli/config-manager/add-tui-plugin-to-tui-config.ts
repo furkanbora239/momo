@@ -13,9 +13,16 @@ import {
   getOpenCodeConfigDir,
   parseJsonc,
 } from "../../shared"
+import { defaultOpenCodeVersionProbe, isOpenCodeV2, type OpenCodeVersionProbe } from "../../shared/opencode-version-probe"
 import { writeFileAtomically } from "../../shared/write-file-atomically"
+import { applyOpenCodeV2PluginMigration } from "../../config-migration"
+import {
+  detectV2ServerEntry,
+  ensureTuiPluginCliEntry,
+  existingServerConfigPath,
+} from "./add-tui-plugin-to-cli-config"
 
-type ConfigShape = {
+export type ConfigShape = {
   plugin?: string[]
   [key: string]: unknown
 }
@@ -23,9 +30,10 @@ type ConfigShape = {
 export type EnsureTuiPluginEntryResult = {
   readonly changed: boolean
   readonly reason: string
+  readonly diagnostics?: readonly string[]
 }
 
-function readConfig(path: string): ConfigShape | null {
+export function readConfig(path: string): ConfigShape | null {
   try {
     const parsed = parseJsonc<unknown>(readFileSync(path, "utf-8"))
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -37,7 +45,7 @@ function readConfig(path: string): ConfigShape | null {
   return null
 }
 
-function readServerConfig(configDir: string): ConfigShape | null {
+export function readServerConfig(configDir: string): ConfigShape | null {
   const jsoncPath = join(configDir, "opencode.jsonc")
   if (existsSync(jsoncPath)) return readConfig(jsoncPath)
 
@@ -65,7 +73,7 @@ function fileEntryPackageDir(entry: string): string | null {
   return null
 }
 
-function desiredTuiEntry(serverEntry: string): string | null {
+export function desiredTuiEntry(serverEntry: string): string | null {
   if (serverEntry === PLUGIN_NAME || serverEntry.startsWith(`${PLUGIN_NAME}@`)) {
     return serverEntry
   }
@@ -82,7 +90,7 @@ function desiredTuiEntry(serverEntry: string): string | null {
   return null
 }
 
-function isAnyOmoTuiPluginEntry(entry: unknown): boolean {
+export function isAnyOmoTuiPluginEntry(entry: unknown): boolean {
   return isNamedTuiPluginEntry(entry) || isServerPluginEntry(entry)
 }
 
@@ -94,12 +102,11 @@ function readTuiConfig(tuiJsonPath: string): { config: ConfigShape; malformed: b
   return config ? { config, malformed: false } : { config: {}, malformed: true }
 }
 
-function formatConfig(config: ConfigShape): string {
+export function formatConfig(config: ConfigShape): string {
   return `${JSON.stringify(config, null, 2)}\n`
 }
 
-export function ensureTuiPluginEntry(opts: { configDir?: string } = {}): EnsureTuiPluginEntryResult {
-  const configDir = opts.configDir ?? getOpenCodeConfigDir({ binary: "opencode", version: null })
+function ensureTuiPluginEntryV1(configDir: string): EnsureTuiPluginEntryResult {
   const serverConfig = readServerConfig(configDir)
   const serverEntry = serverConfig ? pluginEntries(serverConfig).find(isServerPluginEntry) : undefined
   if (!serverEntry) {
@@ -136,4 +143,49 @@ export function ensureTuiPluginEntry(opts: { configDir?: string } = {}): EnsureT
   mkdirSync(configDir, { recursive: true })
   writeFileAtomically(tuiJsonPath, formatConfig({ ...config, plugin: updatedPlugins }))
   return { changed: true, reason: "added" }
+}
+
+function ensureTuiPluginEntryV2(configDir: string): EnsureTuiPluginEntryResult {
+  const serverConfigPath = existingServerConfigPath(configDir)
+  const migration = serverConfigPath === null ? undefined : applyOpenCodeV2PluginMigration(serverConfigPath)
+  const migrationDiagnostics = migration?.diagnostics.length ? migration.diagnostics : undefined
+
+  const serverEntry = detectV2ServerEntry(configDir)
+  if (serverEntry === null) {
+    return {
+      changed: migration?.changed ?? false,
+      reason: migration?.changed ? "migrated" : "no-server-entry",
+      ...(migrationDiagnostics === undefined ? {} : { diagnostics: migrationDiagnostics }),
+    }
+  }
+
+  const cliResult = ensureTuiPluginCliEntry({ configDir, serverEntry })
+  if (cliResult.changed) {
+    return {
+      changed: true,
+      reason: "added",
+      ...(migrationDiagnostics === undefined ? {} : { diagnostics: migrationDiagnostics }),
+    }
+  }
+  if (migration?.changed) {
+    return {
+      changed: true,
+      reason: "migrated",
+      ...(migrationDiagnostics === undefined ? {} : { diagnostics: migrationDiagnostics }),
+    }
+  }
+  return {
+    changed: false,
+    reason: cliResult.reason,
+    ...(migrationDiagnostics === undefined ? {} : { diagnostics: migrationDiagnostics }),
+  }
+}
+
+export function ensureTuiPluginEntry(opts: { configDir?: string; versionProbe?: OpenCodeVersionProbe } = {}): EnsureTuiPluginEntryResult {
+  const configDir = opts.configDir ?? getOpenCodeConfigDir({ binary: "opencode", version: null })
+  const versionProbe = opts.versionProbe ?? defaultOpenCodeVersionProbe
+  if (isOpenCodeV2(versionProbe().major)) {
+    return ensureTuiPluginEntryV2(configDir)
+  }
+  return ensureTuiPluginEntryV1(configDir)
 }

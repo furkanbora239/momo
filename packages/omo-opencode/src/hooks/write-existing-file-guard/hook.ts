@@ -1,4 +1,5 @@
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+import type { Hooks } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
 
 import { existsSync, realpathSync } from "fs"
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve } from "path"
@@ -33,7 +34,7 @@ export function getPathFromArgs(args: GuardArgs | undefined): string | undefined
   return args?.filePath ?? args?.path ?? args?.file_path
 }
 
-export function resolveInputPath(ctx: PluginInput, inputPath: string): string {
+export function resolveInputPath(ctx: PluginContext, inputPath: string): string {
   return normalize(isAbsolute(inputPath) ? inputPath : resolve(ctx.directory, inputPath))
 }
 
@@ -77,7 +78,7 @@ export function isOverwriteEnabled(value: boolean | string | undefined): boolean
   return false
 }
 
-export function createWriteExistingFileGuardHook(ctx: PluginInput, options?: WriteExistingFileGuardOptions): Hooks {
+export function createWriteExistingFileGuardHook(ctx: PluginContext, options?: WriteExistingFileGuardOptions): Hooks {
   const readPermissionsBySession = new Map<string, Set<string>>()
   const sessionLastAccess = new Map<string, number>()
   const maxTrackedSessions = options?.maxTrackedSessions ?? MAX_TRACKED_SESSIONS

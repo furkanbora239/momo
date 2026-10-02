@@ -1,12 +1,13 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import { isCallerOrchestrator } from "../../shared/session-utils"
 import { SYSTEM_DIRECTIVE_PREFIX } from "../../shared/system-directive"
 import { log } from "../../shared/logger"
 import { replaceToolArgs } from "../../shared/replace-tool-args"
 import { HOOK_NAME, NOTEPAD_DIRECTIVE } from "./constants"
 
-export function createSisyphusJuniorNotepadHook(ctx: PluginInput) {
+export function createSisyphusJuniorNotepadHook(ctx: PluginContext) {
   return {
     "tool.execute.before": async (
       input: { tool: string; sessionID: string; callID: string },

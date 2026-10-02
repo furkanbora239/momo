@@ -1,12 +1,13 @@
 import { describe, test, expect } from "bun:test"
 import { createSessionManagerTools } from "./tools"
 import type { ToolContext } from "@opencode-ai/plugin/tool"
-import type { PluginInput } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
+
 import type { SessionInfo, SessionMessage, SearchResult, SessionMetadata, TodoItem } from "./types"
 
 const projectDir = "/Users/yeongyu/local-workspaces/oh-my-opencode"
 
-const mockCtx = { directory: projectDir } as PluginInput
+const mockCtx = { directory: projectDir } as PluginContext
 
 const mockContext: ToolContext = {
   sessionID: "test-session",

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import {
   loadAgentUsageState,
   saveAgentUsageState,
@@ -48,7 +49,7 @@ function isOrchestratorAgent(agentName: string): boolean {
   return ORCHESTRATOR_AGENTS.has(getAgentConfigKey(agentName));
 }
 
-export function createAgentUsageReminderHook(_ctx: PluginInput) {
+export function createAgentUsageReminderHook(_ctx: PluginContext) {
   const sessionStates = new Map<string, AgentUsageState>();
 
   function getOrCreateState(sessionID: string): AgentUsageState {

@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import * as sessionState from "../../features/claude-code-session-state"
 import { _resetForTesting, clearSessionAgent, setMainSession, updateSessionAgent } from "../../features/claude-code-session-state"
@@ -25,8 +26,8 @@ function expectTextPartText(parts: readonly OutputPart[]): string {
   return textPart?.text ?? ""
 }
 
-function createPluginInputWithToast(showToast: (options: ToastOptions) => Promise<void>): PluginInput {
-  const client = {} as PluginInput["client"]
+function createPluginInputWithToast(showToast: (options: ToastOptions) => Promise<void>): PluginContext {
+  const client = {} as PluginContext["client"]
   Object.assign(client, { tui: { showToast } })
 
   return {
@@ -40,7 +41,7 @@ function createPluginInputWithToast(showToast: (options: ToastOptions) => Promis
     worktree: "/tmp/keyword-detector-test",
     serverUrl: new URL("http://localhost"),
     experimental_workspace: { register: () => {} },
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 }
 
@@ -1032,7 +1033,7 @@ describe("keyword-detector team mode", () => {
   })
 
   function createMockPluginInput() {
-    return unsafeTestValue<PluginInput>({
+    return unsafeTestValue<PluginContext>({
       client: {
         tui: {
           showToast: async () => {},
@@ -1124,7 +1125,7 @@ describe("keyword-detector disabled_keywords config", () => {
 
   function createMockPluginInput(options: { toastCalls?: string[] } = {}) {
     const toastCalls = options.toastCalls ?? []
-    return unsafeTestValue<PluginInput>({
+    return unsafeTestValue<PluginContext>({
       client: {
         tui: {
           showToast: async (opts: { body: { title: string } }) => {

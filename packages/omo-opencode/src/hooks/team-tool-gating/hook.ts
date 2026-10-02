@@ -1,4 +1,5 @@
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
+import type { Hooks } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
 
 import type { TeamModeConfig } from "../../config/schema/team-mode"
 import { lookupTeamSession } from "../../features/team-mode/team-session-registry"
@@ -78,7 +79,7 @@ function isTargetMember(participant: TeamParticipant, teamRunId: string | undefi
     && participant.memberName === memberName
 }
 
-export function createTeamToolGating(_ctx: PluginInput, config: TeamModeConfig | undefined): Hooks {
+export function createTeamToolGating(_ctx: PluginContext, config: TeamModeConfig | undefined): Hooks {
   return {
     "tool.execute.before": async (
       input: { tool: string; sessionID: string; callID: string },

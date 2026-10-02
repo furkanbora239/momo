@@ -1,5 +1,6 @@
 /// <reference types="bun-types" />
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 
 export type SessionMessage = {
@@ -7,17 +8,17 @@ export type SessionMessage = {
 	parts?: Array<{ type: string; text?: string }>
 }
 
-export function createPluginInput(messages: SessionMessage[]): PluginInput {
+export function createPluginInput(messages: SessionMessage[]): PluginContext {
 	const pluginInput = {
-		client: { session: {} } as PluginInput["client"],
-		project: {} as PluginInput["project"],
+		client: { session: {} } as PluginContext["client"],
+		project: {} as PluginContext["project"],
 		directory: "/tmp",
 		worktree: "/tmp",
 		serverUrl: new URL("http://localhost"),
-		$: {} as PluginInput["$"],
-	} as PluginInput
+		$: {} as PluginContext["$"],
+	} as PluginContext
 
-	const messagesFunction = unsafeTestValue<PluginInput["client"]["session"]["messages"]>(async () => ({ data: messages }))
+	const messagesFunction = unsafeTestValue<PluginContext["client"]["session"]["messages"]>(async () => ({ data: messages }))
 	pluginInput.client.session.messages = messagesFunction
 
 	return pluginInput

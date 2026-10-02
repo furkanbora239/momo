@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { subagentSessions, getMainSessionID } from "../features/claude-code-session-state"
 import { buildReadyNotificationContent } from "./session-notification-content"
 import { type Platform } from "./session-notification-sender"
@@ -27,7 +28,7 @@ interface SessionNotificationConfig {
   activityGracePeriodMs?: number
 }
 
-export function createSessionNotification(ctx: PluginInput, config: SessionNotificationConfig = {}) {
+export function createSessionNotification(ctx: PluginContext, config: SessionNotificationConfig = {}) {
   const mergedConfig = {
     title: "OpenCode",
     message: "Agent is ready for input",

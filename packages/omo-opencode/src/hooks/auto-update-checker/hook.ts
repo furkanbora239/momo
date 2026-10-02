@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isRecord } from "@oh-my-opencode/utils"
 import { log } from "../../shared/logger"
 import type { AutoUpdateCheckerOptions } from "./types"
@@ -51,7 +52,7 @@ const getParentID = (properties: unknown): string | undefined => {
 }
 
 export function createAutoUpdateCheckerHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   options: AutoUpdateCheckerOptions = {},
   deps: AutoUpdateCheckerDeps = defaultDeps,
 ) {

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { BackgroundManager } from "../../features/background-agent"
 import { getSessionAgent, handedBackSyncSessions } from "../../features/claude-code-session-state"
 import { normalizeSDKResponse } from "../../shared"
@@ -18,7 +19,7 @@ import { getIncompleteCount } from "./todo"
 import type { MessageWithInfo, ResolvedMessageInfo, Todo } from "./types"
 
 export async function handleSessionIdle(args: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionID: string
   sessionStateStore: SessionStateStore
   backgroundManager?: BackgroundManager

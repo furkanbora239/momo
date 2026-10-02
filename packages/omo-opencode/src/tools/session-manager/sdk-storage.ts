@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { normalizeSDKResponse } from "../../shared"
 import type { SessionMessage, SessionMetadata, TodoItem } from "./types"
 import { isSessionSdkUnavailableError } from "./sdk-unavailable"
@@ -40,7 +41,7 @@ async function fetchSdkResponse(operation: () => Promise<unknown>): Promise<unkn
 }
 
 export async function getSdkMainSessions(
-  client: PluginInput["client"],
+  client: PluginContext["client"],
   directory?: string,
 ): Promise<SessionMetadata[]> {
   const response = await fetchSdkResponse(() => client.session.list())
@@ -56,7 +57,7 @@ export async function getSdkMainSessions(
   return mainSessions.sort((a, b) => b.time.updated - a.time.updated)
 }
 
-export async function getSdkAllSessions(client: PluginInput["client"]): Promise<string[]> {
+export async function getSdkAllSessions(client: PluginContext["client"]): Promise<string[]> {
   const response = await fetchSdkResponse(() => client.session.list())
   const sessions = normalizeSDKResponse(response, [] as SessionMetadata[])
   return sessions
@@ -65,13 +66,13 @@ export async function getSdkAllSessions(client: PluginInput["client"]): Promise<
     .map((session) => session.id)
 }
 
-export async function sdkSessionExists(client: PluginInput["client"], sessionID: string): Promise<boolean> {
+export async function sdkSessionExists(client: PluginContext["client"], sessionID: string): Promise<boolean> {
   const messages = await getSdkSessionMessages(client, sessionID)
   return messages.length > 0
 }
 
 export async function getSdkSessionMessages(
-  client: PluginInput["client"],
+  client: PluginContext["client"],
   sessionID: string,
 ): Promise<SessionMessage[]> {
   const response = await fetchSdkResponse(() => client.session.messages({ path: { id: sessionID } }))
@@ -130,7 +131,7 @@ export async function getSdkSessionMessages(
   })
 }
 
-export async function getSdkSessionTodos(client: PluginInput["client"], sessionID: string): Promise<TodoItem[]> {
+export async function getSdkSessionTodos(client: PluginContext["client"], sessionID: string): Promise<TodoItem[]> {
   const response = await fetchSdkResponse(() => client.session.todo({ path: { id: sessionID } }))
 
   const data = normalizeSDKResponse(response, [] as Array<{

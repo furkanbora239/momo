@@ -1,20 +1,21 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { describe, it, expect } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createHashlineReadEnhancerHook } from "./hook"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 
-function mockCtx(): PluginInput {
+function mockCtx(): PluginContext {
   return {
-    client: {} as PluginInput["client"],
+    client: {} as PluginContext["client"],
     directory: "/test",
-    project: "/test" as PluginInput["project"],
+    project: "/test" as PluginContext["project"],
     worktree: "/test",
-    serverUrl: "http://localhost" as PluginInput["serverUrl"],
-    $: {} as PluginInput["$"],
+    serverUrl: "http://localhost" as PluginContext["serverUrl"],
+    $: {} as PluginContext["$"],
   }
 }
 

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { existsSync, readFileSync } from "fs"
 import { join } from "path"
 import { log } from "./logger"
@@ -6,7 +7,7 @@ import { getOpenCodeCacheDir } from "./data-path"
 import * as connectedProvidersCache from "./connected-providers-cache"
 import { normalizeSDKResponse } from "./normalize-sdk-response"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 type ModelListClient = OpencodeClient & { model?: { list?: () => Promise<unknown> } }
 
 function normalizeModelName(name: string): string {

@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { createAgentsMdCache } from "@oh-my-opencode/rules-engine";
-import type { PluginInput } from "@opencode-ai/plugin";
+;
 
 import { createDynamicTruncator } from "../../shared/dynamic-truncator";
 import { resolveSessionEventID } from "../../shared/event-session-id";
@@ -36,7 +37,7 @@ interface EventInput {
 }
 
 export function createDirectoryAgentsInjectorHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   modelCacheState?: { anthropicContext1MEnabled: boolean },
 ): DirectoryAgentsInjectorHook {
   const sessionCaches = new Map<string, Set<string>>();

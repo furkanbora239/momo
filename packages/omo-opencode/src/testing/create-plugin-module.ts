@@ -1,4 +1,5 @@
 import type { Hooks, Plugin, PluginModule } from "@opencode-ai/plugin"
+import type { PluginContext } from "../plugin/types"
 import type { HookName } from "../config"
 import { validatePluginConfig } from "../config/validate"
 import { initConfigContext } from "../cli/config-manager/config-context"
@@ -55,7 +56,7 @@ type StartupToastClient = {
   }
 }
 
-type HooksWithRuntimeLifecycle = Hooks & {
+export type HooksWithRuntimeLifecycle = Hooks & {
   "experimental.compaction.autocontinue"?: CompactionAutocontinueHook
   dispose?: () => Promise<void>
 }
@@ -94,7 +95,7 @@ export type PluginModuleDeps = {
   createPluginInterface: typeof createPluginInterface
 }
 
-const defaultPluginModuleDeps: PluginModuleDeps = {
+export const defaultPluginModuleDeps: PluginModuleDeps = {
   initConfigContext,
   installAgentSortShim,
   setAgentSortOrder,
@@ -177,218 +178,236 @@ async function warnIfStaleDistBundle(deps: PluginModuleDeps, directory: string):
   }
 }
 
-export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): PluginModule {
-  const deps = { ...defaultPluginModuleDeps, ...overrides }
-  let startupMigration: ReturnType<PluginModuleDeps["runOpenCodeStartupMigration"]> | undefined
-  const serverPlugin: Plugin = async (input, _options): Promise<Hooks> => {
-    deps.installAgentSortShim()
-    deps.initConfigContext("opencode", null)
-    deps.log("[oh-my-openagent] ENTRY - plugin loading", {
-      directory: input.directory,
-    })
-    await warnIfStaleDistBundle(deps, input.directory)
-    deps.logLegacyPluginStartupWarning()
-    deps.migrateLegacyWorkspaceDirectory(input.directory)
-    startupMigration ??= deps.runOpenCodeStartupMigration({ cwd: input.directory })
-    const startupValidation = deps.loadConfigChain(input.directory)
-    const startupDiagnostics = startupValidation.valid ? [] : startupValidation.messages
-    deps.log("[config-migration] startup completed", {
-      error: startupMigration.error,
-      journalResumed: startupMigration.journalResumed,
-      migratedFrom: startupMigration.migratedFrom,
-      skippedConflictCount: startupMigration.skippedConflictCount,
-    })
-    if (startupMigration.error !== undefined) {
-      console.warn(`[config-migration] legacy configuration changes were not applied: ${startupMigration.error}`)
-    }
-    const toast = startupToastBody({
-      diagnostics: startupDiagnostics,
-      ...(startupMigration.error === undefined ? {} : { error: startupMigration.error }),
-      migratedFrom: startupMigration.migratedFrom,
-      skippedConflictCount: startupMigration.skippedConflictCount,
-    })
-    if (toast !== undefined) showStartupToast(input.client, toast, deps.log)
+export type PluginAssemblyState = {
+  startupMigration?: ReturnType<PluginModuleDeps["runOpenCodeStartupMigration"]>
+}
 
-    // Unconditional omo process hygiene (T16): fire-and-forget family sweep,
-    // throttled per-family inside the sweep functions. Never awaited and
-    // never allowed to reject into startup.
-    try {
-      void deps
-        .startOmoProcessSweep()
-        .catch((error: unknown) => {
-          deps.log("[oh-my-openagent] omo process sweep failed", {
-            error: error instanceof Error ? error.message : String(error),
-          })
-        })
-    } catch (error) {
-      deps.log("[oh-my-openagent] omo process sweep failed to start", {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    }
+export type AssembledPluginRuntime = {
+  pluginHooks: HooksWithRuntimeLifecycle
+}
 
-    const duplicateOmoPluginCheck = deps.detectDuplicateOmoPlugin(input.directory)
-    if (duplicateOmoPluginCheck.detected) {
-      console.warn(deps.getDuplicateOmoPluginWarning(duplicateOmoPluginCheck.duplicatePlugins))
-      return {}
-    }
+export async function assemblePluginRuntime(
+  deps: PluginModuleDeps,
+  state: PluginAssemblyState,
+  input: PluginContext,
+): Promise<AssembledPluginRuntime> {
+  deps.installAgentSortShim()
+  deps.initConfigContext("opencode", null)
+  deps.log("[oh-my-openagent] ENTRY - plugin loading", {
+    directory: input.directory,
+  })
+  await warnIfStaleDistBundle(deps, input.directory)
+  deps.logLegacyPluginStartupWarning()
+  deps.migrateLegacyWorkspaceDirectory(input.directory)
+  state.startupMigration ??= deps.runOpenCodeStartupMigration({ cwd: input.directory })
+  const startupMigration = state.startupMigration
+  const startupValidation = deps.loadConfigChain(input.directory)
+  const startupDiagnostics = startupValidation.valid ? [] : startupValidation.messages
+  deps.log("[config-migration] startup completed", {
+    error: startupMigration.error,
+    journalResumed: startupMigration.journalResumed,
+    migratedFrom: startupMigration.migratedFrom,
+    skippedConflictCount: startupMigration.skippedConflictCount,
+  })
+  if (startupMigration.error !== undefined) {
+    console.warn(`[config-migration] legacy configuration changes were not applied: ${startupMigration.error}`)
+  }
+  const toast = startupToastBody({
+    diagnostics: startupDiagnostics,
+    ...(startupMigration.error === undefined ? {} : { error: startupMigration.error }),
+    migratedFrom: startupMigration.migratedFrom,
+    skippedConflictCount: startupMigration.skippedConflictCount,
+  })
+  if (toast !== undefined) showStartupToast(input.client, toast, deps.log)
 
-    const skillPluginCheck = deps.detectExternalSkillPlugin(input.directory)
-    if (skillPluginCheck.detected && skillPluginCheck.pluginName) {
-      console.warn(deps.getSkillPluginConflictWarning(skillPluginCheck.pluginName))
-    }
-
-    deps.injectServerAuthIntoClient(input.client)
-
-    // The provider-models cache is only refreshed on session.created, so
-    // restarting OpenCode and resuming an existing session never refreshes it.
-    // Fire a non-blocking startup refresh when the cache is missing or stale.
-    if (isProviderModelsCacheStale(PROVIDER_CACHE_MAX_AGE_MS)) {
-      void updateConnectedProvidersCache(input.client).catch((error) => {
-        deps.log("[connected-providers-cache] startup refresh failed", {
+  // Unconditional omo process hygiene (T16): fire-and-forget family sweep,
+  // throttled per-family inside the sweep functions. Never awaited and
+  // never allowed to reject into startup.
+  try {
+    void deps
+      .startOmoProcessSweep()
+      .catch((error: unknown) => {
+        deps.log("[oh-my-openagent] omo process sweep failed", {
           error: error instanceof Error ? error.message : String(error),
         })
       })
-    }
+  } catch (error) {
+    deps.log("[oh-my-openagent] omo process sweep failed to start", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 
-    const pluginConfig = startupValidation.config
-    try {
-      deps.recordPluginTelemetry({ configEnabled: pluginConfig.telemetry })
-    } catch (error) {
-      deps.log("[posthog] plugin telemetry failed", {
+  const duplicateOmoPluginCheck = deps.detectDuplicateOmoPlugin(input.directory)
+  if (duplicateOmoPluginCheck.detected) {
+    console.warn(deps.getDuplicateOmoPluginWarning(duplicateOmoPluginCheck.duplicatePlugins))
+    return { pluginHooks: {} }
+  }
+
+  const skillPluginCheck = deps.detectExternalSkillPlugin(input.directory)
+  if (skillPluginCheck.detected && skillPluginCheck.pluginName) {
+    console.warn(deps.getSkillPluginConflictWarning(skillPluginCheck.pluginName))
+  }
+
+  deps.injectServerAuthIntoClient(input.client)
+
+  // The provider-models cache is only refreshed on session.created, so
+  // restarting OpenCode and resuming an existing session never refreshes it.
+  // Fire a non-blocking startup refresh when the cache is missing or stale.
+  if (isProviderModelsCacheStale(PROVIDER_CACHE_MAX_AGE_MS)) {
+    void updateConnectedProvidersCache(input.client).catch((error) => {
+      deps.log("[connected-providers-cache] startup refresh failed", {
         error: error instanceof Error ? error.message : String(error),
       })
-    }
+    })
+  }
+
+  const pluginConfig = startupValidation.config
+  try {
+    deps.recordPluginTelemetry({ configEnabled: pluginConfig.telemetry })
+  } catch (error) {
+    deps.log("[posthog] plugin telemetry failed", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+  try {
+    ensureTuiPluginEntry()
+  } catch (error) {
+    deps.log("[tui] tui.json self-heal failed", {
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+  deps.initLiveServerRoute({ serverUrl: input.serverUrl, directory: input.directory, inProcessClient: input.client })
+  deps.setLiveParentWakeRoutingDisabled(pluginConfig.experimental?.disable_live_parent_wake_routing === true)
+  __setTimingConfig({
+    STALL_TIMEOUT_MS: pluginConfig.experimental?.sync_stall_timeout_ms,
+    PRODUCTION_TIMEOUT_MS: pluginConfig.experimental?.sync_production_timeout_ms,
+    ACTIVE_TOOL_TIMEOUT_MS: pluginConfig.experimental?.sync_active_tool_timeout_ms,
+  })
+  deps.warmLiveServerProbe()
+  const runtimeSecuritySkills = selectRuntimeSecuritySkills(pluginConfig)
+  let runtimeSkillSource: Awaited<ReturnType<PluginModuleDeps["createRuntimeSkillSourceServer"]>> | undefined
+  if (runtimeSecuritySkills.length > 0) {
     try {
-      ensureTuiPluginEntry()
+      runtimeSkillSource = await deps.createRuntimeSkillSourceServer({ skills: runtimeSecuritySkills })
     } catch (error) {
-      deps.log("[tui] tui.json self-heal failed", {
-        error: error instanceof Error ? error.message : String(error),
-      })
+      const detail = error instanceof Error ? error.message : String(error)
+      console.warn(`[runtime-skills] bundled security skill source unavailable; continuing without config.skills.urls: ${detail}`)
     }
-    deps.initLiveServerRoute({ serverUrl: input.serverUrl, directory: input.directory, inProcessClient: input.client })
-    deps.setLiveParentWakeRoutingDisabled(pluginConfig.experimental?.disable_live_parent_wake_routing === true)
-    __setTimingConfig({
-      STALL_TIMEOUT_MS: pluginConfig.experimental?.sync_stall_timeout_ms,
-      PRODUCTION_TIMEOUT_MS: pluginConfig.experimental?.sync_production_timeout_ms,
-      ACTIVE_TOOL_TIMEOUT_MS: pluginConfig.experimental?.sync_active_tool_timeout_ms,
-    })
-    deps.warmLiveServerProbe()
-    const runtimeSecuritySkills = selectRuntimeSecuritySkills(pluginConfig)
-    let runtimeSkillSource: Awaited<ReturnType<PluginModuleDeps["createRuntimeSkillSourceServer"]>> | undefined
-    if (runtimeSecuritySkills.length > 0) {
-      try {
-        runtimeSkillSource = await deps.createRuntimeSkillSourceServer({ skills: runtimeSecuritySkills })
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error)
-        console.warn(`[runtime-skills] bundled security skill source unavailable; continuing without config.skills.urls: ${detail}`)
+  }
+  deps.initI18n(pluginConfig.i18n?.locale ? { locale: pluginConfig.i18n.locale } : undefined)
+  deps.setAgentSortOrder(pluginConfig.agent_order)
+
+  if (pluginConfig.openclaw) {
+    await deps.initializeOpenClaw(pluginConfig.openclaw)
+  }
+  if (pluginConfig.team_mode?.enabled) {
+    const teamModeConfig = pluginConfig.team_mode
+    try {
+      const { ensureBaseDirs, resolveBaseDir } = await import("../features/team-mode/team-registry/paths")
+      const { checkTeamModeDependencies } = await import("../features/team-mode/deps")
+      await checkTeamModeDependencies(teamModeConfig)
+      await ensureBaseDirs(resolveBaseDir(teamModeConfig))
+      if (pluginConfig.disabled_skills?.includes("team-mode")) {
+        console.warn(
+          "[team-mode] enabled=true but team-mode skill is disabled; skill docs hidden but tools still registered (D-29)",
+        )
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        console.warn("[team-mode] init failed:", error)
+      } else {
+        console.warn("[team-mode] init failed:", String(error))
       }
     }
-    deps.initI18n(pluginConfig.i18n?.locale ? { locale: pluginConfig.i18n.locale } : undefined)
-    deps.setAgentSortOrder(pluginConfig.agent_order)
+  }
+  const tmuxIntegrationEnabled = deps.isTmuxIntegrationEnabled(pluginConfig)
+  if (tmuxIntegrationEnabled) {
+    deps.startTmuxCheck()
+  }
+  const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
+  const tokenBurn = pluginConfig.token_burn ?? DEFAULT_TOKEN_BURN
 
-    if (pluginConfig.openclaw) {
-      await deps.initializeOpenClaw(pluginConfig.openclaw)
-    }
-    if (pluginConfig.team_mode?.enabled) {
-      const teamModeConfig = pluginConfig.team_mode
-      try {
-        const { ensureBaseDirs, resolveBaseDir } = await import("../features/team-mode/team-registry/paths")
-        const { checkTeamModeDependencies } = await import("../features/team-mode/deps")
-        await checkTeamModeDependencies(teamModeConfig)
-        await ensureBaseDirs(resolveBaseDir(teamModeConfig))
-        if (pluginConfig.disabled_skills?.includes("team-mode")) {
-          console.warn(
-            "[team-mode] enabled=true but team-mode skill is disabled; skill docs hidden but tools still registered (D-29)",
-          )
-        }
-      } catch (error) {
-        if (error instanceof Error) {
-          console.warn("[team-mode] init failed:", error)
-        } else {
-          console.warn("[team-mode] init failed:", String(error))
-        }
-      }
-    }
-    const tmuxIntegrationEnabled = deps.isTmuxIntegrationEnabled(pluginConfig)
-    if (tmuxIntegrationEnabled) {
-      deps.startTmuxCheck()
-    }
-    const disabledHooks = new Set(pluginConfig.disabled_hooks ?? [])
-    const tokenBurn = pluginConfig.token_burn ?? DEFAULT_TOKEN_BURN
+  // momo Wave 5: heavy chat-injection hooks are default-OFF; each is
+  // re-enableable via its token_burn flag. Explicit disabled_hooks still wins.
+  const isHookEnabled = (hookName: HookName): boolean => {
+    if (disabledHooks.has(hookName)) return false
+    const optInFlag = DEFAULT_OFF_HOOKS[hookName]
+    if (optInFlag && !tokenBurn[optInFlag]) return false
+    return true
+  }
+  const safeHookEnabled = pluginConfig.experimental?.safe_hook_creation ?? true
 
-    // momo Wave 5: heavy chat-injection hooks are default-OFF; each is
-    // re-enableable via its token_burn flag. Explicit disabled_hooks still wins.
-    const isHookEnabled = (hookName: HookName): boolean => {
-      if (disabledHooks.has(hookName)) return false
-      const optInFlag = DEFAULT_OFF_HOOKS[hookName]
-      if (optInFlag && !tokenBurn[optInFlag]) return false
-      return true
-    }
-    const safeHookEnabled = pluginConfig.experimental?.safe_hook_creation ?? true
+  const firstMessageVariantGate = deps.createFirstMessageVariantGate()
 
-    const firstMessageVariantGate = deps.createFirstMessageVariantGate()
+  const tmuxConfig = deps.createRuntimeTmuxConfig(pluginConfig)
 
-    const tmuxConfig = deps.createRuntimeTmuxConfig(pluginConfig)
+  const modelCacheState = deps.createModelCacheState()
 
-    const modelCacheState = deps.createModelCacheState()
+  const managers = deps.createManagers({
+    ctx: input,
+    pluginConfig,
+    tmuxConfig,
+    modelCacheState,
+    backgroundNotificationHookEnabled: isHookEnabled("background-notification"),
+    runtimeSkillSourceUrl: runtimeSkillSource?.url,
+  })
 
-    const managers = deps.createManagers({
-      ctx: input,
-      pluginConfig,
-      tmuxConfig,
-      modelCacheState,
-      backgroundNotificationHookEnabled: isHookEnabled("background-notification"),
-      runtimeSkillSourceUrl: runtimeSkillSource?.url,
-    })
+  const toolsResult = await deps.createTools({
+    ctx: input,
+    pluginConfig,
+    managers,
+  })
 
-    const toolsResult = await deps.createTools({
-      ctx: input,
-      pluginConfig,
-      managers,
-    })
+  const hooks = deps.createHooks({
+    ctx: input,
+    pluginConfig,
+    modelCacheState,
+    backgroundManager: managers.backgroundManager,
+    modelFallbackControllerAccessor: managers.modelFallbackControllerAccessor,
+    monitorManager: managers.monitorManager,
+    isHookEnabled,
+    safeHookEnabled,
+    mergedSkills: toolsResult.mergedSkills,
+    availableSkills: toolsResult.availableSkills,
+  })
 
-    const hooks = deps.createHooks({
-      ctx: input,
-      pluginConfig,
-      modelCacheState,
-      backgroundManager: managers.backgroundManager,
-      modelFallbackControllerAccessor: managers.modelFallbackControllerAccessor,
-      monitorManager: managers.monitorManager,
-      isHookEnabled,
-      safeHookEnabled,
-      mergedSkills: toolsResult.mergedSkills,
-      availableSkills: toolsResult.availableSkills,
-    })
+  const pluginInterface = deps.createPluginInterface({
+    ctx: input,
+    pluginConfig,
+    firstMessageVariantGate,
+    managers,
+    hooks,
+    tools: toolsResult.filteredTools,
+  })
 
-    const pluginInterface = deps.createPluginInterface({
-      ctx: input,
-      pluginConfig,
-      firstMessageVariantGate,
-      managers,
-      hooks,
-      tools: toolsResult.filteredTools,
-    })
+  const dispose = createPluginDispose({
+    backgroundManager: managers.backgroundManager,
+    skillMcpManager: managers.skillMcpManager,
+    disposeHooks: hooks.disposeHooks,
+  })
 
-    const dispose = createPluginDispose({
-      backgroundManager: managers.backgroundManager,
-      skillMcpManager: managers.skillMcpManager,
-      disposeHooks: hooks.disposeHooks,
-    })
+  const pluginHooks: HooksWithRuntimeLifecycle = {
+    ...pluginInterface,
 
-    const pluginHooks: HooksWithRuntimeLifecycle = {
-      ...pluginInterface,
+    "experimental.session.compacting": createSessionCompactingHandler(hooks),
 
-      "experimental.session.compacting": createSessionCompactingHandler(hooks),
+    "experimental.compaction.autocontinue": createCompactionAutocontinueHandler(hooks),
 
-      "experimental.compaction.autocontinue": createCompactionAutocontinueHandler(hooks),
+    dispose: async (): Promise<void> => {
+      runtimeSkillSource?.stop()
+      await dispose()
+    },
+  }
 
-      dispose: async (): Promise<void> => {
-        runtimeSkillSource?.stop()
-        await dispose()
-      },
-    }
+  return { pluginHooks }
+}
 
-    return pluginHooks
+export function createPluginModule(overrides: Partial<PluginModuleDeps> = {}): PluginModule {
+  const deps = { ...defaultPluginModuleDeps, ...overrides }
+  const state: PluginAssemblyState = {}
+  const serverPlugin: Plugin = async (input, _options): Promise<Hooks> => {
+    const runtime = await assemblePluginRuntime(deps, state, input)
+    return runtime.pluginHooks
   }
 
   return {

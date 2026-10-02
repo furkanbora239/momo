@@ -1,11 +1,12 @@
 import { resolve } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool"
+import type { PluginContext } from "../../plugin/types"
 import { resolveGrepCliWithAutoInstall } from "../../shared/ripgrep-cli"
 import { runRg, runRgCount } from "./cli"
 import { formatGrepResult, formatCountResult } from "./result-formatter"
 
-export function createGrepTools(ctx: PluginInput): Record<string, ToolDefinition> {
+export function createGrepTools(ctx: PluginContext): Record<string, ToolDefinition> {
   const grep: ToolDefinition = tool({
     description:
       "Fast content search tool with safety limits (60s timeout, 256KB output). " +

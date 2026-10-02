@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { HOOK_NAME, BLOCKED_TOOLS, PLANNING_CONSULT_WARNING, PLANNING_CONTEXT_OPEN, PROMETHEUS_WORKFLOW_REMINDER } from "./constants"
 import { log } from "../../shared/logger"
 import { replaceToolArgs } from "../../shared/replace-tool-args"
@@ -8,7 +9,7 @@ import { isAllowedFile } from "./path-policy"
 
 const TASK_TOOLS = ["task", "call_omo_agent"]
 
-export function createPrometheusMdOnlyHook(ctx: PluginInput) {
+export function createPrometheusMdOnlyHook(ctx: PluginContext) {
   return {
     "tool.execute.before": async (
       input: { tool: string; sessionID: string; callID: string },

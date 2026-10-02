@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { TmuxConfig } from "../../config/schema"
 import type { CapacityConfig, TrackedSession } from "./types"
 import { log } from "../../shared"
@@ -10,7 +11,7 @@ import type { SessionCreatedEvent } from "./session-created-event"
 import { createTrackedSession } from "./tracked-session-state"
 import { isCmuxCompatEnvironment } from "../../shared/tmux/cmux-detect"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export interface SessionCreatedHandlerDeps {
   client: OpencodeClient

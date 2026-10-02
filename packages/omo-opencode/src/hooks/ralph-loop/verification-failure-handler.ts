@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { releasePromptAsyncReservation } from "../shared/prompt-async-gate"
 import { buildVerificationFailurePrompt } from "./continuation-prompt-builder"
@@ -18,7 +19,7 @@ type LoopStateController = {
 const ignoreBestEffortFailure = (): void => undefined
 
 function showToastBestEffort(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	body: { title: string; message: string; variant: "warning" | "info"; duration: number },
 ): void {
 	try {
@@ -46,7 +47,7 @@ function getMessageCountFromResponse(messagesResponse: unknown): number {
 }
 
 async function getSessionMessageCount(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	sessionID: string,
 	directory: string,
 ): Promise<number> {
@@ -59,7 +60,7 @@ async function getSessionMessageCount(
 }
 
 export async function handleFailedVerification(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	input: {
 		state: RalphLoopState
 		directory: string

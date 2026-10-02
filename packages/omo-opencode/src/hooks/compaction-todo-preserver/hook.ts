@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { resolveSessionEventID } from "../../shared/event-session-id"
 import { log } from "../../shared/logger"
 import { replaceToolArgs } from "../../shared/replace-tool-args"
@@ -110,7 +111,7 @@ export interface CompactionTodoPreserver {
 }
 
 export function createCompactionTodoPreserverHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
 ): CompactionTodoPreserver {
   const snapshots = new Map<string, TodoSnapshot[]>()
   const protectedSnapshots = new Map<string, TodoSnapshot[]>()

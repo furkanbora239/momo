@@ -1,13 +1,14 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { describe, test, expect, mock } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { BackgroundManager } from "./manager"
 import { MIN_SESSION_GONE_POLLS } from "./session-existence"
 import type { BackgroundTask } from "./types"
 
-function createPluginContext(client: object): PluginInput {
+function createPluginContext(client: object): PluginContext {
   const directory = tmpdir()
   return {
     project: {
@@ -18,8 +19,8 @@ function createPluginContext(client: object): PluginInput {
     directory,
     worktree: directory,
     serverUrl: new URL("http://localhost:4096"),
-    $: {} as PluginInput["$"],
-    client: client as PluginInput["client"],
+    $: {} as PluginContext["$"],
+    client: client as PluginContext["client"],
   }
 }
 

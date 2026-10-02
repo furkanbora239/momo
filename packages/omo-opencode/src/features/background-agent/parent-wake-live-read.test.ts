@@ -1,3 +1,4 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
 import { releaseAllPromptAsyncReservationsForTesting } from "../../shared/prompt-async-gate"
 import {
@@ -12,7 +13,7 @@ import {
 } from "../claude-code-session-state/state"
 import { BackgroundManager } from "./manager"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { tmpdir } from "node:os"
 
 afterEach(() => {
@@ -76,7 +77,7 @@ describe("manager.isSessionActive parent-wake live read routing", () => {
     _setLiveClientForTesting(liveClient)
 
     const manager = new BackgroundManager({
-      pluginContext: unsafeTestValue<PluginInput>({ client: originalClient, directory: tmpdir() }),
+      pluginContext: unsafeTestValue<PluginContext>({ client: originalClient, directory: tmpdir() }),
     })
     const testManager = unsafeTestValue<{
       isSessionActive: (sessionID: string) => Promise<boolean>
@@ -130,7 +131,7 @@ describe("manager.isSessionActive parent-wake live read routing", () => {
     subagentSessions.add(childSessionID)
 
     const manager = new BackgroundManager({
-      pluginContext: unsafeTestValue<PluginInput>({ client: originalClient, directory: tmpdir() }),
+      pluginContext: unsafeTestValue<PluginContext>({ client: originalClient, directory: tmpdir() }),
     })
     const testManager = unsafeTestValue<{
       isSessionActive: (sessionID: string) => Promise<boolean>
@@ -158,7 +159,7 @@ describe("manager.isSessionActive parent-wake live read routing", () => {
     }
 
     const manager = new BackgroundManager({
-      pluginContext: unsafeTestValue<PluginInput>({ client: originalClient, directory: tmpdir() }),
+      pluginContext: unsafeTestValue<PluginContext>({ client: originalClient, directory: tmpdir() }),
     })
     const testManager = unsafeTestValue<{
       isSessionActive: (sessionID: string) => Promise<boolean>

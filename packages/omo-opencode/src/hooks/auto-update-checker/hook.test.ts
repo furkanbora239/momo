@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { afterAll, describe, expect, mock, test } from "bun:test"
 import { preserveModuleMocksForTestFile, restoreModuleMocksForTestFile } from "../../testing/module-mock-lifecycle"
 
@@ -40,14 +41,14 @@ afterAll(() => {
   restoreModuleMocksForTestFile(import.meta.url)
 })
 
-const createPluginInput = (): PluginInput => ({
-  client: {} as PluginInput["client"],
+const createPluginInput = (): PluginContext => ({
+  client: {} as PluginContext["client"],
   directory: "/tmp/project",
-  project: {} as PluginInput["project"],
+  project: {} as PluginContext["project"],
   worktree: "/tmp/project",
   serverUrl: new URL("https://example.com"),
-  $: {} as PluginInput["$"],
-} satisfies PluginInput)
+  $: {} as PluginContext["$"],
+} satisfies PluginContext)
 
 const createDeps = (overrides: Partial<HookDeps> = {}) => {
   const showConfigErrorsIfAny = mock(async () => undefined)

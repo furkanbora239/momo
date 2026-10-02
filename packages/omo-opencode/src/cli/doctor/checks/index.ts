@@ -2,6 +2,7 @@ import type { CheckDefinition } from "../framework/types"
 import { CHECK_IDS, CHECK_NAMES } from "../framework/constants"
 import { checkSystem, gatherSystemInfo } from "./system"
 import { checkConfig } from "./config"
+import { checkOpenCodeVersion } from "./opencode-version"
 import { checkDeprecatedReasoningKeys } from "./deprecated-reasoning-keys"
 import { checkTools, gatherToolsSummary } from "./tools"
 import { checkModels } from "./model-resolution"
@@ -30,6 +31,11 @@ export function getAllCheckDefinitions(): CheckDefinition[] {
       id: CHECK_IDS.CONFIG,
       name: CHECK_NAMES[CHECK_IDS.CONFIG],
       check: checkConfig,
+    },
+    {
+      id: CHECK_IDS.OPENCODE_VERSION,
+      name: CHECK_NAMES[CHECK_IDS.OPENCODE_VERSION],
+      check: checkOpenCodeVersion,
     },
     {
       id: CHECK_IDS.TUI_PLUGIN,

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { RalphLoopOptions, RalphLoopState } from "./types"
 import { log } from "../../shared/logger"
 import { getTranscriptPath as getDefaultTranscriptPath } from "../claude-code-hooks/transcript"
@@ -42,7 +43,7 @@ function getMessageCountFromResponse(messagesResponse: unknown): number {
 }
 
 export function createRalphLoopHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   options?: RalphLoopOptions
 ): RalphLoopHook {
   const config = options?.config

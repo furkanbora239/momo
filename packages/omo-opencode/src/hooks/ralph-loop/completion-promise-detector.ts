@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { existsSync, readFileSync } from "node:fs"
 import { log } from "../../shared/logger"
 import { HOOK_NAME } from "./constants"
@@ -105,7 +106,7 @@ export function detectCompletionInTranscript(
 }
 
 export async function detectCompletionInSessionMessages(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: {
 		sessionID: string
 		promise: string

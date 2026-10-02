@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { existsSync } from "fs"
 import { log } from "../../shared"
 import { MAX_TRACKED_PATHS_PER_SESSION } from "./hook"
@@ -90,7 +91,7 @@ export function isOmoWorkspacePath(canonicalPath: string): boolean {
 }
 
 export async function handleWriteExistingFileGuardToolExecuteBefore(params: {
-  ctx: PluginInput
+  ctx: PluginContext
   input: { tool?: string; sessionID?: string }
   output: { args?: unknown }
   readPermissionsBySession: Map<string, Set<string>>

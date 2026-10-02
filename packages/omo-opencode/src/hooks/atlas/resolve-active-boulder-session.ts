@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   getPlanProgress,
   getWorkForSession,
@@ -14,7 +15,7 @@ function isInactiveBoulderStatus(status: BoulderState["status"]): boolean {
 }
 
 export async function resolveActiveBoulderSession(input: {
-  client: PluginInput["client"]
+  client: PluginContext["client"]
   directory: string
   sessionID: string
 }): Promise<{

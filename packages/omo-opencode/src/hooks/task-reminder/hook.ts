@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import { resolveSessionEventID } from "../../shared/event-session-id"
 
 const TASK_TOOLS = new Set([
@@ -25,7 +26,7 @@ interface ToolExecuteOutput {
   output: string
 }
 
-export function createTaskReminderHook(_ctx: PluginInput) {
+export function createTaskReminderHook(_ctx: PluginContext) {
   const sessionCounters = new Map<string, number>()
 
   const toolExecuteAfter = async (input: ToolExecuteInput, output: ToolExecuteOutput) => {

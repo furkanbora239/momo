@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import type { BackgroundManager } from "../../features/background-agent"
 import { log } from "../../shared/logger"
 
@@ -13,7 +14,7 @@ import type { SessionStateStore } from "./session-state"
 import { injectContinuation } from "./continuation-injection"
 
 async function showCountdownToast(
-  ctx: PluginInput,
+  ctx: PluginContext,
   seconds: number,
   incompleteCount: number
 ): Promise<void> {
@@ -30,7 +31,7 @@ async function showCountdownToast(
 }
 
 export function startCountdown(args: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionID: string
   incompleteCount: number
   total: number

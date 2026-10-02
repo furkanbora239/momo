@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../plugin/types"
 import {
 	resolveActualContextLimit,
 	type ContextLimitModelCacheState,
@@ -83,7 +84,7 @@ function getUsageCache(
 	return cache
 }
 
-export function invalidateContextWindowUsageCache(ctx: PluginInput, sessionID?: string): void {
+export function invalidateContextWindowUsageCache(ctx: PluginContext, sessionID?: string): void {
 	const cacheByModelState = usageCacheByClient.get(ctx.client)
 	if (!cacheByModelState) {
 		return
@@ -99,7 +100,7 @@ export function invalidateContextWindowUsageCache(ctx: PluginInput, sessionID?: 
 }
 
 export async function getContextWindowUsage(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	sessionID: string,
 	modelCacheState?: ContextLimitModelCacheState,
 ): Promise<ContextWindowUsage | null> {
@@ -136,7 +137,7 @@ function withFetchTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<
 }
 
 async function fetchContextWindowUsage(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	sessionID: string,
 	modelCacheState?: ContextLimitModelCacheState,
 ): Promise<ContextWindowUsage | null> {

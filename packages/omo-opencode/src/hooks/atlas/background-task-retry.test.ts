@@ -1,9 +1,10 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { randomUUID } from "node:crypto"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createAtlasHook } from "./atlas-hook"
 import { clearBoulderState, writeBoulderState } from "../../features/boulder-state"
 import { _resetForTesting, clearSessionAgent, registerAgentName, setSessionAgent } from "../../features/claude-code-session-state"
@@ -130,7 +131,7 @@ describe("atlas background task retry", () => {
 
     let backgroundRunning = true
     const promptMock = mock(async () => ({}))
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -171,7 +172,7 @@ describe("atlas background task retry", () => {
 
     let backgroundRunning = true
     const promptMock = mock(async () => ({}))
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -214,7 +215,7 @@ describe("atlas background task retry", () => {
 
     let remainingRunningRetries = 2
     const promptMock = mock(async () => ({}))
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -268,7 +269,7 @@ describe("atlas background task retry", () => {
     const promptAsyncMock = mock(async () => ({}))
     let backgroundCheckCount = 0
 
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -323,7 +324,7 @@ describe("atlas background task retry", () => {
 
     let backgroundRunning = true
     const promptAsyncMock = mock(async () => ({}))
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -376,7 +377,7 @@ describe("atlas background task retry", () => {
     let backgroundRunning = true
     let descendantAgent = "atlas"
     const promptAsyncMock = mock(async () => ({}))
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -434,7 +435,7 @@ describe("atlas background task retry", () => {
 
     const deferredPrompt = createDeferred<unknown>()
     const promptAsyncMock = mock(() => deferredPrompt.promise)
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -472,7 +473,7 @@ describe("atlas background task retry", () => {
     promptAsyncMock.mockImplementationOnce(() => deferredPrompt.promise)
     promptAsyncMock.mockImplementationOnce(async () => ({}))
 
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {
@@ -525,7 +526,7 @@ describe("atlas background task retry", () => {
     })
     promptAsyncMock.mockImplementationOnce(async () => ({}))
 
-    const hook = createAtlasHook(unsafeTestValue<PluginInput>({
+    const hook = createAtlasHook(unsafeTestValue<PluginContext>({
       directory: testDir,
       client: {
         session: {

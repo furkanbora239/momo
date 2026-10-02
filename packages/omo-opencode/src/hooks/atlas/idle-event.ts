@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   normalizeSessionId,
   resolveBoulderPlanPath,
@@ -24,7 +25,7 @@ import {
 import type { AtlasHookOptions, SessionState } from "./types"
 
 export async function handleAtlasSessionIdle(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   options?: AtlasHookOptions
   getState: (sessionID: string) => SessionState
   sessionID: string

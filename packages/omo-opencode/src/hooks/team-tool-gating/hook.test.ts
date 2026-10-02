@@ -1,9 +1,10 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { mkdir, mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { TeamModeConfig } from "../../config/schema/team-mode"
 import { TeamModeConfigSchema } from "../../config/schema/team-mode"
 import {
@@ -58,7 +59,7 @@ async function seedTeams(baseDir: string, ...runtimeStates: RuntimeState[]): Pro
 }
 
 async function runHook(tool: string, sessionID: string, args: Record<string, unknown>, config?: Partial<TeamModeConfig>, baseDir = "/tmp/team-mode"): Promise<void> {
-  const hook = createTeamToolGating({ directory: baseDir } as PluginInput, createConfig(config, baseDir))
+  const hook = createTeamToolGating({ directory: baseDir } as PluginContext, createConfig(config, baseDir))
   await hook["tool.execute.before"]?.({ tool, sessionID, callID: "call-1" }, { args })
 }
 

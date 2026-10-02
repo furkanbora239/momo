@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../../plugin/types"
 import { loadClaudeHooksConfig } from "../config"
 import { loadPluginExtendedConfig } from "../config-loader"
 import {
@@ -13,7 +14,7 @@ import { appendTranscriptEntry } from "../transcript"
 import { sessionFirstMessageProcessed, sessionInterruptState } from "../session-hook-state"
 
 export function createChatMessageHandler(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	config: PluginConfig,
 	contextCollector?: ContextCollector,
 ) {

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   getPlanProgress,
   getTaskSessionState,
@@ -30,7 +31,7 @@ export function hasRunningBackgroundTasks(sessionID: string, options?: AtlasHook
 }
 
 export async function injectContinuation(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionID: string
   sessionState: SessionState
   options?: AtlasHookOptions
@@ -155,7 +156,7 @@ export async function injectContinuation(input: {
 }
 
 export function scheduleRetry(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionID: string
   sessionState: SessionState
   options?: AtlasHookOptions

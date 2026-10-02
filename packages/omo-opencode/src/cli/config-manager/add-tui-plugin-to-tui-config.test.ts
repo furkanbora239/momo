@@ -4,7 +4,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { LEGACY_PLUGIN_NAME, PLUGIN_NAME } from "../../shared"
+import type { OpenCodeVersionProbe } from "../../shared/opencode-version-probe"
 import { ensureTuiPluginEntry } from "./add-tui-plugin-to-tui-config"
+
+const v1Probe: OpenCodeVersionProbe = () => ({ available: true, version: "1.18.34", major: 1 })
 
 const tempDirs: string[] = []
 
@@ -43,8 +46,8 @@ describe("ensureTuiPluginEntry", () => {
     writeConfig(dir, "tui.json", { plugin: ["some-other/tui"], theme: "dark" })
 
     // when
-    const first = ensureTuiPluginEntry({ configDir: dir })
-    const second = ensureTuiPluginEntry({ configDir: dir })
+    const first = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
+    const second = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
 
     // then
     expect(first).toEqual({ changed: true, reason: "added" })
@@ -59,7 +62,7 @@ describe("ensureTuiPluginEntry", () => {
     writeConfig(dir, "opencode.json", { plugin: [`${PLUGIN_NAME}@4.9.2`] })
 
     // when
-    const result = ensureTuiPluginEntry({ configDir: dir })
+    const result = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
 
     // then
     expect(result).toEqual({ changed: true, reason: "added" })
@@ -74,8 +77,8 @@ describe("ensureTuiPluginEntry", () => {
     writeConfig(dir, "tui.json", { plugin: [`${PLUGIN_NAME}/tui`] })
 
     // when
-    const first = ensureTuiPluginEntry({ configDir: dir })
-    const second = ensureTuiPluginEntry({ configDir: dir })
+    const first = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
+    const second = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
 
     // then
     expect(first).toEqual({ changed: true, reason: "added" })
@@ -91,7 +94,7 @@ describe("ensureTuiPluginEntry", () => {
     writeConfig(dir, "tui.json", { plugin: [`${PLUGIN_NAME}@4.19.3`] })
 
     // when
-    const result = ensureTuiPluginEntry({ configDir: dir })
+    const result = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
 
     // then
     expect(result).toEqual({ changed: true, reason: "added" })
@@ -105,7 +108,7 @@ describe("ensureTuiPluginEntry", () => {
     writeConfig(dir, "tui.json", { plugin: [LEGACY_PLUGIN_NAME] })
 
     // when
-    const result = ensureTuiPluginEntry({ configDir: dir })
+    const result = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
 
     // then
     expect(result).toEqual({ changed: false, reason: "already-present" })
@@ -119,8 +122,8 @@ describe("ensureTuiPluginEntry", () => {
     writeConfig(sourceOnly, "opencode.json", { plugin: ["file:///repo/src/index.ts"] })
 
     // when
-    const missingResult = ensureTuiPluginEntry({ configDir: missing })
-    const sourceResult = ensureTuiPluginEntry({ configDir: sourceOnly })
+    const missingResult = ensureTuiPluginEntry({ configDir: missing, versionProbe: v1Probe })
+    const sourceResult = ensureTuiPluginEntry({ configDir: sourceOnly, versionProbe: v1Probe })
 
     // then
     expect(missingResult).toEqual({ changed: false, reason: "no-server-entry" })
@@ -136,7 +139,7 @@ describe("ensureTuiPluginEntry", () => {
     writeFileSync(join(dir, "tui.json"), "{bad json", "utf-8")
 
     // when
-    const result = ensureTuiPluginEntry({ configDir: dir })
+    const result = ensureTuiPluginEntry({ configDir: dir, versionProbe: v1Probe })
 
     // then
     expect(result).toEqual({ changed: false, reason: "malformed" })

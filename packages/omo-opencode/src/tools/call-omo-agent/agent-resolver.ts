@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import { ALLOWED_AGENTS } from "./constants";
 
 export function clearCallableAgentsCache(): void {
@@ -13,7 +14,7 @@ export function clearCallableAgentsCache(): void {
  * local work. Dynamic agents and other built-ins must go through task().
  */
 export async function resolveCallableAgents(
-  _client?: PluginInput["client"],
+  _client?: PluginContext["client"],
   _sessionId?: string,
 ): Promise<string[]> {
   return [...ALLOWED_AGENTS];

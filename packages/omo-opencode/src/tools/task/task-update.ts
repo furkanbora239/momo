@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
 import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool";
+import type { PluginContext } from "../../plugin/types"
 import { join } from "path";
 import type { OhMyOpenCodeConfig } from "../../config/schema";
 import { TaskObjectSchema, TaskUpdateInputSchema } from "./types";
@@ -20,7 +21,7 @@ function parseTaskId(id: string): string | null {
 
 export function createTaskUpdateTool(
   config: Partial<OhMyOpenCodeConfig>,
-  ctx?: PluginInput,
+  ctx?: PluginContext,
 ): ToolDefinition {
    return tool({
      description: `Update an existing task with new values.
@@ -71,7 +72,7 @@ Properly managed dependencies enable maximum parallel execution.`,
 async function handleUpdate(
   args: Record<string, unknown>,
   config: Partial<OhMyOpenCodeConfig>,
-  ctx: PluginInput | undefined,
+  ctx: PluginContext | undefined,
   context: { sessionID: string },
 ): Promise<string> {
   try {

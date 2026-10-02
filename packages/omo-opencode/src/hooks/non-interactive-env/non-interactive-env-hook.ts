@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { HOOK_NAME, NON_INTERACTIVE_ENV, SHELL_COMMAND_PATTERNS } from "./constants"
 import { log, buildEnvPrefix, replaceToolArgs } from "../../shared"
 import { detectShellType, type ShellType } from "../../shared/shell-env"
@@ -65,7 +66,7 @@ function detectCommandShellType(): ShellType {
   return "powershell"
 }
 
-export function createNonInteractiveEnvHook(_ctx: PluginInput) {
+export function createNonInteractiveEnvHook(_ctx: PluginContext) {
   return {
     "tool.execute.before": async (
       input: { tool: string; sessionID: string; callID: string },

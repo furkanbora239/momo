@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   endTaskTimer,
   getPlanProgress,
@@ -44,7 +45,7 @@ function isBackgroundOutputIncompleteReport(toolName: string, output: string): b
 }
 
 export async function handleSubagentCompletionAfter(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   pendingTaskRefs: Map<string, PendingTaskRef>
   autoCommit: boolean
   getState: (sessionID: string) => SessionState

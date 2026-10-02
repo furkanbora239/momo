@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log, replaceToolArgs } from "../../shared"
 import {
   MAX_WEBFETCH_REDIRECTS,
@@ -65,7 +66,7 @@ function buildRedirectLimitMessage(url?: string): string {
   return `Error: WebFetch failed: exceeded maximum redirects (${MAX_WEBFETCH_REDIRECTS})${suffix}`
 }
 
-export function createWebFetchRedirectGuardHook(_ctx: PluginInput) {
+export function createWebFetchRedirectGuardHook(_ctx: PluginContext) {
   const pendingFailures = new Map<string, PendingRedirectFailure>()
 
   return {

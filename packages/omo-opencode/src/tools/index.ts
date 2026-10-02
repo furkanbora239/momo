@@ -16,10 +16,11 @@ import {
   type BackgroundCancelClient,
 } from "./background-task"
 
-import type { PluginInput, ToolDefinition } from "@opencode-ai/plugin"
+import type { ToolDefinition } from "@opencode-ai/plugin"
+import type { PluginContext } from "../plugin/types"
 import type { BackgroundManager } from "../features/background-agent"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export { createCallOmoAgent } from "./call-omo-agent"
 export { createAdvisorTool } from "./advisor"

@@ -1,10 +1,11 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { Project } from "@opencode-ai/sdk"
 import { readBoulderState, writeBoulderState } from "../../features/boulder-state"
 import { createToolExecuteBeforeHandler } from "./tool-execute-before"
@@ -71,7 +72,7 @@ describe("createToolExecuteAfterHandler task timers", () => {
       session: {
         get: async (input: SessionGetInput) => createSessionGetResult(parentSessionIDs?.[input.path.id]),
       },
-    } as PluginInput["client"]
+    } as PluginContext["client"]
 
     if (parentSessionIDs) {
       spyOn(client.session, "get").mockImplementation((input) => Promise.resolve(
@@ -90,7 +91,7 @@ describe("createToolExecuteAfterHandler task timers", () => {
       experimental_workspace: { register: () => {} },
       serverUrl: new URL("https://example.com"),
       $: Bun.$,
-    } satisfies PluginInput
+    } satisfies PluginContext
 
     return {
       beforeHandler: createToolExecuteBeforeHandler({

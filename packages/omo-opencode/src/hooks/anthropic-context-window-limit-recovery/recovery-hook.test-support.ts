@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { mock } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { OhMyOpenCodeConfig } from "../../config"
 import { createAnthropicContextWindowLimitRecoveryHook } from "./recovery-hook"
 
@@ -56,7 +57,7 @@ export function createRecoveryHook() {
   )
 }
 
-export function createMockContext(): PluginInput {
+export function createMockContext(): PluginContext {
   return {
     client: {
       session: {

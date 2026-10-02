@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -31,10 +32,10 @@ const mockGetLatestVersion = mock(async (): Promise<string | null> => "3.5.0")
 const mockExtractChannel = mock(() => "latest")
 const mockInvalidatePackage = mock(() => {})
 const mockShowUpdateAvailableToast = mock(
-  async (_ctx: PluginInput, _latestVersion: string, _getToastMessage: ToastMessageGetter): Promise<void> => {},
+  async (_ctx: PluginContext, _latestVersion: string, _getToastMessage: ToastMessageGetter): Promise<void> => {},
 )
 const mockShowAutoUpdatedToast = mock(
-  async (_ctx: PluginInput, _fromVersion: string, _toVersion: string): Promise<void> => {},
+  async (_ctx: PluginContext, _fromVersion: string, _toVersion: string): Promise<void> => {},
 )
 const mockSyncCachePackageJsonToIntent = mock((_pluginInfo: PluginEntryInfo): SyncResult => ({ synced: true, error: null }))
 const mockRunBunInstallWithDetails = mock(async (_opts?: { outputMode?: string; workspaceDir?: string }) => ({ success: true }))
@@ -68,7 +69,7 @@ async function createRunner() {
 }
 
 describe("workspace resolution", () => {
-  const mockCtx = { directory: "/test" } as PluginInput
+  const mockCtx = { directory: "/test" } as PluginContext
   const getToastMessage: ToastMessageGetter = (isUpdate, version) =>
     isUpdate ? `Update to ${version}` : "Up to date"
 

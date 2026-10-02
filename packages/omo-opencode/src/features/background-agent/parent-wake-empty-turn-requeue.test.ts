@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { releaseAllPromptAsyncReservationsForTesting } from "../../hooks/shared/prompt-async-gate"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { isEmptyNoProgressAssistantTurnInfo } from "./empty-assistant-turn"
@@ -64,7 +65,7 @@ function createManager(sessionMessages: readonly SessionMessageForTest[] = []): 
   readonly promptCalls: PromptCall[]
 } {
   const promptCalls: PromptCall[] = []
-  const client = unsafeTestValue<PluginInput["client"]>({
+  const client = unsafeTestValue<PluginContext["client"]>({
     session: {
       status: async () => ({ data: { "parent-session-empty-wake": { type: "idle" } } }),
       messages: async () => ({ data: sessionMessages }),
@@ -75,7 +76,7 @@ function createManager(sessionMessages: readonly SessionMessageForTest[] = []): 
       abort: async () => ({}),
     },
   })
-  const pluginContext = unsafeTestValue<PluginInput>({
+  const pluginContext = unsafeTestValue<PluginContext>({
     client,
     directory: tmpdir(),
   })

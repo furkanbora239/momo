@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { MULTIMODAL_LOOKER_AGENT } from "./constants"
 import { fetchAvailableModels } from "../../shared/model-availability"
 import { log } from "../../shared/logger"
@@ -66,7 +67,7 @@ function toAgentInfo(value: unknown): AgentInfo | null {
 }
 
 async function resolveRegisteredAgentMetadata(
-  ctx: PluginInput,
+  ctx: PluginContext,
 ): Promise<ResolvedAgentMetadata> {
   const agentsResult = await ctx.client.app?.agents?.()
   const agentsRaw = isObject(agentsResult) ? agentsResult["data"] : undefined
@@ -83,7 +84,7 @@ async function resolveRegisteredAgentMetadata(
 }
 
 async function resolveDynamicAgentMetadata(
-  ctx: PluginInput,
+  ctx: PluginContext,
   visionCapableModels = readVisionCapableModelsCache(),
 ): Promise<ResolvedAgentMetadata> {
   const fallbackChain = buildMultimodalLookerFallbackChain(visionCapableModels)
@@ -114,7 +115,7 @@ async function resolveDynamicAgentMetadata(
 }
 
 export async function resolveMultimodalLookerAgentMetadata(
-  ctx: PluginInput
+  ctx: PluginContext
 ): Promise<ResolvedAgentMetadata> {
   try {
     const registeredMetadata = await resolveRegisteredAgentMetadata(ctx)

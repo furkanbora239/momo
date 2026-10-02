@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { tmpdir } from "node:os"
 import { afterEach, describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { releaseAllPromptAsyncReservationsForTesting } from "../../hooks/shared/prompt-async-gate"
 import { BackgroundManager } from "./manager"
@@ -38,7 +39,7 @@ function createManager(): {
   readonly promptAsyncCalls: readonly PromptAsyncCall[]
 } {
   const promptAsyncCalls: PromptAsyncCall[] = []
-  const client = unsafeTestValue<PluginInput["client"]>({
+  const client = unsafeTestValue<PluginContext["client"]>({
     session: {
       messages: async () => [],
       status: async () => ({ data: { "parent-1": { type: "idle" } } }),

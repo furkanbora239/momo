@@ -1,10 +1,11 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from "bun:test"
 import { randomUUID } from "node:crypto"
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 const storageMaps = new Map<string, Set<string>>()
 const logMock = mock(() => undefined)
@@ -24,8 +25,8 @@ afterAll(() => {
   mock.restore()
 })
 
-function createPluginContext(directory: string): PluginInput {
-  return { directory } as PluginInput
+function createPluginContext(directory: string): PluginContext {
+  return { directory } as PluginContext
 }
 
 function countReadmeMarkers(output: string): number {

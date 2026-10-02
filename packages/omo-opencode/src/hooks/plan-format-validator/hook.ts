@@ -1,7 +1,8 @@
+import type { PluginContext } from "../../plugin/types"
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { getPlanProgress } from "../../features/boulder-state/storage"
 import { log } from "../../shared/logger"
@@ -163,7 +164,7 @@ function isPlanFilePath(filePath: string): boolean {
  * malformed task labels. Warns the agent when some or all tasks
  * will be skipped by the progress counter.
  */
-export function createPlanFormatValidatorHook(_ctx: PluginInput) {
+export function createPlanFormatValidatorHook(_ctx: PluginContext) {
   return {
     "tool.execute.after": async (
       input: { tool: string; sessionID: string; callID: string; args?: Record<string, unknown> },

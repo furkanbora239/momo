@@ -1,8 +1,9 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { tmpdir } from "node:os"
 import { afterEach, describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { BackgroundManager } from "./manager"
 import type { BackgroundTask } from "./types"
 import { releaseAllPromptAsyncReservationsForTesting } from "../../hooks/shared/prompt-async-gate"
@@ -69,14 +70,14 @@ function createManager(): {
       abort: async () => ({}),
     },
   }
-  const ctx: PluginInput = {
-    client: client as unknown as PluginInput["client"],
-    project: {} as PluginInput["project"],
+  const ctx: PluginContext = {
+    client: client as unknown as PluginContext["client"],
+    project: {} as PluginContext["project"],
     directory: tmpdir(),
     worktree: tmpdir(),
     experimental_workspace: { register: () => {} },
     serverUrl: new URL("http://localhost"),
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 
   return {

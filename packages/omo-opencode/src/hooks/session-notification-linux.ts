@@ -1,9 +1,10 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { runNotificationCommand } from "./session-notification-runner"
 import { getAplayPath, getNotifySendPath, getPaplayPath } from "./session-notification-utils"
 
 export async function sendLinuxSessionNotification(
-  ctx: PluginInput,
+  ctx: PluginContext,
   title: string,
   message: string
 ): Promise<void> {
@@ -18,7 +19,7 @@ export async function sendLinuxSessionNotification(
   )
 }
 
-export async function playLinuxSessionNotificationSound(ctx: PluginInput, soundPath: string): Promise<void> {
+export async function playLinuxSessionNotificationSound(ctx: PluginContext, soundPath: string): Promise<void> {
   const paplayPath = await getPaplayPath()
   if (paplayPath) {
     await runNotificationCommand(

@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
 import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool";
+import type { PluginContext } from "../../plugin/types"
 import { join } from "path";
 import type { OhMyOpenCodeConfig } from "../../config/schema";
 import type { TaskObject } from "./types";
@@ -14,7 +15,7 @@ import { syncTaskTodoUpdate } from "./todo-sync";
 
 export function createTaskCreateTool(
   config: Partial<OhMyOpenCodeConfig>,
-  ctx?: PluginInput,
+  ctx?: PluginContext,
 ): ToolDefinition {
    return tool({
      description: `Create a new task with auto-generated ID and threadID recording.
@@ -59,7 +60,7 @@ Calculate dependencies carefully to maximize parallel execution:
 async function handleCreate(
   args: Record<string, unknown>,
   config: Partial<OhMyOpenCodeConfig>,
-  ctx: PluginInput | undefined,
+  ctx: PluginContext | undefined,
   context: { sessionID: string },
 ): Promise<string> {
   try {

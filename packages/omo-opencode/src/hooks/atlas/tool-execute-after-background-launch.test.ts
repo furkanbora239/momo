@@ -2,11 +2,12 @@
 
 // allow: SIZE_OK - Atlas background-launch scenarios share one session/event harness; this release adds final-wave regressions and future additions should split by verdict class.
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, it, mock, afterAll, spyOn } from "bun:test"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { Project } from "@opencode-ai/sdk"
 import { readBoulderState, writeBoulderState } from "../../features/boulder-state"
 import { createToolExecuteBeforeHandler } from "./tool-execute-before"
@@ -80,7 +81,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
     trackedState?: SessionState,
   ) {
     const project = createProject()
-    const client = unsafeTestValue<PluginInput["client"]>({
+    const client = unsafeTestValue<PluginContext["client"]>({
       session: {
         get: async (input: SessionGetInput) => createSessionGetResult(parentSessionIDs?.[input.path.id]),
       },
@@ -99,7 +100,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
       worktree: testDirectory,
       serverUrl: new URL("https://example.com"),
       $: Bun.$,
-    } satisfies PluginInput
+    } satisfies PluginContext
 
     return createToolExecuteAfterHandler({
       ctx,
@@ -144,7 +145,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
         const childSessionID = "ses_child123"
         const planPath = join(testDirectory, "background-launch-plan.md")
         const project = createProject()
-        const client = unsafeTestValue<PluginInput["client"]>({
+        const client = unsafeTestValue<PluginContext["client"]>({
           session: {
             get: async () => createSessionGetResult(undefined),
           },
@@ -176,7 +177,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
           worktree: testDirectory,
           serverUrl: new URL("https://example.com"),
           $: Bun.$,
-        } satisfies PluginInput
+        } satisfies PluginContext
         const beforeHandler = createToolExecuteBeforeHandler({
           ctx,
           pendingFilePaths,
@@ -277,7 +278,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
         const childSessionID = "ses_child_lookup_failure"
         const planPath = join(testDirectory, "background-launch-plan.md")
         const project = createProject()
-        const client = unsafeTestValue<PluginInput["client"]>({
+        const client = unsafeTestValue<PluginContext["client"]>({
           session: {
             get: async () => createSessionGetResult(undefined),
           },
@@ -312,7 +313,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
           worktree: testDirectory,
           serverUrl: new URL("https://example.com"),
           $: Bun.$,
-        } satisfies PluginInput
+        } satisfies PluginContext
         const beforeHandler = createToolExecuteBeforeHandler({
           ctx,
           pendingFilePaths,
@@ -358,7 +359,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
         const childSessionID = "ses_outside_lineage"
         const planPath = join(testDirectory, "background-launch-plan.md")
         const project = createProject()
-        const client = unsafeTestValue<PluginInput["client"]>({
+        const client = unsafeTestValue<PluginContext["client"]>({
           session: {
             get: async () => createSessionGetResult(undefined),
           },
@@ -390,7 +391,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
           worktree: testDirectory,
           serverUrl: new URL("https://example.com"),
           $: Bun.$,
-        } satisfies PluginInput
+        } satisfies PluginContext
         const beforeHandler = createToolExecuteBeforeHandler({
           ctx,
           pendingFilePaths,
@@ -436,7 +437,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
         const childSessionID = "ses_unrelated_child"
         const planPath = join(testDirectory, "background-launch-plan.md")
         const project = createProject()
-        const client = unsafeTestValue<PluginInput["client"]>({
+        const client = unsafeTestValue<PluginContext["client"]>({
           session: {
             get: async () => createSessionGetResult(undefined),
           },
@@ -469,7 +470,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
           worktree: testDirectory,
           serverUrl: new URL("https://example.com"),
           $: Bun.$,
-        } satisfies PluginInput
+        } satisfies PluginContext
         const beforeHandler = createToolExecuteBeforeHandler({
           ctx,
           pendingFilePaths,
@@ -517,7 +518,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
         const planPathA = join(testDirectory, "background-launch-work-a.md")
         const planPathB = join(testDirectory, "background-launch-work-b.md")
         const project = createProject()
-        const client = unsafeTestValue<PluginInput["client"]>({
+        const client = unsafeTestValue<PluginContext["client"]>({
           session: {
             get: async () => createSessionGetResult(undefined),
           },
@@ -566,7 +567,7 @@ describe("createToolExecuteAfterHandler background launch detection", () => {
           worktree: testDirectory,
           serverUrl: new URL("https://example.com"),
           $: Bun.$,
-        } satisfies PluginInput
+        } satisfies PluginContext
         const beforeHandler = createToolExecuteBeforeHandler({
           ctx,
           pendingFilePaths,

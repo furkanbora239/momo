@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isGpt5_5Model, isGptModel, isGptNativeSisyphusModel } from "../../agents/types"
 import {
   getSessionAgent,
@@ -14,7 +15,7 @@ const TOAST_MESSAGE = [
   "Do NOT use Sisyphus with GPT (except GPT-5.4, GPT-5.5, and GPT-5.6 Sol, which have GPT-native prompt support).",
   "For other GPT models, always use Hephaestus.",
 ].join("\n")
-function showToast(ctx: PluginInput, sessionID: string): void {
+function showToast(ctx: PluginContext, sessionID: string): void {
   ctx.client.tui.showToast({
     body: {
       title: TOAST_TITLE,
@@ -44,7 +45,7 @@ function getNativeSisyphusGptVariant(model: { providerID: string; modelID: strin
   return chain.find((entry) => entry.model === model.modelID)?.variant
 }
 
-export function createNoSisyphusGptHook(ctx: PluginInput) {
+export function createNoSisyphusGptHook(ctx: PluginContext) {
   return {
     "chat.message": async (input: {
       sessionID: string

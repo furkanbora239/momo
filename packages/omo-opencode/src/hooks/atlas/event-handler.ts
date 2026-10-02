@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { resolveMessageEventSessionID, resolveSessionEventID } from "../../shared/event-session-id"
 import { HOOK_NAME } from "./hook-name"
@@ -7,7 +8,7 @@ import { handleAtlasSessionIdle } from "./idle-event"
 import type { AtlasHookOptions, SessionState } from "./types"
 
 export function createAtlasEventHandler(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   options?: AtlasHookOptions
   sessions: Map<string, SessionState>
   getState: (sessionID: string) => SessionState

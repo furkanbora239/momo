@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { randomUUID } from "node:crypto"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -81,7 +82,7 @@ describe("scheduleRetry", () => {
     writeBoulderState(testDirectory, createBoulderState(planPath, sessionID, "atlas"))
 
     const sessionState: SessionState = { promptFailureCount: 0 }
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: testDirectory,
       client: {
         session: {

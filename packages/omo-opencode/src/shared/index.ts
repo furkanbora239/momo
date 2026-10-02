@@ -24,6 +24,7 @@ export type {
   OpenCodeConfigPaths,
 } from "./opencode-config-dir-types"
 export * from "./opencode-version"
+export * from "./opencode-version-probe"
 export * from "./opencode-storage-detection"
 export * from "./permission-compat"
 export * from "./external-plugin-detector"

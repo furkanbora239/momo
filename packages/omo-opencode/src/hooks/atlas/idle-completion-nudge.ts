@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { BoulderState } from "../../features/boulder-state"
 import {
   completeBoulder,
@@ -25,7 +26,7 @@ function getTaskLabelSortValue(taskLabel: string): number {
 }
 
 export async function handleCompletedBoulderIdle(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   options?: AtlasHookOptions
   sessionID: string
   sessionState: SessionState

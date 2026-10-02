@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { beforeEach, describe, expect, it, mock } from "bun:test"
 
 import type { PluginEntryInfo } from "../auto-update-checker/checker"
@@ -24,10 +25,10 @@ const mockExtractChannel = mock(() => "latest")
 const mockInvalidatePackage = mock(() => {})
 const mockRunBunInstallWithDetails = mock(async () => ({ success: true }))
 const mockShowUpdateAvailableToast = mock(
-  async (_ctx: PluginInput, _latestVersion: string, _getToastMessage: ToastMessageGetter): Promise<void> => {},
+  async (_ctx: PluginContext, _latestVersion: string, _getToastMessage: ToastMessageGetter): Promise<void> => {},
 )
 const mockShowAutoUpdatedToast = mock(
-  async (_ctx: PluginInput, _fromVersion: string, _toVersion: string): Promise<void> => {},
+  async (_ctx: PluginContext, _fromVersion: string, _toVersion: string): Promise<void> => {},
 )
 const mockLog = mock(() => {})
 const mockSyncCachePackageJsonToIntent = mock((_pluginInfo: PluginEntryInfo): SyncResult => ({
@@ -63,7 +64,7 @@ async function createRunner() {
 }
 
 describe("runBackgroundUpdateCheck", () => {
-  const mockCtx = { directory: "/test" } as PluginInput
+  const mockCtx = { directory: "/test" } as PluginContext
   const getToastMessage: ToastMessageGetter = (isUpdate, version) =>
     isUpdate ? `Update to ${version}` : "Up to date"
 

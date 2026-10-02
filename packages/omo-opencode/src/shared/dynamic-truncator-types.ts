@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { PluginContext } from "../plugin/types"
+;
 
 export type ContextWindowUsage = {
 	usedTokens: number;
@@ -6,7 +7,7 @@ export type ContextWindowUsage = {
 	usagePercentage: number;
 }
 
-export type ContextWindowUsageClient = Pick<PluginInput["client"], "session">
+export type ContextWindowUsageClient = Pick<PluginContext["client"], "session">
 
 export interface TruncationResult {
 	result: string;

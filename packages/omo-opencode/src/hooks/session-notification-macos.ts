@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { escapeAppleScriptText } from "./session-notification-formatting"
 import { logCommandFailure } from "./session-notification-log"
 import { runNotificationCommand } from "./session-notification-runner"
@@ -10,7 +11,7 @@ import {
 } from "./session-notification-utils"
 
 export async function sendMacosSessionNotification(
-  ctx: PluginInput,
+  ctx: PluginContext,
   title: string,
   message: string
 ): Promise<void> {
@@ -74,7 +75,7 @@ export async function sendMacosSessionNotification(
   )
 }
 
-export async function playMacosSessionNotificationSound(ctx: PluginInput, soundPath: string): Promise<void> {
+export async function playMacosSessionNotificationSound(ctx: PluginContext, soundPath: string): Promise<void> {
   const afplayPath = await getAfplayPath()
   if (!afplayPath) return
   await runNotificationCommand(

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { buildContinuationPrompt } from "./continuation-prompt-builder"
 import { HOOK_NAME } from "./constants"
@@ -14,7 +15,7 @@ type LoopStateController = {
 const ignoreBestEffortFailure = (): void => undefined
 
 function showToastBestEffort(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	body: { title: string; message: string; variant: "error" | "info" | "success"; duration: number },
 ): void {
 	try {
@@ -25,7 +26,7 @@ function showToastBestEffort(
 }
 
 export async function handleDetectedCompletion(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	input: {
 		sessionID: string
 		state: RalphLoopState

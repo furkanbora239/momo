@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isRecord, log, normalizeSDKResponse } from "../../shared"
 import { withTimeout } from "./with-timeout"
 
@@ -79,7 +80,7 @@ function isNoProgressAssistantMessage(message: SessionMessage): boolean {
 }
 
 export async function latestAssistantTurnMadeNoProgress(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	input: {
 		readonly sessionID: string
 		readonly directory: string

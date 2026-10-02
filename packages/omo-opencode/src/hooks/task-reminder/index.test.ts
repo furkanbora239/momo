@@ -1,8 +1,9 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, test, expect, beforeEach } from "bun:test"
 import { createTaskReminderHook } from "./index"
-import type { PluginInput } from "@opencode-ai/plugin"
 
-const mockCtx = {} as PluginInput
+
+const mockCtx = {} as PluginContext
 
 describe("TaskReminderHook", () => {
   let hook: ReturnType<typeof createTaskReminderHook>

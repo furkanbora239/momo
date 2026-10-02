@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import { checkForLegacyPluginEntry } from "../../shared/legacy-plugin-warning"
 import { log } from "../../shared/logger"
 import { LEGACY_PLUGIN_NAME, PLUGIN_NAME, PUBLISHED_PACKAGE_NAME } from "../../shared/plugin-identity"
@@ -11,7 +12,7 @@ type LegacyPluginToastDeps = {
   autoMigrateLegacyPluginEntry?: typeof autoMigrateLegacyPluginEntry
 }
 
-export function createLegacyPluginToastHook(ctx: PluginInput, deps: LegacyPluginToastDeps = {}) {
+export function createLegacyPluginToastHook(ctx: PluginContext, deps: LegacyPluginToastDeps = {}) {
   let fired = false
   const checkForLegacyPluginEntryFn = deps.checkForLegacyPluginEntry ?? checkForLegacyPluginEntry
   const logFn = deps.log ?? log

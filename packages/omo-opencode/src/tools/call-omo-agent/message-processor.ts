@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared"
 import { consumeNewMessages } from "../../shared/session-cursor"
 
@@ -9,7 +10,7 @@ interface SDKMessage {
 
 export async function processMessages(
   sessionID: string,
-  ctx: PluginInput
+  ctx: PluginContext
 ): Promise<string> {
   const messagesResult = await ctx.client.session.messages({
     path: { id: sessionID },

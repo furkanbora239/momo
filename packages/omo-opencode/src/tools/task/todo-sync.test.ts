@@ -1,6 +1,7 @@
 /// <reference types="bun-types/test-globals" />
+import type { PluginContext } from "../../plugin/types"
 import type { Task } from "../../features/claude-tasks/types";
-import type { PluginInput } from "@opencode-ai/plugin";
+;
 import {
   syncTaskToTodo,
   syncAllTasksToTodos,
@@ -8,7 +9,7 @@ import {
   type TodoInfo,
 } from "./todo-sync";
 
-type MockTodoCtx = PluginInput & {
+type MockTodoCtx = PluginContext & {
   client: { session: { todo: { mockResolvedValue: (value: unknown) => void; mockRejectedValue: (value: unknown) => void } } };
 };
 

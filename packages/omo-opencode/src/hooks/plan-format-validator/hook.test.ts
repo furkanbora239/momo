@@ -1,9 +1,10 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { createPlanFormatValidatorHook } from "./hook"
@@ -26,7 +27,7 @@ function createFixture(content: string, options: FixtureOptions = {}) {
   mkdirSync(dirname(resolvedPath), { recursive: true })
   writeFileSync(resolvedPath, content, "utf-8")
 
-  const hook = createPlanFormatValidatorHook(unsafeTestValue<PluginInput>({ directory }))
+  const hook = createPlanFormatValidatorHook(unsafeTestValue<PluginContext>({ directory }))
   const input: HookInput = {
     tool: options.tool ?? "Write",
     sessionID: "ses_plan-format-validator",

@@ -1,6 +1,7 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+import type { PluginContext } from "./types"
 
-type SdkSession = PluginInput["client"]["session"]
+
+type SdkSession = PluginContext["client"]["session"]
 type SdkPromptAsync = SdkSession["promptAsync"]
 type SdkStatus = SdkSession["status"]
 type SdkMessages = SdkSession["messages"]
@@ -13,7 +14,7 @@ export type TeamIdleWakeHintNarrowClient = {
   }
 }
 
-export function buildTeamIdleWakeHintClient(client: PluginInput["client"]): TeamIdleWakeHintNarrowClient {
+export function buildTeamIdleWakeHintClient(client: PluginContext["client"]): TeamIdleWakeHintNarrowClient {
   const session = client.session
   const promptAsync = typeof session.promptAsync === "function"
     ? session.promptAsync.bind(session) as SdkPromptAsync

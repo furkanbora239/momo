@@ -1,4 +1,5 @@
-import { tool, type PluginInput, type ToolDefinition } from "@opencode-ai/plugin"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
 import { ALLOWED_AGENTS, CALL_OMO_AGENT_DESCRIPTION } from "./constants"
 import type { CallOmoAgentArgs, ToolContextWithMetadata } from "./types"
 import type { BackgroundManager } from "../../features/background-agent"
@@ -108,7 +109,7 @@ function resolveModelAndFallbackChain(args: {
 }
 
 export function createCallOmoAgent(
-  ctx: PluginInput,
+  ctx: PluginContext,
   backgroundManager: BackgroundManager,
   disabledAgents: string[] = [],
   agentOverrides?: AgentOverrides,

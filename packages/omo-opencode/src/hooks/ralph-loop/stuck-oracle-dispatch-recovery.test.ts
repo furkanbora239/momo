@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { releaseAllPromptAsyncReservationsForTesting } from "../shared/prompt-async-gate"
@@ -34,8 +35,8 @@ function createState(verificationAttemptStartedAt?: number): RalphLoopState {
 	}
 }
 
-function createPluginInput(promptCalls: string[]): PluginInput {
-	return unsafeTestValue<PluginInput>({
+function createPluginInput(promptCalls: string[]): PluginContext {
+	return unsafeTestValue<PluginContext>({
 		client: {
 			session: {
 				messages: async () => ({ data: [] }),

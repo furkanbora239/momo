@@ -1,8 +1,9 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { releaseAllPromptAsyncReservationsForTesting } from "../../shared/prompt-async-gate"
 import { readContinuationMarker } from "../run-continuation-state"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
@@ -53,7 +54,7 @@ function createTestDirectory(): string {
 
 function createManager(directory: string, enableParentSessionNotifications = true): BackgroundManager {
   const promptAsyncCalls: unknown[] = []
-  const pluginContext = unsafeTestValue<PluginInput>({
+  const pluginContext = unsafeTestValue<PluginContext>({
     client: {
       session: {
         abort: async () => ({}),

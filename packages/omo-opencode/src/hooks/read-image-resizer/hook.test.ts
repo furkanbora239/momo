@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import type { ImageDimensions, ResizeResult } from "./types"
 import * as imageDimensions from "./image-dimensions"
@@ -36,11 +37,11 @@ type ToolOutput = {
   attachments?: Array<{ mime: string; url: string; filename?: string }>
 }
 
-function createMockContext(): PluginInput {
+function createMockContext(): PluginContext {
   return {
-    client: {} as PluginInput["client"],
+    client: {} as PluginContext["client"],
     directory: "/test",
-  } as PluginInput
+  } as PluginContext
 }
 
 function createInput(tool: string): { tool: string; sessionID: string; callID: string } {

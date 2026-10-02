@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import type { BackgroundManager } from "../../features/background-agent"
 import { handedBackSyncSessions } from "../../features/claude-code-session-state"
 import {
@@ -56,7 +57,7 @@ function extractSessionErrorInfo(error: unknown): { name?: string; message?: str
 }
 
 export function createTodoContinuationHandler(args: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionStateStore: SessionStateStore
   backgroundManager?: BackgroundManager
   skipAgents?: string[]

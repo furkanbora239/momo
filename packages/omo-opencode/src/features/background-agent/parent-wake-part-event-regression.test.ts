@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { BackgroundManager } from "./manager"
 
@@ -8,9 +9,9 @@ type PendingParentWakeForTest = {
   readonly notifications: readonly string[]
 }
 
-function createPluginInput(client: unknown): PluginInput {
+function createPluginInput(client: unknown): PluginContext {
   const directory = tmpdir()
-  return unsafeTestValue<PluginInput>({
+  return unsafeTestValue<PluginContext>({
     project: {
       id: "test-project",
       worktree: directory,

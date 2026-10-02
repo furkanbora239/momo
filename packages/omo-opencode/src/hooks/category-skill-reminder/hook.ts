@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { Message, Part } from "@opencode-ai/sdk"
 import type { AvailableSkill } from "../../agents/dynamic-agent-prompt-builder"
 import { getSessionAgent } from "../../features/claude-code-session-state"
@@ -83,7 +84,7 @@ function findLatestReminderTarget(
 }
 
 export function createCategorySkillReminderHook(
-  _ctx: PluginInput,
+  _ctx: PluginContext,
   availableSkills: AvailableSkill[] = [],
 ) {
   const sessionStates = new Map<string, SessionState>()

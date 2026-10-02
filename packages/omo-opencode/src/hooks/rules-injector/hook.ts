@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import { createDynamicTruncator } from "../../shared/dynamic-truncator";
 import { resolveSessionEventID } from "../../shared/event-session-id";
 import {
@@ -36,7 +37,7 @@ interface EventInput {
 const TRACKED_TOOLS = ["read", "write", "edit", "multiedit"];
 
 export function createRulesInjectorHook(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	modelCacheState?: { anthropicContext1MEnabled: boolean },
 	options?: { skipClaudeUserRules?: boolean; verboseRules?: boolean },
 ) {

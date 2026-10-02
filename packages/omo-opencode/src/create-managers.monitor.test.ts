@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "./plugin/types"
 import { beforeEach, describe, expect, it, mock } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { OhMyOpenCodeConfigSchema } from "./config/schema/oh-my-opencode-config"
 import { createManagers } from "./create-managers"
@@ -37,7 +38,7 @@ class MockSkillMcpManager {
 }
 
 class MockTmuxSessionManager {
-  constructor(_ctx: PluginInput, _config: unknown) {}
+  constructor(_ctx: PluginContext, _config: unknown) {}
 
   async cleanup(): Promise<void> {
     cleanupCalls.push("tmux")
@@ -102,7 +103,7 @@ function createTmuxConfig() {
   }
 }
 
-function createContext(directory: string): PluginInput {
+function createContext(directory: string): PluginContext {
   const shell = Object.assign(
     () => {
       throw new Error("shell should not be called in this test")
@@ -135,7 +136,7 @@ function createContext(directory: string): PluginInput {
     worktree: directory,
     serverUrl: new URL("http://localhost:4096"),
     $: shell,
-    client: {} as PluginInput["client"],
+    client: {} as PluginContext["client"],
   }
 }
 

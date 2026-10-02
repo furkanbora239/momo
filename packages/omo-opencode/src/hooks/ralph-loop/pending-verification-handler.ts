@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { HOOK_NAME, ULTRAWORK_VERIFICATION_PROMISE } from "./constants"
 import { extractOracleSessionID, isOracleVerified } from "./oracle-verification-detector"
@@ -32,7 +33,7 @@ function collectAssistantText(message: OpenCodeSessionMessage): string {
 }
 
 async function detectOracleVerificationFromParentSession(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	parentSessionID: string,
 	directory: string,
 	apiTimeoutMs: number,
@@ -90,7 +91,7 @@ type LoopStateController = {
 	setVerificationSessionID: (sessionID: string, verificationSessionID: string) => RalphLoopState | null
 }
 
-function showCompletionToastBestEffort(ctx: PluginInput, state: RalphLoopState): void {
+function showCompletionToastBestEffort(ctx: PluginContext, state: RalphLoopState): void {
 	const showToast = ctx.client.tui?.showToast
 	if (!showToast) {
 		return
@@ -122,7 +123,7 @@ function showCompletionToastBestEffort(ctx: PluginInput, state: RalphLoopState):
 }
 
 export async function handlePendingVerification(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	input: {
 		sessionID: string
 		state: RalphLoopState

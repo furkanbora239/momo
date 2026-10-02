@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { bunFile } from "../../shared/bun-file-shim"
 import { computeLineHash } from "../../tools/hashline-edit/hash-computation"
 
@@ -190,7 +191,7 @@ async function appendWriteHashlineOutput(output: { output: string; metadata: unk
 }
 
 export function createHashlineReadEnhancerHook(
-  _ctx: PluginInput,
+  _ctx: PluginContext,
   config: HashlineReadEnhancerConfig
 ) {
   return {
