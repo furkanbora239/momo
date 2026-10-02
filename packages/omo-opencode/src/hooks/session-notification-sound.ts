@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { playLinuxSessionNotificationSound } from "./session-notification-linux"
 import { logOperationFailure } from "./session-notification-log"
 import { playMacosSessionNotificationSound } from "./session-notification-macos"
@@ -6,7 +7,7 @@ import type { Platform } from "./session-notification-platform"
 import { playWindowsSessionNotificationSound } from "./session-notification-windows"
 
 export async function playSessionNotificationSound(
-  ctx: PluginInput,
+  ctx: PluginContext,
   platform: Platform,
   soundPath: string
 ): Promise<void> {

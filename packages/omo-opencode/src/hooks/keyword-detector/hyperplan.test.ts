@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createKeywordDetectorHook } from "./index"
 import { setMainSession, _resetForTesting } from "../../features/claude-code-session-state"
 import * as sharedModule from "../../shared"
@@ -23,7 +24,7 @@ describe("keyword-detector hyperplan keyword", () => {
 
   function createMockPluginInput(options: { toastCalls?: string[] } = {}) {
     const toastCalls = options.toastCalls ?? []
-    return unsafeTestValue<PluginInput>({
+    return unsafeTestValue<PluginContext>({
       client: {
         tui: {
           showToast: async (opts: { body: { title: string } }) => {

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { HOOK_NAME } from "./constants"
 import {
@@ -19,7 +20,7 @@ import { handlePendingVerification } from "./pending-verification-handler"
 import { handleErroredLoopSession } from "./session-event-handler"
 
 export async function handleRuntimeErrorEvent(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	runtime: EventHandlerRuntime,
 	props: Record<string, unknown> | undefined,

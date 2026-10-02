@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { TmuxConfig } from "../../config/schema"
 import type { TrackedSession, CapacityConfig, WindowState } from "./types"
 import * as sharedModule from "../../shared"
@@ -27,7 +28,7 @@ import { parseSessionStatusResponse } from "./session-status-parser"
 import { FailedReadinessCache, type FailedReadinessSessionSeed } from "./failed-readiness-cache"
 import { resolveServerUrl } from "./resolve-server-url"
 import { sweepStaleTmuxResources } from "./stale-tmux-resource-sweeper"
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 type SpawnStage =
   | "deferred.attach"
@@ -134,7 +135,7 @@ export class TmuxSessionManager {
   private staleSweepInProgress = false
   private isolatedSessionManagerId = createIsolatedSessionManagerId()
   constructor(
-    ctx: PluginInput,
+    ctx: PluginContext,
     tmuxConfig: TmuxConfig,
     deps: Partial<TmuxUtilDeps> = {},
     options: TmuxSessionManagerOptions = {},

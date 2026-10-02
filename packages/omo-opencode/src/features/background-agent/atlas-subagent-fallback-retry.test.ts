@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { _resetMemCacheForTesting as resetConnectedProvidersCacheForTesting } from "../../shared/connected-providers-cache"
 import { releaseAllPromptAsyncReservationsForTesting } from "../../shared/prompt-async-gate"
 import {
@@ -44,8 +45,8 @@ afterEach(() => {
   releaseAllPromptAsyncReservationsForTesting()
 })
 
-function createPluginInput(client: unknown, directory: string): PluginInput {
-  return { client, directory } as PluginInput
+function createPluginInput(client: unknown, directory: string): PluginContext {
+  return { client, directory } as PluginContext
 }
 
 async function flushAsyncWork(cycles = 30): Promise<void> {

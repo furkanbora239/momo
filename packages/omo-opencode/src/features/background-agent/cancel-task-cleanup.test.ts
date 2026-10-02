@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { afterEach, describe, expect, test } from "bun:test"
 import { ConcurrencyManager } from "./concurrency"
 import { BackgroundManager } from "./manager"
@@ -16,7 +17,7 @@ function createBackgroundManager(
   abortSession: () => Promise<unknown> = async () => ({ data: true }),
 ): BackgroundManager {
   const directory = tmpdir()
-  const client = { session: {} as PluginInput["client"]["session"] } as PluginInput["client"]
+  const client = { session: {} as PluginContext["client"]["session"] } as PluginContext["client"]
 
   Reflect.set(client.session, "abort", abortSession)
   Reflect.set(client.session, "create", async () => ({ data: { id: `session-${crypto.randomUUID().slice(0, 8)}` } }))
@@ -26,10 +27,10 @@ function createBackgroundManager(
   Reflect.set(client.session, "promptAsync", async () => ({ data: undefined }))
 
   const manager = new BackgroundManager({ pluginContext: {
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
     client,
     directory,
-    project: {} as PluginInput["project"],
+    project: {} as PluginContext["project"],
     serverUrl: new URL("http://localhost"),
     worktree: directory,
   }, config: config })

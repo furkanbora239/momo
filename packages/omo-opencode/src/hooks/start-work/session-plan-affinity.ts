@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { posix, win32 } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { normalizeSDKResponse } from "../../shared"
 import { log } from "../../shared/logger"
 
@@ -79,7 +80,7 @@ function extractPlanPathsFromInput(directory: string, input: Record<string, unkn
 }
 
 export async function findRecentSessionPlanPath(input: {
-  client: PluginInput["client"]
+  client: PluginContext["client"]
   directory: string
   sessionID: string
   availablePlans: string[]

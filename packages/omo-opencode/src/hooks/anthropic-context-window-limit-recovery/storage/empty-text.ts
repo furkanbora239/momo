@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../../plugin/types"
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { PART_STORAGE } from "./constants"
 import type { StoredPart, StoredTextPart, MessageData } from "./types"
 import { readMessages } from "./messages-reader"
@@ -8,7 +9,7 @@ import { readParts } from "./parts-reader"
 import { log, isSqliteBackend, patchPart } from "../../../shared"
 import { normalizeSDKResponse } from "../../../shared"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export function replaceEmptyTextParts(messageID: string, replacementText: string): boolean {
   if (isSqliteBackend()) {

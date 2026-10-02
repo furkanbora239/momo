@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { beforeEach, describe, expect, it } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import {
   createJsonErrorRecoveryHook,
@@ -17,11 +18,11 @@ describe("createJsonErrorRecoveryHook", () => {
   type ToolExecuteAfterInput = Parameters<ToolExecuteAfterHandler>[0]
   type ToolExecuteAfterOutput = Parameters<ToolExecuteAfterHandler>[1]
 
-  const createMockPluginInput = (): PluginInput => {
+  const createMockPluginInput = (): PluginContext => {
     return {
-      client: {} as PluginInput["client"],
+      client: {} as PluginContext["client"],
       directory: "/tmp/test",
-    } as PluginInput
+    } as PluginContext
   }
 
   beforeEach(() => {

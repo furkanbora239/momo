@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { BackgroundManager } from "./manager"
 import type { BackgroundTask } from "./types"
@@ -10,9 +11,9 @@ type PollingManager = {
   readonly tasks: Map<string, BackgroundTask>
 }
 
-function createPluginContext(client: unknown): PluginInput {
+function createPluginContext(client: unknown): PluginContext {
   const directory = tmpdir()
-  return unsafeTestValue<PluginInput>({
+  return unsafeTestValue<PluginContext>({
     project: {
       id: "test-project",
       worktree: directory,

@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import { findNearestMessageWithFields, findFirstMessageWithAgent } from "../../features/hook-message-injector"
 import {
   findFirstMessageWithAgentFromSDK,
@@ -10,7 +11,7 @@ import { normalizeSessionId, readBoulderState } from "../../features/boulder-sta
 import { getMessageDir } from "../../shared/opencode-message-dir"
 import { isSqliteBackend } from "../../shared/opencode-storage-detection"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 function isCompactionAgent(agent: string): boolean {
   return agent.toLowerCase() === "compaction"

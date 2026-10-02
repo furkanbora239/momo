@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import type { MonitorConfig } from "../../config/schema/monitor"
 import { registerManagerForCleanup, unregisterManagerForCleanup } from "../background-agent/process-cleanup"
 import { log } from "../../shared"
@@ -40,7 +41,7 @@ export interface MonitorManagerDeps {
 }
 
 export interface MonitorManagerOptions {
-  pluginContext: Pick<PluginInput, "client" | "directory">
+  pluginContext: Pick<PluginContext, "client" | "directory">
   config?: Partial<MonitorConfig>
   deps?: MonitorManagerDeps
 }

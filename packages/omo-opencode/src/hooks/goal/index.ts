@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { dispatchInternalPrompt, isInternalPromptDispatchAccepted } from "../shared/prompt-async-gate"
 import { createGoalController, type GoalController } from "./controller"
 import { buildContinuationPrompt } from "./prompt"
@@ -33,7 +34,7 @@ function getSessionIDFromEvent(properties: unknown): string | undefined {
   return undefined
 }
 
-export function createGoalHook(ctx: PluginInput, options: GoalHookOptions): GoalHook {
+export function createGoalHook(ctx: PluginContext, options: GoalHookOptions): GoalHook {
   const controller: GoalController = createGoalController({ projectDir: options.projectDir })
   const inFlightContinuations = new Set<string>()
 

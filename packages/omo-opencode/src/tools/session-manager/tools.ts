@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool"
+import type { PluginContext } from "../../plugin/types"
 import {
   SESSION_LIST_DESCRIPTION,
   SESSION_READ_DESCRIPTION,
@@ -60,7 +61,7 @@ const defaultSessionManagerToolDeps: SessionManagerToolDeps = {
 }
 
 export function createSessionManagerTools(
-  ctx: PluginInput,
+  ctx: PluginContext,
   deps: Partial<SessionManagerToolDeps> = {},
 ): Record<string, ToolDefinition> {
   const resolvedDeps: SessionManagerToolDeps = {

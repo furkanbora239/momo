@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { classifyFinalWaveVerdict, shouldPauseForFinalWaveApproval } from "./final-wave-approval-gate"
 import { readFinalWavePlanState } from "./final-wave-plan-state"
 import type { SessionState } from "./types"
@@ -26,7 +27,7 @@ type ReminderDecision = {
 }
 
 export async function buildSubagentCompletionReminder(input: {
-  readonly ctx: PluginInput
+  readonly ctx: PluginContext
   readonly planPath: string
   readonly planName: string
   readonly progress: { readonly total: number; readonly completed: number }
@@ -133,7 +134,7 @@ export async function buildSubagentCompletionReminder(input: {
   }
 }
 
-async function showFinalWaveToast(ctx: PluginInput, title: string, message: string): Promise<void> {
+async function showFinalWaveToast(ctx: PluginContext, title: string, message: string): Promise<void> {
   await ctx.client.tui
     .showToast({
       body: {

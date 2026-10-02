@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import type { TmuxConfig } from "../../config/schema"
 import type { ActionResult, ExecuteActionsResult } from "./action-executor"
@@ -68,7 +69,7 @@ describe("TmuxSessionManager cmux eligibility", () => {
 			}))
 			return { success: true, spawnedPaneId: "%42", results }
 		})
-		const context = unsafeTestValue<PluginInput>({
+		const context = unsafeTestValue<PluginContext>({
 			directory: "/tmp/omo-project",
 			serverUrl: new URL("http://127.0.0.1:4096"),
 			client: {
@@ -117,7 +118,7 @@ describe("TmuxSessionManager cmux eligibility", () => {
 			success: true,
 			results: [],
 		}))
-		const context = unsafeTestValue<PluginInput>({
+		const context = unsafeTestValue<PluginContext>({
 			directory: "/tmp/omo-project",
 			serverUrl: new URL("http://127.0.0.1:4096"),
 			client: {
@@ -165,7 +166,7 @@ describe("TmuxSessionManager cmux eligibility", () => {
 		process.env.TMUX = "/tmp/cmuxterm-test.sock,1234,0"
 		const environmentEligible = selectTmuxManagerEnvironmentPredicate("window")
 		const queryWindowState = mock(async (): Promise<WindowState | null> => null)
-		const context = unsafeTestValue<PluginInput>({
+		const context = unsafeTestValue<PluginContext>({
 			directory: "/tmp/omo-project",
 			serverUrl: new URL("http://127.0.0.1:4096"),
 			client: { session: { status: mock(async () => ({ data: {} })) } },

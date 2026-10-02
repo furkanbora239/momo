@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { tmpdir } from "node:os"
 import { describe, test, expect, beforeEach, afterEach, afterAll, spyOn, mock } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import * as sharedModule from "../../shared"
 import {
   clearAllDelegatedChildSessionBootstrap,
@@ -226,8 +227,8 @@ async function expectResolvesMatchObject<TActual extends object>(
   expect(result).toMatchObject(expected)
 }
 
-function createPluginInput(client: unknown, directory = tmpdir()): PluginInput {
-  return cast<PluginInput>({ client, directory })
+function createPluginInput(client: unknown, directory = tmpdir()): PluginContext {
+  return cast<PluginContext>({ client, directory })
 }
 
 function createBackgroundManager(): BackgroundManager {
@@ -391,7 +392,7 @@ function waitForParentWakeErrorSettle(manager: BackgroundManager, sessionID: str
 
 function createToastRemoveTaskTracker(): { removeTaskCalls: string[]; resetToastManager: () => void } {
   _resetTaskToastManagerForTesting()
-  const toastManager = initTaskToastManager(cast<PluginInput["client"]>({
+  const toastManager = initTaskToastManager(cast<PluginContext["client"]>({
     tui: { showToast: async () => {} },
   }))
   const removeTaskCalls: string[] = []
@@ -3764,7 +3765,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       // given
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-depth-2": { directory: "/test/dir", parentID: "session-depth-1" },
             "session-depth-1": { directory: "/test/dir", parentID: "session-root" },
@@ -3794,7 +3795,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       // given
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-depth-3": { directory: "/test/dir", parentID: "session-depth-2" },
             "session-depth-2": { directory: "/test/dir", parentID: "session-depth-1" },
@@ -3824,7 +3825,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       // given
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),
@@ -3853,7 +3854,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       // given
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),
@@ -3877,7 +3878,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       // given
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain(
             {
               "session-root": { directory: "/test/dir" },
@@ -3907,7 +3908,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       // given
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),
@@ -3942,7 +3943,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
       let createAttempts = 0
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: {
             session: {
               create: async () => {
@@ -4042,7 +4043,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
 
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: {
             session: {
               create: async () => {
@@ -4124,7 +4125,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
 
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: {
             session: {
               create: async () => {
@@ -4208,7 +4209,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
 
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: {
             session: {
               create: async () => {
@@ -4289,7 +4290,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
 
         manager.shutdown()
         manager = new BackgroundManager(
-          { pluginContext: cast<PluginInput>({
+          { pluginContext: cast<PluginContext>({
             client: {
               session: {
                 create: async () => ({ data: { id: createdSessionID } }),
@@ -4374,7 +4375,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
     test("allows relaunch after task completes", async () => {
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),
@@ -4406,7 +4407,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
     test("allows relaunch after running task is cancelled", async () => {
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),
@@ -4435,7 +4436,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
     test("allows relaunch after task errors", async () => {
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),
@@ -4469,7 +4470,7 @@ describe("BackgroundManager - Non-blocking Queue Integration", () => {
     test("allows repeated relaunch after pending tasks are cancelled", async () => {
       manager.shutdown()
       manager = new BackgroundManager(
-        { pluginContext: cast<PluginInput>({
+        { pluginContext: cast<PluginContext>({
           client: createMockClientWithSessionChain({
             "session-root": { directory: "/test/dir" },
           }),

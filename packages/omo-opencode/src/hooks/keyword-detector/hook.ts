@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { DefaultModeConfig } from "../../config/schema/default-mode"
 import type { KeywordDetectorConfig } from "../../config/schema/keyword-detector"
 import {
@@ -36,7 +37,7 @@ function filterAlreadyInjectedKeywords(
 }
 
 export function createKeywordDetectorHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   _collector?: ContextCollector,
   _ralphLoop?: unknown,
   config?: KeywordDetectorConfig,

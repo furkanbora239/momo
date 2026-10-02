@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import {
   _resetForTesting,
@@ -21,7 +22,7 @@ describe("todo continuation registered agent resolution", () => {
     // given
     registerAgentName("Atlas (Plan Executor)")
     let capturedAgent: string | undefined
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: "/tmp/test",
       client: {
         session: {
@@ -56,7 +57,7 @@ describe("todo continuation registered agent resolution", () => {
     // given
     registerAgentName("\u200BAtlas (Plan Executor)")
     let capturedAgent: string | undefined
-    const ctx = unsafeTestValue<PluginInput>({
+    const ctx = unsafeTestValue<PluginContext>({
       directory: "/tmp/test",
       client: {
         session: {

@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, spyOn, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { _resetForTesting, updateSessionAgent } from "../../features/claude-code-session-state"
 import { getAgentDisplayName } from "../../shared/agent-display-names"
 import { createNoSisyphusGptHook } from "./index"
@@ -22,8 +23,8 @@ function createOutput(): HookOutput {
   }
 }
 
-function createHookContext(showToast: (input: unknown) => Promise<unknown>): PluginInput {
-  return unsafeTestValue<PluginInput>({
+function createHookContext(showToast: (input: unknown) => Promise<unknown>): PluginContext {
+  return unsafeTestValue<PluginContext>({
     client: { tui: { showToast } },
   })
 }

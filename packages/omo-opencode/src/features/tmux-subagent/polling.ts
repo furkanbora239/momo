@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { TmuxConfig } from "../../config/schema"
 import {
   POLL_INTERVAL_BACKGROUND_MS,
@@ -17,7 +18,7 @@ import { parseSessionStatusResponse } from "./session-status-parser"
 import { getMessageCount } from "./session-message-count"
 import { waitForSessionReady as waitForSessionReadyFromClient } from "./session-ready-waiter"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export interface SessionPollingController {
   startPolling: () => void

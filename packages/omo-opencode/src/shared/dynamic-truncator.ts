@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../plugin/types"
 import type { ContextLimitModelCacheState } from "./context-limit-resolver"
 import {
 	getContextWindowUsage,
@@ -24,7 +25,7 @@ export { truncateToTokenLimit }
 export type { TruncationOptions, TruncationResult }
 
 export async function dynamicTruncate(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	sessionID: string,
 	output: string,
 	options: TruncationOptions = {},
@@ -62,7 +63,7 @@ export async function dynamicTruncate(
 }
 
 export function createDynamicTruncator(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	modelCacheState?: ContextLimitModelCacheState,
 ) {
 	return {

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { HOOK_NAME } from "./constants"
 import type { RalphLoopState } from "./types"
@@ -91,7 +92,7 @@ function shouldSkipRapidRealIdle(
 }
 
 export async function handleIdleEvent(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	runtime: EventHandlerRuntime,
 	props: Record<string, unknown> | undefined,

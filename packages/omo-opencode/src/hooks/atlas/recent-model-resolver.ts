@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   findNearestMessageWithFields,
   findNearestMessageWithFieldsFromSDK,
@@ -26,7 +27,7 @@ const defaultDeps: RecentPromptContextDeps = {
 }
 
 export async function resolveRecentPromptContextForSession(
-  ctx: PluginInput,
+  ctx: PluginContext,
   sessionID: string,
   deps: RecentPromptContextDeps = defaultDeps,
 ): Promise<PromptContext> {
@@ -99,7 +100,7 @@ export async function resolveRecentPromptContextForSession(
 }
 
 export async function resolveRecentModelForSession(
-  ctx: PluginInput,
+  ctx: PluginContext,
   sessionID: string
 ): Promise<ModelInfo | undefined> {
   const context = await resolveRecentPromptContextForSession(ctx, sessionID)

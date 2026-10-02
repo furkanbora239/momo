@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { tmpdir } from "node:os"
 import { afterEach, describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { TASK_CLEANUP_DELAY_MS } from "./constants"
 import { BackgroundManager } from "./manager"
 import type { BackgroundTask } from "./types"
@@ -104,13 +105,13 @@ function createManager(
       abort: async () => ({}),
     },
   }
-  const ctx: PluginInput = {
-    client: client as PluginInput["client"],
-    project: {} as PluginInput["project"],
+  const ctx: PluginContext = {
+    client: client as PluginContext["client"],
+    project: {} as PluginContext["project"],
     directory: tmpdir(),
     worktree: tmpdir(),
     serverUrl: new URL("http://localhost"),
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 
   const manager = new BackgroundManager(

@@ -1,3 +1,4 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
 
-export type OpencodeClient = PluginInput["client"]
+
+export type OpencodeClient = PluginContext["client"]

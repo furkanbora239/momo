@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { extractTaskLink } from "../../features/tool-metadata-store"
 import { log } from "../../shared/logger"
 import { isSessionInBoulderLineage } from "./boulder-session-lineage"
@@ -18,7 +19,7 @@ export function extractSessionIdFromOutput(output: string): string | undefined {
 }
 
 export async function validateSubagentSessionId(input: {
-  client: PluginInput["client"]
+  client: PluginContext["client"]
   sessionID?: string
   lineageSessionIDs: string[]
 }): Promise<string | undefined> {

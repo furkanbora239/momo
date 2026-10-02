@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import type { ExperimentalConfig } from "../config/schema"
 import { createDynamicTruncator } from "../shared/dynamic-truncator"
 import { writeFullToolOutput, buildTruncationNotice } from "./tool-output-capture"
@@ -36,7 +37,7 @@ interface ToolOutputTruncatorOptions {
   experimental?: ExperimentalConfig
 }
 
-export function createToolOutputTruncatorHook(ctx: PluginInput, options?: ToolOutputTruncatorOptions) {
+export function createToolOutputTruncatorHook(ctx: PluginContext, options?: ToolOutputTruncatorOptions) {
   const truncator = createDynamicTruncator(ctx, options?.modelCacheState)
   const truncateAll = options?.experimental?.truncate_all_tool_outputs ?? false
   const maxOutputChars = options?.experimental?.max_tool_output_chars ?? DEFAULT_MAX_OUTPUT_CHARS

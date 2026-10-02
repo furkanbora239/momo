@@ -1,4 +1,5 @@
 /// <reference types="bun-types" />
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test, beforeEach, afterEach } from "bun:test"
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
@@ -6,7 +7,7 @@ import { tmpdir } from "node:os"
 import { createRalphLoopHook } from "./index"
 import { readState, writeState, clearState } from "./storage"
 import type { RalphLoopOptions, RalphLoopState } from "./types"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { parseRalphLoopArguments } from "./command-arguments"
 import { DEFAULT_PROMPT_ASYNC_POST_DISPATCH_HOLD_MS } from "../shared/prompt-async-gate"
 
@@ -71,7 +72,7 @@ describe("ralph-loop", () => {
   // Idle settling is a real timed wait; default it to 0 so tests that do not
   // assert settle timing skip the delay. Callers can still pass an explicit
   // idleSettleMs to exercise the deferral behavior.
-  function makeHook(ctx: PluginInput, options?: RalphLoopOptions): ReturnType<typeof createRalphLoopHook> {
+  function makeHook(ctx: PluginContext, options?: RalphLoopOptions): ReturnType<typeof createRalphLoopHook> {
     return createRalphLoopHook(ctx, { idleSettleMs: 0, ...options })
   }
 

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import { readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -29,7 +30,7 @@ function describeReadmeInjectionError(error: unknown): string {
 }
 
 export async function processFilePathForReadmeInjection(input: {
-  ctx: PluginInput;
+  ctx: PluginContext;
   truncator: DynamicTruncator;
   sessionCaches: Map<string, Set<string>>;
   filePath: string;

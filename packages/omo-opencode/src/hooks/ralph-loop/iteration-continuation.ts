@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { RalphLoopState } from "./types"
 import { log } from "../../shared/logger"
 import { HOOK_NAME } from "./constants"
@@ -23,7 +24,7 @@ export type ContinuationResult =
   | { status: "dispatch_rejected"; error: unknown }
 
 export async function continueIteration(
-  ctx: PluginInput,
+  ctx: PluginContext,
   state: RalphLoopState,
   options: ContinuationOptions,
 ): Promise<ContinuationResult> {

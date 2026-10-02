@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { afterEach, beforeEach, describe, expect, jest, spyOn, test } from "bun:test"
 import * as childProcess from "node:child_process"
 import { unsafeTestValue } from "../../../../test-support/unsafe-test-value"
@@ -64,7 +65,7 @@ describe("session-notification Desktop sidecar fallback", () => {
     test("#then macOS notifications use execFile with the bundle activation args", async () => {
       const execFileCalls: ExecFileCall[] = []
       mockExecFile(execFileCalls)
-      const mockCtx = unsafeTestValue<PluginInput>({})
+      const mockCtx = unsafeTestValue<PluginContext>({})
 
       await sender.sendSessionNotification(mockCtx, "darwin", "Done", "Task completed")
 
@@ -87,7 +88,7 @@ describe("session-notification Desktop sidecar fallback", () => {
     test("#then macOS falls back from terminal-notifier execFile failure to osascript execFile", async () => {
       const execFileCalls: ExecFileCall[] = []
       mockExecFile(execFileCalls, (callIndex) => callIndex === 0 ? new Error("terminal-notifier failed") : null)
-      const mockCtx = unsafeTestValue<PluginInput>({})
+      const mockCtx = unsafeTestValue<PluginContext>({})
 
       await sender.sendSessionNotification(mockCtx, "darwin", "Done", "Task completed")
 

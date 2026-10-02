@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { ImageAttachment, ImageDimensions } from "./types"
 import { parseImageDimensions } from "./image-dimensions"
 import { calculateTargetDimensions, resizeImage } from "./image-resizer"
@@ -112,7 +113,7 @@ function resolveFilename(attachment: ImageAttachment, index: number): string {
 
   return `image-${index + 1}`
 }
-export function createReadImageResizerHook(_ctx: PluginInput) {
+export function createReadImageResizerHook(_ctx: PluginContext) {
   return {
     "tool.execute.after": async (
       input: { tool: string; sessionID: string; callID: string },

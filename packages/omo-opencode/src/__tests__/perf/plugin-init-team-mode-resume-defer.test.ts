@@ -1,8 +1,9 @@
+import type { PluginContext } from "../../plugin/types"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { describe, expect, it } from "bun:test"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 
@@ -10,14 +11,14 @@ const HUNG_LEAD_SESSION_ID = "ses_999999999fffeeRegrTestHang0"
 
 function makeHangingClient(): {
   hangCount: { value: number }
-  client: PluginInput["client"]
+  client: PluginContext["client"]
 } {
   const hangCount = { value: 0 }
   const sessionGet = (..._unusedArgs: unknown[]): Promise<unknown> => {
     hangCount.value += 1
     return new Promise<never>(() => {})
   }
-  const client = unsafeTestValue<PluginInput["client"]>({
+  const client = unsafeTestValue<PluginContext["client"]>({
     session: {
       get: sessionGet,
     },
@@ -25,7 +26,7 @@ function makeHangingClient(): {
   return { hangCount, client }
 }
 
-function createPluginInput(directory: string, client: PluginInput["client"]): PluginInput {
+function createPluginInput(directory: string, client: PluginContext["client"]): PluginContext {
   return {
     client,
     project: {

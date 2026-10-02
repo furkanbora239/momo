@@ -1,6 +1,7 @@
 /// <reference path="../../../../../bun-test.d.ts" />
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, it, mock } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import type { TmuxConfig } from "../../config/schema"
 import { TmuxSessionManager, type TmuxUtilDeps } from "./manager"
@@ -20,8 +21,8 @@ const tmuxDeps: TmuxUtilDeps = {
 	queryWindowState: mock(async () => null),
 }
 
-function createPluginInput(directory: string): PluginInput {
-	let shell: PluginInput["$"]
+function createPluginInput(directory: string): PluginContext {
+	let shell: PluginContext["$"]
 	shell = Object.assign(
 		() => {
 			throw new Error("shell should not be used in this test")
@@ -29,21 +30,21 @@ function createPluginInput(directory: string): PluginInput {
 		{
 			braces: (): string[] => [],
 			escape: (input: string): string => input,
-			env: (): PluginInput["$"] => shell,
-			cwd: (): PluginInput["$"] => shell,
-			nothrow: (): PluginInput["$"] => shell,
-			throws: (): PluginInput["$"] => shell,
+			env: (): PluginContext["$"] => shell,
+			cwd: (): PluginContext["$"] => shell,
+			nothrow: (): PluginContext["$"] => shell,
+			throws: (): PluginContext["$"] => shell,
 		},
 	)
 
 	return {
-		client: Object.assign({} as PluginInput["client"], {
+		client: Object.assign({} as PluginContext["client"], {
 			session: {
 				status: mock(async () => ({ data: {} })),
 				messages: mock(async () => ({ data: [] })),
 			},
 		}),
-		project: {} as PluginInput["project"],
+		project: {} as PluginContext["project"],
 		directory,
 		worktree: process.cwd(),
 		serverUrl: new URL("http://localhost:4096"),

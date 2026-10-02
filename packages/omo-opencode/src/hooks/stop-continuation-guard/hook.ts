@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { BackgroundManager } from "../../features/background-agent"
 
 import {
@@ -24,7 +25,7 @@ export interface StopContinuationGuard {
 }
 
 export function createStopContinuationGuardHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   options?: {
     backgroundManager?: StopContinuationBackgroundManager
   }

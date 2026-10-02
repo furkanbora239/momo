@@ -1,7 +1,8 @@
+import type { PluginContext } from "../../plugin/types"
 import { promises as fsPromises } from "node:fs"
 import { createAgentsMdCache, findAgentsMdUp } from "@oh-my-opencode/rules-engine"
 import type { AgentsMdCache } from "@oh-my-opencode/rules-engine"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { formatAgentsMdContextBlock } from "@oh-my-opencode/agents-md-core"
 import { createDynamicTruncator } from "../../shared/dynamic-truncator"
 import type { ContextLimitModelCacheState } from "../../shared/context-limit-resolver"
@@ -51,7 +52,7 @@ function getEffectiveAgent(input: ChatMessageInput, output: ChatMessageOutput): 
 }
 
 export function createHephaestusAgentsMdInjectorHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   modelCacheState?: ContextLimitModelCacheState,
   options?: HephaestusAgentsMdInjectorOptions,
 ) {

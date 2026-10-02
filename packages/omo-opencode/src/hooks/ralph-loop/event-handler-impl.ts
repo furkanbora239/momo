@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { resolveSessionEventID } from "../../shared/event-session-id"
 import { log } from "../../shared/logger"
 import { isRecord } from "../../shared/record-type-guard"
@@ -19,7 +20,7 @@ type RalphLoopEvent = {
 }
 
 export function createRalphLoopEventHandlerImpl(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 ) {
 	const runtime: EventHandlerRuntime = {

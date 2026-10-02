@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger";
 import type { Task } from "../../features/claude-tasks/types.ts";
 
@@ -95,7 +96,7 @@ function extractTodos(response: unknown): TodoInfo[] {
 }
 
 export async function syncTaskTodoUpdate(
-  ctx: PluginInput | undefined,
+  ctx: PluginContext | undefined,
   task: Task,
   sessionID: string,
   writer?: TodoWriter,
@@ -136,7 +137,7 @@ export async function syncTaskTodoUpdate(
 }
 
 export async function syncAllTasksToTodos(
-  ctx: PluginInput,
+  ctx: PluginContext,
   tasks: Task[],
   sessionID?: string,
   writer?: TodoWriter,

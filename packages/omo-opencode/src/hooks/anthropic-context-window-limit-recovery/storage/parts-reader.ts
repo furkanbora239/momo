@@ -1,12 +1,13 @@
+import type { PluginContext } from "../../../plugin/types"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { PART_STORAGE } from "./constants"
 import type { StoredPart } from "./types"
 import { isSqliteBackend } from "../../../shared"
 import { isRecord } from "../../../shared/record-type-guard"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export function readParts(messageID: string): StoredPart[] {
   if (isSqliteBackend()) return []

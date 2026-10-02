@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { createAgentUsageReminderHook } from "./index";
 import { clearSessionAgent, updateSessionAgent, _resetForTesting } from "../../features/claude-code-session-state";
@@ -24,7 +25,7 @@ describe("agent-usage-reminder hook", () => {
   });
 
   function createHook() {
-    return createAgentUsageReminderHook(unsafeTestValue<PluginInput>({}));
+    return createAgentUsageReminderHook(unsafeTestValue<PluginContext>({}));
   }
 
   test("caps reminders and does not re-arm after session.compacted", async () => {

@@ -1,4 +1,5 @@
-import { tool, type PluginInput, type ToolDefinition } from "@opencode-ai/plugin"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
 import type { BackgroundManager } from "../../features/background-agent"
 import type { BackgroundTaskArgs } from "./types"
 import { BACKGROUND_TASK_DESCRIPTION } from "./constants"
@@ -20,7 +21,7 @@ type ToolContextWithMetadata = {
 
 export function createBackgroundTask(
   manager: BackgroundManager,
-  client: PluginInput["client"]
+  client: PluginContext["client"]
 ): ToolDefinition {
   return tool({
     description: BACKGROUND_TASK_DESCRIPTION,

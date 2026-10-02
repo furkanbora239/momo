@@ -1,12 +1,13 @@
+import type { PluginContext } from "../../../plugin/types"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { PART_STORAGE } from "./constants"
 import type { StoredTextPart } from "./types"
 import { generatePartId } from "./part-id"
 import { log, isSqliteBackend, patchPart } from "../../../shared"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export function injectTextPart(sessionID: string, messageID: string, text: string): boolean {
   if (isSqliteBackend()) {

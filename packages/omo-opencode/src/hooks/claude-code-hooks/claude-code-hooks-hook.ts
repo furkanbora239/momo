@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { PluginConfig } from "./types"
 import type { ContextCollector } from "../../features/context-injector"
 import { createChatMessageHandler } from "./handlers/chat-message-handler"
@@ -11,7 +12,7 @@ import { createToolExecuteAfterHandler } from "./handlers/tool-execute-after-han
 import { createToolExecuteBeforeHandler } from "./handlers/tool-execute-before-handler"
 
 export function createClaudeCodeHooksHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   config: PluginConfig = {},
   contextCollector?: ContextCollector
 ) {

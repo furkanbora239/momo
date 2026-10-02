@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { ParsedTokenLimitError } from "./types"
 import type { ExperimentalConfig } from "../../config"
 import type { DeduplicationConfig } from "./pruning-deduplication"
@@ -7,7 +8,7 @@ import { executeDeduplication } from "./pruning-deduplication"
 import { truncateToolOutputsByCallId } from "./pruning-tool-output-truncation"
 import { log } from "../../shared/logger"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 function createPruningState(): PruningState {
   return {

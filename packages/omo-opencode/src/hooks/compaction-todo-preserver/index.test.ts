@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, it, afterAll, beforeEach, mock } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import type { Todo } from "@opencode-ai/sdk"
 import { createCompactionTodoPreserverHook } from "./index"
@@ -30,7 +31,7 @@ afterAll(() => {
 
 type TodoResponse = Todo[] | Error
 
-function createMockContext(todoResponses: TodoResponse[]): PluginInput {
+function createMockContext(todoResponses: TodoResponse[]): PluginContext {
   let callIndex = 0
 
   const client = createOpencodeClient({ directory: "/tmp/test" })

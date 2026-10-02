@@ -1,9 +1,10 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { BackgroundManager } from "./manager"
 
@@ -37,7 +38,7 @@ describe("BackgroundManager session created callback", () => {
       },
     }
     const manager = new BackgroundManager({
-      pluginContext: { client, directory: tmpdir() } as PluginInput,
+      pluginContext: { client, directory: tmpdir() } as PluginContext,
     })
 
     //#when

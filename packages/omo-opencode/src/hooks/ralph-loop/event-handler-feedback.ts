@@ -1,8 +1,9 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { RalphLoopState } from "./types"
 
 export function showToastBestEffort(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	body: { title: string; message: string; variant: "warning" | "info"; duration: number },
 ): void {
 	try {
@@ -21,7 +22,7 @@ export function showToastBestEffort(
 }
 
 export function showMaxIterationsToast(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	state: RalphLoopState,
 ): void {
 	showToastBestEffort(ctx, {
@@ -33,7 +34,7 @@ export function showMaxIterationsToast(
 }
 
 export function showIterationToast(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	state: RalphLoopState,
 ): void {
 	showToastBestEffort(ctx, {
@@ -45,7 +46,7 @@ export function showIterationToast(
 }
 
 export function showNoProgressToast(
-	ctx: PluginInput,
+	ctx: PluginContext,
 ): void {
 	showToastBestEffort(ctx, {
 		title: "Ralph Loop Stopped",
@@ -55,7 +56,7 @@ export function showNoProgressToast(
 	})
 }
 
-export function showIterationCommitFailureToast(ctx: PluginInput): void {
+export function showIterationCommitFailureToast(ctx: PluginContext): void {
 	showToastBestEffort(ctx, {
 		title: "Ralph Loop Failed",
 		message: "Dispatch succeeded but iteration commit failed",
@@ -65,7 +66,7 @@ export function showIterationCommitFailureToast(ctx: PluginInput): void {
 }
 
 export function showDispatchFailureToast(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	result: { readonly status: string; readonly error?: unknown },
 ): void {
 	showToastBestEffort(ctx, {

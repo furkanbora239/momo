@@ -1,15 +1,16 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../plugin/types"
 import { afterEach, beforeEach, describe, expect, jest, spyOn, test } from "bun:test"
 import * as childProcess from "node:child_process"
 import * as sender from "./session-notification-sender"
 import * as utils from "./session-notification-utils"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../test-support/unsafe-test-value"
 
 
 
-type TestShellResult = ReturnType<NonNullable<PluginInput["$"]>>
+type TestShellResult = ReturnType<NonNullable<PluginContext["$"]>>
 type TestShellFactory = (cmd: TemplateStringsArray, ...values: unknown[]) => TestShellResult
 
 function createShellPromise(handler: (cmdStr: string) => void) {
@@ -115,7 +116,7 @@ describe("session-notification-sender", () => {
 			test("#then it falls back to execFile without throwing", async () => {
 				const execFileCalls: ExecFileCall[] = []
 				mockExecFile(execFileCalls)
-				const mockCtx = unsafeTestValue<PluginInput>({})
+				const mockCtx = unsafeTestValue<PluginContext>({})
 
 				await sender.sendSessionNotification(mockCtx, "win32", "Test", "Message")
 
@@ -128,7 +129,7 @@ describe("session-notification-sender", () => {
 			test("#then it swallows execFile rejection without throwing", async () => {
 				const execFileCalls: ExecFileCall[] = []
 				mockExecFile(execFileCalls, new Error("execFile failed"))
-				const mockCtx = unsafeTestValue<PluginInput>({})
+				const mockCtx = unsafeTestValue<PluginContext>({})
 
 				await sender.sendSessionNotification(mockCtx, "win32", "Test", "Message")
 
@@ -139,7 +140,7 @@ describe("session-notification-sender", () => {
 		describe("#when calling ctx.$ for notifications", () => {
 			test("#then should call .quiet() on all shell commands to suppress stdout/stderr", async () => {
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -166,7 +167,7 @@ describe("session-notification-sender", () => {
 				spyOn(utils, "getTerminalNotifierPath").mockResolvedValue(null)
 
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -201,7 +202,7 @@ describe("session-notification-sender", () => {
 				spyOn(utils, "getCmuxPath").mockResolvedValue("/usr/local/bin/cmux")
 
 				const calls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: createShellPromise((cmdStr) => { calls.push(cmdStr) }),
 				})
 
@@ -216,7 +217,7 @@ describe("session-notification-sender", () => {
 			test("#then should fall back to terminal-notifier when cmux fails", async () => {
 				spyOn(utils, "getCmuxPath").mockResolvedValue("/usr/local/bin/cmux")
 
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: createThrowingShellPromise((cmdStr) => cmdStr.includes("cmux notify")),
 				})
 
@@ -239,7 +240,7 @@ describe("session-notification-sender", () => {
 				spyOn(utils, "getCmuxPath").mockResolvedValue("/usr/local/bin/cmux")
 
 				const trackingCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: createThrowingShellPromise((cmdStr) => cmdStr.includes("cmux notify") || cmdStr.includes("terminal-notifier")),
 				})
 
@@ -259,7 +260,7 @@ describe("session-notification-sender", () => {
 
 			test("#then should skip cmux when not available and use terminal-notifier", async () => {
 				const calls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: createShellPromise((cmdStr) => { calls.push(cmdStr) }),
 				})
 
@@ -272,7 +273,7 @@ describe("session-notification-sender", () => {
 
 			test("#then should call .quiet() on linux notify-send", async () => {
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -305,7 +306,7 @@ describe("session-notification-sender", () => {
 
 			test("#then should call .quiet() on win32 powershell", async () => {
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -342,7 +343,7 @@ describe("session-notification-sender", () => {
 		describe("#when calling ctx.$ for sound playback", () => {
 			test("#then should call .quiet() on darwin afplay", async () => {
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -375,7 +376,7 @@ describe("session-notification-sender", () => {
 
 			test("#then should call .quiet() on linux paplay", async () => {
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -410,7 +411,7 @@ describe("session-notification-sender", () => {
 				spyOn(utils, "getPaplayPath").mockResolvedValue(null)
 
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }
@@ -443,7 +444,7 @@ describe("session-notification-sender", () => {
 
 			test("#then should call .quiet() on win32 powershell sound", async () => {
 				const quietCalls: string[] = []
-				const mockCtx = unsafeTestValue<PluginInput>({
+				const mockCtx = unsafeTestValue<PluginContext>({
 					$: (cmd: TemplateStringsArray, ...values: unknown[]) => {
 						const cmdStr = cmd.reduce((acc, part, i) => acc + part + (values[i] ?? ""), "")
 						const result = { stdout: Buffer.from(""), stderr: Buffer.from(""), exitCode: 0 }

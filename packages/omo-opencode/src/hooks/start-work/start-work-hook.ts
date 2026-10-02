@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   readBoulderState,
   findPrometheusPlans,
@@ -154,7 +155,7 @@ function resolveWorktreeContext(
   }
 }
 
-export function createStartWorkHook(ctx: PluginInput) {
+export function createStartWorkHook(ctx: PluginContext) {
   const processStartWork = async (
     input: StartWorkHookInput,
     output: StartWorkHookOutput,

@@ -1,7 +1,8 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { BackgroundManager } from "./manager"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
@@ -21,7 +22,7 @@ describe("BackgroundManager session permission", () => {
         abort: async () => ({}),
       },
     }
-    const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginInput>({ client, directory: tmpdir() }) })
+    const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginContext>({ client, directory: tmpdir() }) })
 
     // when
     await manager.launch({
@@ -54,7 +55,7 @@ describe("BackgroundManager session permission", () => {
       },
     }
     const directory = tmpdir()
-    const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginInput>({ client, directory }) })
+    const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginContext>({ client, directory }) })
 
     // when
     await manager.launch({
@@ -95,7 +96,7 @@ describe("BackgroundManager session permission", () => {
         abort: async () => ({}),
       },
     }
-    const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginInput>({ client, directory: tmpdir() }) })
+    const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginContext>({ client, directory: tmpdir() }) })
 
     // when
     await manager.launch({

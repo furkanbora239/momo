@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   appendSessionId,
   appendSessionIdForWork,
@@ -17,7 +18,7 @@ import { resolveTaskContext } from "./task-context"
 import type { PendingTaskRef, ToolExecuteAfterInput, ToolExecuteAfterOutput } from "./types"
 
 export async function syncBackgroundLaunchSessionTracking(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   boulderState: BoulderState | null
   toolInput: ToolExecuteAfterInput
   toolOutput: ToolExecuteAfterOutput
@@ -94,7 +95,7 @@ export async function syncBackgroundLaunchSessionTracking(input: {
 }
 
 async function resolveFallbackTrackedSessionId(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   extractedSessionId?: string
   lineageSessionIDs: string[]
 }): Promise<string | undefined> {

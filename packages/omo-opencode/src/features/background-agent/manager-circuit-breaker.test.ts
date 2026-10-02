@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { tmpdir } from "node:os"
 import type { BackgroundTaskConfig } from "../../config/schema"
 import { BackgroundManager } from "./manager"
@@ -17,7 +18,7 @@ function createManager(config?: BackgroundTaskConfig): BackgroundManager {
     },
   }
 
-  const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginInput>({ client, directory: tmpdir() }), config: config })
+  const manager = new BackgroundManager({ pluginContext: unsafeTestValue<PluginContext>({ client, directory: tmpdir() }), config: config })
   const testManager = unsafeTestValue<{
     enqueueNotificationForParent: (sessionId: string, fn: () => Promise<void>) => Promise<void>
     notifyParentSession: (task: BackgroundTask) => Promise<void>

@@ -1,12 +1,13 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import { isSyntheticOrInternalUserMessage, normalizeSDKResponse } from "../../shared"
 import { isCompactionMessage } from "../../shared/compaction-marker"
 
 import type { MessageWithInfo, ResolveLatestMessageInfoResult } from "./types"
 
 export async function resolveLatestMessageInfo(
-  ctx: PluginInput,
+  ctx: PluginContext,
   sessionID: string,
   prefetchedMessages?: MessageWithInfo[]
 ): Promise<ResolveLatestMessageInfoResult> {

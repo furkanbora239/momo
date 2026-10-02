@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import type { CallOmoAgentArgs } from "./types"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { DelegatedModelConfig } from "../../shared/model-resolution-types"
 import { subagentSessions, syncSubagentSessions } from "../../features/claude-code-session-state"
 import { log } from "../../shared"
@@ -13,7 +14,7 @@ export async function createOrGetSession(
     abort: AbortSignal
     metadata?: (input: { title?: string; metadata?: Record<string, unknown> }) => void
   },
-  ctx: PluginInput,
+  ctx: PluginContext,
   model?: DelegatedModelConfig,
 ): Promise<{ sessionID: string; isNew: boolean }> {
   if (args.session_id) {

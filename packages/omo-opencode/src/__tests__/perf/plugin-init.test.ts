@@ -1,8 +1,9 @@
+import type { PluginContext } from "../../plugin/types"
 import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { describe, expect, it } from "bun:test"
 
@@ -17,7 +18,7 @@ function getMedian(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)] ?? 0
 }
 
-function createPluginInput(directory: string): PluginInput {
+function createPluginInput(directory: string): PluginContext {
   const client = createOpencodeClient({ directory })
 
   return {

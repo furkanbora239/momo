@@ -1,9 +1,10 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isRecord } from "../../shared/record-type-guard"
 import { log } from "../../shared/logger"
 
 export async function createIterationSession(
-  ctx: PluginInput,
+  ctx: PluginContext,
   parentSessionID: string,
   directory: string,
 ): Promise<string | null> {
@@ -36,7 +37,7 @@ export async function createIterationSession(
 }
 
 export async function selectSessionInTui(
-  client: PluginInput["client"],
+  client: PluginContext["client"],
   sessionID: string,
 ): Promise<boolean> {
   const selectSession = getSelectSessionApi(client)

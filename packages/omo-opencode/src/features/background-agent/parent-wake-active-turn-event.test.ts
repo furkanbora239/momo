@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { tmpdir } from "node:os"
 import { afterEach, describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { BackgroundManager } from "./manager"
 import type { BackgroundTask } from "./types"
@@ -65,14 +66,14 @@ function createManager(sessionStatuses: Record<string, { type: string }>): {
     },
     abort: async () => ({}),
   })
-  const ctx: PluginInput = {
+  const ctx: PluginContext = {
     client,
-    project: {} as PluginInput["project"],
+    project: {} as PluginContext["project"],
     directory: tmpdir(),
     worktree: tmpdir(),
     experimental_workspace: { register: () => {} },
     serverUrl: new URL("http://localhost"),
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 
   const manager = new BackgroundManager({

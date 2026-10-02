@@ -1,8 +1,9 @@
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { replaceToolArgs } from "../../shared/replace-tool-args"
 import { SYSTEM_DIRECTIVE_PREFIX } from "../../shared/system-directive"
 import { isCallerOrchestrator } from "../../shared/session-utils"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { getWorkForSession, readBoulderState, readCurrentTopLevelTask, resolveBoulderPlanPath, resolveBoulderPlanPathForWork } from "../../features/boulder-state"
@@ -56,7 +57,7 @@ function parseTrackedTaskFromPrompt(prompt: string): TrackedTopLevelTaskRef | nu
 }
 
 export function createToolExecuteBeforeHandler(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   pendingFilePaths: Map<string, string>
   pendingTaskRefs: Map<string, PendingTaskRef>
   pendingPlanSnapshots?: Map<string, string>

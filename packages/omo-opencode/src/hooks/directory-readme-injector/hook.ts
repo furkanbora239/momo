@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
 
+import type { PluginContext } from "../../plugin/types"
 import { createDynamicTruncator } from "../../shared/dynamic-truncator";
 import { resolveSessionEventID } from "../../shared/event-session-id";
 import { processFilePathForReadmeInjection } from "./injector";
@@ -31,7 +32,7 @@ interface EventInput {
 }
 
 export function createDirectoryReadmeInjectorHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   modelCacheState?: { anthropicContext1MEnabled: boolean },
 ): DirectoryReadmeInjectorHook {
   const sessionCaches = new Map<string, Set<string>>();

@@ -1,11 +1,12 @@
+import type { PluginContext } from "../../plugin/types"
 import { existsSync, readdirSync } from "node:fs"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { getMessageDir } from "../../shared/opencode-message-dir"
 import { normalizeSDKResponse } from "../../shared"
 
 export { getMessageDir }
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 interface SDKMessage {
   info: { id: string }

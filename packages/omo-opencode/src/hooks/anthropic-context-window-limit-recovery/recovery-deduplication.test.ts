@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, test, expect, mock, beforeEach, afterAll } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { ExperimentalConfig } from "../../config"
 import * as originalDeduplicationRecovery from "./deduplication-recovery"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
@@ -69,7 +70,7 @@ describe("createAnthropicContextWindowLimitRecoveryHook", () => {
 
     try {
       const { createAnthropicContextWindowLimitRecoveryHook } = await import("./recovery-hook")
-      const ctx = { client: mockClient, directory: "/tmp" } as PluginInput
+      const ctx = { client: mockClient, directory: "/tmp" } as PluginContext
       const hook = createAnthropicContextWindowLimitRecoveryHook(ctx, { experimental })
 
       // first error triggers compaction (setTimeout runs immediately due to mock)
@@ -112,7 +113,7 @@ describe("createAnthropicContextWindowLimitRecoveryHook", () => {
     }
 
     const { createAnthropicContextWindowLimitRecoveryHook } = await import("./recovery-hook")
-    const ctx = { client: mockClient, directory: "/tmp" } as PluginInput
+    const ctx = { client: mockClient, directory: "/tmp" } as PluginContext
     const hook = createAnthropicContextWindowLimitRecoveryHook(ctx)
 
     //#when - single error (no compaction in progress)

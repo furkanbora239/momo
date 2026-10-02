@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { showToastBestEffort } from "./event-handler-feedback"
 
@@ -11,8 +12,8 @@ const TOAST_BODY = {
 } as const
 const NON_ERROR_FAILURE = { reason: "toast unavailable" } as const
 
-function createContext(showToast: () => unknown): PluginInput {
-	return unsafeTestValue<PluginInput>({
+function createContext(showToast: () => unknown): PluginContext {
+	return unsafeTestValue<PluginContext>({
 		client: {
 			tui: { showToast },
 		},

@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { ToolContext } from "@opencode-ai/plugin/tool"
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, mock, test } from "bun:test"
 import type { BackgroundManager } from "../../features/background-agent"
 import { clearPendingStore, consumeToolMetadata } from "../../features/tool-metadata-store"
@@ -29,7 +30,7 @@ describe("createBackgroundTask metadata", () => {
       })),
       getTask: mock(() => undefined),
     })
-    const client = unsafeTestValue<PluginInput["client"]>({
+    const client = unsafeTestValue<PluginContext["client"]>({
       session: {
         messages: mock(() => Promise.resolve({ data: [] })),
       },

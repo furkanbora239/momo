@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import {
   buildWindowsToastScript,
   escapePowerShellSingleQuotedText,
@@ -7,7 +8,7 @@ import { runNotificationCommand } from "./session-notification-runner"
 import { getPowershellPath } from "./session-notification-utils"
 
 export async function sendWindowsSessionNotification(
-  ctx: PluginInput,
+  ctx: PluginContext,
   title: string,
   message: string
 ): Promise<void> {
@@ -23,7 +24,7 @@ export async function sendWindowsSessionNotification(
   )
 }
 
-export async function playWindowsSessionNotificationSound(ctx: PluginInput, soundPath: string): Promise<void> {
+export async function playWindowsSessionNotificationSound(ctx: PluginContext, soundPath: string): Promise<void> {
   const powershellPath = await getPowershellPath()
   if (!powershellPath) return
   const escaped = escapePowerShellSingleQuotedText(soundPath)

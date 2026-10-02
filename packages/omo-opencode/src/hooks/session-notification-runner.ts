@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import { log } from "../shared"
@@ -8,13 +9,13 @@ type ShellCommand = Promise<unknown> & {
   nothrow?: () => ShellCommand
 }
 
-type ShellRunner = NonNullable<PluginInput["$"]>
+type ShellRunner = NonNullable<PluginContext["$"]>
 
 type ShellFailureMode = "throw" | "nothrow"
 
 let hasLoggedUnavailableShellHelper = false
 
-function getShellRunner(ctx: PluginInput): ShellRunner | undefined {
+function getShellRunner(ctx: PluginContext): ShellRunner | undefined {
   if (typeof ctx.$ === "function") return ctx.$
 
   if (!hasLoggedUnavailableShellHelper) {
@@ -50,7 +51,7 @@ async function runExecFile(commandPath: string, args: readonly string[]): Promis
 }
 
 export async function runNotificationCommand(
-  ctx: PluginInput,
+  ctx: PluginContext,
   commandPath: string,
   args: readonly string[],
   shellCommand: (shell: ShellRunner) => ShellCommand,

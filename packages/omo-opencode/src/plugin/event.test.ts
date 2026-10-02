@@ -1,6 +1,7 @@
 /// <reference path="../../../../bun-test.d.ts" />
+import type { PluginContext } from "./types"
 import { describe, it, expect, afterEach, mock, spyOn } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { createEventHandler, extractErrorMessage } from "./event"
 import { createChatMessageHandler } from "./chat-message"
@@ -38,8 +39,8 @@ function asChatPluginConfig(config: unknown): ChatMessageHandlerArgs["pluginConf
 	return cast<ChatMessageHandlerArgs["pluginConfig"]>(config)
 }
 
-function asPluginInput(input: unknown): PluginInput {
-	return input as PluginInput
+function asPluginInput(input: unknown): PluginContext {
+	return input as PluginContext
 }
 
 function createEventHandlerManagers(

@@ -1,4 +1,5 @@
-import { tool, type PluginInput, type ToolDefinition } from "@opencode-ai/plugin"
+import { tool, type ToolDefinition } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
 import { LOOK_AT_DESCRIPTION } from "./constants"
 import type { LookAtArgs } from "./types"
 import { log } from "../../shared"
@@ -10,7 +11,7 @@ import { getMissingLookAtFilePath } from "./missing-file-error"
 
 export { normalizeArgs, validateArgs } from "./look-at-arguments"
 
-export function createLookAt(ctx: PluginInput): ToolDefinition {
+export function createLookAt(ctx: PluginContext): ToolDefinition {
   return tool({
     description: LOOK_AT_DESCRIPTION,
     args: {

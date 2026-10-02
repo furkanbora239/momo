@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { normalizeSessionId } from "../../features/boulder-state"
 import { getSessionAgent } from "../../features/claude-code-session-state"
 import { getAgentConfigKey } from "../../shared/agent-display-names"
@@ -6,7 +7,7 @@ import { isSessionInBoulderLineage } from "./boulder-session-lineage"
 import { getLastAgentFromSession } from "./session-last-agent"
 
 export async function canContinueTrackedBoulderSession(input: {
-  client: PluginInput["client"]
+  client: PluginContext["client"]
   sessionID: string
   sessionOrigin?: "direct" | "appended"
   boulderSessionIDs: string[]

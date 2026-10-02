@@ -1,9 +1,10 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../../plugin/types"
 import { getConfigLoadErrors, clearConfigLoadErrors } from "../../../shared/config-errors"
 import { log } from "../../../shared/logger"
 import { ignoreToastError } from "./ignore-toast-error"
 
-export async function showConfigErrorsIfAny(ctx: PluginInput): Promise<void> {
+export async function showConfigErrorsIfAny(ctx: PluginContext): Promise<void> {
   const errors = getConfigLoadErrors()
   if (errors.length === 0) return
 

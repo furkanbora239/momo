@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import { sendLinuxSessionNotification } from "./session-notification-linux"
 import { logOperationFailure } from "./session-notification-log"
 import { sendMacosSessionNotification } from "./session-notification-macos"
@@ -6,7 +7,7 @@ import type { Platform } from "./session-notification-platform"
 import { sendWindowsSessionNotification } from "./session-notification-windows"
 
 export async function sendSessionNotification(
-  ctx: PluginInput,
+  ctx: PluginContext,
   platform: Platform,
   title: string,
   message: string

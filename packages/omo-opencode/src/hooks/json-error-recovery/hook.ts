@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+import type { PluginContext } from "../../plugin/types"
+
 
 export const JSON_ERROR_TOOL_EXCLUDE_LIST = [
   "bash",
@@ -49,7 +50,7 @@ STOP and do this NOW:
 DO NOT repeat the exact same invalid call.
 `
 
-export function createJsonErrorRecoveryHook(_ctx: PluginInput) {
+export function createJsonErrorRecoveryHook(_ctx: PluginContext) {
   return {
     "tool.execute.after": async (
       input: { tool: string; sessionID: string; callID: string },

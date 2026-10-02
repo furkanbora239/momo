@@ -1,3 +1,4 @@
+import type { PluginContext } from "../../plugin/types"
 import {
   getActiveWorks,
   getPlanProgress,
@@ -7,7 +8,7 @@ import {
 } from "../../features/boulder-state"
 import type { BoulderState } from "../../features/boulder-state"
 import { log } from "../../shared/logger"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { buildExistingSessionContext, buildMultipleActiveWorksContext } from "./context-info-formatters"
 import { buildExplicitPlanContext } from "./explicit-plan-context"
 import {
@@ -19,7 +20,7 @@ import {
 import { HOOK_NAME } from "./start-work-hook"
 
 export function buildStartWorkContextInfo(params: {
-  readonly ctx: PluginInput
+  readonly ctx: PluginContext
   readonly explicitPlanName: string | null
   readonly existingState: ReturnType<typeof readBoulderState>
   readonly sessionId: string

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import type { Client } from "./client"
 import type { AutoCompactState, ParsedTokenLimitError } from "./types"
 import type { ExperimentalConfig, OhMyOpenCodeConfig } from "../../config"
@@ -35,7 +36,7 @@ function createRecoveryState(): AutoCompactState {
 
 
 export function createAnthropicContextWindowLimitRecoveryHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   options?: AnthropicContextWindowLimitRecoveryOptions,
 ) {
   const autoCompactState = createRecoveryState()

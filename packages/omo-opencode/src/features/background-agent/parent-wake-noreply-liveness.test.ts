@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { BackgroundManager } from "./manager"
 import { ParentWakeNotifier } from "./parent-wake-notifier"
 import { ParentWakePendingQueue } from "./parent-wake-pending-queue"
@@ -575,13 +576,13 @@ describe("BackgroundManager parent wake recent-activity admission liveness", () 
         abort: async () => ({}),
       },
     }
-    const ctx: PluginInput = {
-      client: client as PluginInput["client"],
-      project: {} as PluginInput["project"],
+    const ctx: PluginContext = {
+      client: client as PluginContext["client"],
+      project: {} as PluginContext["project"],
       directory: tmpdir(),
       worktree: tmpdir(),
       serverUrl: new URL("http://localhost"),
-      $: {} as PluginInput["$"],
+      $: {} as PluginContext["$"],
     }
 
     const manager = new BackgroundManager({

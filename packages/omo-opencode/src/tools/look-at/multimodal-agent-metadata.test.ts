@@ -1,15 +1,16 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { resolveMultimodalLookerAgentMetadata } from "./multimodal-agent-metadata"
 import { setVisionCapableModelsCache, clearVisionCapableModelsCache } from "../../shared/vision-capable-models-cache"
 import * as connectedProvidersCache from "../../shared/connected-providers-cache"
 import * as modelAvailability from "../../shared/model-availability"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 
-function createPluginInput(agentData: Array<Record<string, unknown>>): PluginInput {
-  const client = {} as PluginInput["client"]
+function createPluginInput(agentData: Array<Record<string, unknown>>): PluginContext {
+  const client = {} as PluginContext["client"]
   Object.assign(client, {
     app: {
       agents: mock(async () => ({ data: agentData })),
@@ -18,11 +19,11 @@ function createPluginInput(agentData: Array<Record<string, unknown>>): PluginInp
 
   return {
     client,
-    project: {} as PluginInput["project"],
+    project: {} as PluginContext["project"],
     directory: "/project",
     worktree: "/project",
     serverUrl: new URL("http://localhost"),
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 }
 

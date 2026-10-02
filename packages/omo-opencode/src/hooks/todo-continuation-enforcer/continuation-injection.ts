@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import type { BackgroundManager } from "../../features/background-agent"
 import {
   getSessionAgent,
@@ -49,7 +50,7 @@ function hasWritePermission(tools: Record<string, ToolPermission> | undefined): 
 }
 
 export async function injectContinuation(args: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionID: string
   backgroundManager?: BackgroundManager
   skipAgents?: string[]

@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../../plugin/types"
 import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -64,7 +65,7 @@ type BackgroundUpdateCheckDeps = {
 }
 
 type BackgroundUpdateCheckRunner = (
-  ctx: PluginInput,
+  ctx: PluginContext,
   autoUpdate: boolean,
   getToastMessage: (isUpdate: boolean, latestVersion?: string) => string,
 ) => Promise<void>
@@ -180,7 +181,7 @@ export function createBackgroundUpdateCheckRunner(
   const deps = { ...defaultDeps, ...overrides }
 
   return async function runBackgroundUpdateCheck(
-    ctx: PluginInput,
+    ctx: PluginContext,
     autoUpdate: boolean,
     getToastMessage: (isUpdate: boolean, latestVersion?: string) => string,
   ): Promise<void> {

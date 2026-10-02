@@ -1,5 +1,6 @@
+import type { PluginContext } from "../../../plugin/types"
 import { isPlainRecord } from "@oh-my-opencode/utils"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { loadClaudeHooksConfig } from "../config"
 import { loadPluginExtendedConfig } from "../config-loader"
 import {
@@ -81,7 +82,7 @@ function appendHookSections(outputText: string, sections: readonly (string | und
 	return [outputText, ...normalizedSections].join("\n\n")
 }
 
-export function createToolExecuteAfterHandler(ctx: PluginInput, config: PluginConfig) {
+export function createToolExecuteAfterHandler(ctx: PluginContext, config: PluginConfig) {
 	return async (
 		input: { tool: string; sessionID: string; callID: string },
 		output: { title: string; output: string; metadata: unknown } | undefined,

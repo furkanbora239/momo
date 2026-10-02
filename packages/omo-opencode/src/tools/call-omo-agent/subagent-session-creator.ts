@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared"
 import { resolveSessionDirectory } from "../../shared"
 import { subagentSessions, syncSubagentSessions } from "../../features/claude-code-session-state"
@@ -6,7 +7,7 @@ import type { CallOmoAgentArgs } from "./types"
 import type { ToolContextWithMetadata } from "./tool-context-with-metadata"
 
 export async function resolveOrCreateSessionId(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	args: CallOmoAgentArgs,
 	toolContext: ToolContextWithMetadata,
 ): Promise<{ ok: true; sessionID: string } | { ok: false; error: string }> {

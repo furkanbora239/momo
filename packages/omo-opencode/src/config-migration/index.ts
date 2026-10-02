@@ -13,6 +13,16 @@ export {
   REASONING_UNIFICATION_MIGRATION_ID,
   transformReasoningUnification,
 } from "./reasoning-unification"
+export {
+  OPENCODE_V2_PLUGIN_MIGRATION_ID,
+  applyOpenCodeV2PluginMigration,
+  transformOpenCodeV2Plugins,
+} from "./opencode-v2-plugins"
+export type {
+  OpenCodeV2PluginEntry,
+  OpenCodeV2PluginMigrationReason,
+  OpenCodeV2PluginMigrationResult,
+} from "./opencode-v2-plugins"
 export type { ExecuteLegacyConfigMigrationPlanOptions } from "./migration-executor"
 export type {
   CreateLegacyConfigMigrationPlansOptions,

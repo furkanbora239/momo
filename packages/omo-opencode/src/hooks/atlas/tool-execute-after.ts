@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isCallerOrchestrator } from "../../shared/session-utils"
 import { collectGitDiffStats, formatFileChanges } from "../../shared/git-worktree"
 import { extractSessionIdFromMetadata } from "./subagent-session-id"
@@ -9,7 +10,7 @@ import type { PendingTaskRef, SessionState } from "./types"
 import type { ToolExecuteAfterInput, ToolExecuteAfterOutput } from "./types"
 
 export function createToolExecuteAfterHandler(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   pendingFilePaths: Map<string, string>
   pendingTaskRefs: Map<string, PendingTaskRef>
   pendingPlanSnapshots?: Map<string, string>

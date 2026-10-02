@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { ToolContext } from "@opencode-ai/plugin/tool"
+import type { PluginContext } from "../../plugin/types"
 import { isAmbiguousPromptDispatchFailure, log, promptSyncWithModelSuggestionRetry } from "../../shared"
 import { extractLatestAssistantText } from "./assistant-message-extractor"
 import { MULTIMODAL_LOOKER_AGENT } from "./constants"
@@ -9,7 +10,7 @@ import { resolveMultimodalLookerAgentMetadata } from "./multimodal-agent-metadat
 import { waitForLookAtSessionResult } from "./session-poller"
 
 interface RunLookAtSessionInput {
-  ctx: PluginInput
+  ctx: PluginContext
   toolContext: ToolContext
   goal: string
   inputParts: LookAtInputPart[]

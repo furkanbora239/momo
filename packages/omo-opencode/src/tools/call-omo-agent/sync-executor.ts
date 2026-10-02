@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { clearSessionAgent, handedBackSyncSessions, setSessionAgent, subagentSessions, syncSubagentSessions } from "../../features/claude-code-session-state"
 import { dispatchInternalPrompt, isInternalPromptDispatchAccepted } from "../../hooks/shared/prompt-async-gate"
 import {
@@ -25,7 +26,7 @@ type SessionWithPrompt = {
   prompt: (opts: { path: { id: string }; body: Record<string, unknown> }) => Promise<unknown>
 }
 
-function hasPrompt(session: PluginInput["client"]["session"]): session is PluginInput["client"]["session"] & SessionWithPrompt {
+function hasPrompt(session: PluginContext["client"]["session"]): session is PluginContext["client"]["session"] & SessionWithPrompt {
   return "prompt" in session && typeof session.prompt === "function"
 }
 
@@ -85,7 +86,7 @@ export async function executeSync(
     abort: AbortSignal
     metadata?: (input: { title?: string; metadata?: Record<string, unknown> }) => void | Promise<void>
   },
-  ctx: PluginInput,
+  ctx: PluginContext,
   deps: ExecuteSyncDeps = defaultDeps,
   fallbackChain?: FallbackEntry[],
   spawnReservation?: SpawnReservation,

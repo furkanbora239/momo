@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { isSessionActive } from "../shared/session-idle-settle"
 import { HOOK_NAME } from "./constants"
@@ -26,7 +27,7 @@ type ContinueSettledIterationInput = {
 }
 
 export async function stopIfLatestAssistantMadeNoProgress(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	input: {
 		readonly sessionID: string
@@ -58,7 +59,7 @@ export async function stopIfLatestAssistantMadeNoProgress(
 }
 
 export async function continueSettledIteration(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	input: ContinueSettledIterationInput,
 ): Promise<void> {

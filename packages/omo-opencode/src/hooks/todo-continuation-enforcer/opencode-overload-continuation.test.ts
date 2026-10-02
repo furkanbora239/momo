@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { describe, expect, test } from "bun:test"
 
@@ -20,7 +21,7 @@ type PromptInput = {
 type TimerCallback = (...args: unknown[]) => void
 type FakeTimerID = number & ReturnType<typeof setTimeout> & ReturnType<typeof setInterval>
 
-function createPluginInput(promptCalls: PromptCall[]): PluginInput {
+function createPluginInput(promptCalls: PromptCall[]): PluginContext {
   const directory = "/tmp/opencode-overload-continuation-test"
   const client = createOpencodeClient({ directory })
   Reflect.set(client.session, "todo", async () => ({
@@ -49,7 +50,7 @@ function createPluginInput(promptCalls: PromptCall[]): PluginInput {
     worktree: directory,
     experimental_workspace: { register: () => {} },
     serverUrl: new URL("http://localhost"),
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 }
 

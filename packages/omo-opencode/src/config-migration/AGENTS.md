@@ -13,6 +13,7 @@ Discovers legacy config files (oh-my-opencode/oh-my-openagent JSON[C], `~/.omo/c
 | Plan execution | `migration-executor.ts` (`executeLegacyConfigMigrationPlan`) |
 | Content transforms | `transform-opencode.ts` / `transform-config-jsonc.ts` |
 | Reasoning-key unification | `reasoning-unification.ts` (`REASONING_UNIFICATION_MIGRATION_ID`, fixtures under `2026-08-reasoning-unification/`) |
+| OpenCode V2 plugin key | `opencode-v2-plugins.ts` (`OPENCODE_V2_PLUGIN_MIGRATION_ID`, `transformOpenCodeV2Plugins`, `applyOpenCodeV2PluginMigration`) |
 | Historical migration ids | `legacy-history.ts` |
 
 ## CONVENTIONS
@@ -25,3 +26,4 @@ Discovers legacy config files (oh-my-opencode/oh-my-openagent JSON[C], `~/.omo/c
 
 - Never write config files directly from here; hand plans to the engine (`runMigration`).
 - Never delete legacy sources; migration copies forward and leaves timestamped backups.
+- Exception: `opencode-v2-plugins.ts` writes opencode config files (`opencode.json[c]`) itself because the engine only accepts omo.json[c] targets (`writerInput` + `OmoConfigSchema` validation). It keeps the same discipline: pure transform, conflict-preserving merge, `_migrations` marker, atomic write.

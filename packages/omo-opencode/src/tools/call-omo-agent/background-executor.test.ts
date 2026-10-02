@@ -1,7 +1,8 @@
 /// <reference types="bun-types" />
+import type { PluginContext } from "../../plugin/types"
 import { describe, test, expect, mock } from "bun:test"
 import type { BackgroundManager } from "../../features/background-agent"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { executeBackground } from "./background-executor"
 
 describe("executeBackground", () => {
@@ -43,7 +44,7 @@ describe("executeBackground", () => {
     session: {
       messages: mock(() => Promise.resolve({ data: [] })),
     },
-  } as PluginInput["client"]
+  } as PluginContext["client"]
 
   test("detects interrupted task as failure", async () => {
     //#given

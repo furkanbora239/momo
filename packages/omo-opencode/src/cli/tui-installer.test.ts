@@ -11,6 +11,7 @@ import { ULTIMATE_FALLBACK } from "./model-fallback"
 import { getNoModelProvidersWarning } from "./provider-availability"
 import { runTuiInstaller } from "./tui-installer"
 import { PLUGIN_NAME } from "../shared"
+import { resetVersionCache, setVersionCache } from "../shared/opencode-version"
 import type { InstallConfig } from "./types"
 
 function createMockSpinner(): ReturnType<typeof p.spinner> {
@@ -161,6 +162,7 @@ describe("runTuiInstaller", () => {
     const originalConfigDir = process.env.OPENCODE_CONFIG_DIR
     const configDir = mkdtempSync(join(tmpdir(), "omo-tui-installer-entry-"))
     process.env.OPENCODE_CONFIG_DIR = configDir
+    setVersionCache("1.18.34")
 
     try {
       const restoreSpies = [
@@ -214,6 +216,7 @@ describe("runTuiInstaller", () => {
         spy.mockRestore()
       }
     } finally {
+      resetVersionCache()
       rmSync(configDir, { recursive: true, force: true })
       if (originalConfigDir === undefined) {
         delete process.env.OPENCODE_CONFIG_DIR

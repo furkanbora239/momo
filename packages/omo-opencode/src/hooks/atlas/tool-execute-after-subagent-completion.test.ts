@@ -1,10 +1,11 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, it } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import {
   collectGitDiffStats as productionCollectGitDiffStats,
   formatFileChanges as productionFormatFileChanges,
@@ -38,11 +39,11 @@ describe("handleSubagentCompletionAfter background_output incomplete reports", (
     }
   }
 
-  function createContext(): PluginInput {
+  function createContext(): PluginContext {
     const directory = mkdtempSync(join(tmpdir(), "atlas-background-output-incomplete-"))
     temporaryDirectories.push(directory)
 
-    return unsafeTestValue<PluginInput>({
+    return unsafeTestValue<PluginContext>({
       client: {
         session: {
           get: async (input: SessionGetInput) =>

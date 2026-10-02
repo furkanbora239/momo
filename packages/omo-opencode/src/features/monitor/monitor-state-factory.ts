@@ -1,5 +1,6 @@
-import type { PluginInput } from "@opencode-ai/plugin"
 
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared"
 import type { MonitorBatcher } from "./batcher"
 import { LineStream } from "./line-stream"
@@ -143,7 +144,7 @@ export function spawnMonitorProcess(
 
 export function createMonitorInjector(
   deps: MonitorManagerDeps | undefined,
-  pluginContext: Pick<PluginInput, "client" | "directory">,
+  pluginContext: Pick<PluginContext, "client" | "directory">,
   record: MonitorRecord,
   scheduleFlush: (monitorId: string, delayMs: number, operation: () => Promise<void>) => void,
 ): MonitorInjector {

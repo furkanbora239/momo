@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared/logger"
 import { isRecord } from "../../shared/record-type-guard"
 import { resolveMessageEventSessionID } from "../../shared/event-session-id"
@@ -100,7 +101,7 @@ function getMessageCreatedAt(message: unknown): number | undefined {
 }
 
 export async function latestUserMessageIsInProgress(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	options: RalphLoopEventHandlerOptions,
 	sessionID: string,
 	now: number,

@@ -41,6 +41,14 @@ const RAW_PROMPT_ALLOWLIST = new Map<string, string>([
     "team idle wake hint wires a client facade for downstream gate-routed dispatch",
   ],
   [
+    path.join(SOURCE_ROOT, "v2", "config-bridge.ts"),
+    "wires V2 CommandInfo execute onto ctx.session.prompt, the official OpenCode V2 command execution pattern; command deliveries are OpenCode-native, not internal dispatches",
+  ],
+  [
+    path.join(SOURCE_ROOT, "v2", "session-client-bridge.ts"),
+    "binds the V1 client session.prompt call shape onto the V2 ctx client; the innermost client facade consumed by gate-routed dispatch, performs no dispatch logic itself",
+  ],
+  [
     path.join(SOURCE_ROOT, "plugin", "build-team-idle-wake-hint-client.ts"),
     "binds SDK Session.promptAsync/.status into a narrow facade consumed only by gate-routed team-idle-wake-hint dispatch; performs no direct dispatch itself",
   ],

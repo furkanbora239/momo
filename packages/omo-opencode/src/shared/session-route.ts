@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../plugin/types"
 import {
   promptSyncWithModelSuggestionRetry,
   promptWithModelSuggestionRetry,
@@ -6,7 +7,7 @@ import {
 import { dispatchInternalPrompt, isInternalPromptDispatchAccepted } from "./prompt-async-gate"
 import { isAmbiguousPostDispatchPromptFailure } from "./prompt-failure-classifier"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 type PromptAsyncArgs = Parameters<OpencodeClient["session"]["promptAsync"]>[0]
 type SessionMessagesArgs = Parameters<OpencodeClient["session"]["messages"]>[0]

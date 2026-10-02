@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   isAgentRegistered,
   resolveRegisteredAgentName,
@@ -25,7 +26,7 @@ export type BoulderContinuationResult =
 const ACTIVE_BACKGROUND_TASK_STATUSES = new Set(["pending", "running"])
 
 export async function injectBoulderContinuation(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   sessionID: string
   planName: string
   remaining: number

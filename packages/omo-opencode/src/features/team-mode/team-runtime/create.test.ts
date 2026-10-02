@@ -2,12 +2,13 @@
 
 // allow: SIZE_OK - team runtime creation tests share filesystem and tmux mock state; this release adds small lock/spawn coverage and future edits should split by runtime phase.
 
+import type { PluginContext } from "../../../plugin/types"
 import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { access, mkdtemp, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
 
-import type { PluginInput } from "@opencode-ai/plugin"
+
 
 import { TeamModeConfigSchema } from "../../../config/schema/team-mode"
 import type { ExecutorContext } from "../../../tools/delegate-task/executor-types"
@@ -69,7 +70,7 @@ function createManager(
   launchImpl: (input: LaunchInput) => Promise<BackgroundTask>,
   getTaskImpl: (taskId: string) => BackgroundTask | undefined = () => undefined,
 ): { manager: BackgroundManager; launchMock: ReturnType<typeof mock>; cancelTaskMock: ReturnType<typeof mock> } {
-  const manager = new BackgroundManager({ pluginContext: { client: {} as ExecutorContext["client"], directory: baseDir } as PluginInput })
+  const manager = new BackgroundManager({ pluginContext: { client: {} as ExecutorContext["client"], directory: baseDir } as PluginContext })
   const launchMock = mock((input: LaunchInput) => launchImpl(input))
   const getTaskMock = mock((taskId: string) => getTaskImpl(taskId))
   const cancelTaskMock = mock(async () => true)

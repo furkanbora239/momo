@@ -1,11 +1,12 @@
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createGoalHook } from "./index"
 
-function makePluginInput(): PluginInput {
+function makePluginInput(): PluginContext {
   return {
     directory: mkdtempSync(join(tmpdir(), "goal-hook-")),
     client: {
@@ -15,7 +16,7 @@ function makePluginInput(): PluginInput {
         },
       },
     },
-  } as unknown as PluginInput
+  } as unknown as PluginContext
 }
 
 describe("createGoalHook", () => {

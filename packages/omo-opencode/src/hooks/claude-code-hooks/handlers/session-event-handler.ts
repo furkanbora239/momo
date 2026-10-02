@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../../plugin/types"
 import type { ContextCollector } from "../../../features/context-injector"
 import { clearClaudeHooksConfigCache, loadClaudeHooksConfig } from "../config"
 import { clearPluginExtendedConfigCache, loadPluginExtendedConfig } from "../config-loader"
@@ -18,7 +19,7 @@ import {
 } from "../session-hook-state"
 
 export function createSessionEventHandler(
-	ctx: PluginInput,
+	ctx: PluginContext,
 	config: PluginConfig,
 	contextCollector?: ContextCollector,
 ) {

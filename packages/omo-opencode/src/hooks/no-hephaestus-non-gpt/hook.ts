@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isGptModel } from "../../agents/types"
 import {
   getSessionAgent,
@@ -18,7 +19,7 @@ type NoHephaestusNonGptHookOptions = {
   allowNonGptModel?: boolean
 }
 
-function showToast(ctx: PluginInput, sessionID: string, variant: "error" | "warning"): void {
+function showToast(ctx: PluginContext, sessionID: string, variant: "error" | "warning"): void {
   ctx.client.tui.showToast({
     body: {
       title: TOAST_TITLE,
@@ -35,7 +36,7 @@ function showToast(ctx: PluginInput, sessionID: string, variant: "error" | "warn
 }
 
 export function createNoHephaestusNonGptHook(
-  ctx: PluginInput,
+  ctx: PluginContext,
   options?: NoHephaestusNonGptHookOptions,
 ) {
   return {

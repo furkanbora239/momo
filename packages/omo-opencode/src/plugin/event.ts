@@ -1,4 +1,3 @@
-import type { PluginInput } from "@opencode-ai/plugin";
 import type { OhMyOpenCodeConfig } from "../config";
 import type { CreatedHooks } from "../create-hooks";
 import type { Managers } from "../create-managers";
@@ -185,7 +184,7 @@ export function createEventHandler(args: {
         noteSessionModel: modelFallbackHandler.setLastKnownModel,
       });
       if (state.sessionID && ((typeof state.info?.finish === "string" && state.info.finish.length > 0) || state.info?.finish === true)) {
-        invalidateContextWindowUsageCache(pluginContext as PluginInput, state.sessionID);
+        invalidateContextWindowUsageCache(pluginContext as PluginContext, state.sessionID);
       }
       if (state.sessionID && state.role === "assistant") {
         try {

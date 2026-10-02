@@ -1,9 +1,10 @@
+import type { PluginContext } from "../../../plugin/types"
 import { describe, expect, mock, test } from "bun:test"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { createBackgroundUpdateCheckRunner } from "./background-update-check"
 
-function createCtx(): PluginInput {
-  return { directory: "/project" } as unknown as PluginInput
+function createCtx(): PluginContext {
+  return { directory: "/project" } as unknown as PluginContext
 }
 
 function joinPosix(...segments: string[]): string {

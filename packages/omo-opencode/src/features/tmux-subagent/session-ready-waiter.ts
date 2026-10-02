@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import {
   SESSION_READY_POLL_INTERVAL_MS,
   SESSION_READY_TIMEOUT_MS,
@@ -7,7 +8,7 @@ import { log } from "../../shared"
 import { isAttachableSessionStatus } from "./attachable-session-status"
 import { parseSessionStatusResponse } from "./session-status-parser"
 
-type OpencodeClient = PluginInput["client"]
+type OpencodeClient = PluginContext["client"]
 
 export async function waitForSessionReady(params: {
   client: OpencodeClient

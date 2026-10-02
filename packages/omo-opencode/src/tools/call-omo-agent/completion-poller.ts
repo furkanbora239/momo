@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { log } from "../../shared"
 import { normalizeSDKResponse } from "../../shared"
 
@@ -11,7 +12,7 @@ export async function waitForCompletion(
     abort: AbortSignal
     metadata?: (input: { title?: string; metadata?: Record<string, unknown> }) => void
   },
-  ctx: PluginInput
+  ctx: PluginContext
 ): Promise<void> {
   log(`[call_omo_agent] Polling for completion...`)
 

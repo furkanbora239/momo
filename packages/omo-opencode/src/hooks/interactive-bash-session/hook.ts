@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+;
+import type { PluginContext } from "../../plugin/types"
 import { saveInteractiveBashSessionState, clearInteractiveBashSessionState } from "./storage";
 import { buildSessionReminderMessage } from "./constants";
 import type { InteractiveBashSessionState } from "./types";
@@ -27,7 +28,7 @@ interface EventInput {
   };
 }
 
-export function createInteractiveBashSessionHook(ctx: PluginInput) {
+export function createInteractiveBashSessionHook(ctx: PluginContext) {
   const sessionStates = new Map<string, InteractiveBashSessionState>();
 
   function getOrCreateStateLocal(sessionID: string): InteractiveBashSessionState {

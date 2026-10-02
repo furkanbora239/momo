@@ -1,11 +1,12 @@
 import { resolve } from "node:path"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { tool, type ToolDefinition } from "@opencode-ai/plugin/tool"
+import type { PluginContext } from "../../plugin/types"
 import { runRgFiles } from "./cli"
 import { resolveGrepCliWithAutoInstall } from "./constants"
 import { formatGlobResult } from "./result-formatter"
 
-export function createGlobTools(ctx: PluginInput): Record<string, ToolDefinition> {
+export function createGlobTools(ctx: PluginContext): Record<string, ToolDefinition> {
   const glob: ToolDefinition = tool({
     description:
       "Fast file pattern matching tool with safety limits (60s timeout, 100 file limit). " +

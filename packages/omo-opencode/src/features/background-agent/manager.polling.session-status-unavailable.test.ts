@@ -1,8 +1,9 @@
 /// <reference types="bun-types" />
 
+import type { PluginContext } from "../../plugin/types"
 import { describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { BackgroundManager } from "./manager"
 import { MIN_SESSION_GONE_POLLS } from "./session-existence"
 import type { BackgroundTask } from "./types"
@@ -47,7 +48,7 @@ function createManager(overrides: SessionOverrides): BackgroundManager {
   const client = { session }
 
   return new BackgroundManager({
-    pluginContext: { client, directory: tmpdir() } as PluginInput,
+    pluginContext: { client, directory: tmpdir() } as PluginContext,
     enableParentSessionNotifications: false,
   })
 }

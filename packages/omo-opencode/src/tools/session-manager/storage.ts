@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { isSqliteBackend } from "../../shared/opencode-storage-detection"
 import { log } from "../../shared"
 import { getFileAllSessions, getFileMainSessions, fileSessionExists, getFileSessionInfo, getFileSessionMessages, getFileSessionTodos, getFileSessionTranscript } from "./file-storage"
@@ -39,9 +40,9 @@ function mergeSessionIds(sdkSessionIds: string[], fileSessionIds: string[]): str
 }
 
 // SDK client reference for beta mode
-let sdkClient: PluginInput["client"] | null = null
+let sdkClient: PluginContext["client"] | null = null
 
-export function setStorageClient(client: PluginInput["client"]): void {
+export function setStorageClient(client: PluginContext["client"]): void {
   sdkClient = client
 }
 

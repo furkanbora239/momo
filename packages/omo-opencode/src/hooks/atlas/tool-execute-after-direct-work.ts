@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../plugin/types"
 import { resolve } from "node:path"
 import {
   endTaskTimer,
@@ -14,7 +15,7 @@ import type { ToolExecuteAfterInput, ToolExecuteAfterOutput } from "./types"
 import { isWriteOrEditToolName } from "./write-edit-tool-policy"
 
 export async function handleDirectWorkToolAfter(input: {
-  ctx: PluginInput
+  ctx: PluginContext
   pendingFilePaths: Map<string, string>
   pendingPlanSnapshots?: Map<string, string>
   toolInput: ToolExecuteAfterInput

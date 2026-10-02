@@ -1,6 +1,7 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import { BackgroundManager } from "./manager"
 import { TaskHistory } from "./task-history"
 import type { BackgroundTask } from "./types"
@@ -19,14 +20,14 @@ function createManager(): BackgroundManager {
     },
   }
 
-  const placeholderClient = {} as PluginInput["client"]
-  const ctx: PluginInput = {
+  const placeholderClient = {} as PluginContext["client"]
+  const ctx: PluginContext = {
     client: placeholderClient,
-    project: {} as PluginInput["project"],
+    project: {} as PluginContext["project"],
     directory: tmpdir(),
     worktree: tmpdir(),
     serverUrl: new URL("http://localhost"),
-    $: {} as PluginInput["$"],
+    $: {} as PluginContext["$"],
   }
 
   const manager = new BackgroundManager({ pluginContext: ctx })

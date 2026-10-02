@@ -1,11 +1,12 @@
-import type { PluginInput } from "@opencode-ai/plugin"
+
+import type { PluginContext } from "../../../plugin/types"
 import { loadClaudeHooksConfig } from "../config"
 import { loadPluginExtendedConfig } from "../config-loader"
 import { executePreCompactHooks, type PreCompactContext } from "../pre-compact"
 import type { PluginConfig } from "../types"
 import { isHookDisabled, log } from "../../../shared"
 
-export function createPreCompactHandler(ctx: PluginInput, config: PluginConfig) {
+export function createPreCompactHandler(ctx: PluginContext, config: PluginConfig) {
 	return async (
 		input: { sessionID: string },
 		output: { context: string[] },

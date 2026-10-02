@@ -1,8 +1,9 @@
+import type { PluginContext } from "../../plugin/types"
 import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtempSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { tmpdir } from "node:os"
-import type { PluginInput } from "@opencode-ai/plugin"
+
 import type { BackgroundManager, BackgroundTask } from "../../features/background-agent"
 import { readContinuationMarker } from "../../features/run-continuation-state"
 import { createStopContinuationGuardHook } from "./index"
@@ -32,7 +33,7 @@ describe("stop-continuation-guard", () => {
   })
 
   function createMockPluginInput() {
-    return unsafeTestValue<PluginInput>({
+    return unsafeTestValue<PluginContext>({
       client: {
         tui: {
           showToast: async () => ({}),
