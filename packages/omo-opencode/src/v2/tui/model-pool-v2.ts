@@ -162,7 +162,8 @@ export function registerModelPoolV2(
         run: () => openDialog(),
       },
     ],
-  }))
+    mode: "global",
+  }), solid)
 
   facade.onCleanup(() => {
     if (controller.isOpen()) {

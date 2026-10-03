@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test"
 
 import { createV2TuiFacade } from "./tui-facade"
-import { createFakeV2TuiContext } from "./fake-tui-context"
+import {
+  createFakeSolidRuntime,
+  createFakeV2TuiContext,
+} from "./fake-tui-context"
 
 describe("#given a V2 TUI context with a location", () => {
   it("#when creating the facade #then directory reads the location directory", () => {
@@ -75,8 +78,9 @@ describe("#given a facade over a V2 TUI context", () => {
   it("#when addKeymapLayer is called #then keymap.layer records the layer input", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
 
-    facade.addKeymapLayer(() => ({ mode: "global", commands: [] }))
+    facade.addKeymapLayer(() => ({ mode: "global", commands: [] }), solid)
 
     expect(fake.keymapLayers).toHaveLength(1)
     expect(fake.keymapLayers[0]?.().mode).toBe("global")

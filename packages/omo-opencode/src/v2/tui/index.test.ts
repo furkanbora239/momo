@@ -103,7 +103,11 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
         if (command.id !== undefined) slashCommandIds.push(command.id)
       }
     }
-    expect(slashCommandIds).toEqual(["omo.subagent-tree.tasks", "omo.model-pool.pool"])
+    expect(slashCommandIds).toEqual([
+      "omo.subagent-tree.tasks",
+      "omo.model-pool.pool",
+      "omo.providers.slash",
+    ])
 
     const cardModes = fake.keymapLayers
       .map((layer) => layer().mode)
@@ -111,8 +115,17 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
     expect(cardModes).toContain("omo.tui-card.tasks")
     expect(cardModes).toContain("omo.tui-card.pool")
 
-    expect(fake.slotClaims).toHaveLength(1)
-    const claim = fake.slotClaims[0]?.claim as unknown as {
+    // One sidebar.content claim (sidebar) + one app-level claim per keymap
+    // layer: tasks, pool, providers panels each register an interaction
+    // layer and a slash-command layer.
+    expect(fake.slotClaims).toHaveLength(7)
+    const sidebarClaim = fake.slotClaims.find(
+      (record) =>
+        (record.claim as unknown as { readonly append: string }).append ===
+        "sidebar.content",
+    )
+    expect(sidebarClaim).toBeDefined()
+    const claim = sidebarClaim?.claim as unknown as {
       readonly append: string
       readonly render: (input: { readonly sessionID: string }) => unknown
     }
@@ -120,7 +133,19 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
     const rendered = claim.render({ sessionID: "sess-1" }) as FakeSolidNode
     expect(rendered.tag).toBe("box")
 
+    const appClaims = fake.slotClaims.filter(
+      (record) =>
+        (record.claim as unknown as { readonly append: string }).append ===
+        "app",
+    )
+    expect(appClaims).toHaveLength(6)
+
     cleanup?.()
-    expect(fake.slotClaims[0]?.unregistered).toBe(true)
+    const sidebarRecord = fake.slotClaims.find(
+      (record) =>
+        (record.claim as unknown as { readonly append: string }).append ===
+        "sidebar.content",
+    )
+    expect(sidebarRecord?.unregistered).toBe(true)
   })
 })

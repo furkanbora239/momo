@@ -1,6 +1,7 @@
 import type { DialogSize, KeymapLayer, ToastVariant } from "@opencode/plugin/tui/context"
 import type { JSX } from "@opentui/solid/jsx-runtime"
 
+import { log } from "../../shared/logger"
 import type { CardTheme, SolidRuntime } from "../../features/tui-card"
 import type { SolidNode } from "./solid-loader"
 import type { V2TuiContext } from "./types"
@@ -26,7 +27,10 @@ export type V2TuiFacade = {
   readonly setDialogSize: (size: DialogSize) => void
   readonly clearDialog: () => void
   readonly pushMode: (mode: string) => () => void
-  readonly addKeymapLayer: (input: () => KeymapLayer) => void
+  readonly addKeymapLayer: <Node>(
+    input: () => KeymapLayer,
+    solid: SolidRuntime<Node>,
+  ) => void
   readonly theme: () => CardTheme
   readonly onCleanup: (fn: () => void) => void
   readonly runCleanups: () => void
@@ -55,8 +59,30 @@ export function createV2TuiFacade(ctx: V2TuiContext): V2TuiFacade {
       ctx.ui.dialog.clear()
     },
     pushMode: (mode) => ctx.keymap.mode.push(mode),
-    addKeymapLayer: (input) => {
-      ctx.keymap.layer(input)
+    addKeymapLayer: <Node>(input: () => KeymapLayer, solid: SolidRuntime<Node>) => {
+      // opencode v2 owns keymap layers by the calling component: creating
+      // one at plugin setup time runs outside the Solid tree and fails with
+      // "Keymap.Provider is missing". Claim the always-mounted `app` slot
+      // and create the layer on first render, inside the host's tree.
+      let created = false
+      ctx.ui.slot({
+        append: "app",
+        render: () => {
+          if (!created) {
+            created = true
+            try {
+              ctx.keymap.layer(input)
+              log("[v2-keymap-host] keymap layer created inside app slot")
+            } catch (error) {
+              log("[v2-keymap-host] keymap layer creation failed", {
+                error:
+                  error instanceof Error ? error.message : String(error),
+              })
+            }
+          }
+          return solid.createElement("box")
+        },
+      })
     },
     theme: () => ctx.theme,
     onCleanup: (fn) => {

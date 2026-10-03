@@ -4,6 +4,7 @@ import type { SolidRuntime } from "../../features/tui-card"
 import { log } from "../../shared/logger"
 import { registerBtwSideV2 } from "./btw-side-v2"
 import { registerModelPoolV2 } from "./model-pool-v2"
+import { registerProvidersV2 } from "./providers-v2"
 import { registerSidebarV2 } from "./sidebar-v2"
 import { loadSolidRuntime, type SolidNode } from "./solid-loader"
 import { registerSubagentTreeV2 } from "./subagent-tree-v2"
@@ -21,7 +22,12 @@ async function runRegistration(
   try {
     await register()
   } catch (error) {
-    log(`${label} V2 TUI registration failed`, { error })
+    log(`${label} V2 TUI registration failed`, {
+      error:
+        error instanceof Error
+          ? `${error.message}\n${error.stack ?? ""}`
+          : String(error),
+    })
   }
 }
 
@@ -51,6 +57,9 @@ export function createV2TuiSetup(
     )
     await runRegistration("[model-pool]", () =>
       registerModelPoolV2(ctx, facade, solid),
+    )
+    await runRegistration("[providers]", () =>
+      registerProvidersV2(ctx, facade, solid),
     )
     registerBtwSideV2()
 

@@ -185,6 +185,10 @@ export function createFakeV2TuiContext(
       slot: (claim: SlotClaim) => {
         const record: FakeSlotClaimRecord = { claim, unregistered: false }
         slotClaims.push(record)
+        // Simulate the host mount: the real host invokes the claim render
+        // inside its Solid tree, which is where deferred keymap layers get
+        // created.
+        ;(claim.render as (input: unknown) => unknown)({})
         return () => {
           record.unregistered = true
         }
