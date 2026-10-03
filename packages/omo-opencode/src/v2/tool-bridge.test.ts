@@ -3,7 +3,7 @@ import { tool } from "@opencode-ai/plugin/tool"
 import type { ToolContext as V2ToolContext } from "@opencode/plugin/promise/tool"
 import type { V2PluginContext } from "./types"
 import { registerV2Tools } from "./tool-bridge"
-import { buildV1Context, convertV1ToolDefinition, mapV1Result, resolveV1InputSchema } from "./tool-conversion"
+import { buildV1Context, convertV1ToolDefinition, mapV1Result, resolveV1InputSchema, resolveV1InputSchemaJson } from "./tool-conversion"
 
 type AddedTool = {
   name: string
@@ -74,22 +74,23 @@ describe("#given an undefined or empty tools map", () => {
 })
 
 describe("#given a V1 tool with a zod schema", () => {
-  it("#when convertV1ToolDefinition is called then the schema validates via the standard-schema protocol", async () => {
+  it("#when convertV1ToolDefinition is called then the input is emitted as a portable JSON Schema", async () => {
     const def = tool({
       description: "schema passthrough",
       args: { q: tool.schema.string(), n: tool.schema.number().optional() },
       execute: async () => "ok",
     })
     const info = convertV1ToolDefinition("schema_tool", def) as unknown as {
-      input: { "~standard": { validate: (v: unknown) => { value?: unknown; issues?: unknown } } }
+      input: Record<string, unknown>
     }
 
-    const ok = info.input["~standard"].validate({ q: "hello" })
-    expect(ok.issues).toBeUndefined()
-    expect(ok.value).toEqual({ q: "hello" })
-
-    const bad = info.input["~standard"].validate({ q: 123 })
-    expect(bad.issues).toBeDefined()
+    expect(info.input["type"]).toBe("object")
+    expect(info.input["~standard"]).toBeUndefined()
+    expect(JSON.parse(JSON.stringify(info.input))).toEqual({
+      type: "object",
+      properties: { q: { type: "string" }, n: { type: "number" } },
+      required: ["q"],
+    })
   })
 })
 
@@ -151,18 +152,14 @@ describe("#given the V2 execution context", () => {
 })
 
 describe("#given a V1 tool with no args", () => {
-  it("#when resolveV1InputSchema is called then a permissive standard schema is returned", () => {
+  it("#when resolveV1InputSchema is called then a permissive object schema is returned", () => {
     const def = tool({
       description: "no args",
       args: {},
       execute: async () => "ok",
     })
-    const schema = resolveV1InputSchema(def) as {
-      "~standard": { validate: (v: unknown) => { value?: unknown; issues?: unknown } }
-    }
-    const ok = schema["~standard"].validate({ anything: 1 })
-    expect(ok.issues).toBeUndefined()
-    expect(ok.value).toEqual({ anything: 1 })
+    const schema = resolveV1InputSchemaJson(def)
+    expect(schema).toEqual({ type: "object", properties: {} })
   })
 })
 

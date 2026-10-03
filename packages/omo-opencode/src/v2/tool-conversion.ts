@@ -2,23 +2,29 @@ import { tool, type ToolContext as V1ToolContext, type ToolDefinition, type Tool
 import type { Info, Result as V2ToolResult, ToolContext as V2ToolContext } from "@opencode/plugin/promise/tool"
 import type { ValueSchema } from "@opencode/schema/tool"
 import "./tool-schema-runtime"
-import { z } from "zod"
+import { toPortableJsonSchemaForShape, type JsonSchemaNode } from "./json-schema-converter"
 
 /**
- * V1 tools carry a zod v4 raw shape (`args`). With the runtime zod upgraded by
- * `ensureV1ToolSchemaRuntime` (see src/index.ts), the shape fields and this
- * wrapper share one zod copy, so the graph opencode receives is a single
- * runtime that implements the `~standard.jsonSchema` bridge. When a tool has
- * no shape we fall back to a permissive empty-object schema (equivalent to the
- * JSON Schema `{type:"object",properties:{}}` the V2 contract suggests) via
- * `z.object({}).passthrough()`, which accepts and preserves any input object.
+ * V1 tools carry a zod v4 raw shape (`args`). opencode v2 converts the input
+ * schema to JSON Schema through the zod `~standard.jsonSchema` bridge, whose
+ * generator crashes on this graph inside the opencode registration flow
+ * (`seen.ref`), so we emit a plain JSON Schema object instead of a zod
+ * instance. The JSON Schema arms of the V2 `ValueSchema` union accept the
+ * result directly, and the opencode-side converter only ever sees data.
+ * A tool with no shape gets a permissive object schema.
  */
 export function resolveV1InputSchema(def: ToolDefinition): ValueSchema {
   const shape = def.args
   if (shape && Object.keys(shape).length > 0) {
-    return z.object(shape)
+    return toPortableJsonSchemaForShape(shape) as unknown as ValueSchema
   }
-  return z.object({}).passthrough()
+  return { type: "object", properties: {} } as unknown as ValueSchema
+}
+
+/** Internal helper so tests can assert the emitted JSON Schema directly. */
+export function resolveV1InputSchemaJson(def: ToolDefinition): JsonSchemaNode {
+  const schema = resolveV1InputSchema(def)
+  return schema as unknown as JsonSchemaNode
 }
 
 /**
