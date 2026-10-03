@@ -74,7 +74,7 @@ describe("#given an undefined or empty tools map", () => {
 })
 
 describe("#given a V1 tool with a zod schema", () => {
-  it("#when convertV1ToolDefinition is called then the schema is passed through as a StandardSchemaV1", async () => {
+  it("#when convertV1ToolDefinition is called then the schema validates via the standard-schema protocol", async () => {
     const def = tool({
       description: "schema passthrough",
       args: { q: tool.schema.string(), n: tool.schema.number().optional() },
@@ -151,7 +151,7 @@ describe("#given the V2 execution context", () => {
 })
 
 describe("#given a V1 tool with no args", () => {
-  it("#when resolveV1InputSchema is called then a permissive empty schema is returned", () => {
+  it("#when resolveV1InputSchema is called then a permissive standard schema is returned", () => {
     const def = tool({
       description: "no args",
       args: {},
