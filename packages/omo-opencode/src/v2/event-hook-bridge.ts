@@ -6,6 +6,7 @@ import type { HooksWithRuntimeLifecycle } from "../testing/create-plugin-module"
 import type { V2PluginContext } from "./types"
 import type { V2RegistrationCollector } from "./registration-collector"
 import { createLogOnce, createV1HookInvoker, type LogOnce } from "./registration-collector"
+import type { SessionStatusRegistry } from "./session-status-registry"
 
 /**
  * Bridges the V1 `event` handler onto `ctx.event.subscribe(...)` (an async
@@ -23,6 +24,7 @@ export async function registerEventHook(
   ctx: V2PluginContext,
   hooks: HooksWithRuntimeLifecycle,
   collector: V2RegistrationCollector,
+  registry?: SessionStatusRegistry,
 ): Promise<void> {
   const handler = hooks.event
   if (!handler) return
@@ -35,6 +37,16 @@ export async function registerEventHook(
     try {
       const stream = await ctx.event.subscribe({ signal: controller.signal })
       for await (const event of stream) {
+        if (registry !== undefined && event.type.startsWith("session.")) {
+          const data = event.data as { sessionID?: string; status?: string }
+          if (typeof data.sessionID === "string") {
+            registry.feed(
+              event.type,
+              data.sessionID,
+              event.type === "session.status" ? { status: data.status } : undefined,
+            )
+          }
+        }
         const v1Event = mapV2EventToV1(event, logOnce)
         if (v1Event === undefined) continue
         await invoke("event", handler, { event: v1Event }, undefined)

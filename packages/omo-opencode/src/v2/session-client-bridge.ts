@@ -1,7 +1,16 @@
 import { log } from "../shared/logger"
 import { createUnmappedNoOpMethod, toV1Result, type V1ClientResult } from "./client-bridge-result"
 import { adaptSessionMessages, type V1AdaptedMessage } from "./session-message-adapter"
+import type { SessionStatusRegistry } from "./session-status-registry"
 import type { V2PluginContext } from "./types"
+
+/**
+ * Kept verbatim from the original no-op mapping so the degraded path still
+ * identifies itself in the log. Now fires only when the registry is wired but
+ * has no entry for the requested session (or is entirely absent).
+ */
+const SESSION_STATUS_UNMAPPED_LOG =
+  "[v2-client-bridge] session.status is not mapped under OpenCode V2 (the V2 plugin ctx exposes no session status API); degrading to no-op"
 
 type V2SessionInfo = Awaited<ReturnType<V2PluginContext["session"]["get"]>>
 type V2SessionCreateInput = Parameters<V2PluginContext["session"]["create"]>[0]
@@ -62,7 +71,9 @@ export type SessionClientBridge = {
   summarize: (args: V1SessionSummarizeArgs) => Promise<V1ClientResult<boolean>>
   promptAsync: (args: V1SessionPromptAsyncArgs) => Promise<V1ClientResult<undefined>>
   todo: () => Promise<undefined>
-  status: () => Promise<undefined>
+  status: (
+    args?: { path?: { id?: string } },
+  ) => Promise<V1ClientResult<Record<string, { type: string }> | { type: string } | undefined> | undefined>
   list: () => Promise<undefined>
   children: () => Promise<undefined>
   message: () => Promise<undefined>
@@ -78,7 +89,10 @@ export type SessionClientBridge = {
  * records (see session-message-adapter.ts); V1 `promptAsync` resolves void
  * (204), so the V2 inbox record is not surfaced.
  */
-export function createSessionClientBridge(ctx: V2PluginContext): SessionClientBridge {
+export function createSessionClientBridge(
+  ctx: V2PluginContext,
+  registry?: SessionStatusRegistry,
+): SessionClientBridge {
   return {
     get: (args) =>
       toV1Result(async () =>
@@ -112,7 +126,24 @@ export function createSessionClientBridge(ctx: V2PluginContext): SessionClientBr
       }),
     promptAsync: (args) => toV1Result(() => dispatchV2Prompt(ctx, args)),
     todo: createUnmappedNoOpMethod("session.todo", "the V2 client has no todo API"),
-    status: createUnmappedNoOpMethod("session.status", "the V2 plugin ctx exposes no session status API"),
+    status: (args) => {
+      if (registry === undefined) {
+        log(SESSION_STATUS_UNMAPPED_LOG)
+        return Promise.resolve(undefined)
+      }
+      return toV1Result(async () => {
+        const id = args?.path?.id
+        if (id !== undefined) {
+          const entry = registry.get(id)
+          if (entry === undefined) {
+            log(SESSION_STATUS_UNMAPPED_LOG, { sessionID: id })
+            return undefined
+          }
+          return entry
+        }
+        return registry.map()
+      })
+    },
     list: createUnmappedNoOpMethod("session.list", "the V2 plugin ctx exposes no session list API"),
     children: createUnmappedNoOpMethod("session.children", "the V2 plugin ctx exposes no session children API"),
     message: createUnmappedNoOpMethod("session.message", "the V2 plugin ctx exposes no single-message API"),

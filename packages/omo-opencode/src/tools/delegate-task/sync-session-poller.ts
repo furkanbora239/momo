@@ -211,6 +211,15 @@ export async function pollSyncSession(
   let assistantTurnCount = 0
   let lastSeenAssistantId: string | undefined
   let sawActiveAfterAnchor = false
+  // FLAVOR-1: when the status map is absent/empty (opencode v2 has no
+  // session.status API) we cannot confirm the child is idle, so a completed
+  // message is only trusted after the inactivity window elapses with no new
+  // activity (the session has "settled" into a terminal state).
+  let completeStableSinceAt: number | undefined
+  // FLAVOR-2: text emitted while a tool call is still pending is a normal
+  // interleave, not a stall. We only escalate to mid_tool_incomplete once the
+  // inactivity window expires with the tool never resolving (genuinely stuck).
+  let pendingToolStableSinceAt: number | undefined
   const childSettleMs = input.childWakeGraceMs ?? CHILD_WAKE_GRACE_MS
   let childWaitAssistantId: string | undefined
   let childSettleStartedAt = 0
@@ -442,17 +451,44 @@ export async function pollSyncSession(
       return `Task aborted (reason: ${SYNC_ABORT_REASONS.provider_error}): ${sessionError}`
     }
 
+    const lastAssistant = [...relevantMessages].reverse().find((m) => m.info?.role === "assistant")
+
+    // FLAVOR-1: a 'completed' verdict requires POSITIVE terminal evidence.
+    // isSessionComplete already proves the final assistant message is finalized
+    // (terminal finish) with no pending tool parts and sorts after the last user
+    // turn. We additionally require the child session to be idle. When the
+    // status map is absent/empty (opencode v2 has no session.status API),
+    // absence is UNKNOWN: never infer completion from it. Keep polling and only
+    // declare completion once the inactivity window elapses with no new activity
+    // (the session has settled into a terminal state), which prevents parking on
+    // an intermediate turn such as the model's opening narration.
     if (isSessionComplete(relevantMessages)) {
-      const currentAssistantId = [...relevantMessages].reverse().find((m) => m.info?.role === "assistant")?.info?.id
+      const currentAssistantId = lastAssistant?.info?.id
       if (isAwaitingChildContinuation(currentAssistantId)) {
         continue
       }
-      log("[task] Poll complete - terminal finish detected", { sessionID: input.sessionID, pollCount })
-      break
+      if (sessionStatus !== undefined && !isActiveSessionStatus(sessionStatus)) {
+        log("[task] Poll complete - terminal finish detected", { sessionID: input.sessionID, pollCount })
+        break
+      }
+      completeStableSinceAt ||= loopNow
+      if (loopNow - completeStableSinceAt >= syncTiming.STALL_TIMEOUT_MS) {
+        log("[task] Poll complete - terminal finish settled after inactivity window (unknown status)", {
+          sessionID: input.sessionID,
+          pollCount,
+        })
+        break
+      }
+      pendingToolStableSinceAt = undefined
+      inactiveStart = loopNow
+      continue
     }
 
+    // Not complete: reset completion-settle tracking so a later quiet+complete
+    // state must re-prove the inactivity window.
+    completeStableSinceAt = undefined
+
     // Count new assistant turns to circuit-break infinite loops
-    const lastAssistant = [...relevantMessages].reverse().find((m) => m.info?.role === "assistant")
     if (lastAssistant?.info?.id && lastAssistant.info.id !== lastSeenAssistantId) {
       lastSeenAssistantId = lastAssistant.info.id
       assistantTurnCount++
@@ -470,25 +506,61 @@ export async function pollSyncSession(
 
     const hasAssistantTextNow = hasAssistantText(relevantMessages)
 
-    if (!lastAssistant?.info?.finish && hasAssistantTextNow) {
-      // A pending tool part means the text is a mid-work thought, not a
-      // deliverable: the worker was stopped mid-tool. Never report completion.
-      if (lastAssistant !== undefined && hasPendingToolPart(lastAssistant)) {
-        log("[task] Poll stopped: assistant text present but a tool part is still pending", {
+    // FLAVOR-2: text emitted while a tool call is still pending is a normal
+    // interleave (narration between tool calls), not a finished deliverable and
+    // not a stall. Keep waiting for the tool result (continue normal polling).
+    // Only escalate to mid_tool_incomplete once the inactivity window expires
+    // with the tool never resolving (the session is genuinely stuck, not merely
+    // mid-work). The task_id resume in the verdict text remains the fallback for
+    // those genuinely stuck sessions.
+    if (!lastAssistant?.info?.finish && hasAssistantTextNow && lastAssistant !== undefined && hasPendingToolPart(lastAssistant)) {
+      if (pendingToolStableSinceAt === undefined) {
+        pendingToolStableSinceAt = loopNow
+      }
+      if (loopNow - pendingToolStableSinceAt >= syncTiming.STALL_TIMEOUT_MS) {
+        log("[task] Poll stalled: assistant text present but a tool part is still pending after the inactivity window", {
           sessionID: input.sessionID,
           pollCount,
         })
+        abortSyncSession(client, input.sessionID, SYNC_ABORT_REASONS.mid_tool_incomplete)
+        if (input.toastManager && input.taskId) input.toastManager.removeTask(input.taskId)
         return `Task incomplete (reason: ${SYNC_ABORT_REASONS.mid_tool_incomplete}): the subagent emitted text while a tool call was still pending, so the result is not a finished deliverable. Resume the task with task_id instead of treating this as completion. Session ID: ${input.sessionID}`
       }
+      // Normal interleave: keep waiting for the pending tool result. Do NOT
+      // reset the inactivity window here - a tool result that arrives changes
+      // the activity signature (resetting it naturally), and a tool that never
+      // resolves is escalated by the pendingToolStableSinceAt window above.
+      continue
+    }
+
+    // FLAVOR-1: a finalized finish is authoritative (handled by isSessionComplete
+    // above). Some sessions report their final assistant turn WITHOUT a finish
+    // marker (or streamed text) while the harness status is idle. When the status
+    // map is PRESENT and reports a non-active (idle) state, that is POSITIVE idle
+    // evidence: treat the assistant text as the deliverable and complete. We only
+    // take this path with positive idle confirmation - when the status map is
+    // absent/empty (opencode v2 has no session.status API) the session stays
+    // UNKNOWN and we keep polling within the inactivity window instead.
+    if (
+      !lastAssistant?.info?.finish &&
+      hasAssistantTextNow &&
+      lastAssistant !== undefined &&
+      !hasPendingToolPart(lastAssistant) &&
+      sessionStatus !== undefined &&
+      !isActiveSessionStatus(sessionStatus)
+    ) {
       if (isAwaitingChildContinuation(lastAssistant?.info?.id)) {
+        pendingToolStableSinceAt = undefined
         continue
       }
-      log("[task] Poll complete - assistant text detected (fallback)", {
+      log("[task] Poll complete - assistant text with positive idle status (fallback)", {
         sessionID: input.sessionID,
         pollCount,
       })
       break
     }
+
+    pendingToolStableSinceAt = undefined
   }
 
   if (timedOut) {

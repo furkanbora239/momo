@@ -3501,7 +3501,7 @@ describe("sisyphus-task", () => {
           messages: async () => ({
             data: [{ info: { role: "assistant" }, parts: [{ type: "text", text: "Done" }] }]
           }),
-          status: async () => ({ data: {} }),
+          status: async () => ({ data: { ses_no_browser_provider: { type: "idle" } } }),
         },
       }
 

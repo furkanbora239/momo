@@ -161,7 +161,7 @@ describe("BackgroundManager verifySessionExists", () => {
 
 describe("BackgroundManager pollRunningTasks", () => {
   describe("#given a running task whose session is no longer in status response", () => {
-    test("#when pollRunningTasks runs #then completes the task instead of leaving it running", async () => {
+    test("#when pollRunningTasks runs #then keeps the task running (UNKNOWN, not completed)", async () => {
       //#given
       const manager = createManagerWithClient()
       const task = createRunningTask("ses-gone")
@@ -172,9 +172,9 @@ describe("BackgroundManager pollRunningTasks", () => {
       await poll.call(manager)
       manager.shutdown()
 
-      //#then
-      expect(task.status).toBe("completed")
-      expect(task.completedAt).toBeDefined()
+      //#then - registry-absence is UNKNOWN; the task must keep running, never completed/deleted
+      expect(task.status).toBe("running")
+      expect(task.completedAt).toBeUndefined()
     })
 
     test("#when the first missing-status poll has no output #then it does not fail the task yet", async () => {
@@ -238,7 +238,7 @@ describe("BackgroundManager pollRunningTasks", () => {
       }
     })
 
-    test("#when reliable status polling omits the session #then it completes through the session-gone path", async () => {
+    test("#when reliable status polling omits the session #then it keeps the task running (UNKNOWN, not completed)", async () => {
       //#given
       const manager = createManagerWithClient({
         status: async () => ({ data: {} }),
@@ -248,14 +248,14 @@ describe("BackgroundManager pollRunningTasks", () => {
 
       //#when
       const poll = manager["pollRunningTasks"]
-      for (let count = 0; count < MIN_SESSION_GONE_POLLS; count += 1) {
+      for (let count = 0; count < MIN_SESSION_GONE_POLLS + 2; count += 1) {
         await poll.call(manager)
       }
       await manager.shutdown()
 
-      //#then
-      expect(task.status).toBe("completed")
-      expect(task.completedAt).toBeDefined()
+      //#then - absence (even reliably) is UNKNOWN; completion requires positive terminal evidence
+      expect(task.status).toBe("running")
+      expect(task.completedAt).toBeUndefined()
     })
   })
 

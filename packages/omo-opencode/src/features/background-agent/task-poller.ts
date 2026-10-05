@@ -7,7 +7,6 @@ import type { OpencodeClient } from "./opencode-client"
 import {
   DEFAULT_ACTIVE_TOOL_TIMEOUT_MS,
   DEFAULT_MESSAGE_STALENESS_TIMEOUT_MS,
-  DEFAULT_SESSION_GONE_TIMEOUT_MS,
   DEFAULT_STALE_TIMEOUT_MS,
   MIN_RUNTIME_BEFORE_STALE_MS,
   TERMINAL_TASK_TTL_MS,
@@ -15,7 +14,6 @@ import {
 } from "./constants"
 import { abortWithTimeout } from "./abort-with-timeout"
 import { removeTaskToastTracking } from "./remove-task-toast-tracking"
-import { checkSessionExistence, MIN_SESSION_GONE_POLLS } from "./session-existence"
 
 import { isActiveSessionStatus } from "./session-status-classifier"
 import { getSessionActivityFromClient, type SessionActivityResolver } from "./session-activity"
@@ -161,7 +159,7 @@ async function interruptStaleTask(args: {
   }
 
   onTaskInterrupted(task)
-  log(`[background-agent] Task ${task.id} interrupted: ${logReason}`)
+  log(`[background-agent] Interrupting stale task (task id: ${task.id}, session id: ${sessionID}, reason: ${reason}, evidence source: ${timeoutConfigKey})`)
 
   try {
     await notifyParentSession(task)
@@ -192,7 +190,6 @@ export async function checkAndInterruptStaleTasks(args: {
     onTaskInterrupted = (task) => removeTaskToastTracking(task.id),
   } = args
   const staleTimeoutMs = config?.staleTimeoutMs ?? DEFAULT_STALE_TIMEOUT_MS
-  const sessionGoneTimeoutMs = config?.sessionGoneTimeoutMs ?? DEFAULT_SESSION_GONE_TIMEOUT_MS
   const now = Date.now()
 
   const messageStalenessMs = config?.messageStalenessTimeoutMs ?? DEFAULT_MESSAGE_STALENESS_TIMEOUT_MS
@@ -211,22 +208,26 @@ export async function checkAndInterruptStaleTasks(args: {
     const sessionMissing = sessionStatuses !== undefined && sessionStatus === undefined
     const runtime = now - startedAt.getTime()
 
+    // Registry-absence means UNKNOWN status. Absence alone is NEVER treated as
+    // gone/complete, and a missing session must never be interrupted or deleted
+    // on that basis. Keep waiting and record diagnostics only.
     if (sessionMissing) {
       task.consecutiveMissedPolls = (task.consecutiveMissedPolls ?? 0) + 1
-    } else if (sessionStatuses !== undefined) {
-      task.consecutiveMissedPolls = 0
+      log("[background-agent] Task session UNKNOWN (absent from status registry); keeping waiting, NOT interrupting:", {
+        taskId: task.id,
+        sessionID,
+        consecutiveMissedPolls: task.consecutiveMissedPolls,
+      })
+      continue
     }
 
-    const sessionGone = sessionMissing && (task.consecutiveMissedPolls ?? 0) >= MIN_SESSION_GONE_POLLS
-    const shouldSkipInactivityTimeout = task.teamRunId !== undefined && !sessionGone
-    const shouldRefreshFromSessionActivity = !sessionGone
-      && sessionStatus !== undefined
+    task.consecutiveMissedPolls = 0
+    const shouldRefreshFromSessionActivity = sessionStatus !== undefined
       && isActiveSessionStatus(sessionStatus)
 
     if (!task.progress?.lastUpdate) {
-      if (shouldSkipInactivityTimeout) continue
-      if (sessionMissing && !sessionGone) continue
-      const effectiveTimeout = sessionGone ? sessionGoneTimeoutMs : messageStalenessMs
+      if (task.teamRunId !== undefined) continue
+      const effectiveTimeout = messageStalenessMs
       if (runtime <= effectiveTimeout) continue
 
       if (shouldRefreshFromSessionActivity) {
@@ -235,17 +236,7 @@ export async function checkAndInterruptStaleTasks(args: {
         if (activityRefresh.type === "activity" && now - activityRefresh.activityTime <= effectiveTimeout) continue
       }
 
-      if (sessionGone) {
-        const existence = await checkSessionExistence(client, sessionID, directory)
-        if (existence === "exists") {
-          task.consecutiveMissedPolls = 0
-          continue
-        }
-        if (existence === "unknown") continue
-      }
-
       const staleMinutes = Math.round(runtime / 60000)
-      const reason = sessionGone ? "session gone from status registry" : "no activity"
       staleInterruptions.push(
         interruptStaleTask({
           task,
@@ -254,9 +245,9 @@ export async function checkAndInterruptStaleTasks(args: {
           notifyParentSession,
           onTaskInterrupted,
           sessionID,
-          reason,
+          reason: "no activity",
           staleMinutes,
-          timeoutConfigKey: sessionGone ? "sessionGoneTimeoutMs" : "messageStalenessTimeoutMs",
+          timeoutConfigKey: "messageStalenessTimeoutMs",
           errorSuffix: " since start",
           logReason: "no progress since start",
         }),
@@ -264,7 +255,7 @@ export async function checkAndInterruptStaleTasks(args: {
       continue
     }
 
-    if (shouldSkipInactivityTimeout) continue
+    if (task.teamRunId !== undefined) continue
 
     const activeToolTimeoutMs = (config as { activeToolTimeoutMs?: number })?.activeToolTimeoutMs ?? DEFAULT_ACTIVE_TOOL_TIMEOUT_MS
     const hasActiveRunningTool = Boolean(task.progress?.activeTool)
@@ -281,7 +272,7 @@ export async function checkAndInterruptStaleTasks(args: {
     if (runtime < MIN_RUNTIME_BEFORE_STALE_MS) continue
 
     let timeSinceLastUpdate = now - task.progress.lastUpdate.getTime()
-    const effectiveStaleTimeout = sessionGone ? sessionGoneTimeoutMs : staleTimeoutMs
+    const effectiveStaleTimeout = staleTimeoutMs
     if (timeSinceLastUpdate <= effectiveStaleTimeout) continue
 
     if (shouldRefreshFromSessionActivity) {
@@ -297,17 +288,7 @@ export async function checkAndInterruptStaleTasks(args: {
 
     if (task.status !== "running") continue
 
-    if (sessionGone) {
-      const existence = await checkSessionExistence(client, sessionID, directory)
-      if (existence === "exists") {
-        task.consecutiveMissedPolls = 0
-        continue
-      }
-      if (existence === "unknown") continue
-    }
-
     const staleMinutes = Math.round(timeSinceLastUpdate / 60000)
-    const reason = sessionGone ? "session gone from status registry" : "no activity"
     staleInterruptions.push(
       interruptStaleTask({
         task,
@@ -316,9 +297,9 @@ export async function checkAndInterruptStaleTasks(args: {
         notifyParentSession,
         onTaskInterrupted,
         sessionID,
-        reason,
+        reason: "no activity",
         staleMinutes,
-        timeoutConfigKey: sessionGone ? "sessionGoneTimeoutMs" : "staleTimeoutMs",
+        timeoutConfigKey: "staleTimeoutMs",
         errorSuffix: "",
         logReason: "stale timeout",
       }),

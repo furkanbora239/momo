@@ -5490,12 +5490,14 @@ describe("BackgroundManager.checkAndInterruptStaleTasks", () => {
 
     getTaskMap(manager).set(task.id, task)
 
-    //#when - no progress update for 15 minutes
-    await manager["checkAndInterruptStaleTasks"]({})
+    //#when - no progress update for 15 minutes, and the session is tracked as idle
+    // (registry-absence is UNKNOWN and never interrupted; a tracked-but-stale
+    // session is the legitimate interruption trigger)
+    await manager["checkAndInterruptStaleTasks"]({ "session-no-update": { type: "idle" } })
 
-    //#then - killed because session gone from status registry
+    //#then - killed because no progress arrived within the message staleness timeout
     expect(task.status).toBe("cancelled")
-    expect(task.error).toContain("session gone from status registry")
+    expect(task.error).toContain("no activity")
   })
 
   test("should NOT interrupt task with no lastUpdate within session-gone timeout", async () => {

@@ -5,11 +5,15 @@ import { createUnmappedNoOpMethod } from "./client-bridge-result"
 import { createModelClientBridge } from "./model-client-bridge"
 import { createProviderClientBridge } from "./provider-client-bridge"
 import { createSessionClientBridge } from "./session-client-bridge"
+import type { SessionStatusRegistry } from "./session-status-registry"
 import type { V2PluginContext } from "./types"
 
 type V1Client = PluginContext["client"]
 
-export function createV2PluginInput(ctx: V2PluginContext): PluginContext {
+export function createV2PluginInput(
+  ctx: V2PluginContext,
+  registry?: SessionStatusRegistry,
+): PluginContext {
   const directory = ctx.location.directory
   return {
     project: {
@@ -22,7 +26,7 @@ export function createV2PluginInput(ctx: V2PluginContext): PluginContext {
     experimental_workspace: { register: () => {} },
     serverUrl: undefined,
     $: createStubBunShell(),
-    client: createV1ClientFacade(ctx),
+    client: createV1ClientFacade(ctx, log, registry),
   }
 }
 
@@ -76,10 +80,11 @@ export const UNMAPPED_V1_CLIENT_APIS = [
 export function createV1ClientFacade(
   ctx: V2PluginContext,
   logFn: (message: string, data?: unknown) => void = log,
+  registry?: SessionStatusRegistry,
 ): V1Client {
   const unmapped = new Set<string>()
   const core = {
-    session: withUnmappedMethodFallback("session", createSessionClientBridge(ctx), unmapped, logFn),
+    session: withUnmappedMethodFallback("session", createSessionClientBridge(ctx, registry), unmapped, logFn),
     provider: withUnmappedMethodFallback("provider", createProviderClientBridge(ctx), unmapped, logFn),
     model: withUnmappedMethodFallback("model", createModelClientBridge(ctx), unmapped, logFn),
     app: withUnmappedMethodFallback("app", createAppClientBridge(ctx), unmapped, logFn),

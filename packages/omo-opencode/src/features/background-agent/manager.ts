@@ -85,7 +85,6 @@ import type { PendingParentWake } from "./parent-wake-dedupe"
 import { registerManagerForCleanup, unregisterManagerForCleanup } from "./process-cleanup"
 import { removeTaskToastTracking } from "./remove-task-toast-tracking"
 import {
-  MIN_SESSION_GONE_POLLS,
   verifySessionExists as verifySessionStillExists,
 } from "./session-existence"
 import { handleSessionIdleBackgroundEvent } from "./session-idle-event-handler"
@@ -2388,6 +2387,7 @@ The task was re-queued on a fallback model after a retryable failure.
 
     const wasRunning = task.status === "running"
     if (wasRunning && abortSession && task.sessionId) {
+      log(`[background-agent] Cancelling task, aborting child session (task id: ${task.id}, session id: ${task.sessionId}, reason: ${reason ?? source}, evidence source: cancellation/${source})`)
       const aborted = await this.abortSessionWithLogging(task.sessionId, `task cancellation (${source})`)
       if (!aborted) return false
 
@@ -2562,6 +2562,10 @@ The task was re-queued on a fallback model after a retryable failure.
         clearDelegatedChildSessionBootstrap(task.sessionId)
         SessionCategoryRegistry.remove(task.sessionId)
 
+        // Attribution: every child-session cleanup on the terminal path is logged
+        // with the task id, session id, reason, and the evidence source that
+        // justified the kill, so no live child is ever silently interrupted/deleted.
+        log(`[background-agent] Cleaning up child session on task completion (task id: ${task.id}, session id: ${task.sessionId}, reason: task completion, evidence source: ${source})`)
         // Awaited to prevent dangling promise during subagent teardown (Bun/WebKit SIGABRT)
         await this.abortSessionWithLogging(task.sessionId, `task completion (${source})`)
 
@@ -3025,9 +3029,26 @@ The task was re-queued on a fallback model after a retryable failure.
             }
           }
 
-          // Only skip completion when session status is actively running.
-          // Unknown or terminal statuses (like "interrupted") fall through to completion.
-          if (sessionStatus && isActiveSessionStatus(sessionStatus.type)) {
+          // Without registry data we cannot make a safe terminal decision;
+          // keep waiting rather than guessing.
+          if (allStatuses === undefined) {
+            continue
+          }
+
+          // Registry-absence means UNKNOWN. Absence alone is NEVER treated as
+          // gone/complete, and a missing session must never be interrupted or
+          // deleted on that basis. Keep waiting.
+          if (sessionStatus === undefined) {
+            log("[background-agent] Task session UNKNOWN (absent from status registry); keeping waiting, NOT completing:", {
+              taskId: task.id,
+              sessionID,
+              consecutiveMissedPolls: task.consecutiveMissedPolls ?? 0,
+            })
+            continue
+          }
+
+          // Only skip completion while the session is actively running.
+          if (isActiveSessionStatus(sessionStatus.type)) {
             log("[background-agent] Session still running, relying on event-based progress:", {
               taskId: task.id,
               sessionID,
@@ -3037,43 +3058,42 @@ The task was re-queued on a fallback model after a retryable failure.
             continue
           }
 
-          if (sessionStatus && isTerminalSessionStatus(sessionStatus.type)) {
+          // Positive terminal evidence is required before completing or cleaning
+          // up a child. "deleted"/"error" are registry terminal states;
+          // "interrupted" is classified terminal; "idle" is the genuinely-finished
+          // child signal. Mid-flight assistant output is NOT completion evidence.
+          const isTerminal = isTerminalSessionStatus(sessionStatus.type)
+            || sessionStatus.type === "deleted"
+            || sessionStatus.type === "error"
+
+          if (isTerminal) {
+            const hasValidOutput = await this.validateSessionHasOutput(sessionID)
+            if (!hasValidOutput) {
+              log("[background-agent] Task reached terminal status without valid output; marking crashed (evidence source: registry status '" + sessionStatus.type + "'):", {
+                taskId: task.id,
+                sessionID,
+              })
+              await this.failCrashedTask(task, `Subagent session reached terminal status '${sessionStatus.type}' without producing valid output.`)
+              continue
+            }
             await this.tryCompleteTask(task, `polling (terminal session status: ${sessionStatus.type})`)
             continue
           }
 
-          if (sessionStatus && sessionStatus.type !== "idle") {
-            log("[background-agent] Unknown session status, treating as potentially idle:", {
+          if (sessionStatus.type !== "idle") {
+            log("[background-agent] Unknown non-active session status, treating as potentially idle but requiring valid output:", {
               taskId: task.id,
               sessionID,
               sessionStatus: sessionStatus.type,
             })
           }
 
-          if (allStatuses === undefined) {
-            continue
-          }
-
-          // Session is idle or no longer in status response (completed/disappeared)
-          const sessionGoneFromStatus = allStatuses !== undefined && !sessionStatus
-          const sessionGoneThresholdReached = sessionGoneFromStatus
-            && (task.consecutiveMissedPolls ?? 0) >= MIN_SESSION_GONE_POLLS
-          const completionSource = sessionStatus?.type === "idle"
-            ? "polling (idle status)"
-            : "polling (session gone from status)"
+          // Genuinely-finished child: idle (or other non-terminal, non-active)
+          // status must be corroborated by valid, terminal output before we
+          // complete. Mid-flight assistant text must never count as completion.
           const hasValidOutput = await this.validateSessionHasOutput(sessionID)
           if (!hasValidOutput) {
-            if (sessionGoneThresholdReached) {
-              const sessionExists = await this.verifySessionExists(sessionID)
-              if (!sessionExists) {
-                log("[background-agent] Session no longer exists (crashed), marking task as error:", task.id)
-                await this.failCrashedTask(task, "Subagent session no longer exists (process likely crashed). The session disappeared without producing any output.")
-                continue
-              }
-
-              task.consecutiveMissedPolls = 0
-            }
-            log("[background-agent] Polling idle/gone but no valid output yet, waiting:", task.id)
+            log("[background-agent] Polling idle/non-active but no valid output yet, waiting:", task.id)
             continue
           }
 
@@ -3086,7 +3106,7 @@ The task was re-queued on a fallback model after a retryable failure.
             continue
           }
 
-          await this.tryCompleteTask(task, completionSource)
+          await this.tryCompleteTask(task, `polling (${sessionStatus.type} status)`)
         } catch (error) {
           log("[background-agent] Poll error for task:", { taskId: task.id, error })
         }
@@ -3120,6 +3140,7 @@ The task was re-queued on a fallback model after a retryable failure.
       }
 
       if (task.status === "running" && task.sessionId) {
+        log(`[background-agent] Shutdown: aborting running child session (task id: ${task.id}, session id: ${task.sessionId}, reason: manager shutdown)`)
         abortRequests.push({
           sessionID: task.sessionId,
           promise: abortWithTimeout(this.client, task.sessionId),

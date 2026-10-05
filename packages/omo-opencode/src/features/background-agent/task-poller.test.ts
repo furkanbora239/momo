@@ -2,6 +2,8 @@ declare const require: (name: string) => any
 const { describe, it, expect, mock, spyOn, beforeEach, afterEach } = require("bun:test")
 
 import { checkAndInterruptStaleTasks, pruneStaleTasksAndNotifications } from "./task-poller"
+import { BackgroundManager } from "./manager"
+import { tmpdir } from "node:os"
 import type { BackgroundTask } from "./types"
 
 describe("checkAndInterruptStaleTasks", () => {
@@ -131,7 +133,7 @@ describe("checkAndInterruptStaleTasks", () => {
     expect(task.status).toBe("running")
   })
 
-  it("should still interrupt team-member tasks when the session is gone", async () => {
+  it("should NOT interrupt team-member tasks when the session is merely absent from the registry (UNKNOWN)", async () => {
     //#given
     const task = createRunningTask({
       teamRunId: "team-run-1",
@@ -153,9 +155,10 @@ describe("checkAndInterruptStaleTasks", () => {
       sessionStatuses: {},
     })
 
-    //#then
-    expect(task.status).toBe("cancelled")
-    expect(task.error).toContain("session gone from status registry")
+    //#then - registry-absence is UNKNOWN; the task keeps running and is never interrupted
+    expect(task.status).toBe("running")
+    expect(task.error).toBeUndefined()
+    expect(mockClient.session.abort).not.toHaveBeenCalled()
   })
 
   it("should interrupt tasks with NO progress.lastUpdate that exceeded messageStalenessTimeoutMs since startedAt", async () => {
@@ -560,8 +563,8 @@ describe("checkAndInterruptStaleTasks", () => {
     expect(mockClient.session.get).not.toHaveBeenCalled()
   })
 
-  it("should NOT cancel task when session.get confirms the session still exists", async () => {
-    //#given - repeated missing polls but direct lookup still succeeds
+  it("should NOT cancel task when the session is absent (UNKNOWN) and should not consult session.get", async () => {
+    //#given - repeated missing polls but direct lookup would succeed
     const task = createRunningTask({
       startedAt: new Date(Date.now() - 300_000),
       progress: {
@@ -581,14 +584,14 @@ describe("checkAndInterruptStaleTasks", () => {
       sessionStatuses: {},
     })
 
-    //#then
+    //#then - absence is UNKNOWN; kept waiting and session.get is never consulted
     expect(task.status).toBe("running")
-    expect(task.consecutiveMissedPolls).toBe(0)
-    expect(mockClient.session.get).toHaveBeenCalledWith({ path: { id: "ses-1" } })
+    expect(task.consecutiveMissedPolls).toBe(3)
+    expect(mockClient.session.get).not.toHaveBeenCalled()
   })
 
-  it("should NOT cancel or reset missed polls when session.get returns a transient error response", async () => {
-    //#given - repeated missing polls but lookup failed with a retryable transport error
+  it("should NOT cancel and should keep counting missed polls when session is absent (UNKNOWN)", async () => {
+    //#given - repeated missing polls (session.get would fail with a transient error)
     const task = createRunningTask({
       startedAt: new Date(Date.now() - 300_000),
       progress: {
@@ -613,13 +616,13 @@ describe("checkAndInterruptStaleTasks", () => {
       sessionStatuses: {},
     })
 
-    //#then
+    //#then - absence is UNKNOWN; kept waiting, poll counter increments, session.get not consulted
     expect(task.status).toBe("running")
     expect(task.consecutiveMissedPolls).toBe(3)
-    expect(mockClient.session.get).toHaveBeenCalledWith({ path: { id: "ses-1" } })
+    expect(mockClient.session.get).not.toHaveBeenCalled()
   })
 
-  it("should use session-gone timeout when session is missing from status map (with progress)", async () => {
+  it("should keep running (UNKNOWN) when session is missing from status map (with progress)", async () => {
     //#given - lastUpdate 2min ago, session completely gone from status
     const task = createRunningTask({
       startedAt: new Date(Date.now() - 300_000),
@@ -632,7 +635,7 @@ describe("checkAndInterruptStaleTasks", () => {
 
     mockClient.session.get.mockRejectedValue(new Error("missing"))
 
-    //#when - empty sessionStatuses (session gone), sessionGoneTimeoutMs = 60s
+    //#when - empty sessionStatuses (session absent), sessionGoneTimeoutMs = 60s
     await checkAndInterruptStaleTasks({
       tasks: [task],
       client: mockClient as never,
@@ -642,12 +645,13 @@ describe("checkAndInterruptStaleTasks", () => {
       sessionStatuses: {},
     })
 
-    //#then - cancelled because session gone timeout (60s) < timeSinceLastUpdate (120s)
-    expect(task.status).toBe("cancelled")
-    expect(task.error).toContain("session gone from status registry")
+    //#then - registry-absence is UNKNOWN; never interrupted on absence alone
+    expect(task.status).toBe("running")
+    expect(task.error).toBeUndefined()
+    expect(mockClient.session.abort).not.toHaveBeenCalled()
   })
 
-  it("should await abort before resolving for session-gone interruption", async () => {
+  it("should NOT await an abort for a session-gone (UNKNOWN) interruption because none is issued", async () => {
     //#given
     const task = createRunningTask({
       startedAt: new Date(Date.now() - 300_000),
@@ -677,16 +681,15 @@ describe("checkAndInterruptStaleTasks", () => {
 
     await Promise.resolve()
 
-    //#then
-    expect(settled).toBe(false)
+    //#then - no abort is issued for an absent (UNKNOWN) session, so it resolves immediately
+    expect(settled).toBe(true)
+    expect(mockClient.session.abort).not.toHaveBeenCalled()
 
     deferred.resolve()
     await interruptPromise
-
-    expect(settled).toBe(true)
   })
 
-  it("should use session-gone timeout when session is missing from status map (no progress)", async () => {
+  it("should keep running (UNKNOWN) when session is missing from status map (no progress)", async () => {
     //#given - task started 2min ago, no progress, session completely gone
     const task = createRunningTask({
       startedAt: new Date(Date.now() - 120_000),
@@ -696,7 +699,7 @@ describe("checkAndInterruptStaleTasks", () => {
 
     mockClient.session.get.mockRejectedValue(new Error("missing"))
 
-    //#when - session gone, sessionGoneTimeoutMs = 60s
+    //#when - session absent, sessionGoneTimeoutMs = 60s
     await checkAndInterruptStaleTasks({
       tasks: [task],
       client: mockClient as never,
@@ -706,9 +709,10 @@ describe("checkAndInterruptStaleTasks", () => {
       sessionStatuses: {},
     })
 
-    //#then - cancelled because session gone timeout (60s) < runtime (120s)
-    expect(task.status).toBe("cancelled")
-    expect(task.error).toContain("session gone from status registry")
+    //#then - registry-absence is UNKNOWN; never interrupted on absence alone
+    expect(task.status).toBe("running")
+    expect(task.error).toBeUndefined()
+    expect(mockClient.session.abort).not.toHaveBeenCalled()
   })
 
   it("should NOT use session-gone timeout when session is idle (present in status map)", async () => {
@@ -738,7 +742,7 @@ describe("checkAndInterruptStaleTasks", () => {
     expect(task.status).toBe("running")
   })
 
-  it("should use default session-gone timeout when not configured", async () => {
+  it("should keep running (UNKNOWN) when session is missing and no sessionGoneTimeoutMs is configured", async () => {
     //#given - lastUpdate 2min ago, session gone, no sessionGoneTimeoutMs config
     const task = createRunningTask({
       startedAt: new Date(Date.now() - 300_000),
@@ -761,9 +765,10 @@ describe("checkAndInterruptStaleTasks", () => {
       sessionStatuses: {},
     })
 
-    //#then - cancelled because default session gone timeout (60s) < timeSinceLastUpdate (120s)
-    expect(task.status).toBe("cancelled")
-    expect(task.error).toContain("session gone from status registry")
+    //#then - registry-absence is UNKNOWN; never interrupted on absence alone
+    expect(task.status).toBe("running")
+    expect(task.error).toBeUndefined()
+    expect(mockClient.session.abort).not.toHaveBeenCalled()
   })
 
   it("should interrupt task when busy session exceeds stale timeout", async () => {
@@ -1253,5 +1258,173 @@ describe("pruneStaleTasksAndNotifications", () => {
     expect(pruned).toEqual([])
     expect(tasks.has(task.id)).toBe(true)
     expect(notifications.has(task.parentSessionId)).toBe(false)
+  })
+})
+
+describe("background-agent kill-storm hardening (M1b)", () => {
+  function createPluginContext(client: object) {
+    const directory = tmpdir()
+    return {
+      project: { id: "test-project", worktree: directory, time: { created: Date.now() } },
+      directory,
+      worktree: directory,
+      serverUrl: new URL("http://localhost:4096"),
+      $: {} as never,
+      client: client as never,
+    }
+  }
+
+  function createManager(client: object): BackgroundManager {
+    return new BackgroundManager({
+      pluginContext: createPluginContext(client) as never,
+      config: undefined,
+      enableParentSessionNotifications: false,
+    })
+  }
+
+  function makeRunningTask(sessionId: string): BackgroundTask {
+    return {
+      id: `bg_${sessionId}`,
+      sessionId,
+      parentSessionId: "parent-session",
+      parentMessageId: "parent-msg",
+      description: "test",
+      prompt: "test",
+      agent: "explore",
+      status: "running",
+      startedAt: new Date(),
+      progress: { toolCalls: 0, lastUpdate: new Date() },
+    }
+  }
+
+  // (a) registry-absence -> wait branch, task NOT completed (poller)
+  it("#given session absent from registry #when checkAndInterruptStaleTasks runs #then task is NOT interrupted/completed", async () => {
+    //#given
+    const abort = mock(() => Promise.resolve({}))
+    const client = {
+      session: { abort, get: mock(() => Promise.resolve({ data: { id: "ses-1" } })) },
+    }
+    const concurrencyRelease = mock(() => {})
+    const notify = mock(() => Promise.resolve())
+    const task = makeRunningTask("ses-1")
+
+    //#when - empty sessionStatuses means the session is absent (UNKNOWN)
+    await checkAndInterruptStaleTasks({
+      tasks: [task],
+      client: client as never,
+      config: { staleTimeoutMs: 1, sessionGoneTimeoutMs: 1 },
+      concurrencyManager: { release: concurrencyRelease } as never,
+      notifyParentSession: notify,
+      sessionStatuses: {},
+    })
+
+    //#then - absence is UNKNOWN; task keeps running and is never interrupted
+    expect(task.status).toBe("running")
+    expect(abort).not.toHaveBeenCalled()
+  })
+
+  // (d) cleanup safety: no interrupt/delete call when evidence is non-terminal (manager)
+  it("#given an actively-running child with output #when pollRunningTasks runs #then no abort/delete is issued", async () => {
+    //#given - child reports "busy" (active) and has produced output so far
+    const abort = mock(() => Promise.resolve({}))
+    const manager = createManager({
+      session: {
+        status: async () => ({ data: { "ses-busy": { type: "busy" } } }),
+        abort,
+        get: mock(() => Promise.resolve({ data: { id: "ses-busy" } })),
+        prompt: async () => ({}),
+        promptAsync: async () => ({}),
+        todo: async () => ({ data: [] }),
+        messages: async () => ({ data: [{ info: { role: "assistant", id: "m" }, parts: [{ type: "text", text: "working" }] }] }),
+      },
+    })
+    const task = makeRunningTask("ses-busy")
+    manager["tasks"].set(task.id, task)
+
+    //#when
+    await manager["pollRunningTasks"]()
+
+    //#then - a live, active child is never interrupted or deleted by the poll
+    expect(task.status).toBe("running")
+    expect(abort).not.toHaveBeenCalled()
+    await manager.shutdown()
+  })
+
+  // (b) mid-flight output only -> NOT completion evidence
+  it("#given a child whose session is absent (UNKNOWN) but has mid-flight output #when pollRunningTasks runs #then task is NOT completed", async () => {
+    //#given - session absent from the registry, but the session has produced assistant text mid-flight
+    const abort = mock(() => Promise.resolve({}))
+    const manager = createManager({
+      session: {
+        status: async () => ({ data: {} }),
+        abort,
+        get: mock(() => Promise.resolve({ data: { id: "ses-mid" } })),
+        prompt: async () => ({}),
+        promptAsync: async () => ({}),
+        todo: async () => ({ data: [] }),
+        messages: async () => ({ data: [{ info: { role: "assistant", id: "m" }, parts: [{ type: "text", text: "half-done..." }] }] }),
+      },
+    })
+    const task = makeRunningTask("ses-mid")
+    manager["tasks"].set(task.id, task)
+
+    //#when
+    await manager["pollRunningTasks"]()
+
+    //#then - mid-flight output alone is NOT completion evidence; task keeps running
+    expect(task.status).toBe("running")
+    expect(abort).not.toHaveBeenCalled()
+    await manager.shutdown()
+  })
+
+  // (c) terminal/deleted status -> complete allowed
+  it("#given a child at idle status with valid output #when pollRunningTasks runs #then task completes", async () => {
+    //#given - idle status is the genuinely-finished-child signal, corroborated by output
+    const abort = mock(() => Promise.resolve({}))
+    const manager = createManager({
+      session: {
+        status: async () => ({ data: { "ses-idle": { type: "idle" } } }),
+        abort,
+        get: mock(() => Promise.resolve({ data: { id: "ses-idle" } })),
+        prompt: async () => ({}),
+        promptAsync: async () => ({}),
+        todo: async () => ({ data: [] }),
+        messages: async () => ({ data: [{ info: { role: "assistant", id: "m" }, parts: [{ type: "text", text: "done" }] }] }),
+      },
+    })
+    const task = makeRunningTask("ses-idle")
+    manager["tasks"].set(task.id, task)
+
+    //#when
+    await manager["pollRunningTasks"]()
+    await manager.shutdown()
+
+    //#then - positive terminal evidence (idle + valid output) allows completion
+    expect(task.status).toBe("completed")
+  })
+
+  it("#given a child with a terminal 'deleted' status #when pollRunningTasks runs #then task completes", async () => {
+    //#given - a registry terminal status is positive evidence the session ended
+    const abort = mock(() => Promise.resolve({}))
+    const manager = createManager({
+      session: {
+        status: async () => ({ data: { "ses-del": { type: "deleted" } } }),
+        abort,
+        get: mock(() => Promise.resolve({ data: { id: "ses-del" } })),
+        prompt: async () => ({}),
+        promptAsync: async () => ({}),
+        todo: async () => ({ data: [] }),
+        messages: async () => ({ data: [{ info: { role: "assistant", id: "m" }, parts: [{ type: "text", text: "done" }] }] }),
+      },
+    })
+    const task = makeRunningTask("ses-del")
+    manager["tasks"].set(task.id, task)
+
+    //#when
+    await manager["pollRunningTasks"]()
+    await manager.shutdown()
+
+    //#then - positive terminal evidence (deleted status) allows completion
+    expect(task.status).toBe("completed")
   })
 })

@@ -97,7 +97,7 @@ describe("BackgroundManager pollRunningTasks when session status registry is una
     }
   })
 
-  test("completes a task when a reliable status response omits the session", async () => {
+  test("keeps a task running when a reliable status response omits the session (absence is UNKNOWN, not completion)", async () => {
     // given
     const manager = createManager({
       status: async () => ({ data: {} }),
@@ -106,11 +106,11 @@ describe("BackgroundManager pollRunningTasks when session status registry is una
     injectTask(manager, task)
 
     // when
-    await poll(manager, MIN_SESSION_GONE_POLLS)
+    await poll(manager, MIN_SESSION_GONE_POLLS + 2)
     await manager.shutdown()
 
-    // then
-    expect(task.status).toBe("completed")
-    expect(task.completedAt).toBeDefined()
+    // then - registry-absence is UNKNOWN; the task must keep running and is never completed/deleted
+    expect(task.status).toBe("running")
+    expect(task.completedAt).toBeUndefined()
   })
 })
