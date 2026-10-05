@@ -1,6 +1,7 @@
 import type { HooksWithRuntimeLifecycle } from "../testing/create-plugin-module"
 import type { V2PluginContext } from "./types"
 import type { SessionStatusRegistry } from "./session-status-registry"
+import type { TodoRegistry } from "./todo-registry"
 import { createRegistrationCollector, type V2RegistrationCollector } from "./registration-collector"
 import { registerEventHook } from "./event-hook-bridge"
 import { registerPermissionHooks } from "./permission-hook-bridge"
@@ -25,6 +26,7 @@ export async function registerV2Hooks(
   ctx: V2PluginContext,
   hooks: HooksWithRuntimeLifecycle,
   registry?: SessionStatusRegistry,
+  todoRegistry?: TodoRegistry,
 ): Promise<V2HookBridge> {
   const collector = createRegistrationCollector()
 
@@ -33,7 +35,7 @@ export async function registerV2Hooks(
   await registerSessionModelRequestHooks(ctx, hooks, collector)
   await registerSessionCompactionHooks(ctx, hooks, collector)
   await registerToolHooks(ctx, hooks, collector)
-  await registerEventHook(ctx, hooks, collector, registry)
+  await registerEventHook(ctx, hooks, collector, registry, todoRegistry)
   await registerShellHooks(ctx, hooks, collector)
   await registerPermissionHooks(ctx, hooks, collector)
 

@@ -81,6 +81,33 @@ describe("createSessionStatusRegistry", () => {
     expect(registry.map()).toEqual({})
   })
 
+  it("records a terminal interrupted status for session.execution.interrupted", () => {
+    // given
+    const registry = createSessionStatusRegistry()
+    registry.feed("session.execution.started", "ses-5")
+    expect(registry.get("ses-5")).toEqual({ type: "busy" })
+
+    // when
+    registry.feed("session.execution.interrupted", "ses-5")
+
+    // then
+    expect(registry.get("ses-5")).toEqual({ type: "interrupted" })
+    expect(registry.map()).toEqual({ "ses-5": { type: "interrupted" } })
+  })
+
+  it("maps the session.execution siblings to active and finished statuses", () => {
+    // given
+    const registry = createSessionStatusRegistry()
+
+    // when
+    registry.feed("session.execution.started", "ses-6")
+    registry.feed("session.execution.succeeded", "ses-7")
+
+    // then
+    expect(registry.get("ses-6")).toEqual({ type: "busy" })
+    expect(registry.get("ses-7")).toEqual({ type: "idle" })
+  })
+
   it("ignores unknown event kinds that carry no explicit status", () => {
     // given
     const registry = createSessionStatusRegistry()

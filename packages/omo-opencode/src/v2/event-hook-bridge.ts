@@ -7,6 +7,7 @@ import type { V2PluginContext } from "./types"
 import type { V2RegistrationCollector } from "./registration-collector"
 import { createLogOnce, createV1HookInvoker, type LogOnce } from "./registration-collector"
 import type { SessionStatusRegistry } from "./session-status-registry"
+import { toTodoItems, type TodoRegistry } from "./todo-registry"
 
 /**
  * Bridges the V1 `event` handler onto `ctx.event.subscribe(...)` (an async
@@ -25,6 +26,7 @@ export async function registerEventHook(
   hooks: HooksWithRuntimeLifecycle,
   collector: V2RegistrationCollector,
   registry?: SessionStatusRegistry,
+  todoRegistry?: TodoRegistry,
 ): Promise<void> {
   const handler = hooks.event
   if (!handler) return
@@ -45,6 +47,12 @@ export async function registerEventHook(
               data.sessionID,
               event.type === "session.status" ? { status: data.status } : undefined,
             )
+          }
+        }
+        if (todoRegistry !== undefined) {
+          const data = event.data as { sessionID?: string; todos?: unknown } | undefined
+          if (data !== undefined && typeof data.sessionID === "string") {
+            todoRegistry.feed(event.type, data.sessionID, { todos: toTodoItems(data.todos) })
           }
         }
         const v1Event = mapV2EventToV1(event, logOnce)

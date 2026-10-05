@@ -83,6 +83,12 @@ function deriveStatusType(eventKind: string, details?: { status?: string }): Ses
       return details?.status ?? "alive"
     case "session.created":
       return "alive"
+    case "session.execution.started":
+      return "busy"
+    case "session.execution.succeeded":
+      return "idle"
+    case "session.execution.interrupted":
+      return "interrupted"
     case "session.execution.failed":
     case "session.step.failed":
       return details?.status ?? "error"

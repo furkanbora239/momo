@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import { createV2EventToV1Mapper, registerEventHook } from "./event-hook-bridge"
 import { createLogOnce, createRegistrationCollector } from "./registration-collector"
+import { createSessionStatusRegistry } from "./session-status-registry"
+import { createTodoRegistry } from "./todo-registry"
 import { createHookBridgeTestHarness, syntheticHandlers } from "./hook-bridge.test-support"
 
 describe("createV2EventToV1Mapper", () => {
@@ -82,6 +84,62 @@ describe("registerEventHook", () => {
 
     // then
     expect(received).toEqual(["session.idle", "session.compacted"])
+  })
+
+  it("feeds session.execution lifecycle events into the status registry", async () => {
+    // given
+    const harness = createHookBridgeTestHarness({
+      events: [{ type: "session.execution.started", created: 1, data: { sessionID: "sess-1" } }],
+    })
+    const collector = createRegistrationCollector()
+    const registry = createSessionStatusRegistry()
+
+    // when
+    await registerEventHook(harness.ctx, syntheticHandlers(), collector, registry)
+    await sleep(15)
+
+    // then
+    expect(registry.get("sess-1")).toEqual({ type: "busy" })
+
+    // when
+    harness.pushEvent({
+      type: "session.execution.interrupted",
+      created: 2,
+      data: { sessionID: "sess-1", reason: "user" },
+    })
+    await sleep(15)
+
+    // then
+    expect(registry.get("sess-1")).toEqual({ type: "interrupted" })
+  })
+
+  it("feeds todo snapshots into the todo registry and prunes on session delete", async () => {
+    // given
+    const harness = createHookBridgeTestHarness({
+      events: [
+        {
+          type: "todo.updated",
+          created: 1,
+          data: { sessionID: "sess-1", todos: [{ content: "ship it", status: "pending" }] },
+        },
+      ],
+    })
+    const collector = createRegistrationCollector()
+    const todoRegistry = createTodoRegistry()
+
+    // when
+    await registerEventHook(harness.ctx, syntheticHandlers(), collector, undefined, todoRegistry)
+    await sleep(15)
+
+    // then
+    expect(todoRegistry.get("sess-1")).toEqual([{ content: "ship it", status: "pending" }])
+
+    // when
+    harness.pushEvent({ type: "session.deleted", created: 2, data: { sessionID: "sess-1" } })
+    await sleep(15)
+
+    // then
+    expect(todoRegistry.get("sess-1")).toBeUndefined()
   })
 
   it("aborts the subscription loop when the collected registration disposes", async () => {

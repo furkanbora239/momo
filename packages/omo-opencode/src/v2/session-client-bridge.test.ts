@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { createSessionClientBridge } from "./session-client-bridge"
+import { createTodoRegistry } from "./todo-registry"
 import type { V2PluginContext } from "./types"
 
 type RecordedCall = { method: string; args: unknown }
@@ -232,6 +233,38 @@ describe("createSessionClientBridge", () => {
     // then
     expect(todo).toBeUndefined()
     expect(status).toBeUndefined()
+    expect(calls).toEqual([])
+  })
+
+  it("serves session.todo from the todo registry in the V1 data envelope", async () => {
+    // given - call shape copied from tools/task/todo-sync.ts
+    const { ctx } = createFakeCtx()
+    const todoRegistry = createTodoRegistry()
+    todoRegistry.feed("todo.updated", "sess-1", {
+      todos: [{ id: "t-1", content: "ship it", status: "in_progress", priority: "high" }],
+    })
+    const session = createSessionClientBridge(ctx, undefined, todoRegistry)
+
+    // when
+    const result = await session.todo({ path: { id: "sess-1" } })
+
+    // then
+    expect(result).toEqual({
+      data: [{ id: "t-1", content: "ship it", status: "in_progress", priority: "high" }],
+      error: undefined,
+    })
+  })
+
+  it("degrades session.todo to undefined for an untracked session", async () => {
+    // given
+    const { ctx, calls } = createFakeCtx()
+    const session = createSessionClientBridge(ctx, undefined, createTodoRegistry())
+
+    // when
+    const result = await session.todo({ path: { id: "sess-missing" } })
+
+    // then
+    expect(result?.data).toBeUndefined()
     expect(calls).toEqual([])
   })
 })

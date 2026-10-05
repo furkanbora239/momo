@@ -2,6 +2,7 @@ import { log } from "../shared/logger"
 import { createUnmappedNoOpMethod, toV1Result, type V1ClientResult } from "./client-bridge-result"
 import { adaptSessionMessages, type V1AdaptedMessage } from "./session-message-adapter"
 import type { SessionStatusRegistry } from "./session-status-registry"
+import type { TodoItem, TodoRegistry } from "./todo-registry"
 import type { V2PluginContext } from "./types"
 
 /**
@@ -11,6 +12,14 @@ import type { V2PluginContext } from "./types"
  */
 const SESSION_STATUS_UNMAPPED_LOG =
   "[v2-client-bridge] session.status is not mapped under OpenCode V2 (the V2 plugin ctx exposes no session status API); degrading to no-op"
+
+/**
+ * Kept verbatim from the original no-op mapping so the degraded path still
+ * identifies itself in the log. Now fires only when the registry is wired but
+ * has no entry for the requested session (or is entirely absent).
+ */
+const SESSION_TODO_UNMAPPED_LOG =
+  "[v2-client-bridge] session.todo is not mapped under OpenCode V2 (the V2 client has no todo API); degrading to no-op"
 
 type V2SessionInfo = Awaited<ReturnType<V2PluginContext["session"]["get"]>>
 type V2SessionCreateInput = Parameters<V2PluginContext["session"]["create"]>[0]
@@ -70,7 +79,7 @@ export type SessionClientBridge = {
   messages: (args: V1SessionMessagesArgs) => Promise<V1ClientResult<V1AdaptedMessage[]>>
   summarize: (args: V1SessionSummarizeArgs) => Promise<V1ClientResult<boolean>>
   promptAsync: (args: V1SessionPromptAsyncArgs) => Promise<V1ClientResult<undefined>>
-  todo: () => Promise<undefined>
+  todo: (args: V1SessionIdArgs) => Promise<V1ClientResult<TodoItem[]> | undefined>
   status: (
     args?: { path?: { id?: string } },
   ) => Promise<V1ClientResult<Record<string, { type: string }> | { type: string } | undefined> | undefined>
@@ -92,6 +101,7 @@ export type SessionClientBridge = {
 export function createSessionClientBridge(
   ctx: V2PluginContext,
   registry?: SessionStatusRegistry,
+  todoRegistry?: TodoRegistry,
 ): SessionClientBridge {
   return {
     get: (args) =>
@@ -125,7 +135,23 @@ export function createSessionClientBridge(
         return true
       }),
     promptAsync: (args) => toV1Result(() => dispatchV2Prompt(ctx, args)),
-    todo: createUnmappedNoOpMethod("session.todo", "the V2 client has no todo API"),
+    todo: (args) => {
+      if (todoRegistry === undefined) {
+        log(SESSION_TODO_UNMAPPED_LOG)
+        return Promise.resolve(undefined)
+      }
+      const id = args?.path?.id
+      if (id === undefined || id.length === 0) {
+        log(SESSION_TODO_UNMAPPED_LOG)
+        return Promise.resolve(undefined)
+      }
+      const todos = todoRegistry.get(id)
+      if (todos === undefined) {
+        log(SESSION_TODO_UNMAPPED_LOG, { sessionID: id })
+        return Promise.resolve(undefined)
+      }
+      return toV1Result(async () => todos)
+    },
     status: (args) => {
       if (registry === undefined) {
         log(SESSION_STATUS_UNMAPPED_LOG)
