@@ -1,0 +1,259 @@
+{
+  "description": "Expected child (worker/subagent) tool surface for the M7+M2b regression exam. Per-agent requiredPresence (hard gate, promoted from M7 advisoryPresence for worker-class agents: codegraph/websearch/webfetch/skill) and removed (hard gate) are generated from packages/omo-opencode/src/shared/agent-tool-surface.ts, the single source of truth. Union of observed child tool names must satisfy every worker-class requiredPresence entry and must contain none of any agent's removed set.",
+  "requiredBaseline": [
+    "read",
+    "shell",
+    "execute",
+    "edit"
+  ],
+  "agents": {
+    "sisyphus": {
+      "class": "orchestrator",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list"
+      ]
+    },
+    "planner": {
+      "class": "planner",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "edit"
+      ]
+    },
+    "sisyphus-junior": {
+      "class": "worker",
+      "requiredPresence": [
+        "codegraph_explore",
+        "skill",
+        "websearch",
+        "webfetch"
+      ],
+      "livePresenceGate": [
+        "websearch",
+        "webfetch"
+      ],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "subagent"
+      ]
+    },
+    "worker": {
+      "class": "worker",
+      "requiredPresence": [
+        "codegraph_explore",
+        "skill",
+        "websearch",
+        "webfetch"
+      ],
+      "livePresenceGate": [
+        "websearch",
+        "webfetch"
+      ],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "subagent"
+      ]
+    },
+    "executor": {
+      "class": "worker",
+      "requiredPresence": [
+        "codegraph_explore",
+        "skill",
+        "websearch",
+        "webfetch"
+      ],
+      "livePresenceGate": [
+        "websearch",
+        "webfetch"
+      ],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "edit",
+        "call_omo_agent"
+      ]
+    },
+    "advisor": {
+      "class": "advisor",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list"
+      ]
+    },
+    "explore": {
+      "class": "read-only",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "edit",
+        "subagent",
+        "call_omo_agent"
+      ]
+    },
+    "librarian": {
+      "class": "read-only",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "edit",
+        "subagent",
+        "call_omo_agent"
+      ]
+    },
+    "research": {
+      "class": "read-only",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "edit",
+        "subagent",
+        "call_omo_agent"
+      ]
+    },
+    "reviewer": {
+      "class": "manager",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list",
+        "edit"
+      ]
+    },
+    "catalog-researcher": {
+      "class": "researcher",
+      "requiredPresence": [],
+      "livePresenceGate": [],
+      "removed": [
+        "team_create",
+        "team_delete",
+        "team_shutdown_request",
+        "team_approve_shutdown",
+        "team_reject_shutdown",
+        "team_send_message",
+        "team_task_create",
+        "team_task_list",
+        "team_task_update",
+        "team_task_get",
+        "team_status",
+        "team_list"
+      ]
+    }
+  }
+}
