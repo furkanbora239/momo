@@ -49,7 +49,12 @@ export class ParentWakeFlushRunner {
     }
     const emptyAssistantTurnRetry = latestWake.allowEmptyAssistantTurnRetry === true
     const forceDispatchAfterActiveDefer = sessionActive && this.shouldForceDispatchAfterActiveDefer(latestWake)
-    if (sessionActive && !forceDispatchAfterActiveDefer) {
+    // Urgent (deliverImmediately) wakes bypass the active-parent deferral so the
+    // notification reaches the parent within the bounded wait instead of waiting
+    // for the parent to go idle. They are delivered as no-reply (shouldReply is
+    // false) so they inform without forking a turn that would consume state.
+    const bypassActiveDefer = sessionActive && latestWake.deliverImmediately === true
+    if (sessionActive && !forceDispatchAfterActiveDefer && !bypassActiveDefer) {
       this.schedulePendingParentWakeFlush(sessionID)
       log("[background-agent] Deferred parent wake because parent session is active:", {
         sessionID,

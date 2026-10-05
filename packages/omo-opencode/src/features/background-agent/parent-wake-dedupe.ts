@@ -11,6 +11,11 @@ export type PendingParentWake = {
   promptContext: ParentWakePromptContext
   notifications: string[]
   shouldReply: boolean
+  // When true the wake is delivered as a no-reply notification immediately,
+  // bypassing the active-parent deferral. Used for urgent child-question
+  // routing where the orchestrator must be notified within the bounded wait
+  // but the question must stay pending (not auto-consumed by a reply turn).
+  deliverImmediately?: boolean
   queuedAt?: number
   dispatchedAt?: number
   noReplyAdmittedAt?: number
@@ -35,6 +40,7 @@ export function cloneParentWake(wake: PendingParentWake): PendingParentWake {
     promptContext,
     notifications: [...wake.notifications],
     shouldReply: wake.shouldReply,
+    ...(wake.deliverImmediately !== undefined ? { deliverImmediately: wake.deliverImmediately } : {}),
     ...(wake.queuedAt !== undefined ? { queuedAt: wake.queuedAt } : {}),
     ...(wake.dispatchedAt !== undefined ? { dispatchedAt: wake.dispatchedAt } : {}),
     ...(wake.noReplyAdmittedAt !== undefined ? { noReplyAdmittedAt: wake.noReplyAdmittedAt } : {}),

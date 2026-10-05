@@ -206,9 +206,10 @@ describeFn("executeBackgroundTask output/session metadata compatibility", () => 
     expectFn(metadataCalls[0].metadata.backgroundTaskId).toBe("bg_late")
   })
 
-  testFn("passes question-deny session permission when launching delegate task", async () => {
-    //#given - delegate task background launch should deny question at session creation time
-    const launchCalls: Array<{ sessionPermission: unknown }> = []
+  testFn("does not deny question on the delegated child session (M2d allows worker questions)", async () => {
+    //#given - M2d lets a delegated worker raise a question so the orchestrator
+    // can route and answer it; the child session must NOT carry a question-deny.
+    const launchCalls: Array<{ sessionPermission?: unknown }> = []
     const manager = {
       launch: async (input: { sessionPermission: unknown }) => {
         launchCalls.push(input)
@@ -247,9 +248,7 @@ describeFn("executeBackgroundTask output/session metadata compatibility", () => 
 
     //#then
     expectFn(launchCalls).toHaveLength(1)
-    expectFn(launchCalls[0].sessionPermission).toEqual([
-      { permission: "question", action: "deny", pattern: "*" },
-    ])
+    expectFn(launchCalls[0].sessionPermission).toBeUndefined()
   })
 
   testFn("strips leading zwsp from agent name before launching background task", async () => {

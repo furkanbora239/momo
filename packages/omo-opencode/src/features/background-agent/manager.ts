@@ -12,6 +12,7 @@ import { resolveDispatchClient } from "../../shared/live-server-route"
 import {
   createInternalAgentTextPart,
   getAgentToolRestrictions,
+  normalizeToolRecord,
   hasInternalInitiatorMarker,
   isAmbiguousPostDispatchPromptFailure,
   log,
@@ -20,6 +21,7 @@ import {
   normalizeSDKResponse,
   promptWithRetryInDirectory,
   resolveInheritedPromptTools,
+  withInternalNoReplyMarker,
 } from "../../shared"
 import {
   clearDelegatedChildSessionBootstrap,
@@ -114,6 +116,19 @@ import {
   getRegisteredBackgroundTask,
   rememberBackgroundTask,
 } from "./task-registry"
+import {
+  buildChildQuestionAnswerPrompt,
+  buildChildQuestionNotificationText,
+  buildUserEscalationNotificationText,
+  DEFAULT_QUESTION_ORCHESTRATOR_WAIT_MS,
+  isQuestionTool,
+  parseChildQuestionEvent,
+  parseQuestionArgs,
+  QuestionEventApi,
+  resolveQuestionRouteTarget,
+  type PendingQuestion,
+  type QuestionRouteResult,
+} from "./subagent-question-router"
 import type {
   BackgroundTask,
   BackgroundTaskAttempt,
@@ -240,6 +255,10 @@ export interface BackgroundManagerConfig {
   enableParentSessionNotifications?: boolean
   modelFallbackControllerAccessor?: ModelFallbackControllerAccessor
   log?: typeof log
+  /** Bounded wait for the orchestrator to answer a routed child question before escalation. */
+  questionOrchestratorWaitMs?: number
+  /** M2d — event-subscription API used to observe delegated subagent questions. */
+  eventApi?: QuestionEventApi
 }
 
 export class BackgroundManager {
@@ -284,6 +303,12 @@ export class BackgroundManager {
   private readonly scheduledFlushSettledCounts = new Map<string, number>()
   private readonly scheduledFlushSettledWaiters = new Map<string, Array<() => void>>()
 
+  /** M2d — pending child questions routed to the orchestrator, keyed by child session id. */
+  private pendingQuestionsByChildSession: Map<string, PendingQuestion> = new Map()
+  private pendingQuestionTimers: Map<string, ReturnType<typeof setTimeout>> = new Map()
+  private questionOrchestratorWaitMs: number
+  private eventUnsubscribe?: () => void
+
   constructor(config: BackgroundManagerConfig) {
     const { pluginContext, ...options } = config
     this.tasks = new Map()
@@ -304,6 +329,10 @@ export class BackgroundManager {
     this.enableParentSessionNotifications = options?.enableParentSessionNotifications ?? true
     this.modelFallbackControllerAccessor = options?.modelFallbackControllerAccessor
     this.logger = options?.log ?? log
+    this.questionOrchestratorWaitMs =
+      options?.questionOrchestratorWaitMs ?? DEFAULT_QUESTION_ORCHESTRATOR_WAIT_MS
+    const eventApi = (pluginContext as { event?: QuestionEventApi }).event ?? options?.eventApi
+    this.subscribeToChildQuestionEvents(eventApi)
     this.parentWakeNotifier = new ParentWakeNotifier(
       {
         client: this.client,
@@ -893,15 +922,19 @@ The fallback retry session is now created and can be inspected directly.
       }
     }
 
-    const launchTools = {
+    const launchTools = normalizeToolRecord({
       task: false,
       call_omo_agent: true,
-      question: false,
+      // M2d — a delegated worker must be able to call `question` so the
+      // orchestrator can route/answer it. Denying it (the pre-M2d default)
+      // left the worker unable to raise a question, so the routing path never
+      // fired. Routing + fallback-to-user is handled by the question router.
+      question: true,
       ...userDenied,
       ...getAgentToolRestrictions(input.agent, {
         includeTeamToolDenylist: input.teamRunId === undefined,
       }),
-    }
+    })
     setSessionTools(sessionID, launchTools)
 
     log("[background-agent] Launching task:", { taskId: task.id, sessionID, agent: input.agent })
@@ -1147,6 +1180,296 @@ The fallback retry session is now created and can be inspected directly.
       }
     }
     return undefined
+  }
+
+  /**
+   * M2d — whether the given session is a tracked delegated subagent (has a
+   * background task registered for it). Only tracked subagents have a parent
+   * orchestrator to route questions to.
+   */
+  isTrackedChildSession(sessionID: string): boolean {
+    return this.findBySession(sessionID) !== undefined
+  }
+
+  /**
+   * M2d — subscribe to the `tool.execute.before` event bus (the same stream the
+   * V1 `tool.execute.before` hook consumes) so a delegated subagent's question is
+   * routed to its orchestrator without touching the plugin hook chain. The
+   * trigger lives entirely inside the background-agent engine.
+   */
+  private resolveQuestionEventApi(injected?: QuestionEventApi): QuestionEventApi | undefined {
+    if (injected && typeof injected.subscribe === "function") {
+      return injected
+    }
+    // The OpenCode plugin input (`PluginInput`) has no `event` subscription
+    // field, and the server SSE `Event` union does not include `tool.*` events,
+    // so the only reliable live source is the SDK client's `event.subscribe`
+    // stream (`GET /api/event`), which DOES carry `session.tool.called` and
+    // `session.tool.input.*` for delegated subagents.
+    const client = this.client as unknown as {
+      event?: { subscribe: (opts: { query: { directory?: string } }) => Promise<{ stream: AsyncIterable<unknown> }> }
+    }
+    const eventApiObj = client?.event
+    if (eventApiObj?.subscribe) {
+      return {
+        subscribe: async () => {
+          const result = await eventApiObj.subscribe({
+            query: this.directory ? { directory: this.directory } : {},
+          })
+          return result.stream
+        },
+      }
+    }
+    return undefined
+  }
+
+  private subscribeToChildQuestionEvents(eventApi: QuestionEventApi | undefined): void {
+    const resolved = this.resolveQuestionEventApi(eventApi)
+    if (!resolved || typeof resolved.subscribe !== "function") {
+      log("[subagent-question-router] no event subscription available; child question routing is inactive")
+      return
+    }
+    const controller = new AbortController()
+    this.eventUnsubscribe = () => controller.abort()
+    void (async () => {
+      try {
+        const stream = await resolved.subscribe({ signal: controller.signal })
+        for await (const event of stream) {
+          const eventRecord = event as { type?: string }
+          const type = eventRecord.type
+          // `tool.execute.before` is the V1 hook shape; `session.tool.called`
+          // is the V2 SSE shape that actually fires for delegated subagents.
+          if (type !== "tool.execute.before" && type !== "session.tool.called") continue
+          const parsed = parseChildQuestionEvent(event)
+          if (!parsed) continue
+          // A `session.tool.called` carries no `tool` name, so also accept any
+          // call whose args contain a `questions` array (the question tool).
+          const looksLikeQuestion =
+            (parsed.tool && isQuestionTool(parsed.tool))
+            || (parsed.args && Array.isArray((parsed.args as { questions?: unknown }).questions)
+              && ((parsed.args as { questions?: unknown[] }).questions?.length ?? 0) > 0)
+          if (!looksLikeQuestion) continue
+          if (!this.isTrackedChildSession(parsed.sessionID)) continue
+          const result = this.routeChildQuestion({
+            sessionID: parsed.sessionID,
+            questionArgs: parsed.args,
+          })
+          log("[subagent-question-router] routed from event bus:", {
+            sessionID: parsed.sessionID,
+            routed: result.routed,
+          })
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          this.logger("[subagent-question-router] event subscription failed:", {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      }
+    })()
+  }
+
+  disposeChildQuestionEvents(): void {
+    this.eventUnsubscribe?.()
+    this.eventUnsubscribe = undefined
+  }
+
+  /**
+   * M2d — route a question raised by a delegated subagent.
+   *
+   * Resolution order (see subagent-question-router.ts):
+   *  - no tracked task / no parent session -> `user` (byte-compatible fallback)
+   *  - explicit `route: "user"` in args -> `user` (byte-compatible)
+   *  - otherwise -> `orchestrator`: the question is recorded as pending and
+   *    streamed to the parent session as a notification; a bounded-wait timer
+   *    escalates to the user if unanswered.
+   */
+  routeChildQuestion(args: {
+    sessionID: string
+    questionArgs: Record<string, unknown>
+  }): QuestionRouteResult {
+    const task = this.findBySession(args.sessionID)
+    if (!task || !task.parentSessionId) {
+      return { routed: "user" }
+    }
+
+    // Idempotent: the V1 `tool.execute.before` hook and the V2 SSE
+    // `session.tool.called` subscription can both observe the same question
+    // call. Without this guard the orchestrator would receive a duplicate
+    // notification and a duplicate escalation timer.
+    const existing = this.pendingQuestionsByChildSession.get(args.sessionID)
+    if (existing && !existing.answered && !existing.escalated) {
+      return {
+        routed: "orchestrator",
+        taskId: existing.taskId,
+        parentSessionId: existing.parentSessionId,
+        pending: existing,
+      }
+    }
+
+    const questions = parseQuestionArgs(args.questionArgs)
+    const route = resolveQuestionRouteTarget(args.questionArgs)
+    if (route === "user") {
+      return { routed: "user" }
+    }
+
+    const pending: PendingQuestion = {
+      childSessionId: args.sessionID,
+      taskId: task.id,
+      parentSessionId: task.parentSessionId,
+      questions,
+      route: "orchestrator",
+      askedAt: Date.now(),
+      answered: false,
+      escalated: false,
+    }
+    this.pendingQuestionsByChildSession.set(args.sessionID, pending)
+
+    const notification = buildChildQuestionNotificationText(pending)
+    void this.enqueueNotificationForParent(task.parentSessionId, async () => {
+      const promptContext = await this.resolveParentWakePromptContext(task)
+      // Deliver as an urgent no-reply notification: `deliverImmediately` bypasses
+      // the active-parent deferral so the orchestrator is notified within the
+      // bounded wait even while its session is busy, and `shouldReply: false`
+      // keeps the question PENDING (the notification must not fork a reply turn
+      // that would auto-consume the question). The escalation notification is a
+      // separate wake (queued only after questionOrchestratorWaitMs) and stays
+      // deferred until the parent goes idle, so it can never precede routing.
+      this.queuePendingParentWake(task.parentSessionId, notification, promptContext, false, undefined, true)
+    }).catch((error) => {
+      this.logger("[subagent-question-router] failed to notify orchestrator of child question:", {
+        childSessionID: args.sessionID,
+        error,
+      })
+    })
+
+    const timer = setTimeout(() => {
+      void this.escalatePendingQuestionToUser(args.sessionID)
+    }, this.questionOrchestratorWaitMs)
+    this.pendingQuestionTimers.set(args.sessionID, timer)
+
+    return {
+      routed: "orchestrator",
+      taskId: task.id,
+      parentSessionId: task.parentSessionId,
+      pending,
+    }
+  }
+
+  /**
+   * M2d — deliver an orchestrator's answer into the child session.
+   *
+   * The child is normally `status: "running"` while its `question` tool call is
+   * blocked waiting for the answer, so the strict `resume` path (which refuses
+   * to continue a running task) cannot be used here. Instead the answer is
+   * injected directly into the running child session as a no-reply prompt, which
+   * unblocks the pending `question` call. Cancels the bounded-wait escalation
+   * timer.
+   */
+  async answerChildQuestion(
+    childSessionId: string,
+    answer: string,
+  ): Promise<{ answered: boolean; reason?: string }> {
+    // Pending questions are keyed by the child (worker) session id, but the
+    // `task` tool answers by task id. Resolve the task id to its child session
+    // id so an answer issued as `task(task_id, answer)` is not silently dropped.
+    let pending = this.pendingQuestionsByChildSession.get(childSessionId)
+    let resolvedSessionId = childSessionId
+    if (!pending) {
+      const task = this.getTask(childSessionId)
+      const lookedUp = task?.sessionId
+      if (lookedUp) {
+        resolvedSessionId = lookedUp
+        pending = this.pendingQuestionsByChildSession.get(lookedUp)
+      }
+    }
+    if (!pending || pending.answered) {
+      return { answered: false, reason: "no-pending-question" }
+    }
+
+    const prompt = buildChildQuestionAnswerPrompt(answer, pending)
+    try {
+      await dispatchInternalPrompt({
+        mode: "async",
+        client: this.client,
+        sessionID: resolvedSessionId,
+        source: "background-agent-question-answer",
+        settleMs: 0,
+        queueBehavior: "defer",
+        // The child is mid-question (running); deliver regardless of its status
+        // or in-flight tool state so the blocked question call can resolve.
+        checkStatus: false,
+        checkToolState: false,
+        input: {
+          path: { id: resolvedSessionId },
+          body: {
+            noReply: true,
+            parts: [withInternalNoReplyMarker(createInternalAgentTextPart(prompt))],
+          },
+          query: { directory: this.directory },
+        },
+      })
+    } catch (error) {
+      const errorText = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+      log("[subagent-question-router] failed to deliver answer to child session:", {
+        childSessionID: resolvedSessionId,
+        error: errorText,
+      })
+      return { answered: false, reason: "delivery-failed" }
+    }
+    // Only clear the pending question (and cancel the escalation timer) once the
+    // answer has actually been dispatched into the child session.
+    this.clearPendingQuestion(resolvedSessionId)
+    return { answered: true }
+  }
+
+  getPendingChildQuestion(childSessionId: string): PendingQuestion | undefined {
+    return this.pendingQuestionsByChildSession.get(childSessionId)
+  }
+
+  private clearPendingQuestion(childSessionId: string): void {
+    const timer = this.pendingQuestionTimers.get(childSessionId)
+    if (timer) {
+      clearTimeout(timer)
+      this.pendingQuestionTimers.delete(childSessionId)
+    }
+    this.pendingQuestionsByChildSession.delete(childSessionId)
+  }
+
+  private async escalatePendingQuestionToUser(childSessionId: string): Promise<void> {
+    const pending = this.pendingQuestionsByChildSession.get(childSessionId)
+    if (!pending || pending.answered || pending.escalated) {
+      return
+    }
+    pending.escalated = true
+    this.pendingQuestionTimers.delete(childSessionId)
+
+    const rootSessionId = this.resolveRootUserSessionId(pending.parentSessionId)
+    const notification = buildUserEscalationNotificationText(pending)
+    await this.enqueueNotificationForParent(rootSessionId, async () => {
+      // deliverImmediately: once the bounded wait has elapsed the user must be
+      // notified promptly rather than waiting for the parent to go idle.
+      this.queuePendingParentWake(rootSessionId, notification, {}, false, undefined, true)
+    }).catch((error) => {
+      this.logger("[subagent-question-router] failed to escalate child question to user:", {
+        childSessionID: childSessionId,
+        error,
+      })
+    })
+  }
+
+  private resolveRootUserSessionId(sessionID: string): string {
+    let current = sessionID
+    const seen = new Set<string>()
+    while (!seen.has(current)) {
+      seen.add(current)
+      const task = this.findBySession(current)
+      if (!task || !task.parentSessionId) {
+        return current
+      }
+      current = task.parentSessionId
+    }
+    return current
   }
 
   private resolveTaskAttemptBySession(sessionID: string): { task: BackgroundTask; attemptID?: string; isCurrent: boolean } | undefined {
@@ -1400,7 +1723,7 @@ The fallback retry session is now created and can be inspected directly.
             const tools = {
               task: false,
               call_omo_agent: true,
-              question: false,
+              question: true,
               ...getAgentToolRestrictions(existingTask.agent, {
                 includeTeamToolDenylist: existingTask.teamRunId === undefined,
               }),
@@ -2322,6 +2645,11 @@ The task was re-queued on a fallback model after a retryable failure.
       this.completionTimers.delete(taskId)
     }
 
+    const removalTask = this.tasks.get(taskId)
+    if (removalTask?.sessionId) {
+      this.clearPendingQuestion(removalTask.sessionId)
+    }
+
     const timer = setTimeout(() => {
       this.completionTimers.delete(taskId)
       const task = this.tasks.get(taskId)
@@ -2838,8 +3166,16 @@ The task was re-queued on a fallback model after a retryable failure.
     promptContext: ParentWakePromptContext,
     shouldReply: boolean,
     delayMs?: number,
+    deliverImmediately?: boolean,
   ): void {
-    this.parentWakeNotifier.queuePendingParentWake(sessionID, notification, promptContext, shouldReply, delayMs)
+    this.parentWakeNotifier.queuePendingParentWake(
+      sessionID,
+      notification,
+      promptContext,
+      shouldReply,
+      delayMs,
+      deliverImmediately,
+    )
     this.updateBackgroundTaskMarker(sessionID)
   }
 

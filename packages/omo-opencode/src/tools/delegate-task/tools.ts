@@ -81,6 +81,10 @@ const delegateTaskArgsSchema = {
     .optional()
     .describe("Continuation session id (`ses_...`) from task metadata; not a background task id (`bg_...`)."),
   command: tool.schema.string().optional().describe("The command that triggered this task"),
+  answer: tool.schema
+    .string()
+    .optional()
+    .describe("M2d — orchestrator's answer to a pending worker question. Provide together with task_id to deliver the answer into the child session via task continuation; the child question is resolved without surfacing to the end user."),
   model: tool.schema
     .string()
     .optional()
@@ -132,6 +136,13 @@ export function createDelegateTask(options: DelegateTaskToolOptions): ToolDefini
       const parentContext = await resolveParentContext(ctx, options.client)
 
       if (delegateTaskArgs.task_id) {
+        if (delegateTaskArgs.answer !== undefined) {
+          const answerResult = await options.manager.answerChildQuestion(delegateTaskArgs.task_id, delegateTaskArgs.answer)
+          if (!answerResult.answered) {
+            return `No pending question for task ${delegateTaskArgs.task_id} (${answerResult.reason ?? "unknown"}). The worker may have already been answered or completed.`
+          }
+          return `Answer delivered to worker task ${delegateTaskArgs.task_id}. The worker continues with the orchestrator's answer.`
+        }
         if (runInBackground) {
           return executeBackgroundContinuation(delegateTaskArgs, ctx, options, parentContext, continuationSystemContent)
         }

@@ -47,6 +47,7 @@ export class ParentWakePendingQueue {
     notification: string,
     promptContext: ParentWakePromptContext,
     shouldReply: boolean,
+    deliverImmediately?: boolean,
   ): void {
     const now = Date.now()
     const resolvedPromptContext = resolveParentWakePromptContext(promptContext)
@@ -59,6 +60,7 @@ export class ParentWakePendingQueue {
       pendingWake.notifications = mergedNotifications
       pendingWake.promptContext = resolvedPromptContext
       pendingWake.shouldReply = pendingWake.shouldReply || shouldReply
+      pendingWake.deliverImmediately = pendingWake.deliverImmediately || deliverImmediately
       if (notificationsChanged) {
         delete pendingWake.noReplyAdmittedAt
         delete pendingWake.noAssistantOutputRetryCount
@@ -70,6 +72,7 @@ export class ParentWakePendingQueue {
       promptContext: resolvedPromptContext,
       notifications: [notification],
       shouldReply,
+      ...(deliverImmediately !== undefined ? { deliverImmediately } : {}),
       queuedAt: now,
     })
   }
@@ -86,6 +89,7 @@ export class ParentWakePendingQueue {
         [...latestWake.notifications],
       )
       pendingWake.shouldReply = pendingWake.shouldReply || latestWake.shouldReply
+      pendingWake.deliverImmediately = pendingWake.deliverImmediately || latestWake.deliverImmediately
       pendingWake.promptContext = latestWake.promptContext
       pendingWake.noReplyAdmittedAt ??= latestWake.noReplyAdmittedAt
       pendingWake.toolCallDeferralStartedAt ??= latestWake.toolCallDeferralStartedAt

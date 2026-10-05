@@ -3,6 +3,7 @@ import type { PluginContext } from "./types"
 import { isTrackedBtwSideSession } from "../features/btw-side"
 import { getMainSessionID } from "../features/claude-code-session-state"
 import { log, replaceToolArgs } from "../shared"
+import { resolveQuestionRouteTarget } from "../features/background-agent/subagent-question-router"
 import { resolveSessionAgent } from "./session-agent-resolver"
 import { stopContinuation } from "./stop-continuation"
 
@@ -41,7 +42,7 @@ function isPureSleepCommand(command: string): boolean {
 export function createToolExecuteBeforeHandler(args: {
   ctx: PluginContext
   hooks: CreatedHooks
-  backgroundManager?: Pick<BackgroundManager, "hasActiveChildTasks" | "hasPendingParentWake">
+  backgroundManager?: Pick<BackgroundManager, "hasActiveChildTasks" | "hasPendingParentWake" | "routeChildQuestion" | "isTrackedChildSession">
 }): (
   input: { tool: string; sessionID: string; callID: string },
   output: { args: Record<string, unknown> },
@@ -115,16 +116,38 @@ export function createToolExecuteBeforeHandler(args: {
       || normalizedToolName === "askuserquestion"
     ) {
       const sessionID = input.sessionID || getMainSessionID()
-      await hooks.sessionNotification?.({
-        event: {
-          type: "tool.execute.before",
-          properties: {
-            sessionID,
-            tool: input.tool,
-            args: output.args,
+      if (!sessionID) {
+        // No session context: fall back to the native user notification.
+        await hooks.sessionNotification?.({
+          event: {
+            type: "tool.execute.before",
+            properties: { sessionID: "", tool: input.tool, args: output.args },
           },
-        },
-      })
+        })
+      } else {
+        // M2d — a tracked delegated subagent (has a parent background task) asking
+        // a question is routed to its orchestrator first; an explicit `route:
+        // "user"` (or a session with no parent task) falls back to the native user
+        // notification. Routing is performed by the background manager so the
+        // question is streamed to the parent and can be answered via
+        // `task(task_id, answer)`.
+        const tracked = backgroundManager?.isTrackedChildSession?.(sessionID) ?? false
+        const route = resolveQuestionRouteTarget(output.args)
+        if (tracked && route !== "user") {
+          await backgroundManager?.routeChildQuestion?.({ sessionID, questionArgs: output.args })
+        } else {
+          await hooks.sessionNotification?.({
+            event: {
+              type: "tool.execute.before",
+              properties: {
+                sessionID,
+                tool: input.tool,
+                args: output.args,
+              },
+            },
+          })
+        }
+      }
     }
 
     if (input.tool === "task") {

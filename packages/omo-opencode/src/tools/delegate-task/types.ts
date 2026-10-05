@@ -64,6 +64,8 @@ export interface DelegateTaskArgs {
   command?: string
   load_skills: string[]
   model?: string
+  /** M2d — orchestrator's answer to a pending worker question; delivers into the child session via task continuation. */
+  answer?: string
 }
 
 export interface ToolContextWithMetadata {

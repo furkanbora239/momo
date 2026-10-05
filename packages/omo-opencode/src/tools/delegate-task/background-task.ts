@@ -8,7 +8,6 @@ import { formatDetailedError } from "./error-formatting"
 import { getSessionTools } from "../../shared/session-tools-store"
 import { SessionCategoryRegistry } from "../../shared/session-category-registry"
 import { migrateToolsToPermission } from "../../shared/permission-compat"
-import { QUESTION_DENIED_SESSION_PERMISSION } from "../../shared/question-denied-session-permission"
 import { stripAgentListSortPrefix } from "../../shared/agent-display-names"
 import { buildTaskMetadataBlock } from "../../features/tool-metadata-store/task-metadata-contract"
 import { resolveMetadataModel } from "./resolve-metadata-model"
@@ -130,7 +129,10 @@ export async function executeBackgroundTask(
       skills: args.load_skills.length > 0 ? args.load_skills : undefined,
       skillContent: systemContent,
       category: args.category,
-      sessionPermission: QUESTION_DENIED_SESSION_PERMISSION,
+      // M2d — do NOT deny the `question` tool on the delegated child session.
+      // A worker must be able to call `question` so the orchestrator can route
+      // and answer it (or it falls back to the user after the bounded wait).
+      // Denying it left the routing path dead (vacuous asserts).
       userPermission: categoryModel?.tools
         ? migrateToolsToPermission(categoryModel.tools)
         : undefined,

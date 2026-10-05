@@ -4599,8 +4599,8 @@ describe("sisyphus-task", () => {
         toolContext
       )
       
-      //#then - plan agent should have task permission
-      expect(promptBody.tools.task).toBe(true)
+      //#then - plan agent should have subagent permission
+      expect(promptBody.tools.subagent).toBe(true)
     }, { timeout: 20000 })
 
     test("prometheus primary agent should not be callable via task", async () => {
@@ -4681,8 +4681,8 @@ describe("sisyphus-task", () => {
         toolContext
       )
       
-      // then - oracle should NOT have task permission
-      expect(promptBody.tools.task).toBe(false)
+      // then - oracle should NOT have subagent permission
+      expect(promptBody.tools.subagent).toBe(false)
     }, { timeout: 20000 })
   })
 
@@ -5210,8 +5210,8 @@ describe("buildSyncPromptTools (issue #5182)", () => {
     //          function never reads permission from config (bug #5182)
     expect(result.grep).toBe(false)
     expect(result.glob).toBe(false)
-    // hardcoded restriction (task: false) still applies
-    expect(result.task).toBe(false)
+    // hardcoded restriction (subagent: false) still applies under V2 naming
+    expect(result.subagent).toBe(false)
     // unconditionally allowed tools remain unchanged
     expect(result.call_omo_agent).toBe(true)
     expect(result.question).toBe(false)
@@ -5266,8 +5266,8 @@ describe("buildSyncPromptTools (issue #5182)", () => {
     expect(storedTools).toBeDefined()
     expect(storedTools!.grep).toBe(false)
     expect(storedTools!.glob).toBe(false)
-    // hardcoded restriction (task: false for sisyphus-junior) still applies
-    expect(storedTools!.task).toBe(false)
+    // hardcoded restriction (subagent: false for sisyphus-junior) still applies
+    expect(storedTools!.subagent).toBe(false)
     // unconditionally allowed tools remain unchanged
     expect(storedTools!.call_omo_agent).toBe(true)
     expect(storedTools!.question).toBe(false)

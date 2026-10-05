@@ -95,6 +95,7 @@ export async function prepareDelegateTaskArgs(
   const taskID = typeof args.task_id === "string" ? args.task_id : undefined
   const command = typeof args.command === "string" ? args.command : undefined
   const model = typeof args.model === "string" ? args.model : undefined
+  const answer = typeof args.answer === "string" ? args.answer : undefined
 
 
   return {
@@ -109,5 +110,6 @@ export async function prepareDelegateTaskArgs(
     command,
     load_skills: normalizedLoadSkills,
     model,
+    ...(answer !== undefined ? { answer } : {}),
   }
 }

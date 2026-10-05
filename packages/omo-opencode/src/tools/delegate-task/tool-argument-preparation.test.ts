@@ -76,4 +76,22 @@ describe("prepareDelegateTaskArgs run_in_background resolution", () => {
       expect(result.run_in_background).toBe(true)
     })
   })
+
+  describe("M2d answer passthrough", () => {
+    test("#given answer provided with task_id #then it is preserved", async () => {
+      const result = await prepareDelegateTaskArgs(
+        { ...baseArgs, task_id: "ses_child", answer: "Use shell" },
+        ctx,
+      )
+
+      expect(result.task_id).toBe("ses_child")
+      expect(result.answer).toBe("Use shell")
+    })
+
+    test("#given answer omitted #then it is undefined", async () => {
+      const result = await prepareDelegateTaskArgs({ ...baseArgs }, ctx)
+
+      expect(result.answer).toBeUndefined()
+    })
+  })
 })

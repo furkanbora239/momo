@@ -596,7 +596,7 @@ describe("BackgroundManager delegated child-session bootstrap", () => {
       const bootstrap = getDelegatedChildSessionBootstrap("ses_background_bootstrap")
       expect(bootstrap?.system).toBe("bg-skill-system-sentinel")
       expect(bootstrap?.tools?.question).toBe(false)
-      expect(bootstrap?.tools?.task).toBe(false)
+      expect(bootstrap?.tools?.subagent).toBe(false)
       expect(getDelegatedChildSessionBootstrap("ses_background_bootstrap")).toBeDefined()
 
       const completed = await tryCompleteTaskForTest(manager, task)
@@ -8205,8 +8205,7 @@ describe("BackgroundManager - tool permission spread order", () => {
     //#then
     expect(capturedTools).toBeDefined()
     expect(capturedTools?.call_omo_agent).toBe(false)
-    expect(capturedTools?.task).toBe(false)
-    expect(capturedTools?.write).toBe(false)
+    expect(capturedTools?.subagent).toBe(false)
     expect(capturedTools?.edit).toBe(false)
 
     manager.shutdown()
@@ -8353,8 +8352,7 @@ describe("BackgroundManager - tool permission spread order", () => {
     //#then
     expect(capturedTools).toBeDefined()
     expect(capturedTools?.call_omo_agent).toBe(false)
-    expect(capturedTools?.task).toBe(false)
-    expect(capturedTools?.write).toBe(false)
+    expect(capturedTools?.subagent).toBe(false)
     expect(capturedTools?.edit).toBe(false)
 
     manager.shutdown()
