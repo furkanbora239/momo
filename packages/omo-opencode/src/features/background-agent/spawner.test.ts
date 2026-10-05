@@ -156,7 +156,7 @@ describe("background-agent spawner agent-not-found fallback", () => {
     expect(promptCalls[1].body.parts).toEqual(promptCalls[0].body.parts)
     // Tool restrictions recomputed for fallback agent while preserving delegated-subagent team tool denial
     expect(promptCalls[1].body.tools).toEqual({
-      task: false,
+      subagent: false,
       call_omo_agent: true,
       question: false,
       team_create: false,
@@ -946,7 +946,7 @@ describe("background-agent spawner fallback helper characterization", () => {
       ...originalBody,
       agent: "general",
       tools: {
-        task: false,
+        subagent: false,
         call_omo_agent: true,
         question: false,
       },

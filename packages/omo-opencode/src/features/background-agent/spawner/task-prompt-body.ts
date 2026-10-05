@@ -1,4 +1,5 @@
 import { createInternalAgentTextPart, getAgentToolRestrictions } from "../../../shared"
+import { normalizeToolRecord } from "../../../shared/agent-tool-restrictions"
 import type { LaunchInput } from "../types"
 
 type PromptModel = LaunchInput["model"]
@@ -50,14 +51,14 @@ export function buildTaskPromptBody(options: TaskPromptBodyOptions): TaskPromptB
     ...(promptModel ? { model: promptModel } : {}),
     ...(promptVariant ? { variant: promptVariant } : {}),
     ...(options.kind === "launch" ? { system: options.system } : {}),
-    tools: {
+    tools: normalizeToolRecord({
       task: false,
       call_omo_agent: true,
       question: false,
       ...getAgentToolRestrictions(options.agent, {
         includeTeamToolDenylist: options.includeTeamToolDenylist,
       }),
-    },
+    }),
     parts: [createInternalAgentTextPart(options.prompt)],
   }
 }

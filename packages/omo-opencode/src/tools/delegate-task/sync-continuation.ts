@@ -4,7 +4,7 @@ import { getDeliverableTag, canSpawnWorkers } from "./constants"
 import { handedBackSyncSessions } from "../../features/claude-code-session-state"
 import { publishToolMetadata } from "../../features/tool-metadata-store"
 import { getTaskToastManager } from "../../features/task-toast-manager"
-import { getAgentToolRestrictions } from "../../shared/agent-tool-restrictions"
+import { getAgentToolRestrictions, normalizeToolRecord } from "../../shared/agent-tool-restrictions"
 import { getMessageDir, normalizeSDKResponse } from "../../shared"
 import { promptWithModelSuggestionRetry } from "../../shared/model-suggestion-retry"
 import { resolveMessageContext } from "../../features/hook-message-injector"
@@ -157,12 +157,12 @@ export async function executeSyncContinuation(
     const allowTask = canSpawnWorkers(resumeAgent, managersEnabled)
     const tddEnabled = sisyphusAgentConfig?.tdd
     const effectivePrompt = buildTaskPrompt(args.prompt, resumeAgent, tddEnabled)
-    const tools = {
+    const tools = normalizeToolRecord({
       task: allowTask,
       call_omo_agent: true,
       question: false,
       ...(resumeAgent ? getAgentToolRestrictions(resumeAgent) : {}),
-    }
+    })
     setSessionTools(continuationID, tools)
 
     await promptWithModelSuggestionRetry(client, {

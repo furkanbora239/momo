@@ -1,4 +1,5 @@
 import { getAgentToolRestrictions } from "../../../shared"
+import { normalizeToolRecord } from "../../../shared/agent-tool-restrictions"
 import type { TaskPromptBody } from "./task-prompt-body"
 
 export const FALLBACK_AGENT = "general"
@@ -32,11 +33,11 @@ export function buildFallbackBody(
   return {
     ...originalBody,
     agent: fallbackAgent,
-    tools: {
+    tools: normalizeToolRecord({
       task: false,
       call_omo_agent: true,
       question: false,
       ...getAgentToolRestrictions(fallbackAgent, options),
-    },
+    }),
   }
 }

@@ -121,7 +121,7 @@ describe("executeSync", () => {
     expect(promptInput?.path.id).toBe("ses-test-123")
     expect(promptInput?.body.agent).toBe("explorer")
     expect(promptInput?.body.tools.question).toBe(false)
-    expect(promptInput?.body.tools.task).toBe(false)
+    expect(promptInput?.body.tools.subagent).toBe(false)
     expect(promptInput?.body.parts).toEqual([createInternalAgentTextPart("find something")])
   })
 
@@ -393,7 +393,7 @@ describe("executeSync", () => {
       //#then
       expect(observed[0]?.agent).toBe("explorer")
       expect(observed[0]?.tools?.question).toBe(false)
-      expect(observed[0]?.tools?.task).toBe(false)
+      expect(observed[0]?.tools?.subagent).toBe(false)
       expect(observed[0]?.bootstrap?.retryParts[0]?.text).toContain("collect bootstrap evidence")
       expect(observed[0]?.bootstrap?.tools?.question).toBe(false)
       expect(observed[0]?.bootstrap?.fallbackChain?.[0]?.model).toBe("gpt-5.4")

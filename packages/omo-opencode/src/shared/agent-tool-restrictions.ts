@@ -1,10 +1,69 @@
 import { stripInvisibleAgentCharacters } from "./agent-display-names"
 
 /**
- * Agent tool restrictions for session.prompt calls.
- * OpenCode SDK's session.prompt `tools` parameter expects boolean values.
- * true = tool allowed, false = tool denied.
+ * OpenCode V2 renamed several built-in tools. momo's restriction tables were
+ * authored against V1 tool names. Map them so denials still target a real tool
+ * under V2: a denial on an unknown tool name is silently ignored by the server,
+ * which would leave the tool callable on the child surface.
  */
+export const V1_TO_V2_TOOL_NAME: Readonly<Record<string, string>> = {
+  bash: "shell",
+  task: "subagent",
+  write: "edit",
+  patch: "edit",
+  apply_patch: "edit",
+}
+
+/** Map a V1 tool name to its V2 equivalent; pass through unknown names. */
+export function normalizeToolName(tool: string): string {
+  return V1_TO_V2_TOOL_NAME[tool] ?? tool
+}
+
+/** Normalize every key in a restriction record to its V2 tool name. */
+export function normalizeToolRecord(record: Record<string, boolean>): Record<string, boolean> {
+  const result: Record<string, boolean> = {}
+  for (const [tool, value] of Object.entries(record)) {
+    result[normalizeToolName(tool)] = value
+  }
+  return result
+}
+
+/**
+ * Read-side tools a delegated execution worker must have on its surface.
+ * Rationale + evidence: a delegated worker today has no skill tool and no
+ * codegraph, and had to shell around them (momo_nots.md section 8.1). These are
+ * folded into the execution-agent allow-set so the worker can read code
+ * structure, load skills, and search the web without shelling around.
+ */
+export const WORKER_READ_SIDE_TOOLS: ReadonlyArray<string> = [
+  "codegraph_status",
+  "codegraph_explore",
+  "codegraph_search",
+  "codegraph_context",
+  "codegraph_node",
+  "codegraph_callers",
+  "codegraph_callees",
+  "codegraph_impact",
+  "codegraph_files",
+  "skill",
+  "skill_mcp",
+  "websearch",
+  "webfetch",
+]
+
+/** Agents that perform direct execution and therefore need the worker baseline. */
+const EXECUTION_AGENT_NAMES: ReadonlySet<string> = new Set([
+  "sisyphus-junior",
+  "worker",
+  "executor",
+])
+
+/** Resolve the worker display/alias name to the canonical config key. */
+function resolveAgentKey(agentName: string): string {
+  const stripped = stripInvisibleAgentCharacters(agentName)
+  if (stripped.toLowerCase() === "worker") return "sisyphus-junior"
+  return stripped
+}
 
 const TEAM_TOOL_DENYLIST: Record<string, boolean> = {
   team_create: false,
@@ -82,15 +141,27 @@ type AgentToolRestrictionsOptions = {
 }
 
 export function getAgentToolRestrictions(agentName: string, options: AgentToolRestrictionsOptions = {}): Record<string, boolean> {
-  const stripped = stripInvisibleAgentCharacters(agentName)
-  const agentRestrictions = AGENT_RESTRICTIONS[stripped]
-    ?? Object.entries(AGENT_RESTRICTIONS).find(([key]) => key.toLowerCase() === stripped.toLowerCase())?.[1]
+  const resolved = resolveAgentKey(agentName)
+  const agentRestrictions = AGENT_RESTRICTIONS[resolved]
+    ?? Object.entries(AGENT_RESTRICTIONS).find(([key]) => key.toLowerCase() === resolved.toLowerCase())?.[1]
     ?? {}
 
-  return {
+  const base: Record<string, boolean> = {
     ...(options.includeTeamToolDenylist === false ? {} : TEAM_TOOL_DENYLIST),
     ...agentRestrictions,
   }
+
+  const result = normalizeToolRecord(base)
+
+  if (EXECUTION_AGENT_NAMES.has(resolved)) {
+    for (const tool of WORKER_READ_SIDE_TOOLS) {
+      if (result[tool] === undefined) {
+        result[tool] = true
+      }
+    }
+  }
+
+  return result
 }
 
 export function hasAgentToolRestrictions(agentName: string): boolean {

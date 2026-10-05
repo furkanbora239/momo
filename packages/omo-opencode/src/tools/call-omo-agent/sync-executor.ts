@@ -9,6 +9,7 @@ import {
   log,
 } from "../../shared"
 import { normalizeAgentForPrompt, stripAgentListSortPrefix } from "../../shared/agent-display-names"
+import { normalizeToolRecord } from "../../shared/agent-tool-restrictions"
 import {
   clearDelegatedChildSessionBootstrap,
   registerDelegatedChildSessionBootstrap,
@@ -70,11 +71,11 @@ function buildPromptGenerationParams(model: DelegatedModelConfig | undefined): R
 }
 
 function buildSyncPromptTools(agent: string): Record<string, boolean> {
-  return {
+  return normalizeToolRecord({
     ...getAgentToolRestrictions(agent),
     task: false,
     question: false,
-  }
+  })
 }
 
 export async function executeSync(

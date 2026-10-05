@@ -67,7 +67,7 @@ describe("read-only agent tool restrictions", () => {
     for (const toolName of TEAM_TOOL_NAMES) {
       expect(restrictions[toolName]).toBeUndefined()
     }
-    expect(restrictions.task).toBe(false)
+    expect(restrictions.subagent).toBe(false)
   })
 
   describe("Oracle", () => {

@@ -6,6 +6,7 @@ import {
   promptWithModelSuggestionRetry,
 } from "../../shared/model-suggestion-retry"
 import { migrateToolsToPermission } from "../../shared/permission-compat"
+import { normalizeToolRecord } from "../../shared/agent-tool-restrictions"
 import { applySessionPromptParams } from "../../shared/session-prompt-params-helpers"
 import { routePromptRetry } from "../../shared/session-route"
 import { setSessionTools } from "../../shared/session-tools-store"
@@ -61,13 +62,13 @@ export function buildSyncPromptTools(
       if (value === "deny") userDenied[tool] = false
     }
   }
-  return {
+  return normalizeToolRecord({
     task: canSpawnWorkers(agentToUse, managersEnabled),
     call_omo_agent: true,
     question: false,
     ...userDenied,
     ...getAgentToolRestrictions(agentToUse),
-  }
+  })
 }
 
 export async function sendSyncPrompt(

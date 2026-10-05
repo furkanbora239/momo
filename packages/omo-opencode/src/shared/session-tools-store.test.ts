@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "bun:test"
-import { setSessionTools, getSessionTools, clearSessionTools } from "./session-tools-store"
+import { setSessionTools, getSessionTools, clearSessionTools, deriveRemovedToolNames, deriveAllowedToolNames } from "./session-tools-store"
 
 describe("session-tools-store", () => {
   beforeEach(() => {
@@ -68,5 +68,37 @@ describe("session-tools-store", () => {
 
     //#then
     expect(getSessionTools(sessionID)).toEqual({ question: false })
+  })
+})
+
+describe("session-tools-store - V2 surface semantics", () => {
+  test("deriveRemovedToolNames returns only denied (false) tools", () => {
+    // given
+    const tools = { subagent: false, edit: false, skill: true, read: true }
+
+    // when
+    const removed = deriveRemovedToolNames(tools)
+
+    // then
+    expect(removed.sort()).toEqual(["edit", "subagent"])
+  })
+
+  test("deriveAllowedToolNames returns only explicitly allowed (true) tools", () => {
+    // given
+    const tools = { subagent: false, edit: false, skill: true, read: true }
+
+    // when
+    const allowed = deriveAllowedToolNames(tools)
+
+    // then
+    expect(allowed.sort()).toEqual(["read", "skill"])
+  })
+
+  test("a denied tool is reported as removed even when mixed with V1 aliases", () => {
+    // given - a stored record after V2 normalization
+    const tools = { shell: false, subagent: false, edit: false }
+
+    // when/then - these are the tools removed from the callable surface
+    expect(deriveRemovedToolNames(tools)).toEqual(["shell", "subagent", "edit"])
   })
 })
