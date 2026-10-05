@@ -69,6 +69,17 @@ alt ajan / altyapı sorunlarını belgeler. Düzeltme çalışması için not. *
 - **İstek:** Task, worker'ın aktif bir araç çağrısının ortasındaysa sonucu dönme; ya bekleyip
   doğal durakta dön ya da "incomplete" bayrağıyla dön.
 
+### 3.3 Subagent oturumu compaction şablon doğrulamasında ölüyor
+- **Semptom:** Uzun süren bir worker oturumu (M2d canlı sınavı) `task(task_id=...)` ile devam
+  ettirilirken oturum `error` ile sonlandı: "Compaction summary did not match the required
+  template". Görev yarım kaldı - ne verdict ne kanıt üretildi.
+- **SORUN:** Compaction özeti şablon doğrulamasından geçmeyince oturum kurtarılamıyor; devam
+  çağrısı da aynı hatayla ölüyor. §3.1'deki "uzun yaşayan worker oturumu bozuluyor" durumunun
+  yeni bir görünümü.
+- **İşlenme:** Taze oturum + self-contained prompt ile sürdürüldü (§5.2 öğrenmesi).
+- **İstek:** Şablon doğrulaması başarısızsa compaction geri alınsın (retry veya ham özetle devam) -
+  oturum ölümüne yol açmasın; hata mesajı eksik/kötü gelen alanı tarif etsin.
+
 ---
 
 ## 4. Harness / Araç Sorunları
@@ -139,3 +150,40 @@ alt ajan / altyapı sorunlarını belgeler. Düzeltme çalışması için not. *
 | 4 | Continuation oturumu ~30s'de kesilme durumu: oturum "poisoned" işaretlenip taze oturum önerilsin | 3 başarısız devam denemesi |
 | 5 | tool-output cap sayfalanabilir olsun | Rapor kaybı |
 | 6 | Comment hook top-level config ile yönetilsin | Üretkenlik |
+| 7 | Worker'lara temel araç erişimi (codegraph, web search, skill) açılsın | Subagent keşif/tool kısıtı |
+| 8 | Worker'lar orkestratöre soru sorabilsin (kullanıcıya eskalasyon fallback) | Bağlamsız kullanıcı kararları |
+
+---
+
+## 8. Worker Tool Erişimi ve Soru Yöneltme (2026-10-05, opencode-v2 QA oturumu)
+
+Kaynak: `fix/opencode-v2-plugin-migration` dalında M1d sandbox QA görevi — subagent `worker`,
+model `opencode-go/hy3`, oturum `ses_ef4edede9ffeYWd4VhUDx8U5Ya`.
+
+### 8.1 Worker'lar temel tool'lara erişemiyor
+- **Semptom:** Worker'a "opencode-qa skill'ini skill tool ile yükle" talimatı verildi; worker
+  "I don't have a skill tool in my available functions" diyerek kullanıcıya soru sordu
+  ("Tool Access" dialog, 3 seçenek). Bildirdiği fonksiyonlar: `shell, read, write, edit,
+  execute, webfetch, websearch, question`.
+- **SORUN:** Subagent tool yüzeyi dar — skill tool yok, codegraph gibi temel keşif araçları yok.
+  `task()` (delegate-task) `load_skills` ile skill içeriği taşıyabiliyor ama spawn yüzeyi
+  child'a skill aracı vermiyor; "skill tool ile yükle" talimatı bu yüzden karşılanamıyor.
+- **İstek:** Worker'lara varsayılan temel araç seti açılsın: **codegraph** (search/context/explore),
+  **web search** (websearch/webfetch), **skill erişimi** (skill tool ya da spawn'ta skill
+  içeriği enjeksiyonu) + diğer salt-okunur keşif araçları. Ağır/yazma araçları (build, push,
+  publish) kısıtlı kalabilir.
+- **Geçici çözüm (bu QA'da işe yaradı):** "Use shell to invoke skill" — worker skill
+  dosyalarını shell/read ile okudu. Orkestrasyon sözleşmesini bozuyor, kalıcı çözüm değil.
+
+### 8.2 Soru kanalı tek yönlü: worker -> kullanıcı var, worker -> orkestratör yok
+- **Semptom:** Aynı worker sorusunu `question` tool'u ile doğrudan kullanıcıya sordu; cevap
+  kullanıcıdan geldi ("Use shell to invoke skill"). Sorunun ne istediğini anlamak için ayrıca
+  orkestratöre sorulması gerekti — soru bağlamı orkestratörde değildi.
+- **SORUN:** Worker, plan bağlamını taşıyan orkestratöre soru soramıyor; her ara karar
+  kullanıcıya gidiyor ve kullanıcı bu dialog'ları bağlamsız cevaplamak zorunda kalıyor.
+- **İstek:** Worker'lar orkestratöre soru sorabilsin. Tercih edilen akış: worker sorusu →
+  orkestratör (plan bağlamıyla cevaplar) → yalnızca orkestratör karar veremiyorsa kullanıcıya
+  eskalasyon.
+- **Önerilen şekil:** `question` tool'una hedef alanı (`orchestrator` varsayılan | `user` açık
+  eskalasyon); bekleyen sorunun orkestratör tarafında event olarak akması ve
+  `task(task_id=..., answer)` ile cevaplanabilmesi; cevap N saniye gelmezse kullanıcıya düşmesi.

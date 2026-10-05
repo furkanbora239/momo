@@ -34,7 +34,35 @@ Plugin load path: `file:///Volumes/harici_ssd/code/ai/momo/dist` (from `~/.confi
 - Lessons: this server is V2 - use `/api/*` routes (`POST /api/session`, prompt routes, `GET /api/session/:id/message`; confirmed alive on the real server earlier), Basic auth `opencode:<password>` (password in `~/.config/opencode/service.json`), pick a verified-free port, assert `SES` is non-empty and plugin-loaded lines appear in serve.log BEFORE prompting, then assert children exist before interpreting any log counters.
 - Sandbox recipe that DID work: isolated `XDG_DATA_HOME/XDG_CONFIG_HOME/XDG_STATE_HOME/XDG_CACHE_HOME` temp dirs + copy `~/.config/opencode/opencode.json` to `$XDG_CONFIG_HOME/opencode/opencode.json` + copy `auth.json` to `$XDG_DATA_HOME/opencode/auth.json`. Model pool `~/.omo/model-pool.json` allowlists `opencode-go/deepseek-v4-flash` (task-time enforcement OK).
 
-## Operational notes (gotchas learned the hard way)
+## Wave 2 (2026-10-05) - tool surface, question routing, QA infra
+
+### M2a - V2 tool surface derivation (done)
+- Centralized V1->V2 rename (`normalizeToolName` / `normalizeToolRecord` in `src/shared/agent-tool-restrictions.ts`) applied at 6 surface boundaries; deny = remove-from-surface (`deriveRemovedToolNames` / `deriveAllowedToolNames` in `src/shared/session-tools-store.ts`); worker read-side baseline (`codegraph_*`, `skill`, `websearch`, `webfetch`) added to the execution-agent allow-set (the `momo_nots.md` 8.1 request).
+- Tests rewritten to V2 semantics (7 renamed case pairs, no coverage lost) + 4 new session-tools-store cases. Gate at wave-1 merge: typecheck 0, delegate-task+v2 803/0.
+
+### M2b - per-agent permission maps + sandbox surface assert (done)
+- NEW `src/shared/agent-tool-surface.ts` = single source of truth (`PER_AGENT_TOOL_SURFACE`); the QA manifest `script/qa/opencode-v2-qa-tool-surface.json` is GENERATED from it (`script/qa/gen-agent-tool-surface.ts`) with a drift-guard test. Worker `requiredPresence` promoted to a hard gate.
+- Live gate split: `livePresenceGate` = `[websearch, webfetch]` only, because the sandbox cannot surface `codegraph`/`skill` to the model (OpenCode MCP->model wiring) - code-level presence is still asserted. Real sandbox run PASS: observed child surface `{read, shell, webfetch, execute, websearch}`, zero removed tools present.
+
+### M2c - tool-call pathway spec (done)
+- `notes/tool-call-pathway-spec.md` (318 lines): V1->V2 name map, per-agent surface tables (synced to `PER_AGENT_TOOL_SURFACE`), V2 prompt snippets, Phase 3 permission frontmatter examples, common mistakes, plus the `task(task_id, answer)` question-routing pattern.
+
+### M2d - question routing (worker -> orchestrator) - IN PROGRESS
+- Code + unit tests landed: `src/features/background-agent/subagent-question-router.ts`, `manager.ts` (`routeChildQuestion` / `answerChildQuestion` / `escalatePendingQuestionToUser` / `resolveRootUserSessionId`), delegate-task `answer` parameter. Unit gates green (router 8 + routing 7 cases), typecheck 0 at implementation time.
+- Live exam attempts: #1 VACUOUS (the exam never bound a child - response-shape parsing bug, since fixed); #2 = `taskId bg_4bb91c42`, `child ses_ef3567507ffepCYv06T0CC1JjZ`: **assert1 routedToOrchestrator TRUE, assert2 noEarlyEscalation TRUE**, assert3 childContinuedWithAnswer FALSE, assert4 escalatedToUser FALSE.
+- Root cause under fix at day end: the routing notification is deferred by the parent-wake active-defer (parent never sees it promptly, answer never lands, escalation never fires). Fix in flight: a `deliverImmediately` bypass across the parent-wake chain (`parent-wake-pending-queue.ts`, `parent-wake-notifier.ts`, `parent-wake-flush-runner.ts`, `manager.ts`).
+- Evidence: `.omo/evidence/20261005-m2d-question-routing/`.
+
+### M6 bridge sweep - 2 of 6 items done
+- `session.execution.*` lifecycle mapping in the status registry derive table: `started`->busy, `succeeded`->idle, `interrupted`->interrupted (terminal), `failed`->error. Interrupts are now positive terminal evidence for the classifier gate (`manager.ts` terminal check).
+- `session.todo` mapping: landed as the **`todo.updated`** mapping (there is no `session.todo` event) via NEW `src/v2/todo-registry.ts` mirroring the M1a registry pattern; the client bridge now serves todos instead of logging no-op. **Live emission UNCONFIRMED** (pinned `@opencode/client`/`protocol` 2.0.22 types lack the event; installed opencode is 2.0.23) - needs a restart + one real `todowrite`.
+
+### M7 - standing QA infra (done)
+- `script/qa/`: `opencode-v2-qa-seed.ts` (provider cache seed - closes the sandbox empty-child P3), `opencode-v2-qa-driver.ts` (`--self-test` / `--full` / `--regression`), `opencode-v2-qa-exam.ts` (standing regression exam), `opencode-v2-qa-tool-surface.json` + `gen-agent-tool-surface.ts`, `opencode-v2-qa.md`. Self-test and exam PASS. Evidence: `.omo/evidence/20261005-m7-qa-infra/`.
+
+### Day-end gates (2026-10-05)
+- Full `packages/omo-opencode/src/` suite: **9280 pass / 2 skip / 17 fail**. Of the 17: 8 catalog MCP (env-dependent, documented bar), 2 `createBuiltinAgents`, 1 markdown link audit (`README.md:6`) = documented pre-existing; plus 6 pre-existing failures whose producers and tests this work never touched (`git diff HEAD` empty on those paths) - 3 CLI/TUI installer + 2 `createPluginModule` (`tui.json` entry never written) + 1 `claude-code-agent-loader` - consistent with the earlier V2 migration commits (dual-export, TUI entry rewiring). Decide at M8: document in the PR body or fix in a follow-up.
+- `dist/` rebuilt with wave-2 content (M2d routing, M6 todo registry, M2b baseline verified present in the bundle).
 - **Sync transport (old engine)**: children do NOT start on dispatch (3/3 parked); a resume kick `task(task_id, "Proceed ...")` starts them immediately. Sync never interrupts, but verdicts are unreliable (both flavors fixed in M1f, live only after restart).
 - **Background transport (old engine)**: kill storm active until server restart - do not delegate background until M1e passes.
 - Verdict texts: `Session error: Step interrupted` on collection = killed child; `Task incomplete (reason: mid_tool_incomplete)` = child still running, use task_id resume.
