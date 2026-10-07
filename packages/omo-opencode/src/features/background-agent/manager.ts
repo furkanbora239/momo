@@ -21,7 +21,6 @@ import {
   normalizeSDKResponse,
   promptWithRetryInDirectory,
   resolveInheritedPromptTools,
-  withInternalNoReplyMarker,
 } from "../../shared"
 import {
   clearDelegatedChildSessionBootstrap,
@@ -1398,13 +1397,15 @@ The fallback retry session is now created and can be inspected directly.
         queueBehavior: "defer",
         // The child is mid-question (running); deliver regardless of its status
         // or in-flight tool state so the blocked question call can resolve.
+        // Delivered as a plain (non-noReply) prompt so OpenCode routes it to the
+        // open ask_user_question form as the answer — a no-reply internal marker
+        // would not resolve the form.
         checkStatus: false,
         checkToolState: false,
         input: {
           path: { id: resolvedSessionId },
           body: {
-            noReply: true,
-            parts: [withInternalNoReplyMarker(createInternalAgentTextPart(prompt))],
+            parts: [createInternalAgentTextPart(prompt)],
           },
           query: { directory: this.directory },
         },
