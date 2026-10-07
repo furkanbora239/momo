@@ -595,7 +595,9 @@ describe("BackgroundManager delegated child-session bootstrap", () => {
       //#then
       const bootstrap = getDelegatedChildSessionBootstrap("ses_background_bootstrap")
       expect(bootstrap?.system).toBe("bg-skill-system-sentinel")
-      expect(bootstrap?.tools?.question).toBe(false)
+      // M2d — delegated workers must be able to call `question` so the
+      // orchestrator can route/answer it (pre-M2d default denied it).
+      expect(bootstrap?.tools?.question).toBe(true)
       expect(bootstrap?.tools?.subagent).toBe(false)
       expect(getDelegatedChildSessionBootstrap("ses_background_bootstrap")).toBeDefined()
 

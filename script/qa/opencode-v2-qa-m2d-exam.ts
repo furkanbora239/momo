@@ -149,6 +149,18 @@ const PARENT_SPAWN =
     `model ${RUNBOOK_MODEL}, with this prompt: '${q}' ` +
     "Run it in the background. Return immediately after dispatching."
 
+// Q2 is dispatched to exercise UNanswered-question escalation. The orchestrator
+// must NOT answer it (the system escalates to the user after the bounded wait).
+// Instruct it explicitly so the escalation branch is actually exercised.
+const PARENT_SPAWN_NO_ANSWER =
+  (q: string) =>
+    "Spawn exactly ONE background task, category quick, " +
+    `model ${RUNBOOK_MODEL}, with this prompt: '${q}' ` +
+    "Run it in the background. CRITICAL: after dispatching, do NOT answer any " +
+    "question this worker raises — the question-routing system will escalate it " +
+    "to the user after a timeout. Acknowledge that you dispatched the task and " +
+    "then STOP. Do not call the task tool to answer anything."
+
 interface M2dResult {
   passed: boolean
   failures: string[]
@@ -393,14 +405,55 @@ export async function runM2dExam(opts: {
     }
 
     // ---- dispatch child2 (asks Q2, intentionally NOT answered) ----
-    await api.prompt(parentId, PARENT_SPAWN(CHILD_PROMPT_Q2))
+    await api.prompt(parentId, PARENT_SPAWN_NO_ANSWER(CHILD_PROMPT_Q2))
 
-    // Wait for the bounded escalation window (live default 120s) + slack.
-    await sleep(135_000)
+    // The escalation timer starts when Q2 is ROUTED (its `question` tool call
+    // is observed), not when the parent spawns the child. Poll the parent for
+    // Q2's routing notification, then wait the bounded window (live default
+    // 120s) + slack measured from routing — a fixed sleep-after-spawn can land
+    // inside the window if the child is slow to ask.
+    const Q2_TEXT = "branch should I target"
+    let q2RoutedAt = 0
+    let q2TaskId: string | undefined
+    for (let i = 0; i < 60; i++) {
+      await sleep(5000)
+      const pMsgs = await api.messages(parentId).catch(() => [])
+      const flat = pMsgs.map(msgText).join("\n")
+      if (flat.includes(ROUTE_MARKER) && flat.includes(Q2_TEXT)) {
+        const m = pMsgs.find((mm) => msgText(mm).includes(Q2_TEXT))
+        const note = m ? msgText(m) : flat
+        const anchor = note.match(/task_id=([^\s"\\()]+)/)
+        q2TaskId = anchor?.[1] ?? note.match(/task_id="([^"]+)"/)?.[1]
+        q2RoutedAt = Date.now()
+        writeFileSync(join(evidenceDir, "q2-routing-notification.txt"), redact(note, secrets))
+        break
+      }
+    }
+    // Wait the bounded escalation window + slack, measured from routing.
+    const QUESTION_WAIT_MS = 120_000
+    const ESCALATION_SLACK_MS = 25_000
+    const elapsed = q2RoutedAt ? Date.now() - q2RoutedAt : 0
+    const remaining = Math.max(0, QUESTION_WAIT_MS + ESCALATION_SLACK_MS - elapsed)
+    await sleep(remaining)
     const afterMsgs = await api.messages(parentId)
     const afterFlat = JSON.stringify(afterMsgs)
     const escalatedToUser = afterFlat.includes(ESCALATION_MARKER) && afterFlat.includes("branch should I target")
     if (!escalatedToUser) {
+      const note2 = afterMsgs.map(msgText).join("\n")
+      writeFileSync(join(evidenceDir, "q2-after-window.txt"), redact(note2, secrets))
+      writeFileSync(
+        join(evidenceDir, "q2-timing.json"),
+        redact(
+          JSON.stringify({
+            q2RoutedAt,
+            q2TaskId,
+            waitedMs: remaining,
+            escalationSeen: afterFlat.includes(ESCALATION_MARKER),
+            branchSeen: afterFlat.includes("branch should I target"),
+          }, null, 2),
+          secrets,
+        ),
+      )
       failures.push("assert(4): unanswered question did not escalate to the user after the bounded wait")
     }
 
@@ -415,6 +468,10 @@ export async function runM2dExam(opts: {
       join(evidenceDir, "events-seen.json"),
       red(JSON.stringify({ seenTypes: [...seenTypes], toolCalledCount: toolCalledSeen.length }, null, 2)),
     )
+    writeFileSync(
+      join(evidenceDir, "events-raw.json"),
+      red(JSON.stringify(toolCalledSeen, null, 2)),
+    )
     const summary = [
       `# M2d question-routing live exam (${new Date().toISOString()})`,
       "",
@@ -422,6 +479,8 @@ export async function runM2dExam(opts: {
       `parent: ${parentId}`,
       `taskId: ${taskId ?? "n/a"}`,
       `childSessionId: ${childSessionId ?? "n/a"}`,
+      `q2TaskId: ${q2TaskId ?? "n/a"}`,
+      `q2RoutedAt: ${q2RoutedAt ? new Date(q2RoutedAt).toISOString() : "n/a"}`,
       "",
       `assert1 routedToOrchestrator: ${routedToOrchestrator}`,
       `assert2 noEarlyEscalation: ${noEarlyEscalation}`,

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import {
   buildChildQuestionAnswerPrompt,
   buildChildQuestionNotificationText,
+  buildFormAnswerMap,
   buildUserEscalationNotificationText,
   isQuestionTool,
   parseChildQuestionEvent,
@@ -169,5 +170,44 @@ describe("subagent-question-router — event parsing", () => {
   test("returns undefined for unrelated events", () => {
     expect(parseChildQuestionEvent({ type: "session.idle", properties: {} })).toBeUndefined()
     expect(parseChildQuestionEvent(null)).toBeUndefined()
+  })
+})
+
+describe("subagent-question-router — form answer mapping", () => {
+  test("maps a single free-text field to the raw answer", () => {
+    const map = buildFormAnswerMap([{ id: "q0", type: "string", custom: true }], "momo")
+    expect(map).toEqual({ q0: "momo" })
+  })
+
+  test("maps a multiselect field to the matched option values", () => {
+    const fields = [
+      {
+        id: "q0",
+        type: "multiselect",
+        options: [
+          { value: "main", label: "main branch" },
+          { value: "dev", label: "dev branch" },
+        ],
+      },
+    ]
+    expect(buildFormAnswerMap(fields, "use the dev branch")).toEqual({ q0: ["dev"] })
+  })
+
+  test("falls back to the first option when no label matches", () => {
+    const fields = [
+      {
+        id: "q0",
+        type: "multiselect",
+        options: [
+          { value: "main", label: "main branch" },
+          { value: "dev", label: "dev branch" },
+        ],
+      },
+    ]
+    expect(buildFormAnswerMap(fields, "something unrelated")).toEqual({ q0: ["main"] })
+  })
+
+  test("ignores fields without an id", () => {
+    expect(buildFormAnswerMap([{ type: "string" } as never], "x")).toEqual({})
   })
 })

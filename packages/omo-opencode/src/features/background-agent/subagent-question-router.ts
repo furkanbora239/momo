@@ -177,6 +177,70 @@ export function buildUserEscalationNotificationText(pending: PendingQuestion): s
   return lines.join("\n")
 }
 
+/**
+ * M2d — answer delivery via the OpenCode form API.
+ *
+ * When a worker (child background session) calls the native `question` /
+ * `ask_user_question` tool, OpenCode opens a FORM (not a chat prompt) and blocks
+ * the tool call until the form is replied. Injecting a plain prompt part is
+ * dropped by the async-gate reservation for the blocked child and never resolves
+ * the form, so the orchestrator's answer never reaches the child. Replying to the
+ * open form directly unblocks the pending `question` call.
+ */
+
+export interface SessionFormField {
+  id: string
+  type?: string
+  /** OpenCode sets `custom: true` on free-text (string) fields that accept any text. */
+  custom?: boolean
+  options?: Array<{ value: string; label?: string }>
+}
+
+export interface SessionForm {
+  id: string
+  status?: string
+  fields?: SessionFormField[]
+}
+
+export interface FormApi {
+  list(sessionId: string): Promise<SessionForm[]>
+  reply(sessionId: string, formId: string, answer: Record<string, unknown>): Promise<void>
+}
+
+/**
+ * Map an orchestrator's free-text answer onto the open form's field keys.
+ *
+ * OpenCode keys form fields `q0`, `q1`, ... For a single (non multiSelect)
+ * question the field type is `"string"` with `custom: true` and accepts the raw
+ * answer text. For `"multiselect"` fields the reply must be an array of matching
+ * option values; when the orchestrator's answer does not name a known option we
+ * fall back to the first option so the form still resolves.
+ */
+export function buildFormAnswerMap(
+  fields: SessionFormField[] | undefined,
+  answer: string,
+): Record<string, unknown> {
+  const map: Record<string, unknown> = {}
+  const lower = answer.toLowerCase()
+  for (const field of fields ?? []) {
+    const key = field.id
+    if (!key) continue
+    if (field.type === "multiselect") {
+      const options = field.options ?? []
+      const matched = options.filter((option) => {
+        const label = (option.label ?? option.value ?? "").toLowerCase()
+        return label.length > 0 && lower.includes(label)
+      })
+      map[key] = matched.length > 0
+        ? matched.map((option) => option.value)
+        : (options.length > 0 ? [options[0].value] : [])
+      continue
+    }
+    map[key] = answer
+  }
+  return map
+}
+
 export function describeRouteResult(result: QuestionRouteResult): void {
   log("[subagent-question-router] route result:", {
     routed: result.routed,

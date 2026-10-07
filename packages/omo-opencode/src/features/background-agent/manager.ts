@@ -125,8 +125,11 @@ import {
   parseQuestionArgs,
   QuestionEventApi,
   resolveQuestionRouteTarget,
+  buildFormAnswerMap,
+  type FormApi,
   type PendingQuestion,
   type QuestionRouteResult,
+  type SessionForm,
 } from "./subagent-question-router"
 import type {
   BackgroundTask,
@@ -1238,15 +1241,32 @@ The fallback retry session is now created and can be inspected directly.
           const type = eventRecord.type
           // `tool.execute.before` is the V1 hook shape; `session.tool.called`
           // is the V2 SSE shape that actually fires for delegated subagents.
-          if (type !== "tool.execute.before" && type !== "session.tool.called") continue
+          // The `question` tool opens a form and may emit only
+          // `session.tool.input.started` (name: "question") / `session.tool.input.ended`
+          // (JSON args) for an UNanswered question — `session.tool.called` only
+          // fires once the form is resolved. Accept those shapes too so an
+          // unanswered question is still routed and can escalate.
+          const handled =
+            type === "tool.execute.before"
+            || type === "session.tool.called"
+            || type === "session.tool.input.started"
+            || type === "session.tool.input.ended"
+          if (!handled) continue
           const parsed = parseChildQuestionEvent(event)
           if (!parsed) continue
-          // A `session.tool.called` carries no `tool` name, so also accept any
-          // call whose args contain a `questions` array (the question tool).
+          // Only route once we actually have the question args. `tool.execute.before`
+          // and `session.tool.called` carry `args`/`input.questions` directly; for
+          // the `question` tool the args arrive as JSON in `session.tool.input.ended`
+          // (`data.text`). `session.tool.input.started` carries only the tool name
+          // (no questions), so routing on it would create a pending with empty
+          // questions — skip it until a shape with real `questions` arrives.
+          const argsHaveQuestions =
+            !!parsed.args
+            && Array.isArray((parsed.args as { questions?: unknown }).questions)
+            && ((parsed.args as { questions?: unknown[] }).questions?.length ?? 0) > 0
           const looksLikeQuestion =
-            (parsed.tool && isQuestionTool(parsed.tool))
-            || (parsed.args && Array.isArray((parsed.args as { questions?: unknown }).questions)
-              && ((parsed.args as { questions?: unknown[] }).questions?.length ?? 0) > 0)
+            (parsed.tool && isQuestionTool(parsed.tool) && argsHaveQuestions)
+            || argsHaveQuestions
           if (!looksLikeQuestion) continue
           if (!this.isTrackedChildSession(parsed.sessionID)) continue
           const result = this.routeChildQuestion({
@@ -1387,6 +1407,18 @@ The fallback retry session is now created and can be inspected directly.
     }
 
     const prompt = buildChildQuestionAnswerPrompt(answer, pending)
+    // The child's `question` tool opens an OpenCode FORM and blocks until the
+    // form is replied. A plain prompt injection is dropped by the async-gate
+    // reservation for the blocked child and never resolves the form, so the
+    // answer never reaches the child. Reply to the open form directly instead.
+    const formDelivered = await this.deliverAnswerViaForm(resolvedSessionId, answer)
+    if (formDelivered) {
+      this.clearPendingQuestion(resolvedSessionId)
+      return { answered: true }
+    }
+
+    // Fallback for runtimes without the form API (older SDK) or non-form
+    // questions: inject the answer as a no-reply prompt into the running child.
     try {
       await dispatchInternalPrompt({
         mode: "async",
@@ -1397,9 +1429,6 @@ The fallback retry session is now created and can be inspected directly.
         queueBehavior: "defer",
         // The child is mid-question (running); deliver regardless of its status
         // or in-flight tool state so the blocked question call can resolve.
-        // Delivered as a plain (non-noReply) prompt so OpenCode routes it to the
-        // open ask_user_question form as the answer — a no-reply internal marker
-        // would not resolve the form.
         checkStatus: false,
         checkToolState: false,
         input: {
@@ -1422,6 +1451,180 @@ The fallback retry session is now created and can be inspected directly.
     // answer has actually been dispatched into the child session.
     this.clearPendingQuestion(resolvedSessionId)
     return { answered: true }
+  }
+
+  /**
+   * M2d — deliver the orchestrator's answer by replying to the child session's
+   * open question FORM. Returns true only when a form was found and replied to.
+   *
+   * The form API is not exposed by the SDK version momo depends on, so we reach
+   * it through whichever surface the in-process client actually provides: the
+   * typed `session.form` namespace (newer client) or the generic `request`
+   * method (authenticated, baseUrl-equipped). When neither is available the
+   * caller falls back to prompt injection.
+   */
+  private async deliverAnswerViaForm(childSessionId: string, answer: string): Promise<boolean> {
+    const api = this.resolveFormApi()
+    if (!api) {
+      this.logger("[subagent-question-router] no form API on in-process client; cannot deliver answer via form reply", {
+        childSessionID: childSessionId,
+      })
+      return false
+    }
+    let forms: SessionForm[]
+    try {
+      forms = await api.list(childSessionId)
+    } catch (error) {
+      this.logger("[subagent-question-router] failed to list child forms:", {
+        childSessionID: childSessionId,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return false
+    }
+    // An open (answerable) form is one that has not yet been submitted.
+    const open = (forms ?? []).find((form) => form.status !== "submitted" && form.status !== "completed")
+    if (!open || !open.id) {
+      return false
+    }
+    const answerMap = buildFormAnswerMap(open.fields, answer)
+    try {
+      await api.reply(childSessionId, open.id, answerMap)
+      log("[subagent-question-router] answered child question via form reply:", {
+        childSessionID: childSessionId,
+        formID: open.id,
+      })
+      return true
+    } catch (error) {
+      this.logger("[subagent-question-router] failed to reply to child form:", {
+        childSessionID: childSessionId,
+        formID: open.id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return false
+    }
+  }
+
+  /**
+   * Resolve the form API from whichever surface the in-process client exposes.
+   *
+   * The SDK version momo depends on (`@opencode-ai/sdk` 1.15.13) does NOT expose
+   * `session.form` or a public `request`, but its internal HeyApi client
+   * (`_client`) does expose a generic `request` method that is authenticated and
+   * baseUrl-equipped — that is the reliable path to the form endpoints
+   * (`GET /session/:id/form`, `POST /session/:id/form/:formID/reply`). Newer
+   * clients may instead expose `form` / `session.form` / `request` directly; we
+   * try those first and fall back to `_client.request`.
+   */
+  private resolveFormApi(): FormApi | undefined {
+    const client = this.client as unknown as {
+      form?: { list?: unknown; reply?: unknown }
+      session?: { form?: { list?: unknown; reply?: unknown } }
+      request?: unknown
+      _client?: {
+        options?: { baseUrl?: string }
+        request?: (opts: { method: string; url: string; body?: unknown }) => Promise<{ data?: unknown }>
+      }
+    }
+
+    // 1. Newer SDK: top-level `form` namespace.
+    const topForm = client?.form
+    if (typeof topForm?.list === "function" && typeof topForm?.reply === "function") {
+      return {
+        list: async (sessionId: string) => {
+          const res = await (topForm.list as (opts: { path: { sessionID: string } }) => Promise<{ data?: SessionForm[] }>)(
+            { path: { sessionID: sessionId } },
+          )
+          return res?.data ?? []
+        },
+        reply: async (sessionId: string, formId: string, answerMap: Record<string, unknown>) => {
+          await (topForm.reply as (opts: { path: { sessionID: string; formID: string }; body: { answer: Record<string, unknown> } }) => Promise<unknown>)(
+            { path: { sessionID: sessionId, formID: formId }, body: { answer: answerMap } },
+          )
+        },
+      }
+    }
+
+    // 2. `session.form` namespace.
+    const formNs = client?.session?.form
+    if (typeof formNs?.list === "function" && typeof formNs?.reply === "function") {
+      return {
+        list: async (sessionId: string) => {
+          const res = await (formNs.list as (opts: { path: { sessionID: string } }) => Promise<{ data?: SessionForm[] }>)(
+            { path: { sessionID: sessionId } },
+          )
+          return res?.data ?? []
+        },
+        reply: async (sessionId: string, formId: string, answerMap: Record<string, unknown>) => {
+          await (formNs.reply as (opts: { path: { sessionID: string; formID: string }; body: { answer: Record<string, unknown> } }) => Promise<unknown>)(
+            { path: { sessionID: sessionId, formID: formId }, body: { answer: answerMap } },
+          )
+        },
+      }
+    }
+
+    // 3. Public `request` method.
+    if (typeof client?.request === "function") {
+      const request = client.request as (opts: { method: string; url: string; body?: unknown }) => Promise<{ data?: unknown }>
+      return this.formApiViaRequest(request)
+    }
+
+    // 4. Internal HeyApi `_client.request` (SDK 1.15.13). The internal request
+    //    builds the full URL from `options.baseUrl`. Try both `/api` and no
+    //    prefix because `options.baseUrl` may or may not already carry `/api`.
+    const internal = client?._client
+    if (internal && typeof internal.request === "function") {
+      const request = internal.request.bind(internal) as (opts: { method: string; url: string; body?: unknown }) => Promise<{ data?: unknown }>
+      return this.formApiViaRequest(request)
+    }
+
+    return undefined
+  }
+
+  /**
+   * Build a FormApi from a generic `request` function. Tries the canonical
+   * `/api/session/...` URL first and, on a 404, retries without the `/api`
+   * prefix (in case baseUrl already carried it) so the form reply is delivered
+   * regardless of how the SDK assembled the base URL.
+   */
+  private formApiViaRequest(
+    request: (opts: { method: string; url: string; body?: unknown }) => Promise<{ data?: unknown }>,
+    forcedPrefix?: string,
+  ): FormApi {
+    const listUrl = (prefix: string, sessionId: string) => `${prefix}/session/${sessionId}/form`
+    const replyUrl = (prefix: string, sessionId: string, formId: string) =>
+      `${prefix}/session/${sessionId}/form/${formId}/reply`
+    const tryList = async (prefix: string, sessionId: string): Promise<SessionForm[]> => {
+      const res = await request({ method: "GET", url: listUrl(prefix, sessionId) })
+      return (res?.data as SessionForm[]) ?? []
+    }
+    const tryReply = async (prefix: string, sessionId: string, formId: string, answerMap: Record<string, unknown>): Promise<void> => {
+      await request({ method: "POST", url: replyUrl(prefix, sessionId, formId), body: { answer: answerMap } })
+    }
+    return {
+      list: async (sessionId: string) => {
+        if (forcedPrefix !== undefined) return tryList(forcedPrefix, sessionId)
+        try {
+          return await tryList("/api", sessionId)
+        } catch (error) {
+          if (this.isNotFound(error)) return tryList("", sessionId)
+          throw error
+        }
+      },
+      reply: async (sessionId: string, formId: string, answerMap: Record<string, unknown>) => {
+        if (forcedPrefix !== undefined) return tryReply(forcedPrefix, sessionId, formId, answerMap)
+        try {
+          await tryReply("/api", sessionId, formId, answerMap)
+        } catch (error) {
+          if (this.isNotFound(error)) await tryReply("", sessionId, formId, answerMap)
+          else throw error
+        }
+      },
+    }
+  }
+
+  private isNotFound(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message : String(error)
+    return /404|not found/i.test(msg)
   }
 
   getPendingChildQuestion(childSessionId: string): PendingQuestion | undefined {
