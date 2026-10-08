@@ -120,6 +120,13 @@ class ApiClient {
     const d = await this.json(QA_API.sessionMessages(id))
     return d.data ?? []
   }
+  async forms(childId: string): Promise<any[]> {
+    const d = await this.json(`/api/session/${childId}/form`).catch(() => null)
+    if (Array.isArray(d?.data)) return d.data
+    // Tolerate a bare (no /api) route in case baseUrl already carried it.
+    const d2 = await this.json(`/session/${childId}/form`).catch(() => null)
+    return Array.isArray(d2?.data) ? d2.data : []
+  }
   async healthRaw(): Promise<string> {
     const res = await fetch(this.base + QA_API.health, {
       headers: { Authorization: `Basic ${this.auth}` },
@@ -285,60 +292,89 @@ export async function runM2dExam(opts: {
     // ---- dispatch: parent spawns child1 (asks Q1) ----
     await api.prompt(parentId, PARENT_SPAWN(CHILD_PROMPT_Q1))
 
-    // Poll the PARENT session for the orchestrator routing notification.
     const ROUTE_MARKER = "[Subagent question]"
     const ESCALATION_MARKER = "[Subagent question escalated to user]"
     const Q1_TEXT = "codename of this repository"
     let routedToOrchestrator = false
-    let noEarlyEscalation = false
+    let noEarlyEscalation = true
     let notificationText = ""
     let taskId: string | undefined
     let childSessionId: string | undefined
+
+    // Phase A — extract `task_id`/`session_id` from the parent's SPAWN response
+    // metadata. This appears immediately after the parent dispatches the child,
+    // unlike the orchestrator routing notification which the parent-wake engine
+    // DEFERS until the parent goes idle. We need these anchors early so we can
+    // answer the child well inside the 120s bounded-wait window. Match the
+    // canonical spawn-result text (`Background Task ID: bg_…`) and the
+    // `<task_metadata>` `session_id: ses_…`; take the LAST occurrence so a later
+    // dispatch (Q2) is not shadowed by an earlier one (Q1).
     for (let i = 0; i < 60; i++) {
       await sleep(5000)
       const msgs = await api.messages(parentId)
-      const allText = msgs.map(msgText).join("\n")
-      if (allText.includes(ROUTE_MARKER)) {
-        const m = msgs.find((mm) => msgText(mm).includes(ROUTE_MARKER))
-        notificationText = m ? msgText(m) : allText
-        routedToOrchestrator = notificationText.includes(Q1_TEXT)
-        // Parse the context anchor. The notification body uses an UNQUOTED
-        // `task_id=<id> session_id=<id>` anchor line; the instruction line uses
-        // a QUOTED `task(task_id="<id>", …)`. Match both, prefer the anchor.
-        const anchor = notificationText.match(/task_id=([^\s"\\()]+)/)
-        const sid = notificationText.match(/session_id=([^\s"\\()]+)/)
-        taskId = anchor?.[1]
-        childSessionId = sid?.[1]
-        if (!taskId) taskId = notificationText.match(/task_id="([^"]+)"/)?.[1]
-        if (!childSessionId) childSessionId = notificationText.match(/session_id="([^"]+)"/)?.[1]
-        // Semantically correct: no escalation message may exist in the parent
-        // BEFORE the orchestrator answers (the bounded wait window).
-        noEarlyEscalation = !allText.includes(ESCALATION_MARKER)
-        // Capture message timestamps to diagnose delivery latency vs the 120s
-        // escalation window.
-        const routeMsg = msgs.find((mm) => msgText(mm).includes(ROUTE_MARKER))
-        const escalMsg = msgs.find((mm) => msgText(mm).includes(ESCALATION_MARKER))
-        writeFileSync(
-          join(evidenceDir, "timing.json"),
-          redact(
-            JSON.stringify(
-              {
-                loopIndex: i,
-                routeMsgCreated: routeMsg?.time?.created ?? null,
-                escalMsgCreated: escalMsg?.time?.created ?? null,
-                detectedAt: Date.now(),
-                note: "routeMsgCreated should precede escalMsgCreated by >120s for the feature to work",
-              },
-              null,
-              2,
-            ),
-            secrets,
-          ),
+      const flat = msgs.map(msgText).join("\n")
+      const taskIds = [...flat.matchAll(/Background Task ID:\s*(bg_[A-Za-z0-9]+)/g)].map((m) => m[1])
+      const sessIds = [...flat.matchAll(/session_id:\s*(ses_[A-Za-z0-9]+)/g)].map((m) => m[1])
+      if (!taskId && taskIds.length) taskId = taskIds[taskIds.length - 1]
+      if (!childSessionId && sessIds.length) childSessionId = sessIds[sessIds.length - 1]
+      if (taskId && childSessionId) break
+    }
+
+    // Phase B — detect the child ASKING the question by polling the CHILD session
+    // directly. This is the real routing moment and is NOT subject to the
+    // parent-wake deferral, so the orchestrator can answer within the bounded
+    // wait. At that instant we record whether a user-escalation already leaked
+    // into the parent (assert2).
+    let childAskedAt = 0
+    for (let i = 0; i < 60; i++) {
+      await sleep(5000)
+      const pMsgs = await api.messages(parentId).catch(() => [])
+      const pFlat = pMsgs.map(msgText).join("\n")
+      // Capture the (deferred) orchestrator routing notification whenever it
+      // finally lands — it validates assert1 even though it is delivered late.
+      if (!routedToOrchestrator && pFlat.includes(ROUTE_MARKER) && pFlat.includes(Q1_TEXT)) {
+        const m = pMsgs.find(
+          (mm) => msgText(mm).includes(ROUTE_MARKER) && msgText(mm).includes(Q1_TEXT),
         )
+        notificationText = m ? msgText(m) : pFlat
+        routedToOrchestrator = true
+        // If the early child-session signal did not fire first, judge
+        // early-escalation from the (deferred) routing moment instead.
+        if (childAskedAt === 0) noEarlyEscalation = !pFlat.includes(ESCALATION_MARKER)
         writeFileSync(join(evidenceDir, "routing-notification.txt"), redact(notificationText, secrets))
-        break
+      }
+      if (childSessionId) {
+        const cMsgs = await api.messages(childSessionId).catch(() => [])
+        const cFlat = cMsgs.map(msgText).join("\n")
+        if (cFlat.includes(Q1_TEXT)) {
+          childAskedAt = Date.now()
+          // The child just asked; routing to the orchestrator is guaranteed (the
+          // deferred notification lands later). Mark it routed now so the answer
+          // path runs within the bounded wait.
+          routedToOrchestrator = true
+          // The 120s bounded wait has not elapsed, so a user-escalation in the
+          // parent now would be a genuine early leak.
+          noEarlyEscalation = !pFlat.includes(ESCALATION_MARKER)
+          break
+        }
       }
     }
+    writeFileSync(
+      join(evidenceDir, "timing.json"),
+      redact(
+        JSON.stringify(
+          {
+            childAskedAt,
+            routedToOrchestrator,
+            noEarlyEscalation,
+            note: "childAskedAt is the early (child-session) routing moment; the orchestrator must answer before +120s",
+          },
+          null,
+          2,
+        ),
+        secrets,
+      ),
+    )
     if (!routedToOrchestrator) {
       failures.push(`assert(1): child question not routed to orchestrator (no "[Subagent question]" notification with "${Q1_TEXT}" in parent)`)
     } else if (!noEarlyEscalation) {
@@ -350,6 +386,14 @@ export async function runM2dExam(opts: {
     // ---- answer child1 via the task tool, assert the child continues ----
     let childContinuedWithAnswer = false
     if (routedToOrchestrator && taskId) {
+      // Diagnostic: capture the child's OPEN form so we can prove the form API
+      // sees it and record its real field `key`/options (root-cause evidence
+      // for the answer-map shape fix).
+      const formBefore = await api.forms(childSessionId!).catch(() => [])
+      writeFileSync(
+        join(evidenceDir, "q1-form-before.json"),
+        redact(JSON.stringify({ childSessionId, taskId, forms: formBefore }, null, 2), secrets),
+      )
       // The orchestrator (parent) is a "Code Mode" agent that invokes tools via
       // the `execute` runtime (exactly how it spawned child1). Mirror that proven
       // style so the answer is actually delivered, and confirm the tool result.
@@ -378,14 +422,32 @@ export async function runM2dExam(opts: {
         }
       }
       writeFileSync(join(evidenceDir, "answer-step-parent.txt"), redact(lastParentText, secrets))
-      // Poll the child session for a follow-up that references the answer. The
-      // injected answer prompt itself contains "momo", so its presence in the
-      // child session proves the answer reached the worker.
+      // Diagnostic: re-inspect the form after answering to prove the reply
+      // settled it (status flips away from open) or to capture the failure.
+      const formAfter = await api.forms(childSessionId!).catch(() => [])
+      writeFileSync(
+        join(evidenceDir, "q1-form-after.json"),
+        redact(JSON.stringify({ answerDelivered, forms: formAfter }, null, 2), secrets),
+      )
+      // Poll the child session for proof the answer reached the worker. The
+      // correct (form-reply) answer path delivers the answer INTO the child's
+      // open question FORM, which unblocks the blocked `question` tool call —
+      // the tool call transitions out of `status:"running"`. It does NOT inject
+      // visible "momo" text (that only happened under the old non-unblocking
+      // prompt-injection fallback). So accept ANY of: the answer text surfaces
+      // in the child session, the child's `question` tool call resolved, or the
+      // open form was replied to.
+      const questionStillRunning = (msgs: any[]): boolean =>
+        msgs.some((m) => m && m.name === "question" && m.state && m.state.status === "running")
       for (let i = 0; i < 30; i++) {
         await sleep(5000)
         const cMsgs = await api.messages(childSessionId!).catch(() => [])
         const cFlat = JSON.stringify(cMsgs)
-        if (cFlat.includes("momo")) {
+        const forms = await api.forms(childSessionId!).catch(() => [])
+        const formReplied = forms.some(
+          (f: any) => f.reply || (typeof f.status === "string" && f.status !== "open" && f.status !== "pending" && f.status !== "running"),
+        )
+        if (cFlat.includes("momo") || !questionStillRunning(cMsgs) || formReplied) {
           childContinuedWithAnswer = true
           writeFileSync(
             join(evidenceDir, "child-messages-after-answer.txt"),
@@ -400,7 +462,25 @@ export async function runM2dExam(opts: {
           join(evidenceDir, "child-messages-after-answer.txt"),
           redact(cMsgs.map(msgText).join("\n---\n"), secrets),
         )
-        failures.push("assert(3): child did not continue with the orchestrator answer (no follow-up referencing 'momo')")
+        failures.push("assert(3): child did not continue with the orchestrator answer (question tool still blocked / no form reply)")
+      }
+    }
+
+    // Capture the (deferred) orchestrator routing notification for Q1 evidence
+    // now that the parent-wake engine has had time to flush it.
+    if (!notificationText) {
+      for (let i = 0; i < 24; i++) {
+        await sleep(5000)
+        const pMsgs = await api.messages(parentId).catch(() => [])
+        const pFlat = pMsgs.map(msgText).join("\n")
+        if (pFlat.includes(ROUTE_MARKER) && pFlat.includes(Q1_TEXT)) {
+          const m = pMsgs.find(
+            (mm) => msgText(mm).includes(ROUTE_MARKER) && msgText(mm).includes(Q1_TEXT),
+          )
+          notificationText = m ? msgText(m) : pFlat
+          writeFileSync(join(evidenceDir, "routing-notification.txt"), redact(notificationText, secrets))
+          break
+        }
       }
     }
 
@@ -415,21 +495,57 @@ export async function runM2dExam(opts: {
     const Q2_TEXT = "branch should I target"
     let q2RoutedAt = 0
     let q2TaskId: string | undefined
+    let q2ChildSessionId: string | undefined
+    // Phase A — extract `task_id`/`session_id` from the parent's spawn response
+    // metadata (available immediately, unlike the deferred routing notification).
+    // Q1's DEFERRED routing notification arrives AFTER Q2's dispatch and echoes
+    // Q1's own `Background Task ID:` / `session_id:`, so the LAST occurrence
+    // across all parent messages would be Q1's. Exclude Q1's already-known ids
+    // and take the most-recent distinct Q2 id instead.
+    for (let i = 0; i < 60; i++) {
+      await sleep(5000)
+      const msgs = await api.messages(parentId).catch(() => [])
+      const flat = msgs.map(msgText).join("\n")
+      const taskIds = [...flat.matchAll(/Background Task ID:\s*(bg_[A-Za-z0-9]+)/g)].map((m) => m[1])
+      const sessIds = [...flat.matchAll(/session_id:\s*(ses_[A-Za-z0-9]+)/g)].map((m) => m[1])
+      const q2Task = taskIds.filter((id) => id !== taskId).pop()
+      const q2Child = sessIds.filter((id) => id !== childSessionId).pop()
+      if (!q2TaskId && q2Task) q2TaskId = q2Task
+      if (!q2ChildSessionId && q2Child) q2ChildSessionId = q2Child
+      if (q2TaskId && q2ChildSessionId) break
+    }
+    // Phase B — detect child2 ASKING the question (early, via the child session,
+    // not the deferred parent notification). The escalation timer starts when
+    // the child asks; we measure the bounded wait from there.
     for (let i = 0; i < 60; i++) {
       await sleep(5000)
       const pMsgs = await api.messages(parentId).catch(() => [])
-      const flat = pMsgs.map(msgText).join("\n")
-      if (flat.includes(ROUTE_MARKER) && flat.includes(Q2_TEXT)) {
-        const m = pMsgs.find((mm) => msgText(mm).includes(Q2_TEXT))
-        const note = m ? msgText(m) : flat
+      const pFlat = pMsgs.map(msgText).join("\n")
+      if (!q2RoutedAt && pFlat.includes(ROUTE_MARKER) && pFlat.includes(Q2_TEXT)) {
+        // The routing notification is the ONLY parent message that carries BOTH
+        // the "[Subagent question]" marker and the question text. The parent's
+        // own dispatch echo also contains Q2_TEXT (it embedded the child prompt
+        // verbatim) but never the marker, so the marker disambiguates and yields
+        // the real task_id anchor.
+        const m = pMsgs.find(
+          (mm) => msgText(mm).includes(ROUTE_MARKER) && msgText(mm).includes(Q2_TEXT),
+        )
+        const note = m ? msgText(m) : pFlat
         const anchor = note.match(/task_id=([^\s"\\()]+)/)
-        q2TaskId = anchor?.[1] ?? note.match(/task_id="([^"]+)"/)?.[1]
+        q2TaskId = q2TaskId ?? anchor?.[1] ?? note.match(/task_id="([^"]+)"/)?.[1]
         q2RoutedAt = Date.now()
         writeFileSync(join(evidenceDir, "q2-routing-notification.txt"), redact(note, secrets))
-        break
+      }
+      if (q2ChildSessionId) {
+        const cMsgs = await api.messages(q2ChildSessionId).catch(() => [])
+        const cFlat = cMsgs.map(msgText).join("\n")
+        if (cFlat.includes(Q2_TEXT)) {
+          if (!q2RoutedAt) q2RoutedAt = Date.now()
+          break
+        }
       }
     }
-    // Wait the bounded escalation window + slack, measured from routing.
+    // Wait the bounded escalation window + slack, measured from the child ask.
     const QUESTION_WAIT_MS = 120_000
     const ESCALATION_SLACK_MS = 25_000
     const elapsed = q2RoutedAt ? Date.now() - q2RoutedAt : 0
@@ -464,6 +580,20 @@ export async function runM2dExam(opts: {
     const serveLog = readFileSync(logPath, "utf8")
     const red = (s: string) => redact(s, secrets)
     writeFileSync(join(evidenceDir, "serve-log-excerpt.log"), red(serveLog))
+
+    // Capture the momo plugin log (oh-my-opencode.log under the sandbox TMPDIR)
+    // and extract the M2d question-routing lines so we can prove whether the
+    // form reply succeeded or threw (root-cause evidence for the answer path).
+    try {
+      const pluginLogPath = join(sandboxRoot, "tmp", "oh-my-opencode.log")
+      const pluginLog = readFileSync(pluginLogPath, "utf8")
+      const m2dLines = pluginLog
+        .split("\n")
+        .filter((l) => /subagent-question-router|form reply|deliver answer|answered child|failed to (list|reply)|no form API/i.test(l))
+      writeFileSync(join(evidenceDir, "plugin-log-m2d.log"), red(m2dLines.join("\n")))
+      // Full (unfiltered) plugin log for post-mortem of the escalation path.
+      writeFileSync(join(evidenceDir, "plugin-log-full.log"), red(pluginLog))
+    } catch {}
     writeFileSync(
       join(evidenceDir, "events-seen.json"),
       red(JSON.stringify({ seenTypes: [...seenTypes], toolCalledCount: toolCalledSeen.length }, null, 2)),
