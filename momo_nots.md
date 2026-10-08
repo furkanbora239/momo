@@ -187,3 +187,301 @@ model `opencode-go/hy3`, oturum `ses_ef4edede9ffeYWd4VhUDx8U5Ya`.
 - **Önerilen şekil:** `question` tool'una hedef alanı (`orchestrator` varsayılan | `user` açık
   eskalasyon); bekleyen sorunun orkestratör tarafında event olarak akması ve
   `task(task_id=..., answer)` ile cevaplanabilmesi; cevap N saniye gelmezse kullanıcıya düşmesi.
+
+---
+
+## 9. V2 Altında Kırık Temel Sistemler (2026-10-08, canlı doğrulama oturumu)
+
+Kaynak: canlı TUI oturumu (glm-5.3 orchestrator) + sandbox M2d attempt 4 + gerçek DB
+(salt-okunur) incelemesi. Kullanıcı beyanı: "en önemli özellikler çalışmıyor, ajan
+promptları kötü durumda, her şey birbirine girmiş, manager çalışmıyor."
+
+### 9.1 Arka plan görevi sonucu orchestrator'a DÖNMÜYOR (en kritik)
+- **Kanıt (canlı):** `task(subagent_type="manager")` probe'u (bg_6416da8b) — Jev doğru
+  route etti (explorer), alt ajan 14:37:44'te raporu tamamladı (HEALTHY dahil), ama
+  orchestrator'a `<system-reminder>` hiç gelmedi; task durumu 5+ dk sonra hâlâ
+  "running". Bitiş tespiti/bildirim zinciri V2 altında kırık.
+- **Etki:** Tüm orkestrasyon kör — kullanıcı açısından "manager hiçbir şey yapmıyor".
+- **Şüpheli zincir:** V2 tamamlanma olayı (`session.execution.succeeded`) → V1 `session.idle`
+  eşlemesi eksik VEYA parent-wake teslim zinciri (ertelenmiş kuyruk + flush tetikleyicisi)
+  sıkışık. M2d assert 4 (eskasyon kaybı) ile aynı zincir — tek kök olası.
+- **İKİNCİ KANIT (aynı probe):** Tamamlanma bildirimi gelmeyince 3 dk sonra stall watchdog
+  görevi **"Stale timeout" ile İPTAL etti** (sonuç üretildiği halde yanlış karar) — yani
+  zincir kırılmakla kalmıyor, watchdog kırığı "stale" diye yeniden etiketliyor ve üretimi
+  gizliyor. Tam zincir: çocuk bitti → idle tespiti yok → bildirim yok → watchdog iptali →
+  sonuç kaybı (içerik child oturumunda duruyor).
+
+### 9.2 M2d question routing — assert 4 (eskale edilmeyen soru)
+- **Durum:** attempt 4 (bugün) — assert 1-2-3 GEÇTİ (form `/api/api` ikiye katlanma
+  düzeltmesi + form field `key`/`id` alias işe yaradı; çocuk cevapla devam ediyor).
+  Sadece assert 4 düşüyor: yanıtlanmayan soru 120s sonra kullanıcıya eskale etmiyor.
+- **Kanıt:** timer kuruluyor (`routeChildQuestion` → setTimeout), hata logu yok — sessiz
+  kayıp `queuePendingParentWake` zincirinde (`deliverImmediately` bypass'ı yarım).
+- **Ek bulgu:** `[subagent-question-router] event subscription failed: result.stream
+  undefined` (ikincil yol; ana routing plugin hook'tan çalışıyor).
+
+### 9.3 V2'de ajan `todowrite` aracı YOK — todo zinciri üreticisiz (ölü kod)
+- **Kanıt:** v2 binary migration kodu: "todowrite ... no longer available and must
+  not be called". Canlı yüzey doğrulaması: orchestrator (glm-5.3) Code Mode kataloğunda
+  todo aracı yok; DB `todo` tablosunda 2 Ekim'den (V2 geçişi) beri tek satır yok.
+- **Etki:** momo'nun todo-continuation / todo-sync / boulder takip zinciri V2 altında
+  üreticisiz. Kullanıcı "flash modele görev listesi yaptır" dedi → model araç bulamadı,
+  TUI'da hiçbir şey görünmedi (beklenen davranış, momo hatası değil ama yetenek kaybı).
+- **Karar gerekli:** ya plugin `/session/{id}/todo` API'sinden yazar, ya ajan-todo
+  takibi V2 altında emekli edilir.
+- **Runbook düzeltmesi:** "todo.updated canlı emisyonu doğrulanmadı" maddesi yanlış
+  framed — olay ajan todowrite'ından hiç gelemaz.
+
+### 9.4 Test barı çürüyor: 17 → 38 hata
+- Runbook'un belgelediği bar 9280 pass / 17 fail; bugün 9273 pass / **38 fail**.
+- Yeni düşenler: M2b manifest drift guard (3), dist bundle prompt içerik (kaynak ≠
+  bundle), createBuiltinAgents (2: custom ajan prompt reklamı + disabledAgents hariç
+  tutma), shared-skills manifest (3), builtin skill ekstraksiyonu, GPT-5.5 model ailesi
+  referansı, CLI/TUI installer (2) — V1/V2 karışımı belirgin.
+- **"Pre-existing, dokunulmadı" belgeleme stratejisi artık geçersiz:** hata seti
+  büyüyor; M0a triajı şart.
+
+### 9.5 Kurulu opencode v2.0.23 değil v2.0.25
+- Runbook 2.0.23 diyor; `opencode --version` = **v2.0.25**. Runbook + pinned
+  `@opencode/client`/`protocol` 2.0.22 notları güncellenmeli.
+
+### 9.6 Kullanıcı algısı: "ajan promptları kötü"
+- Somut kök adayları: dist prompt eşitsizliği (bundle ≠ kaynak), createBuiltinAgents
+  prompt derleme hataları, 38 hatalı bar içinde prompt-related testler. M0c maddesi.
+
+### Öncelik sırası (öneri)
+| # | Madde | Neden önce |
+|---|---|---|
+| 1 | 9.1 bildirim/bitirme zinciri | Tüm orkestrasyon kör; diğer her şey bunun arkasında |
+| 2 | 9.4 test triajı | Yeşil bar olmadan hiçbir düzeltme güvenle doğrulanamaz |
+| 3 | 9.2 M2d assert 4 | 9.1 ile aynı zincir olabilir — ortak kök aramak |
+| 4 | 9.6 + 9.4 prompt bütünlüğü | Kullanıcı deneyimi |
+| 5 | 9.3 todo kararı | Mimari karar, kullanıcı onaylı |
+| 6 | 9.5 dok güncelleme | Ucuz, her an |
+
+**Baştan yazma adayları (kullanıcı önerisi: "bazı şeyleri düzeltmek baştan yapmaktan
+daha zor"):** parent-wake/notification teslim zinciri (9.1+9.2 birlikte, deferral +
+flush + deliverImmediately kavramaları V1 kalıntısıyla V2 gerçeklerine uymuyor);
+todo-devam zinciri (V2 gerçeklerine göre tasarımla); M3 markdown agents zaten
+"baştan yazım" karakterli (M0'dan sonra M3'ü erken çekmek mantıklı olabilir).
+
+---
+
+## 10. Teşhis Turu 2 — Manager/Jev, Katalog MCP, Sistem Prompt (2026-10-08, canlı)
+
+Kullanıcı talimatı: önce tam teşhis + not; düzeltme planı sonra. "Task işlevsiz,
+manager route yapıyor fakat bilinçli mi, doğru modelle mi yönlendiriyor bilmiyoruz."
+
+### 10.1 Manager/Jev: BİLİNÇLİ çalışıyor (kanıtlı) — iki açık alt-soru
+- **Kanıt (decision ledger, tek kayıt):** bg_6416da8b probe'u için stage1 path=explore
+  güven **0.91** (eşik 0.75 üstü), stage2 model=**opencode/big-pickle** güven **0.97**
+  (olasılıklar: big-pickle 0.98, glm-5.3-flash 0.02), lane=direct-worker, effort=1.
+  Candidate havuzu 6 model, fiyat sıralı (big-pickle + 5 flash). Maliyet $0.00006.
+- **Yorum:** "Beleş modele mi gitti?" — EVET ve bilinçli: önemsiz read-only görev için
+  en ucuz yeterli model Jev kararıyla seçildi. Momonun kuzey yıldızı gereği doğru.
+- **Açık alt-soru 1:** Aynı milisaniyede `engine.decide threw "jev down"` fallback'i de
+  var — çift route() çağrısı olmuş (biri Jev başarı → dispatch ondan; ikincisi "jev
+  down" fallback, kaydı disk sorunuyla patladı). Çift çağrının kaynağı belirsiz.
+- **Açık alt-soru 2:** "jev down" tek seferlik mi (Zen endpoint ayakta, 0.97 güvenle
+  cevapladı) yoksa kırılgan mı — sağlım gerekli.
+
+### 10.2 Model-catalog MCP CANLI YÜZEYDE YOK (kırık temel özellik)
+- **Kanıt:** Code Mode kataloğunda `catalog_*` araçları yok (arama teyit); canlı MCP
+  listesinde **yalnızca appwrite**. Momonun Tier-1 builtin'i (catalog_list/pick/
+  refresh/knowledge/enrich) orchestrator yüzeyine hiç ulaşmıyor.
+- **Etki (KRİTİK):** Sistem promptundaki "CATALOG-FIRST MODEL CHOICE MANDATORY —
+  before EVERY task() call catalog_pick" talimatı **yerine getirilemez** (araç yok);
+  her delege katalogsuz yapılıyor. 8 adet "env-dependent" catalog MCP test hatası ile
+  tutarlı — test hatası değil, canlı kayıt kırığı olabilir.
+- **`lsp` MCP de yüzeyden düşmüş:** oturum başındaki Code Mode kataloğunda 8 lsp
+  aracı vardı; son katalogda yok. Oturum ortası yüzey değişimi — MCP araç drop'u.
+
+### 10.3 Sistem prompt kalitesi: "ajan promptları kötü" beyanı KANITLI
+Orchestrator (glm-5.3) kendi sistem promptunu inceledi; somut kusurlar:
+- **Ölü V1 referansları:** `todowrite` talimatları (araç V2'de yok — 9.3), bash/task
+  V1 isimleri, `lsp_diagnostics`, todo-continuation ("TODO CREATION TRACKED BY HOOK").
+- **Uygulanamaz zorunluluklar:** "catalog_pick MANDATORY" (araç yok — 10.2), "Oracle
+  running → cevabı bekle" + "CONSULT Oracle" (oracle ajanı Phase A'da disabled);
+  disabled roster (prometheus/metis/momus/hephaestus/atlas/oracle) promptta canlı
+  referans olarak duruyor.
+- **İç çelişkiler:** aynı delege kararı için 3 farklı eşik ("handful of tool calls →
+  kendin yap" vs "NEVER implement substantive work yourself" vs "trivial edits only");
+  "OVER-DELEGATION counterweight" vs "HARD DELEGATION MANDATE NON-NEGOTIABLE".
+- **3x tekrar:** aynı ilkeler (lead-with-outcome, no-narration, ter silence) Role/
+  behavior/momo_core/ponytail bölümlerinde tekrar tekrar — token şişkinliği.
+
+### 10.4 TUI/sidebar: askıdaki görev "running" gösteriliyor
+- 9.1'in yüzey belirtisi: bitmiş-ama-bildirilmemiş görev sidebar'da sürekli running.
+  Kök 9.1 + tui.json entry yazmama hatası (9.4 içindeki createPluginModule hataları).
+
+### 10.5 Disk block-accounting (KAPALI — kullanıcı çözdü)
+- "disk full" ledger hatası gerçekmiş (blok hesabı) ama kullanıcı halletti; disk
+  dolu değil (29G boş). Takip gerekmiyor.
+
+### Teşhis turu özeti (düzeltme planlama girdisi)
+| # | Bulgu | Durum | Önem |
+|---|---|---|---|
+| 1 | Bg sonucu orchestrator'a dönmüyor + watchdog yanlış stale (9.1) | Kanıtlı | Kritik |
+| 2 | Catalog MCP canlıda yok; catalog_pick zorunluluğu uygulanamaz (10.2) | Kanıtlı | Kritik |
+| 3 | lsp MCP oturum ortası drop (10.2) | Kanıtlı | Yüksek |
+| 4 | Sistem prompt: ölü referanslar + çelişkiler + tekrar (10.3) | Kanıtlı | Yüksek |
+| 5 | M2d assert 4 eskasyon kaybı (9.2) | Kanıtlı | Yüksek |
+| 6 | Test barı 17→38 (9.4) | Kanıtlı | Yüksek |
+| 7 | Todo zinciri üreticisiz, V2 kararı gerekli (9.3) | Kanıtlı | Orta |
+| 8 | Jev çift route çağrısı + "jev down" sağlığı (10.1) | Açık soru | Orta |
+| 9 | TUI sidebar running-takılı + tui.json (10.4) | Kanıtlı | Orta |
+| 10 | opencode 2.0.25 sürüm kayması (9.5) | Kanıtlı | Düşük |
+
+### 10.6 `session_list` / `session_read` oturum araçları V2 altında bozuk (EK)
+- **Semptom (canlı):** `session_list` (limit/project filtreli ve filtresiz) → "No
+  sessions found"; oysa DB'de bugünün oturumları dolu (session_v2 tablosunda 6+ canlı
+  kayıt). V1 `session` tablosu bayat (son kayıt 2026-10-03) — araç V1 tabloyu okuyor,
+  V2 `session_v2`'yi değil.
+- **Kanıt:** `sqlite3 ~/.local/share/opencode/opencode.db` → `session` son 2026-10-03,
+  `session_v2` bugün dolu; `todo` tablosu 2026-10-02'den beri boş.
+- **Kök:** oturum araçları V2 şemasına (`session_v2` + `session_message`, `data` JSON
+  kolonları) taşınmamış — M6 köprü süpürmesine aday.
+
+### 10.7 Kanıt noktaları indeksi (sonraki ajan için — sıfırdan kazma)
+| Ne | Nerede | Not |
+|---|---|---|
+| Canlı plugin logu | `/tmp/oh-my-opencode.log` | decision-router, question-router, v2-*-bridge satırları |
+| Gerçek DB (SALT-OKUNUR!) | `~/.local/share/opencode/opencode.db` | tablolar: `session_v2` (canlı), `session` (V1, bayat), `session_message` (mesajlar, `data` JSON), `todo` (2 Ekim'den beri boş) |
+| Karar defteri | `~/.omo/decision-ledger.jsonl` | Jev kararları (stage1/stage2/resolved/usage) |
+| M2d sınav kanıtı | `.omo/evidence/20261005-m2d-question-routing/` | summary.md, plugin-log-m2d.log, q2-timing.json |
+| Canlı probe kaydı | bg_6416da8b / çocuk `ses_ee40d449affecbINbuhuOySekb` | 9.1'in kanıtı; çocuk mesajlarında HEALTHY raporu duruyor |
+| Flash-model todo testi | kullanıcı oturumu, 2026-10-08 ~16:50 | 9.3'ün tetikleyicisi (ajan todo aracı yoktu) |
+| WIP diff (M2d deliverImmediately) | `git diff` — manager.ts, subagent-question-router.ts, plugin/tool-execute-before.ts, parent-wake-* zinciri | runbook madde 34'te dosya listesi |
+| Runbook (plan) | `notes/opencode-v2-migration-runbook.md` | 2026-10-08 güncellemesi §9'ye bağlı |
+| Test barı | `cd packages/omo-opencode && bun test` → 9273 pass / 38 fail (2026-10-08) | 9.4'te hata listesi |
+
+**Durum: TEŞHİS FAZI TAMAM.** Sonraki faz: düzeltme planı (§10 özet tablosu + §9
+öncelik tablosu runbook M0 önerisiyle birlikte girdi). Teşhis dışı hiçbir düzeltme
+yapılmadı; tek istisnalar: exam script syntax hatası (tek `)`, koşmayı engelliyordu)
+ve momo_nots/runbook not güncellemeleri.
+
+---
+
+## 11. Teşhis Turu 3 — kanıt toplama sonuçları (2026-10-08 akşamı, delege raporları)
+
+Yöntem: üç alt ajan paralelde koşturuldu; sonuçlar **diske** yazdırıldı (§9.1 workaround'u).
+Üç görevin üçü de işini bitirdiği halde 30 dk "inactivity" ile **timeout sayıldı** — §9.1'in
+üçüncü ve en güçlü kanıtı: alt ajan araç çağırıp dosya üretmesine rağmen "hareketsiz"
+etiketiyle iptal ediliyor (watchdog aktiviteyi görmüyor). Raporlar diske yazıldığı için
+üretim kaybolmadı: `/tmp/opencode/m0-{triage,v2-events,models}.md`.
+
+### 11.1 V2 `session.idle` teşhisi — karar: ÇOĞUNLUKLA YOK gibi, kesin deney tanımlı
+- SSE kanıtı (attempt 4 `events-seen.json`): alt ajan yaşam döngüsünde `session.idle`
+  **hiç yayınlanmadı**; buna karşılık `session.execution.started/succeeded` ve
+  `session.step.ended` yayınlandı. Köprü `case "session.idle"` birebir eşliyor → üretici
+  yoksa V1 işleyicisi hiç tetiklenmiyor (`v2/event-hook-bridge.ts:85-86`).
+- Binary'de `session.idle` literal'i VAR (`strings ~/.opencode/bin/opencode`) — kod yolu
+  duruyor ama **yayınlanmıyor** olabilir (alt oturum mu / ana oturum mu ayrımı açık soru).
+- **KESİN DENEY (tanımlı, yapılmadı):** izole XDG sandbox + `opencode serve` → SSE'de
+  `/api/event/stream` aboneliği → bir child task tetikle → **ana oturum ve çocuk oturum**
+  akışlarını karşılaştır: hangisi `session.idle` yayıyor?
+- Etkilenen momo kod noktaları (rapor listesinden): `features/background-agent/
+  session-idle-event-handler.ts` (birincil bitiş tespiti), `parent-wake-flush-runner.ts`,
+  `parent-wake-notifier.ts`, `manager.ts`, `features/monitor/output-injector.ts`,
+  `hooks/team-session-events/*`, `hooks/shared/session-idle-settle.ts` (kaynak),
+  `cli/run/event-session-handlers.ts` + 15+ test mock'u.
+
+### 11.2 Test triajı (delege raporu — benim prompt değişikliklerimden ÖNCE ölçüldü)
+- Ölçülen bar: **39 fail**. Büyük çoğunluk `dev..HEAD` diff'iyle temas etmeyen
+  **PRE_EXISTING** (`shared-skills` manifest 3, `createBuiltinAgents` 2, sisyphus factory 5,
+  CLI installer 3, catalog MCP 8, prompt reconciler 3, current-model-family, dist bundle,
+  markdown link).
+- **Tek net REGRESSION (bu dalın ürettiği):** `M2b QA manifest drift guard` — bu dalda eklenen
+  yeni testin karşılaştırdığı `script/qa/opencode-v2-qa-tool-surface.json`_committed_ hali,
+  `buildQaManifest()` çıktısından eski (stale commit).
+
+### 11.3 Beleş model profili (opencode provider) — görev dağıtımı için
+Kaynak: `/tmp/opencode/m0-models.md` (URL'li). Özet:
+- Uzun bağlam (served 1.0M): nemotron-3-ultra-free, muse-spark-1.3-contributor-free,
+  longcat-2.5-preview-free, space-bunny/exo/fledge (anonim, dikkat).
+- Hızlı mekanik işler: nemotron-3.5-lightning-free (262K), big-pickle (her zaman ücretsiz
+  son çare), mimo-v2.6-flash-free (tool döngüsü şikayeti var, gözetimli).
+- Orta/ağır kod işi: muse-spark-1.3-contributor-free (Meta, agentic coding), ling-3.1-flash-free
+  (560B), nemotron-3-ultra-free (550B).
+- **GİZLİLİK (kullanıcı bilmeli):** çoğu beleş modelde veri **eğitimde kullanılabilir**
+  (big-pickle, exo/fledge, mimo, ling, muse-spark contributor, nemotron trial). Zero-retention
+  olanlar yalnızca: **step-5-preview-free, longcat-2.5-preview-free, space-bunny-free**.
+  Müşteri/özel kod işlerinde zero-retention olanlar tercih edilmeli.
+- **"Step 5 Preview Free" VAR AMA YERELDE YOK:** StepFun amiral gemisi (~600B MoE, 1M,
+  zero-retention) Zen dokümanında listeli, yerel `opencode models` çıktısında hiç `step*`
+  yok. Sebep muhtemelen model listesi bayat / auth yenilemesi gerek (`/connect` veya provider
+  cache refresh). Ayrı bir küçük iş: provider listesini tazele.
+
+### 11.4 Yapılan düzeltme (bu oturum, kullanıcı talebi: "tek sade prompt, model varyantı yok")
+- `sisyphus-agent-factory.ts`: model ailesine göre 13 varyant seçen switch **kaldırıldı** →
+  tüm aileler tek `buildMomoOrchestratorPrompt()` gövdesini kullanıyor (Gemini overlay ve
+  family≠fallback ek bölüm enjeksiyonu da kalktı). `resolveSisyphusPromptFamily` reconciler
+  için korundu.
+- `momo-core-sections.ts`: 3.928 → ~1.7 KB. Üç kez tekrarlanan terslik/tone/constraint
+  blokları tek `<momo_core_behavior>` gövdesine indi; `catalog_pick` MANDATORY → koşullu
+  ilke (araç yüzeyde yoksa doğrulanabilir seçim + gerekçe); `lsp_diagnostics` referansı →
+  projenin kendi kapıları; hardcoded eski model adları (gpt-5-nano, claude-haiku-4-5,
+  glm-5.3-flash) çıkarıldı.
+- `momo-orchestrator.ts`: ~9.75 → ~8.8 KB. Model-koşullu iki bölüm (`buildNonClaudePlannerSection`,
+  `buildParallelDelegationSection`) çıkarıldı → gövde artık **modelden bağımsız, birebir aynı**
+  (GLM vs Claude karşılaştırması: `diffAt` = son). Verification ile Phase 3 tekrarı birleştirildi.
+- Testler YENİ sözleşmeye güncellendi (silinmedi): 5 sisyphus factory testi artık
+  "tek uniform gövde" iddiasını doğruluyor; bir tanesine V2 regresyon koruması eklendi
+  (prompt `todowrite` içeremez — V2'de araç yok).
+- Doğrulama: `bun run typecheck` temiz; `src/agents/` taraması yalnızca bilinen 2
+  `createBuiltinAgents` hatasıyla geçiyor. **ÇALIŞAN OTELEME: varyant dosyaları (kimi-*,
+  claude-*, gpt-5-*, grok-4, glm-5-2, default) artık fabrikada kullanılmıyor ama diskte
+  duruyor** — kullanıcı gözden geçirdikten sonra silinecek (baştan-yazım planı §M0 Faz 3).
+
+---
+
+## 12. OTURUM DURUMU — 2026-10-08 kapanış (kullanıcı "reset atıyorum, sonra devam")
+
+Burası devam noktasıdır. Önceki bölümler teşhis (§9-§11), plan `notes/m0-fix-plan.md`.
+
+### 12.1 Bu oturumda YAPILANLAR (kod + not)
+1. **Tek prompt gövdesi (Faz 3 başı).** `sisyphus-agent-factory.ts`: 13 varyantlık switch
+   kaldırıldı → tüm model aileleri tek `buildMomoOrchestratorPrompt()` gövdesini alıyor.
+   `momo-core-sections.ts` 3.9→1.7 KB (tekrar eden terslik/tone/constraint blokları tek
+   `<momo_core_behavior>` gövdesine indi). `momo-orchestrator.ts` 9.8→~8.7 KB; Claude/
+   non-Claude koşullu iki bölüm çıkarıldı → **gövde modelden bağımsız** (GLM vs Claude-Sonnet
+   bayt bayt aynı, `diffAt` = son). Ölü referanslar temizlendi: `lsp_diagnostics`, hardcoded
+   eski model adları, `catalog_pick` MANDATORY zorunluluğu (araç yokken uygulanamıyordu).
+2. Testler yeni sözleşmeye **güncellendi** (silinmedi): 5 sisyphus factory testi artık tek
+   uniform gövdeyi doğruluyor; birine V2 regresyon koruması (`prompt` `todowrite` içeremez).
+3. `bun run typecheck` TEMİZ. `dist` yeniden kuruldu (root `dist/index.js`, 6.8 MB).
+4. Notlar: §9 (V2 kırık sistemler), §10 (teşhis turu 2), §11 (delege raporları), §7 plan.
+
+### 12.2 GÜNCEL TEST BARı ve doğru koşum şekli
+- `cd packages/omo-opencode && bun test` → **42 fail** (kişi sayımı değişken; bir kısmı
+  koşum dizinine/order'a bağlıdır).
+- **ÖNEMLİ ÖLÇÜM KURALI:** `dist-bundle-prompt-content` testi `dist/index.js` yolunu CWD'ye
+  göre arar — **repo root'undan koşunca GEÇİYOR** (`bun test packages/omo-opencode/src/...`),
+  alt paketten koşunca "must exist" diye düşüyor. Yanlış sınıflandırmayın (delege triaj
+  raporundaki #26 da bu yüzden yanlış işaretlenmiş).
+
+### 12.3 Reset sonrası YENİ BULGU — §10.2 REVİZE
+- **Catalog MCP sunucu resetinden sonra GERİ GELDİ:** `catalog_list` canlı çalışıyor, 11
+  opencode modelini context_window/pricing/strengths ile listeliyor. Yani "catalog MCP yok"
+  bulgusu kalıcı değil — **araç yüzeyi sunucu durumuna göre düşüp geliyor** (oturum içi
+  MCP registration kararsızlığı). `lsp` araçları da resetle geri döndü.
+- Model listesinde **Step 5 Preview Free hâlâ yok** (Zen dokümanında var) → provider listesi
+  tazeleme/auth yenileme işi duruyor.
+- Katalog metadata'sı: beleş modeller `tool_call: false` işaretli — ajan döngüsünde dikkat.
+
+### 12.4 AÇIK İŞLER (devam sırası önerisi)
+| # | İş | Durum |
+|---|---|---|
+| 1 | Eski varyant dosyalarını sil (kimi-*, claude-*, gpt-5-*, grok-4, glm-5-2, default) — fabrikada kullanılmıyor | **kullanıcı gözden geçirecek** |
+| 2 | `sisyphus-runtime-prompt-reconciler` artık ANLAMSIZ (tek gövde olduğu için aile uyuşmazlığı imkansız) + 3 testi eski mimariyi doğruluyor → reconciler emekli edilmeli, testler güncellenmeli | yeni öneri |
+| 3 | Faz 1: V2 `session.idle` kesin deneyi (§11.1'de tanımlı) sonra bildirim zinciri baştan yazım | planlı |
+| 4 | Catalog/lsp MCP'nin NEDEN düştüğü (resetle geliyor) — registration kararsızlığı | §10.2 revize |
+| 5 | Provider listesi tazeleme (Step 5 Preview Free gelsin) | küçük |
+| 6 | M2b QA manifest drift (tek gerçek regresyon) | Faz 0 |
+| 7 | Todo kararı (A: `/session/{id}/todo` / B: emekli) | kullanıcı onayı |
+| 8 | Test barı triajını DOĞRU CWD ile tekrarla | Faz 0 |
+
+### 12.5 Çalışma düzeni notu (§9.1 için kalıcı workaround)
+Bg görevlerin sonucu dönmediği için: **her delege görevi sonucunu dosyaya yazsın**, biz
+diskten okuruz. Kanıt: üç görev işini bitirdiği halde 30 dk "inactivity" ile iptal sayıldı,
+üretim dosyalarda kurtuldu (`/tmp/opencode/m0-*.md`).
