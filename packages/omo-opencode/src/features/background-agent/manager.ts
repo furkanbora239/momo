@@ -1562,19 +1562,35 @@ The fallback retry session is now created and can be inspected directly.
       }
     }
 
-    // 3. Public `request` method.
+    // 3. Public `request` method. The HeyApi client builds the full URL from
+    //    `getConfig().baseUrl`, so the same `/api`-doubling hazard as case 4
+    //    applies: a `/api` prefix on top of a baseUrl that already ends in `/api`
+    //    yields `.../api/api/session/...` which returns an EMPTY list (never a
+    //    404), so the retry-on-404 fallback never fires and the answer form is
+    //    never found. Normalize the prefix from the baseUrl up front.
     if (typeof client?.request === "function") {
       const request = client.request as (opts: { method: string; url: string; body?: unknown }) => Promise<{ data?: unknown }>
-      return this.formApiViaRequest(request)
+      const baseUrl =
+        (client as { getConfig?: () => { baseUrl?: string } })?.getConfig?.()?.baseUrl
+        ?? (client as { _config?: { baseUrl?: string } })?._config?.baseUrl
+        ?? (client as { options?: { baseUrl?: string } })?.options?.baseUrl
+        ?? ""
+      const forcedPrefix = /\/api\/?$/i.test(baseUrl) ? "" : "/api"
+      return this.formApiViaRequest(request, forcedPrefix)
     }
 
     // 4. Internal HeyApi `_client.request` (SDK 1.15.13). The internal request
-    //    builds the full URL from `options.baseUrl`. Try both `/api` and no
-    //    prefix because `options.baseUrl` may or may not already carry `/api`.
+    //    builds the full URL from `options.baseUrl`. If `baseUrl` already ends
+    //    with `/api` the canonical `/api` prefix would double up, so force the
+    //    empty prefix in that case; otherwise force `/api`. Forcing (rather than
+    //    trying both) is required because a wrong prefix returns an empty list,
+    //    not a 404, so the retry-on-404 fallback never fires.
     const internal = client?._client
     if (internal && typeof internal.request === "function") {
       const request = internal.request.bind(internal) as (opts: { method: string; url: string; body?: unknown }) => Promise<{ data?: unknown }>
-      return this.formApiViaRequest(request)
+      const baseUrl = internal.options?.baseUrl ?? ""
+      const forcedPrefix = /\/api\/?$/i.test(baseUrl) ? "" : "/api"
+      return this.formApiViaRequest(request, forcedPrefix)
     }
 
     return undefined

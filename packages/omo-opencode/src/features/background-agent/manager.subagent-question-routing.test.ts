@@ -481,6 +481,52 @@ describe("BackgroundManager — M2d question routing", () => {
     apiManager.shutdown()
   })
 
+  test("public client.request surface normalizes the /api prefix from baseUrl", async () => {
+    // The live opencode-go client exposes the HeyApi `request` method (case 3),
+    // which builds the URL from getConfig().baseUrl. When that baseUrl already
+    // ends with /api the canonical /api prefix must NOT be added again, or the
+    // list returns an empty array and the answer form is never found.
+    const replies: Array<{ url: string; body: unknown }> = []
+    const client = {
+      session: {
+        prompt: async () => ({}),
+        promptAsync: async () => ({}),
+        abort: async () => ({}),
+      },
+      getConfig: () => ({ baseUrl: "http://127.0.0.1:49374/api" }),
+      request: async (opts: { method: string; url: string; body?: unknown }) => {
+        if (opts.method === "GET" && opts.url === "/session/child-session/form") {
+          return {
+            data: [
+              {
+                id: "form_pub",
+                status: "pending",
+                fields: [{ id: "q0", type: "string", custom: true }],
+              },
+            ],
+          }
+        }
+        if (opts.method === "POST" && opts.url === "/session/child-session/form/form_pub/reply") {
+          replies.push({ url: opts.url, body: opts.body })
+        }
+        return {}
+      },
+    }
+    const pubManager = createManager(120_000, undefined, {}, client as unknown as Record<string, unknown>)
+    registerChildTask(pubManager)
+    pubManager.routeChildQuestion({
+      sessionID: "child-session",
+      questionArgs: { questions: [{ question: "Branch to target?" }] },
+    })
+
+    const answer = await pubManager.answerChildQuestion("child-session", "main")
+    expect(answer.answered).toBe(true)
+    expect(replies).toHaveLength(1)
+    expect(replies[0].url).toBe("/session/child-session/form/form_pub/reply")
+    expect(replies[0].body).toEqual({ answer: { q0: "main" } })
+    pubManager.shutdown()
+  })
+
   test("prefers the top-level form namespace on newer SDK clients", async () => {
     const replies: Array<{ formID: string; answer: Record<string, unknown> }> = []
     const client = {
