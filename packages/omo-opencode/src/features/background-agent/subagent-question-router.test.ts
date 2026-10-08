@@ -210,4 +210,17 @@ describe("subagent-question-router — form answer mapping", () => {
   test("ignores fields without an id", () => {
     expect(buildFormAnswerMap([{ type: "string" } as never], "x")).toEqual({})
   })
+
+  test("maps a free-text field keyed by `key` (live OpenCode schema)", () => {
+    // OpenCode form fields carry `key`, not `id`; the live answer path must key
+    // on `key` or the reply payload is empty and the server throws
+    // FormInvalidAnswerError.
+    const map = buildFormAnswerMap([{ key: "question", type: "string", custom: true }], "momo")
+    expect(map).toEqual({ question: "momo" })
+  })
+
+  test("prefers `key` over the legacy `id` alias", () => {
+    const fields = [{ key: "q0", id: "ignored", type: "multiselect", options: [{ value: "main", label: "main branch" }] }]
+    expect(buildFormAnswerMap(fields, "use the main branch")).toEqual({ q0: ["main"] })
+  })
 })

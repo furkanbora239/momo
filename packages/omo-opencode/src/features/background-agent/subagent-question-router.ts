@@ -189,7 +189,10 @@ export function buildUserEscalationNotificationText(pending: PendingQuestion): s
  */
 
 export interface SessionFormField {
-  id: string
+  /** OpenCode keys form fields by `key` (the schema field name), not `id`. */
+  key?: string
+  /** Legacy/alias key used by older callers and unit fixtures. */
+  id?: string
   type?: string
   /** OpenCode sets `custom: true` on free-text (string) fields that accept any text. */
   custom?: boolean
@@ -223,7 +226,9 @@ export function buildFormAnswerMap(
   const map: Record<string, unknown> = {}
   const lower = answer.toLowerCase()
   for (const field of fields ?? []) {
-    const key = field.id
+    // OpenCode form fields carry `key`; honor the legacy `id` alias too so
+    // older callers and unit fixtures keep working.
+    const key = field.key ?? field.id
     if (!key) continue
     if (field.type === "multiselect") {
       const options = field.options ?? []
