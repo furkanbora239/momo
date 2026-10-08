@@ -60,7 +60,7 @@ describe("createSisyphusAgent", () => {
       );
     });
 
-    test("#when selecting a tracking mode #then wires the matching tool contract", () => {
+    test("#when baking a prompt with or without the task system #then one unified prompt is used", () => {
       // given
       const models = ["openai/gpt-5.5", "openai/gpt-5.6-sol"];
 
@@ -69,13 +69,12 @@ describe("createSisyphusAgent", () => {
         const taskAgent = createSisyphusAgent(model, undefined, undefined, undefined, undefined, true);
         const todoAgent = createSisyphusAgent(model, undefined, undefined, undefined, undefined, false);
 
-        // then
-        expect(taskAgent.prompt).toContain("task_create");
-        expect(taskAgent.prompt).toContain("task_update");
+        // then - momo ships a single orchestrator prompt for every family; the tracking
+        // flag no longer swaps the body
+        expect(taskAgent.prompt).toBe(todoAgent.prompt);
+        // regression guard: V2 removed the agent-facing todo tool, so the prompt must
+        // never instruct the model to call it (momo_nots.md 9.3)
         expect(taskAgent.prompt).not.toContain("todowrite");
-        expect(todoAgent.prompt).toContain("todowrite");
-        expect(todoAgent.prompt).not.toContain("task_create");
-        expect(todoAgent.prompt).not.toContain("task_update");
       }
     });
   });
@@ -119,22 +118,21 @@ describe("createSisyphusAgent", () => {
   });
 
   describe("#given a GLM Sisyphus model", () => {
-    test("#when creating the agent #then uses the GLM-native prompt with bare config", () => {
+    test("#when creating the agent #then shares the unified momo prompt with bare config", () => {
       // given
       const model = "zai/glm-5.2";
 
       // when
       const agent = createSisyphusAgent(model);
 
-      // then - glm routes to its own variant, not the default prompt
-      expect(agent.prompt).not.toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
-      expect(agent.thinking).toBeUndefined();
+      // then - per-family prompt variants were retired; every family bakes the same body
+      expect(agent.prompt).toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
       expect(agent.reasoningEffort).toBeUndefined();
     });
   });
 
   describe("#given Grok 4.5/4.6 Sisyphus models", () => {
-    test("#when creating agents #then uses the Grok-native prompt with high effort and no thinking", () => {
+    test("#when creating agents #then shares the unified momo prompt with no thinking", () => {
       // given
       const models = ["xai/grok-4.6", "x-ai/grok-4.5"];
 
@@ -142,24 +140,23 @@ describe("createSisyphusAgent", () => {
         // when
         const agent = createSisyphusAgent(model);
 
-        // then - grok 4.5/4.6 route to the shared grok variant, not the default prompt
-        expect(agent.prompt).not.toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
-        expect(agent.reasoningEffort).toBe("high");
-        expect(agent.thinking).toBeUndefined();
+        // then - the grok-native variant was retired in favour of one unified body
+        expect(agent.prompt).toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
       }
     });
 
-    test("#when creating agents for other grok ids #then keeps the fallback family", () => {
+    test("#when creating agents for other grok ids #then the body stays identical too", () => {
       // given
       const models = ["x-ai/grok-4.20", "xai/grok-4-1-fast-reasoning", "x-ai/grok-code-fast-1"];
-      const grokPrompt = createSisyphusAgent("xai/grok-4.6").prompt;
+      const unified = createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt;
 
       for (const model of models) {
         // when
         const agent = createSisyphusAgent(model);
 
-        // then - unrecognized grok ids fall back to the default family
-        expect(agent.prompt).not.toBe(grokPrompt);
+        // then - unrecognized ids resolve to the fallback family and bake the same body
+        expect(resolveSisyphusPromptFamily(model)).toBe("fallback");
+        expect(agent.prompt).toBe(unified);
         expect(agent.reasoningEffort).toBeUndefined();
       }
     });
@@ -177,10 +174,10 @@ describe("createSisyphusAgent", () => {
       const geminiPrompt = createSisyphusAgent(geminiModel).prompt;
       const minimaxPrompt = createSisyphusAgent(minimaxModel).prompt;
 
-      // then - Gemini fallback overrides are baked in; MiniMax bakes the plain body
-      expect(geminiPrompt).toContain("TOOL_CALL_MANDATE");
-      expect(minimaxPrompt).not.toContain("TOOL_CALL_MANDATE");
-      expect(geminiPrompt).not.toBe(minimaxPrompt);
+      // then - Gemini fallback overrides were retired along with the per-family variants,
+      // so both bodies are the same unified prompt
+      expect(geminiPrompt).toBe(minimaxPrompt);
+      expect(geminiPrompt).not.toContain("TOOL_CALL_MANDATE");
     });
 
     test("#when baking prompts for DeepSeek vs MiniMax #then the plain fallback bodies are identical", () => {
@@ -198,15 +195,15 @@ describe("createSisyphusAgent", () => {
   });
 
   describe("#given a Gemini model", () => {
-    test("#when creating the agent #then uses the Gemini-corrected prompt with thinking enabled", () => {
+    test("#when creating the agent #then bakes the unified momo prompt with thinking enabled", () => {
       // given
       const model = "google/gemini-3.1-pro";
 
       // when
       const agent = createSisyphusAgent(model);
 
-      // then - gemini routes to its own corrected variant, not the default prompt
-      expect(agent.prompt).not.toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
+      // then - the Gemini-corrected overlay was retired; one body serves every family
+      expect(agent.prompt).toBe(createSisyphusAgent("anthropic/claude-sonnet-4-6").prompt);
       expect(agent.thinking).toEqual({
         type: "enabled",
         budgetTokens: 10000,
