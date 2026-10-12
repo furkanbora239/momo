@@ -7,12 +7,12 @@ import tuiModule, { createV2TuiSetup } from "./index"
 import {
   createFakeSolidRuntime,
   createFakeV2TuiContext,
-  type FakeSolidNode,
 } from "./fake-tui-context"
-import { createV2TuiFacade } from "./tui-facade"
+import { registerNativeAdvisorPool } from "../../native-runtime/catalog-registry"
+import type { NativeModelRef } from "../../native-routing/types"
 
 type EnvSnapshot = {
-  readonly HOME: string | undefined
+  readonly OPENCODE_TEST_HOME: string | undefined
   readonly OCX_PROFILE: string | undefined
   readonly OMO_PROFILE: string | undefined
   readonly OPENCODE_CONFIG_DIR: string | undefined
@@ -20,7 +20,7 @@ type EnvSnapshot = {
 }
 
 const originalEnv: EnvSnapshot = {
-  HOME: process.env.HOME,
+  OPENCODE_TEST_HOME: process.env.OPENCODE_TEST_HOME,
   OCX_PROFILE: process.env.OCX_PROFILE,
   OMO_PROFILE: process.env.OMO_PROFILE,
   OPENCODE_CONFIG_DIR: process.env.OPENCODE_CONFIG_DIR,
@@ -35,8 +35,8 @@ function makeTempDir(label: string): string {
   return dir
 }
 
-function isolateEnv(home: string, dataHome: string): void {
-  process.env.HOME = home
+function isolateEnv(testHome: string, dataHome: string): void {
+  process.env.OPENCODE_TEST_HOME = testHome
   process.env.XDG_DATA_HOME = dataHome
   delete process.env.OCX_PROFILE
   delete process.env.OMO_PROFILE
@@ -44,7 +44,7 @@ function isolateEnv(home: string, dataHome: string): void {
 }
 
 function restoreEnv(): void {
-  for (const key of ["HOME", "OCX_PROFILE", "OMO_PROFILE", "OPENCODE_CONFIG_DIR", "XDG_DATA_HOME"] as const) {
+  for (const key of ["OPENCODE_TEST_HOME", "OCX_PROFILE", "OMO_PROFILE", "OPENCODE_CONFIG_DIR", "XDG_DATA_HOME"] as const) {
     const value = originalEnv[key]
     if (value === undefined) delete process.env[key]
     else process.env[key] = value
@@ -84,68 +84,65 @@ describe("#given a setup whose solid runtime is unavailable", () => {
 })
 
 describe("#given a setup with a solid runtime and an isolated environment", () => {
-  it("#when setup runs #then the flagship features register in priority order and cleanup unregisters them", async () => {
-    const home = makeTempDir("home")
+  it("#when setup runs #then only native pool, providers, and advisor-pool controls register", async () => {
+    const testHome = makeTempDir("test-home")
     const dataHome = makeTempDir("data")
     const project = makeTempDir("project")
-    isolateEnv(home, dataHome)
+    isolateEnv(testHome, dataHome)
 
-    const fake = createFakeV2TuiContext({ directory: project })
     const solid = createFakeSolidRuntime()
+    const model = { providerID: "fixture", id: "free", available: true }
+    const snapshot = {
+      fetchedAt: "2026-10-12T00:00:00.000Z",
+      connectedProviders: ["fixture"],
+      models: [model],
+      sources: {},
+      transportModelIDs: {},
+      unregisteredLiveModels: {},
+      unavailableProviders: {},
+    }
+    const fake = createFakeV2TuiContext({ directory: project, rpcOutput: { snapshot, providerIDs: ["fixture"] } })
+    const advisorModels: NativeModelRef[] = []
+    const unregisterAdvisor = registerNativeAdvisorPool(project, {
+      read: () => advisorModels,
+      write: (models) => { advisorModels.splice(0, advisorModels.length, ...models) },
+    })
     const setup = createV2TuiSetup({ loadSolid: async () => solid })
 
     const cleanup = await setup(fake.ctx)
     expect(typeof cleanup).toBe("function")
 
     const slashCommandIds: string[] = []
+    const commands = []
     for (const layer of fake.keymapLayers) {
       for (const command of layer().commands ?? []) {
         if (command.id !== undefined) slashCommandIds.push(command.id)
+        commands.push(command)
       }
     }
-    expect(slashCommandIds).toEqual([
-      "omo.subagent-tree.tasks",
-      "omo.model-pool.pool",
-      "omo.providers.slash",
-    ])
+    expect(slashCommandIds).toEqual(["omo.native.pool", "omo.native.providers", "omo.native.advisor-pool"])
+    const pool = commands.find((command) => command.id === "omo.native.pool")
+    await pool?.run?.()
+    expect(fake.clientRpcCalls).toEqual([{
+      rpcID: "momo.native", method: "catalogSnapshot", location: { directory: project }, input: {},
+    }])
 
     const cardModes = fake.keymapLayers
       .map((layer) => layer().mode)
       .filter((mode): mode is string => mode !== undefined)
-    expect(cardModes).toContain("omo.tui-card.tasks")
-    expect(cardModes).toContain("omo.tui-card.pool")
-
-    // One sidebar.content claim (sidebar) + one app-level claim per keymap
-    // layer: tasks, pool, providers panels each register an interaction
-    // layer and a slash-command layer.
-    expect(fake.slotClaims).toHaveLength(7)
-    const sidebarClaim = fake.slotClaims.find(
-      (record) =>
-        (record.claim as unknown as { readonly append: string }).append ===
-        "sidebar.content",
-    )
-    expect(sidebarClaim).toBeDefined()
-    const claim = sidebarClaim?.claim as unknown as {
-      readonly append: string
-      readonly render: (input: { readonly sessionID: string }) => unknown
-    }
-    expect(claim.append).toBe("sidebar.content")
-    const rendered = claim.render({ sessionID: "sess-1" }) as FakeSolidNode
-    expect(rendered.tag).toBe("box")
-
-    const appClaims = fake.slotClaims.filter(
-      (record) =>
-        (record.claim as unknown as { readonly append: string }).append ===
-        "app",
-    )
-    expect(appClaims).toHaveLength(6)
+    expect(cardModes).toEqual([
+      "omo.native-tui.model-pool",
+      "omo.native-tui.providers",
+      "omo.native-tui.advisor-pool",
+      "global",
+    ])
 
     cleanup?.()
-    const sidebarRecord = fake.slotClaims.find(
-      (record) =>
-        (record.claim as unknown as { readonly append: string }).append ===
-        "sidebar.content",
-    )
-    expect(sidebarRecord?.unregistered).toBe(true)
+    unregisterAdvisor()
+    expect(fake.slotClaims).toHaveLength(4)
+    expect(fake.slotClaims.every((record) => {
+      const claim = record.claim as unknown as { append: string }
+      return claim.append === "app"
+    })).toBe(true)
   })
 })

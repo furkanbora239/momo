@@ -80,7 +80,7 @@ export function createV2TuiFacade(ctx: V2TuiContext): V2TuiFacade {
               })
             }
           }
-          return solid.createElement("box")
+          return null
         },
       })
     },
