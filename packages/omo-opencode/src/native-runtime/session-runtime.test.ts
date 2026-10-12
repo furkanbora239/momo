@@ -9,6 +9,7 @@ function harness() {
   const forms = new Map<string, FormDetail>()
   const calls: Array<{ name: string; input: unknown }> = []
   let promptResponse: Promise<unknown> = Promise.resolve({})
+  let beforeFormCreate: (() => Promise<void>) | undefined
   let activeSessions: Record<string, { type: "running" }> = {}
   let contextMessages: SessionMessageInfo[] = []
   const task: NativeTask = {
@@ -21,7 +22,7 @@ function harness() {
     parentRole: "orchestrator",
     role: "worker",
     model: { providerID: "momo-qa", id: "momo-qa-model" },
-    state: "running",
+    state: "waiting_question",
     prompt: "do work",
     createdAt: 1,
     updatedAt: 1,
@@ -31,7 +32,7 @@ function harness() {
     processedEventIDs: [],
     lastActivityAt: 1,
     question: { id: "form_child", prompt: "Which project?", form: { fields: [{ key: "projectName", type: "string", required: true }] } },
-    questionEscalated: true,
+    questionEscalated: false,
   }
   const repository = {
     get: async (id: string) => id === task.id ? task : undefined,
@@ -72,6 +73,7 @@ function harness() {
         list: async ({ sessionID }: { sessionID: string }) => [...forms.values()].filter((form) => form.sessionID === sessionID),
         create: async (input: unknown) => {
           calls.push({ name: "form.create", input })
+          await beforeFormCreate?.()
           const params = input as Record<string, unknown>
           const form = makeForm(String(params.id), String(params.sessionID), String(params.title), params.metadata as Record<string, unknown> | undefined)
           forms.set(`${form.sessionID}:${form.id}`, form)
@@ -83,6 +85,7 @@ function harness() {
           return form
         },
         reply: async (input: unknown) => { calls.push({ name: "form.reply", input }) },
+        cancel: async ({ sessionID, formID }: { sessionID: string; formID: string }) => { calls.push({ name: "form.cancel", input: { sessionID, formID } }); forms.delete(`${sessionID}:${formID}`) },
       },
     },
   } as unknown as NativeV2Client
@@ -101,6 +104,7 @@ function harness() {
       onParentAnswer: async (taskID, questionID, answer, replyingSessionID) => { calls.push({ name: "parent.answer", input: { taskID, questionID, answer, replyingSessionID } }) },
     }),
     setPromptResponse: (response: Promise<unknown>) => { promptResponse = response },
+    setBeforeFormCreate: (action: (() => Promise<void>) | undefined) => { beforeFormCreate = action },
     setActive: (value: Record<string, { type: "running" }>) => { activeSessions = value },
     setContext: (value: SessionMessageInfo[]) => { contextMessages = value },
   }
@@ -177,16 +181,19 @@ describe("native V2 session runtime", () => {
     expect(created).toMatchObject({ sessionID: "ses_root", title: "Which project?", fields: [{ key: "projectName", type: "string" }] })
     const metadata = created.metadata as Record<string, unknown>
     expect(metadata).toMatchObject({ momoNativeFormKind: "question", momoNativeTaskID: h.task.id, momoNativeQuestionID: "form_child" })
+    const notification = h.calls.filter((call) => call.name === "synthetic").at(-1)?.input as Record<string, unknown>
+    expect(notification).toMatchObject({ sessionID: "ses_root", resume: true, delivery: "queue", metadata: { momoNativeQuestionNotification: { taskID: h.task.id, questionID: "form_child" } } })
 
     h.forms.set("ses_child:form_child", makeForm("form_child", "ses_child", "Which project?", { momoNativeFormKind: "question" }))
+    h.task.questionEscalated = true
+    await h.runtime.escalateQuestion({ rootSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
+    const escalation = [...h.calls].reverse().find((call) => call.name === "form.create")?.input as Record<string, unknown>
+    const escalationID = String(escalation.id)
     await h.runtime.answer({ sessionID: "ses_child", questionID: "form_child", answer: "momo" })
     expect(h.calls.find((call) => call.name === "form.reply")?.input).toMatchObject({
       sessionID: "ses_child", formID: "form_child", answer: { projectName: "momo" },
     })
-
-    await h.runtime.escalateQuestion({ rootSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
-    const escalation = [...h.calls].reverse().find((call) => call.name === "form.create")?.input as Record<string, unknown>
-    const escalationID = String(escalation.id)
+    expect(h.calls.filter((call) => call.name === "form.cancel")).toHaveLength(2)
     const escalationMetadata = escalation.metadata as Record<string, unknown>
     h.forms.set(`ses_root:${escalationID}`, makeForm(escalationID, "ses_root", "Which project?", escalationMetadata))
     expect(await h.runtime.onFormEvent({ id: "form-replied-1", created: 1, type: "form.replied", data: { id: escalationID, sessionID: "ses_root", answer: { projectName: "root-answer" } } })).toBe(true)
@@ -194,6 +201,23 @@ describe("native V2 session runtime", () => {
       name: "parent.answer",
       input: { taskID: h.task.id, questionID: "form_child", answer: { projectName: "root-answer" }, replyingSessionID: "ses_root" },
     })
+  })
+
+  it("closes a forwarded question form if the parent answers while form creation is in flight", async () => {
+    const h = harness()
+    let releaseCreate: (() => void) | undefined
+    h.setBeforeFormCreate(() => new Promise<void>((resolve) => { releaseCreate = resolve }))
+    const pendingAsk = h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
+    for (let attempt = 0; attempt < 8 && releaseCreate === undefined; attempt += 1) await Promise.resolve()
+    expect(releaseCreate).toBeDefined()
+    h.task.answer = "parent answered"
+    h.task.state = "queued"
+    releaseCreate?.()
+    await pendingAsk
+
+    expect(h.calls.some((call) => call.name === "synthetic")).toBe(false)
+    expect(h.calls.filter((call) => call.name === "form.cancel")).toHaveLength(1)
+    expect(h.forms.size).toBe(0)
   })
 
   it("marks forwarded momo forms consumed so parent questions do not re-enter task event mapping", async () => {

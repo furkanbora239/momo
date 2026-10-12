@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import type { FormFields, SessionInfo, V2Event } from "@opencode/client"
 import type { NativeTask, NativeTaskEvent, NativeTaskQuestion, NativeTaskRepository, NativeTaskRole, NativeTaskRuntime } from "../native-task/types"
+import { deliveryMessageID } from "./delivery-message-id"
 import { discoverNativeV2Client, type NativeV2Client } from "./v2-service-client"
 
 type NativeSessionMetadata = {
@@ -137,7 +138,7 @@ export function createNativeSessionRuntime(input: {
     const task = await input.repository.get(args.taskID)
     if (task === undefined || task.parentSessionID !== args.parentSessionID) throw new Error("Cannot deliver a result for an unknown native task parent")
     await ownedSession(args.parentSessionID)
-    const messageID = stableID("msg", `delivery:${args.taskID}`, 26)
+    const messageID = deliveryMessageID(args.taskID)
     await (await client()).session.synthetic({
       sessionID: args.parentSessionID,
       id: messageID,
@@ -150,13 +151,32 @@ export function createNativeSessionRuntime(input: {
   }
 
   async function ask(args: Parameters<NativeTaskRuntime["ask"]>[0]): Promise<void> {
+    const api = await client()
     await ownedSession(args.parentSessionID)
-    await createQuestionForm(await client(), args.parentSessionID, args.taskID, args.question, "question")
+    if (!await questionIsPending(args.taskID, args.question.id, false)) return
+    await createQuestionForm(api, args.parentSessionID, args.taskID, args.question, "question")
+    if (!await questionIsPending(args.taskID, args.question.id, false)) {
+      await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
+      return
+    }
+    await api.session.synthetic({
+      sessionID: args.parentSessionID,
+      id: questionNotificationID(args.taskID, args.question.id),
+      text: `A child task is waiting for a decision. Task ID: ${args.taskID}. Question ID: ${args.question.id}. ${args.question.prompt}. Use momo_task answer with this task ID, question ID, and your answer before continuing.`,
+      description: `Native task ${args.taskID} question ${args.question.id}`,
+      metadata: { momoNativeQuestionNotification: { taskID: args.taskID, questionID: args.question.id } },
+      delivery: "queue",
+      resume: true,
+    })
+    if (!await questionIsPending(args.taskID, args.question.id, false)) await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
   }
 
   async function escalateQuestion(args: Parameters<NativeTaskRuntime["escalateQuestion"]>[0]): Promise<void> {
     await ownedSession(args.rootSessionID)
-    await createQuestionForm(await client(), args.rootSessionID, args.taskID, args.question, "escalation")
+    const api = await client()
+    if (!await questionIsPending(args.taskID, args.question.id, true)) return
+    await createQuestionForm(api, args.rootSessionID, args.taskID, args.question, "escalation")
+    if (!await questionIsPending(args.taskID, args.question.id, true)) await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
   }
 
   async function answer(args: Parameters<NativeTaskRuntime["answer"]>[0]): Promise<void> {
@@ -168,6 +188,8 @@ export function createNativeSessionRuntime(input: {
       formID: args.questionID,
       answer: normalizeAnswer(args.answer, form.fields),
     })
+    const task = await findTaskBySession(input.repository, args.sessionID)
+    await closeForwardedQuestionForms(api, task)
   }
 
   async function continueParent(args: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<void> {
@@ -201,6 +223,17 @@ export function createNativeSessionRuntime(input: {
     return session
   }
 
+  async function questionIsPending(taskID: string, questionID: string, escalated: boolean): Promise<boolean> {
+    const task = await input.repository.get(taskID)
+    return task !== undefined && task.state === "waiting_question" && task.question?.id === questionID && task.answer === undefined && task.questionEscalated === escalated
+  }
+
+  async function requiredTask(taskID: string): Promise<NativeTask> {
+    const task = await input.repository.get(taskID)
+    if (task === undefined) throw new Error("Native task disappeared during question delivery")
+    return task
+  }
+
   async function onLaunchError(sessionID: string, error: unknown): Promise<void> {
     const detail = error instanceof Error ? error.message : String(error)
     await input.onEvent?.({ id: stableID("evt", `launch-error:${sessionID}:${detail}`, 26), type: "execution.failed", sessionID, error: detail })
@@ -214,6 +247,7 @@ export function createNativeSessionRuntime(input: {
     resume,
     interrupt,
     deliver,
+    deliveryMessageID,
     ask,
     escalateQuestion,
     answer,
@@ -257,7 +291,7 @@ async function findTaskBySession(repository: NativeTaskRepository, sessionID: st
 
 async function createQuestionForm(api: NativeV2Client, sessionID: string, taskID: string, question: NativeTaskQuestion, kind: "question" | "escalation"): Promise<void> {
   const questionID = question.id
-  const formID = stableID("frm", `${kind}:${taskID}:${questionID}`, 24)
+  const formID = questionFormID(kind, taskID, questionID)
   const existing = await api.session.form.list({ sessionID })
   if (existing.some((form) => form.id === formID)) return
   const metadata = {
@@ -273,6 +307,25 @@ async function createQuestionForm(api: NativeV2Client, sessionID: string, taskID
     fields: formFields(question.form),
     metadata,
   })
+}
+
+function questionFormID(kind: "question" | "escalation", taskID: string, questionID: string): string {
+  return stableID("frm", `${kind}:${taskID}:${questionID}`, 24)
+}
+
+function questionNotificationID(taskID: string, questionID: string): string {
+  return stableID("msg", `question-notification:${taskID}:${questionID}`, 26)
+}
+
+async function closeForwardedQuestionForms(api: NativeV2Client, task: NativeTask): Promise<void> {
+  const expectedIDs = new Set([
+    questionFormID("question", task.id, task.question?.id ?? ""),
+    questionFormID("escalation", task.id, task.question?.id ?? ""),
+  ])
+  for (const sessionID of new Set([task.parentSessionID, task.rootSessionID])) {
+    const activeForms = await api.session.form.list({ sessionID })
+    for (const form of activeForms) if (expectedIDs.has(form.id)) await api.session.form.cancel({ sessionID, formID: form.id })
+  }
 }
 
 function formFields(value: unknown): FormFields {
