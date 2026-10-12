@@ -95,8 +95,8 @@ function stateWith(
   preferProviders: string[] = [],
   disabledProviders: string[] = [],
   healthFile?: string,
-  poolFile?: string,
-  togglesFile?: string,
+  poolFile: string = makePoolFile([]),
+  togglesFile: string = makeTogglesFile([]),
 ): CatalogState {
   return { cacheFile: file, prefer, preferProviders, disabledProviders, healthFile, poolFile, togglesFile }
 }
