@@ -3,7 +3,7 @@
 > **MODIFIED SOFTWARE NOTICE**  
 > This repository is a token-efficient, cheap-provider-first modified fork of [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) (upstream npm packages: `oh-my-opencode` / `oh-my-openagent`).  
 > Distributed under the original [Sustainable Use License 1.0 (SUL-1.0)](./LICENSE.md) (**not** OSI open source).  
-> The original upstream README is preserved at [README.upstream.md](./README.upstream.md).
+> The original upstream README is preserved at [README.upstream.md](https://github.com/code-yeongyu/oh-my-openagent).
 
 ---
 

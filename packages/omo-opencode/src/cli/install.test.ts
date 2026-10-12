@@ -1,3 +1,4 @@
+import * as versionProbe from "../shared/opencode-version-probe"
 import { describe, expect, test, mock, beforeEach, afterEach, spyOn } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -20,6 +21,7 @@ describe("install CLI - binary check behavior", () => {
   let getOpenCodeVersionSpy: ReturnType<typeof spyOn>
 
   beforeEach(() => {
+    spyOn(versionProbe, "defaultOpenCodeVersionProbe").mockReturnValue({ available: true, version: "1.4.0", major: 1 })
     // given temporary config directory
     tempDir = join(tmpdir(), `omo-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
     mkdirSync(tempDir, { recursive: true })

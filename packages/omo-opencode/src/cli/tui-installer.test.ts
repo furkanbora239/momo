@@ -1,3 +1,4 @@
+import * as versionProbe from "../shared/opencode-version-probe"
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -31,6 +32,7 @@ describe("runTuiInstaller", () => {
   const originalIsStdoutTty = process.stdout.isTTY
 
   beforeEach(() => {
+    spyOn(versionProbe, "defaultOpenCodeVersionProbe").mockReturnValue({ available: true, version: "1.4.0", major: 1 })
     Object.defineProperty(process.stdin, "isTTY", { configurable: true, value: true })
     Object.defineProperty(process.stdout, "isTTY", { configurable: true, value: true })
     spyOn(astGrepInstall, "installAstGrepForOpenCode").mockResolvedValue(undefined)

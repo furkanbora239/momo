@@ -1,3 +1,4 @@
+import * as versionProbe from "../shared/opencode-version-probe"
 import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -19,6 +20,7 @@ describe("runCliInstaller", () => {
   const originalConsoleError = console.error
 
   beforeEach(() => {
+    spyOn(versionProbe, "defaultOpenCodeVersionProbe").mockReturnValue({ available: true, version: "1.4.0", major: 1 })
     console.log = mockConsoleLog
     console.error = mockConsoleError
     mockConsoleLog.mockClear()

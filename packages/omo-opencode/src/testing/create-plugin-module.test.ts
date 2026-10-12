@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test"
+import * as versionProbe from "../shared/opencode-version-probe"
+import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -116,6 +117,7 @@ function createTestPluginModule(overrides: Parameters<typeof createPluginModule>
 
 describe("createPluginModule()", () => {
   beforeEach(() => {
+    spyOn(versionProbe, "defaultOpenCodeVersionProbe").mockReturnValue({ available: true, version: "1.4.0", major: 1 })
     mockDetectDuplicateOmoPlugin.mockClear()
     mockGetDuplicateOmoPluginWarning.mockClear()
     mockInjectServerAuthIntoClient.mockClear()
