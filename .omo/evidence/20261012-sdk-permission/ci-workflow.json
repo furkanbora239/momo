@@ -1,0 +1,9 @@
+{
+  "yamlParsed": true,
+  "devPRTrigger": true,
+  "manualDispatchTrigger": true,
+  "contentsPermission": "read",
+  "providerCredentialsRequired": false,
+  "workflowSHA256": "7bbde19178c61f2029fc7cd484899c4b8bcb3a32983514d49ade6c7a4bb6f317",
+  "localCommands": "typecheck/build/full suite previously passed; GitHub run pending"
+}
