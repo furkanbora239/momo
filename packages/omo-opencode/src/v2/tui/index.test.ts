@@ -4,10 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import tuiModule, { createV2TuiSetup } from "./index"
-import {
-  createFakeSolidRuntime,
-  createFakeV2TuiContext,
-} from "./fake-tui-context"
+import { createFakeV2TuiContext } from "./fake-tui-context"
 import { registerNativeAdvisorPool } from "../../native-runtime/catalog-registry"
 import type { NativeModelRef } from "../../native-routing/types"
 
@@ -69,28 +66,43 @@ describe("#given the V2 TUI plugin module", () => {
   })
 })
 
-describe("#given a setup whose solid runtime is unavailable", () => {
-  it("#when setup runs #then it degrades to a no-op without registering anything", async () => {
+describe("#given a setup that does not load a second Solid runtime", () => {
+  it("#when setup runs #then it registers controls through the native V2 context", async () => {
     const fake = createFakeV2TuiContext()
-    const setup = createV2TuiSetup({ loadSolid: async () => null })
+    const setup = createV2TuiSetup({ getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
 
     const cleanup = await setup(fake.ctx)
 
-    expect(cleanup).toBeUndefined()
+    expect(typeof cleanup).toBe("function")
     expect(fake.slotClaims).toHaveLength(0)
-    expect(fake.keymapLayers).toHaveLength(0)
-    expect(fake.toasts).toHaveLength(0)
+    expect(fake.keymapLayers).toHaveLength(1)
+    cleanup?.()
+  })
+
+  it("#when the server catalog RPC fails #then the slash command reports the error in a toast", async () => {
+    const fake = createFakeV2TuiContext({ directory: "/fake/project" })
+    fake.ctx.client.rpc.call = async () => { throw new Error("server is offline") }
+    const setup = createV2TuiSetup({ getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
+
+    await setup(fake.ctx)
+    const pool = fake.keymapLayers[0]?.().commands?.find((command) => command.id === "omo.native.pool")
+    await pool?.run?.()
+
+    expect(fake.toasts).toEqual([{
+      title: "Model pool unavailable",
+      message: "server is offline",
+      variant: "error",
+    }])
   })
 })
 
-describe("#given a setup with a solid runtime and an isolated environment", () => {
+describe("#given a setup with isolated catalog and advisor controls", () => {
   it("#when setup runs #then only native pool, providers, and advisor-pool controls register", async () => {
     const testHome = makeTempDir("test-home")
     const dataHome = makeTempDir("data")
     const project = makeTempDir("project")
     isolateEnv(testHome, dataHome)
 
-    const solid = createFakeSolidRuntime()
     const model = { providerID: "fixture", id: "free", available: true }
     const snapshot = {
       fetchedAt: "2026-10-12T00:00:00.000Z",
@@ -107,7 +119,7 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
       read: () => advisorModels,
       write: (models) => { advisorModels.splice(0, advisorModels.length, ...models) },
     })
-    const setup = createV2TuiSetup({ loadSolid: async () => solid })
+    const setup = createV2TuiSetup()
 
     const cleanup = await setup(fake.ctx)
     expect(typeof cleanup).toBe("function")
@@ -127,22 +139,10 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
       rpcID: "momo.native", method: "catalogSnapshot", location: { directory: project }, input: {},
     }])
 
-    const cardModes = fake.keymapLayers
-      .map((layer) => layer().mode)
-      .filter((mode): mode is string => mode !== undefined)
-    expect(cardModes).toEqual([
-      "omo.native-tui.model-pool",
-      "omo.native-tui.providers",
-      "omo.native-tui.advisor-pool",
-      "global",
-    ])
+    expect(fake.keymapLayers.map((layer) => layer().mode)).toEqual(["global"])
 
     cleanup?.()
     unregisterAdvisor()
-    expect(fake.slotClaims).toHaveLength(4)
-    expect(fake.slotClaims.every((record) => {
-      const claim = record.claim as unknown as { append: string }
-      return claim.append === "app"
-    })).toBe(true)
+    expect(fake.slotClaims).toHaveLength(0)
   })
 })

@@ -1,16 +1,13 @@
 import { Plugin } from "@opencode/plugin/tui"
 
-import type { SolidRuntime } from "../../features/tui-card"
 import { log } from "../../shared/logger"
-import { loadSolidRuntime, type SolidNode } from "./solid-loader"
-import { createV2TuiFacade } from "./tui-facade"
 import type { V2TuiCleanup, V2TuiContext } from "./types"
 import type { NativeCatalogAdapter } from "../../native-catalog"
 import type { NativeCatalogSnapshot } from "../../native-catalog"
 import type { NativeAdvisorPoolControl } from "../../native-runtime/tui/catalog-controls"
 import { createNativeCatalogControlStores } from "../../native-runtime/tui/control-stores"
 import { resolveNativeHomeDirectory } from "../../native-catalog/paths"
-import { registerNativeCatalogControls } from "../../native-runtime/tui/catalog-controls"
+import { registerNativeCatalogKeymapControls } from "./native-catalog-keymap"
 import { getAdvisorPool } from "../../native-runtime/advisor-pool-config"
 
 type NativeCatalogView = Pick<NativeCatalogAdapter, "refresh" | "snapshot" | "listProviderIDs">
@@ -53,7 +50,6 @@ function createRpcCatalogView(ctx: V2TuiContext, directory: string): NativeCatal
 }
 
 export type V2TuiSetupDeps = {
-  readonly loadSolid: () => Promise<SolidRuntime<SolidNode> | null>
   readonly getCatalog?: (ctx: V2TuiContext) => NativeCatalogView | undefined
   readonly getAdvisorPool?: (ctx: V2TuiContext) => NativeAdvisorPoolControl | undefined
   readonly homeDirectory?: (ctx: V2TuiContext) => string
@@ -76,26 +72,19 @@ async function runRegistration(
 }
 
 /**
- * Builds the V2 TUI setup: loads the solid runtime (degrading to a no-op
- * when unavailable), adapts the V2 context onto the momo facade, then
- * registers only the native catalog controls. OpenCode's own native UI keeps
- * ownership of session and task visibility.
+ * Registers catalog controls through OpenCode's native keymap context. The
+ * TUI process reads the server-owned catalog over the scoped native RPC and
+ * writes the shared model/provider stores plus project advisor configuration.
  */
 export function createV2TuiSetup(
   deps: V2TuiSetupDeps = {
-    loadSolid: loadSolidRuntime,
     getCatalog: (ctx) => createRpcCatalogView(ctx, ctx.location?.directory ?? ""),
     getAdvisorPool: (ctx) => getAdvisorPool(ctx.location?.directory ?? ""),
       homeDirectory: () => resolveNativeHomeDirectory(),
   },
 ): (ctx: V2TuiContext) => Promise<V2TuiCleanup | void> {
   return async (ctx) => {
-    const solid = await deps.loadSolid()
-    if (solid === null) {
-      return
-    }
-
-    const facade = createV2TuiFacade(ctx)
+    const cleanups: (() => void)[] = []
 
     await runRegistration("[native-catalog-controls]", () => {
       const directory = ctx.location?.directory ?? ""
@@ -106,11 +95,11 @@ export function createV2TuiSetup(
         return
       }
       const stores = createNativeCatalogControlStores(deps.homeDirectory?.(ctx))
-      registerNativeCatalogControls(facade, solid, catalog, stores, advisorPool)
+      cleanups.push(registerNativeCatalogKeymapControls(ctx, catalog, stores, advisorPool))
     })
 
     return () => {
-      facade.runCleanups()
+      for (const cleanup of cleanups.splice(0)) cleanup()
     }
   }
 }
