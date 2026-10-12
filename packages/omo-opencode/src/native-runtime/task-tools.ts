@@ -105,8 +105,8 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     researchModel: async (model, research) => {
       if (engine === undefined || research.decisionId.length === 0) return
       await engine.createResearch({
-        prompt: `Research the published capabilities and limits of ${model.providerID}/${model.id}. Save only claims supported by URLs from official model or provider documentation using momo_catalog_enrich.`,
-        scope: `Origin decision ${research.decisionId}. Research one model profile, cite public documentation URLs, and do not run coding tasks.`,
+        prompt: `Research published capabilities, limits, and input/output prices for ${model.providerID}/${model.id}. Save pricing only when official documentation states both USD prices per million tokens; include that exact source URL in sources and price.source. Leave price omitted when either rate or currency is not explicit.`,
+        scope: `Origin decision ${research.decisionId}. Identify this exact provider/model alias, cite public official documentation URLs, and do not run coding tasks.`,
         callerSessionID: research.rootSessionID,
         sourceDecisionID: research.decisionId,
       })

@@ -29,6 +29,7 @@ describe("native catalog enrichment tool", () => {
       summary: "Published model facts",
       sources: ["https://provider.example/docs/model"],
       strengths: ["small tasks"],
+      price: { currency: "USD", inputPerMillion: 0, outputPerMillion: 0.2, source: "https://provider.example/docs/model" },
     }
 
     try {
@@ -40,6 +41,7 @@ describe("native catalog enrichment tool", () => {
       expect(saved.content).toContain("Saved sourced profile")
       expect(store.read({ providerID: "provider", id: "alias" })).toMatchObject({ known: true, source: profile.sources[0] })
       await expect(tool.execute({ ...profile, sources: ["assistant says so"] }, context("momo-catalog-researcher"))).rejects.toThrow("at least one source is required")
+      await expect(tool.execute({ ...profile, price: { ...profile.price, currency: "EUR" } }, context("momo-catalog-researcher"))).rejects.toThrow("price requires finite non-negative USD")
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

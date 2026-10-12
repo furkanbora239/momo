@@ -12,6 +12,17 @@ const inputSchema = {
     strengths: { type: "array", items: { type: "string" } },
     limitations: { type: "array", items: { type: "string" } },
     sources: { type: "array", minItems: 1, items: { type: "string", minLength: 1 } },
+    price: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        currency: { type: "string", enum: ["USD"] },
+        inputPerMillion: { type: "number", minimum: 0 },
+        outputPerMillion: { type: "number", minimum: 0 },
+        source: { type: "string", minLength: 1 },
+      },
+      required: ["currency", "inputPerMillion", "outputPerMillion", "source"],
+    },
   },
   required: ["providerID", "id", "sources"],
 } as const
@@ -53,12 +64,23 @@ function parseEntry(value: unknown, researchedAt: string): NativeCatalogKnowledg
   if (record.strengths !== undefined && !strengths) throw new Error("strengths must be non-empty strings")
   if (record.limitations !== undefined && !limitations) throw new Error("limitations must be non-empty strings")
   if (record.summary !== undefined && typeof record.summary !== "string") throw new Error("summary must be a string")
+  let price: NativeCatalogKnowledgeEntry["price"]
+  if (record.price !== undefined) {
+    const claim = asRecord(record.price)
+    if (!claim || claim.currency !== "USD" || typeof claim.inputPerMillion !== "number" || !Number.isFinite(claim.inputPerMillion) || claim.inputPerMillion < 0 ||
+      typeof claim.outputPerMillion !== "number" || !Number.isFinite(claim.outputPerMillion) || claim.outputPerMillion < 0 ||
+      typeof claim.source !== "string" || !sourceList([claim.source]) || !sources.includes(claim.source)) {
+      throw new Error("price requires finite non-negative USD input/output rates and a cited HTTP source URL")
+    }
+    price = { currency: "USD", inputPerMillion: claim.inputPerMillion, outputPerMillion: claim.outputPerMillion, source: claim.source }
+  }
   return {
     providerID: record.providerID.trim(),
     id: record.id.trim(),
     ...(typeof record.summary === "string" && record.summary ? { summary: record.summary } : {}),
     ...(strengths ? { strengths } : {}),
     ...(limitations ? { limitations } : {}),
+    ...(price ? { price } : {}),
     sources,
     researchedAt,
   }

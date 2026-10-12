@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { NativeCatalogContext } from "./types"
 import { createNativeCatalogAdapter } from "./adapter"
+import { createNativeCatalogKnowledgeStore } from "./knowledge-store"
 
 const pool = { version: 1 as const, allowed: [], updatedAt: "test" }
 
@@ -101,6 +102,44 @@ describe("native catalog adapter", () => {
     })
     await adapter.refresh()
     expect(await adapter.catalog.listAvailable()).toMatchObject([{ inputPricePerMillion: 0, outputPricePerMillion: 0, priceSource: "configuration" }])
+  })
+
+  it("uses an identity-matched published price claim for zero-cost SDK rows while leaving unpriced zero rows unknown", async () => {
+    const root = mkdtempSync(join(tmpdir(), "momo-native-price-source-"))
+    try {
+      const knowledgeStore = createNativeCatalogKnowledgeStore(join(root, "catalog-knowledge.json"))
+      const source = "https://provider.example/pricing/free-model"
+      knowledgeStore.upsert({
+        providerID: "free", id: "verified-zero", sources: [source],
+        price: { currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source },
+        researchedAt: "2026-10-12T00:00:00.000Z",
+      })
+      const adapter = createNativeCatalogAdapter({
+        homeDirectory: root,
+        knowledgeStore,
+        context: contextFixture({
+          providers: [provider("free", { settings: {} })],
+          models: [
+            model("free", "verified-zero", { cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }] }),
+            model("free", "unknown-zero", { cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }] }),
+            model("free", "priced", { cost: [{ input: 0.1, output: 0.3, cache: { read: 0, write: 0 } }] }),
+          ],
+        }),
+        readPool: () => pool,
+        readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }),
+        readHealth: () => ({}),
+      })
+
+      await adapter.refresh()
+      expect(await adapter.catalog.listAvailable()).toEqual([
+        expect.objectContaining({ id: "verified-zero", inputPricePerMillion: 0, outputPricePerMillion: 0, priceCurrency: "USD", priceSource: "provider", priceOrigin: source }),
+        expect.objectContaining({ id: "unknown-zero", priceSource: "unknown", priceCurrency: "unknown" }),
+        expect.objectContaining({ id: "priced", inputPricePerMillion: 0.1, outputPricePerMillion: 0.3, priceSource: "opencode.model.list", priceCurrency: "USD" }),
+      ])
+      expect(await adapter.knowledgeStore.readPrice({ providerID: "free", id: "unknown-zero" })).toBeUndefined()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it("does not mark source-less knowledge as verified", async () => {

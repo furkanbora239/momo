@@ -20,8 +20,11 @@ export function nativeModelFacts(
   priceSource: NonNullable<NativeCatalogModelFacts["priceSource"]>,
   provenanceVerified: boolean,
   liveContext?: number,
+  publishedPrice?: { readonly inputPerMillion: number; readonly outputPerMillion: number; readonly source: string },
 ): NativeCatalogModelFacts {
-  const cost = costFor(model, provenanceVerified)
+  const cost = publishedPrice
+    ? { input: publishedPrice.inputPerMillion, output: publishedPrice.outputPerMillion }
+    : costFor(model, provenanceVerified)
   const contextLength = liveContext ?? finiteNumber(model.limit.context)
   const capabilities = [
     ...(model.capabilities.input.includes("image") ? ["vision"] : []),
@@ -33,6 +36,8 @@ export function nativeModelFacts(
     id: model.id,
     available: model.enabled && model.status !== "deprecated",
     priceSource: cost.input !== undefined || cost.output !== undefined ? priceSource : "unknown",
+    priceCurrency: cost.input !== undefined || cost.output !== undefined ? "USD" : "unknown",
+    ...(cost.input === undefined && cost.output === undefined ? {} : { priceOrigin: publishedPrice?.source ?? priceSource }),
     ...(cost.input === undefined ? {} : { inputPricePerMillion: cost.input }),
     ...(cost.output === undefined ? {} : { outputPricePerMillion: cost.output }),
     ...(contextLength === undefined ? {} : { contextLength }),

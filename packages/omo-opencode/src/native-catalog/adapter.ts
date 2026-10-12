@@ -2,9 +2,10 @@ import type { ModelInfo, ProviderInfo } from "@opencode/client"
 import { join } from "node:path"
 import { createNativeLedgerOutcomeReader } from "../native-routing/outcome-reader"
 import type { NativeCatalog, NativeKnowledge, NativeModelRef, NativeOutcomeStore, NativePool } from "../native-routing/types"
-import { createModelPoolStore, isModelAllowed } from "../shared/model-pool"
-import { createProviderTogglesStore, isProviderDisabled } from "../shared/provider-toggles"
+import { isModelAllowed } from "../shared/model-pool"
+import { isProviderDisabled } from "../shared/provider-toggles"
 import { createProviderHealthStore } from "../shared/provider-health"
+import { createNativeControlStores } from "./native-control-stores"
 import { fetchNativeLiveModels, type NativeLiveModel, type NativeLiveModelsResult } from "./live-models"
 import { nativeModelFacts, resolveNativePriceSource } from "./model-facts"
 import { hasVerifiedKnowledgeSource } from "./knowledge-facts"
@@ -15,8 +16,7 @@ import type { NativeCatalogAdapterOptions, NativeCatalogModelFacts, NativeCatalo
 export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions) {
   const now = options.now ?? Date.now
   const omoDirectory = resolveNativeOmoDirectory(options.homeDirectory)
-  const poolStore = createModelPoolStore(() => join(omoDirectory, "model-pool.json"))
-  const toggleStore = createProviderTogglesStore(() => join(omoDirectory, "provider-toggles.json"))
+  const controlStores = createNativeControlStores(options.homeDirectory)
   const healthStore = createProviderHealthStore(() => resolveNativeCatalogHealthDirectory(options.homeDirectory))
   const knowledgeStore = options.knowledgeStore ?? createNativeCatalogKnowledgeStore(join(omoDirectory, "native", "catalog-knowledge.json"))
   const markUnavailable = options.markProviderUnavailable ?? healthStore.markProviderUnavailable
@@ -30,7 +30,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
     const [providerResponse, modelResponse] = await Promise.all([options.context.provider.list(), options.context.model.list()])
     const providers = providerResponse.data
     const models = modelResponse.data
-    const toggles = options.readToggles?.() ?? toggleStore.readProviderToggles()
+    const toggles = options.readToggles?.() ?? controlStores.readProviderToggles()
     const health = options.readHealth?.() ?? healthStore.readProviderHealth()
     const unavailableProviders: Record<string, { reason: string; until?: number; statusCode?: number }> = {}
     const configuredProviders = providers.filter((provider) => {
@@ -71,8 +71,10 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
       if (live?.unavailable) continue
       const liveRecord = live?.models.get(model.modelID)
       if (live?.authoritative && !liveRecord) continue
-      const price = resolveNativePriceSource(model, options)
-      const fact = nativeModelFacts(model, price.source, price.verified, liveRecord?.contextLength)
+      const modelRef = { providerID: model.providerID, id: model.id }
+      const publishedPrice = knowledgeStore.readPrice(modelRef)
+      const price = publishedPrice ? { source: "provider" as const, verified: true } : resolveNativePriceSource(model, options)
+      const fact = nativeModelFacts(model, price.source, price.verified, liveRecord?.contextLength, publishedPrice)
       facts.push(fact)
       const key = `${model.providerID}/${model.id}`
       transportModelIDs[key] = model.modelID
@@ -120,9 +122,9 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
 
   const catalog: NativeCatalog = { listAvailable: async () => (await refresh()).models }
   const pool: NativePool = {
-    isAllowed(model) { return isModelAllowed(options.readPool?.() ?? poolStore.readModelPool(), model.providerID, model.id) },
+    isAllowed(model) { return isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id) },
     isConsultationAllowed(model) {
-      return advisorModels.size > 0 && advisorModels.has(`${model.providerID}/${model.id}`) && isModelAllowed(options.readPool?.() ?? poolStore.readModelPool(), model.providerID, model.id)
+      return advisorModels.size > 0 && advisorModels.has(`${model.providerID}/${model.id}`) && isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id)
     },
   }
   const knowledge: NativeKnowledge = {

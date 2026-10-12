@@ -15,6 +15,8 @@ function modelCriteria(request: NativeJevRequest): Record<string, string> {
         input: facts.inputPricePerMillion ?? "unknown",
         output: facts.outputPricePerMillion ?? "unknown",
       },
+      priceCurrency: facts.priceCurrency ?? "unknown",
+      priceOrigin: facts.priceOrigin ?? facts.priceSource ?? "unknown",
       contextLength: facts.contextLength ?? "unknown",
       toolCall: facts.toolCall ?? "unknown",
       capabilities: facts.capabilities ?? "unknown",

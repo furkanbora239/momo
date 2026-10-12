@@ -23,6 +23,7 @@ describe("native catalog knowledge store", () => {
       strengths: ["small coding tasks"],
       limitations: ["short context"],
       sources: ["https://provider.example/model-card"],
+      price: { currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source: "https://provider.example/model-card" },
       researchedAt: "2026-10-12T00:00:00.000Z",
     })
 
@@ -33,6 +34,7 @@ describe("native catalog knowledge store", () => {
       summary: "Research profile",
     })
     expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ version: 1 })
+    expect(store.readPrice(model)).toEqual({ currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source: "https://provider.example/model-card" })
   })
 
   test("rejects source-less claims", () => {
@@ -43,5 +45,15 @@ describe("native catalog knowledge store", () => {
     expect(() => store.upsert({
       providerID: "fake", id: "model", summary: "unsupported claim", sources: [], researchedAt: "2026-10-12T00:00:00.000Z",
     })).toThrow("at least one non-empty source")
+  })
+
+  test("rejects invalid or uncited published price claims", () => {
+    const root = mkdtempSync(join(tmpdir(), "momo-native-knowledge-price-"))
+    roots.push(root)
+    const store = createNativeCatalogKnowledgeStore(join(root, "knowledge.json"))
+    const base = { providerID: "fake", id: "model", sources: ["https://provider.example/docs"], researchedAt: "2026-10-12T00:00:00.000Z" }
+
+    expect(() => store.upsert({ ...base, price: { currency: "USD", inputPerMillion: -1, outputPerMillion: 0, source: base.sources[0]! } })).toThrow()
+    expect(() => store.upsert({ ...base, price: { currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source: "https://other.example/docs" } })).toThrow("cite a source URL")
   })
 })

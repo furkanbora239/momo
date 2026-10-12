@@ -36,6 +36,8 @@ export interface NativeRouteInput {
 export interface NativeModelFacts extends NativeModelRef {
   readonly available: boolean
   readonly priceSource?: "models.dev" | "opencode.model.list" | "provider" | "configuration" | "unknown"
+  readonly priceCurrency?: "USD" | "unknown"
+  readonly priceOrigin?: string
   readonly inputPricePerMillion?: number
   readonly outputPricePerMillion?: number
   readonly contextLength?: number
