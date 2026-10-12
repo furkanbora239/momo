@@ -1,0 +1,6 @@
+{
+  "packages/omo-opencode/src/v2/tui/view-poller.test.ts": "314a99f56afc4fa95a7239f64f56fd5621d50258819b77ef510e488689f85e0f",
+  "packages/omo-opencode/src/cli/config-manager/bun-install.test.ts": "70e48f65860d9ca40bf02e6368c49758d442c586764dd389c03ed9cfa62d0915",
+  "packages/omo-opencode/src/v2/tui/view-poller.ts": "ea104823862633e0f68688c469150ae9b310f294aa8bb9b8a01baf969a5e4fba",
+  "packages/omo-opencode/src/cli/config-manager/bun-install.ts": "4740c8ef519ee105bc77fd2fd0cca6fa8713a327a5baf042961fe7583177fb21"
+}
