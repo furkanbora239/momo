@@ -111,8 +111,9 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
     expect(cardModes).toContain("omo.tui-card.tasks")
     expect(cardModes).toContain("omo.tui-card.pool")
 
-    expect(fake.slotClaims).toHaveLength(1)
-    const claim = fake.slotClaims[0]?.claim as unknown as {
+    const sidebarSlot = fake.slotClaims.find((item) => item.claim.append === "sidebar.content")
+    expect(sidebarSlot).toBeDefined()
+    const claim = sidebarSlot?.claim as unknown as {
       readonly append: string
       readonly render: (input: { readonly sessionID: string }) => unknown
     }
@@ -121,6 +122,6 @@ describe("#given a setup with a solid runtime and an isolated environment", () =
     expect(rendered.tag).toBe("box")
 
     cleanup?.()
-    expect(fake.slotClaims[0]?.unregistered).toBe(true)
+    expect(sidebarSlot?.unregistered).toBe(true)
   })
 })
