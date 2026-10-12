@@ -9,6 +9,7 @@ import {
   NATIVE_SEARCH_RELEASE_URL,
   NATIVE_SEARCH_VERSION,
 } from "./constants"
+import { NATIVE_SEARCH_LICENSE_SHA256, NATIVE_SEARCH_LICENSE_TEXT } from "./license"
 
 const execFile = promisify(execFileCallback)
 
@@ -18,6 +19,10 @@ function sha256(contents: Uint8Array): string {
 
 function managedBinaryPath(runtimeRoot: string): string {
   return join(resolve(runtimeRoot), "codebase-memory-mcp", NATIVE_SEARCH_VERSION, "codebase-memory-mcp")
+}
+
+function managedLicensePath(runtimeRoot: string): string {
+  return join(dirname(managedBinaryPath(runtimeRoot)), "LICENSE")
 }
 
 export interface NativeSearchRuntimeOptions {
@@ -32,10 +37,13 @@ export async function resolveNativeSearchBinary(options: NativeSearchRuntimeOpti
   try {
     const contents = await readFile(path)
     if (sha256(contents) !== NATIVE_SEARCH_BINARY_SHA256) return undefined
+    const license = await readFile(managedLicensePath(options.runtimeRoot))
+    if (sha256(license) !== NATIVE_SEARCH_LICENSE_SHA256) return undefined
     const { stdout } = await execFile(path, ["--version"])
     return stdout.trim() === `codebase-memory-mcp ${NATIVE_SEARCH_VERSION}` ? path : undefined
-  } catch {
-    return undefined
+  } catch (error) {
+    if (error instanceof Error) return undefined
+    throw new Error("native search runtime validation failed", { cause: error })
   }
 }
 
@@ -57,16 +65,21 @@ export async function provisionNativeSearchBinary(options: NativeSearchRuntimeOp
   await mkdir(parent, { recursive: true, mode: 0o700 })
   const staging = await mkdtemp(join(parent, ".provision-"))
   try {
+    const licenseContents = Buffer.from(NATIVE_SEARCH_LICENSE_TEXT, "utf8")
+    if (sha256(licenseContents) !== NATIVE_SEARCH_LICENSE_SHA256) throw new Error("native search license SHA-256 mismatch")
     const archivePath = join(staging, "release.tar.gz")
     await writeFile(archivePath, archive, { mode: 0o600 })
     await execFile("tar", ["-xzf", archivePath, "-C", staging, "codebase-memory-mcp"])
     const stagedBinary = join(staging, "codebase-memory-mcp")
+    const stagedLicense = join(staging, "LICENSE")
     const binary = await readFile(stagedBinary)
     if (sha256(binary) !== NATIVE_SEARCH_BINARY_SHA256) throw new Error("native search executable SHA-256 mismatch")
     await chmod(stagedBinary, 0o700)
     const { stdout } = await execFile(stagedBinary, ["--version"])
     if (stdout.trim() !== `codebase-memory-mcp ${NATIVE_SEARCH_VERSION}`) throw new Error("native search executable reported an unexpected version")
+    await writeFile(stagedLicense, licenseContents, { mode: 0o600 })
     await rename(stagedBinary, finalPath)
+    await rename(stagedLicense, managedLicensePath(options.runtimeRoot))
     return finalPath
   } finally {
     await rm(staging, { recursive: true, force: true })

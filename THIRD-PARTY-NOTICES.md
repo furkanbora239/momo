@@ -6,6 +6,13 @@ Generator/checker note: update this file with the audited component list, then r
 
 ## Components
 
+### codebase-memory-mcp v0.11.0 (optional managed native search candidate)
+- License: MIT. The exact upstream `LICENSE` from the immutable `v0.11.0` tag is pinned by SHA-256 `1f58f9911dc5e3bcb96de28bb28e7b6bb7eb323952d29569c5d7214a152146bb` in `packages/omo-opencode/src/native-search/license.ts` and copied beside the managed cached binary as `LICENSE` during explicit provisioning.
+- Copyright: Copyright (c) 2025 DeusData.
+- Upstream URL: https://github.com/DeusData/codebase-memory-mcp/tree/v0.11.0
+- License source: https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/v0.11.0/LICENSE
+- Where-bundled: optional runtime binary provisioned under a caller-selected managed runtime root; disabled by default.
+
 ### @clack/core@1.3.0
 - License: MIT, from CodeGraph platform bundle `lib/node_modules/@clack/core/LICENSE`.
 - Copyright: Copyright (c) Nate Moore.

@@ -5,6 +5,10 @@
   "platform": "darwin-arm64",
   "archiveSha256": "4dee7f38b63740e6751d7a7ed7eb10291c1f2a3ea2415f599dc68370ca0a2d18",
   "binarySha256": "a67b7ccead5d2ca852051f8619458ab96af41393257b56fb36e523a110265d48",
+  "license": "MIT",
+  "licenseUrl": "https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/v0.11.0/LICENSE",
+  "licenseSha256": "1f58f9911dc5e3bcb96de28bb28e7b6bb7eb323952d29569c5d7214a152146bb",
+  "managedLicenseFile": "LICENSE",
   "runtimePolicy": "managed-cache-only",
   "installPolicy": "no-installer-or-global-config",
   "requiredTools": [

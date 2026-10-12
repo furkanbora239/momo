@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test"
+import { createHash } from "node:crypto"
 import { access, mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createNativeSearchMcpConfig } from "./mcp-config"
 import { provisionNativeSearchBinary, resolveNativeSearchBinary } from "./runtime"
+import { NATIVE_SEARCH_LICENSE_SHA256, NATIVE_SEARCH_LICENSE_TEXT } from "./license"
 
 describe("native search V2 MCP configuration", () => {
+  test("pins the exact upstream v0.11.0 license text used beside the managed binary", () => {
+    expect(createHash("sha256").update(NATIVE_SEARCH_LICENSE_TEXT).digest("hex")).toBe(NATIVE_SEARCH_LICENSE_SHA256)
+  })
+
   test("stays disabled unless explicitly enabled with a verified managed binary", async () => {
     const directory = await mkdtemp(join(tmpdir(), "momo-native-search-config-"))
     try {
