@@ -1,6 +1,6 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-10-12  
+**Last Updated:** 2026-10-12
 **Version / Branch:** `dev`
 
 ## OpenCode v2 native migration (2026-10-12)
@@ -9,7 +9,7 @@ An isolated native v2 implementation is being integrated in `packages/omo-openco
 
 The native model selector uses current v2 provider/model/integration records and the configured hard-allow pool. Jev failures and low confidence expose eligible caller choices instead of triggering a silent fallback. The advisor pool is configured through `[opencode].manager.advisor_models` and remains intersected with the general model pool. The v2 TUI keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns native agent and task visibility. Legacy task trees, sidebars, BTW controls, and prompt translation are not registered by the native TUI entry.
 
-Live v2 proofs now cover same-session restart, completed-work no-rerun, worker cancellation and department descendant cancellation. The native README is current; archived v1 descriptions remain in `notes/momo-v1-readme.md`. Tool watchdog, delivery-fault and permission-hook live gates and dev PR delivery are still open.
+Live v2 proofs now cover same-session restart, completed-work no-rerun, worker cancellation and department descendant cancellation. The native README is current; archived v1 descriptions remain in `notes/momo-v1-readme.md`. Configured watchdog protection/cap, busy-parent result retry, forwarded-form retry and native shell permission denial have also passed isolated live QA. Final PR decomposition, dev CI/review and merge are still open.
 
 Current recovery instructions and the ordered remaining work are in [the native v2 handoff](./notes/native-v2-handoff-20261012.md). Read it before implementation. It records pushed checkpoints, uncommitted worktree changes, real harness evidence, unresolved acceptance gates, and safe test-process handling. Earlier checkpoint counts and pending TUI/search notes are historical; the handoff supersedes them. Codebase Memory MCP remains disabled because automatic freshness failed.
 
