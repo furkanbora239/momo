@@ -1,0 +1,82 @@
+{
+  "status": "passed",
+  "policyProof": {
+    "status": "passed",
+    "readonlyRoles": [
+      "momo-orchestrator",
+      "momo-planner",
+      "momo-executor",
+      "momo-reviewer",
+      "momo-advisor"
+    ],
+    "unknownActionAliases": [
+      "external_operate",
+      "mcp__external__operate"
+    ],
+    "readonlyCalls": 0,
+    "workerControlCalls": 2
+  },
+  "opencodeVersion": "opencode v2.0.24",
+  "pluginEntry": "/private/tmp/momo-v2-activation/dist/index.js",
+  "priceClaimPersistedBy": "momo_catalog_enrich",
+  "providerModelIdentity": "momo-price-qa/momo-free",
+  "sourceURL": "https://fixture.example/models/momo-free/pricing",
+  "jevCandidateFacts": {
+    "free": {
+      "pricesPerMillion": {
+        "input": 0,
+        "output": 0
+      },
+      "priceCurrency": "USD",
+      "priceOrigin": "https://fixture.example/models/momo-free/pricing"
+    },
+    "priced": {
+      "pricesPerMillion": {
+        "input": 0.2,
+        "output": 0.4
+      },
+      "priceCurrency": "USD"
+    },
+    "unknownZero": {
+      "pricesPerMillion": {
+        "input": "unknown",
+        "output": "unknown"
+      },
+      "priceCurrency": "unknown"
+    }
+  },
+  "selectedTask": {
+    "id": "ntask_8980c5f4-9311-48cf-8394-6f68602d8d48",
+    "role": "worker",
+    "model": {
+      "providerID": "momo-price-qa",
+      "id": "momo-free"
+    },
+    "state": "succeeded",
+    "delivery": {
+      "status": "delivered",
+      "attempts": 1,
+      "messageID": "msg_12bc247107a34e8f034655caaa",
+      "attemptedAt": 1791844097140,
+      "deliveredAt": 1791844097175
+    }
+  },
+  "fakeProviderRequestCount": 33,
+  "jevRequestCount": 3,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "ownedProcessGroupGone": true,
+  "realUserDatabaseUnchanged": true,
+  "realDatabaseBefore": {
+    "counts": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  },
+  "realDatabaseAfter": {
+    "counts": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  }
+}

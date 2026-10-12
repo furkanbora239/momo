@@ -12,11 +12,11 @@
     "fail": 0
   },
   "fullBun": {
-    "pass": 12616,
+    "pass": 12621,
     "skip": 6,
     "fail": 0,
     "files": 1552,
-    "seconds": 191.46
+    "seconds": 187.87
   },
   "publishedNativeHostAcceptance": "passed",
   "sourceSHA256": {
@@ -25,7 +25,8 @@
     "packages/omo-opencode/src/v2/tui/native-catalog-keymap.ts": "d4e69ac1e521029b3b3e091d5b15fe0541e55de69447a767d519e0bcd9450781",
     "packages/omo-opencode/src/cli/native-run/runner.ts": "20254f4cb484e7c180630486f6e8ae32aded532b8a2c71bc1566a22973d28867",
     "packages/omo-opencode/src/cli/native-run/completion.ts": "88f004a31e603aff81302ff3e833c8191640e0481102a23333ae20c9aab4d5e1",
-    "script/build.ts": "de4a444cac859175ce100e76e683d8572cc4e6a4128108f4d4ceb9565a855850"
+    "script/build.ts": "de4a444cac859175ce100e76e683d8572cc4e6a4128108f4d4ceb9565a855850",
+    "packages/omo-opencode/src/native-runtime/role-policy.ts": "5129ad229f8d786a7396a30df32c1f885dc598e555e5c05e6b83682196025cf5"
   },
   "ownedTestProcessExited": true,
   "nativeQaOwnedGroupsGone": true,
@@ -49,5 +50,15 @@
     "pass": 2,
     "fail": 0,
     "assertions": 10
-  }
+  },
+  "finalCoordinatorPolicy": {
+    "focusedPass": 14,
+    "focusedFail": 0,
+    "assertions": 71,
+    "redReproductionFailingRoles": 4,
+    "actualReadonlyRolesDeniedUnknownActions": 5,
+    "actualWorkerUnknownActionsExecuted": 2,
+    "finalBroadNativeAcceptance": "passed"
+  },
+  "recoveryProofTiming": "Recovery was proved before the last coordinator allowlist refinement. Durable task/session/watchdog modules are unchanged; current policy and broad real acceptance were rerun and passed."
 }
