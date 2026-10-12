@@ -14,7 +14,7 @@ type JsonRecord = Record<string, unknown>
 type JevRequest = { model?: string; state?: unknown; questions?: { candidate?: { criteria?: Record<string, string> }; lane?: { criteria?: Record<string, string> } } }
 type JevChoice = { type: "choice"; choice: string; confidence: number; probabilities: Record<string, number> }
 
-const evidencePath = path.join(process.cwd(), ".omo/evidence/20261011-native-acceptance")
+const evidencePath = process.env.MOMO_NATIVE_EVIDENCE_DIR ?? path.join(process.cwd(), ".omo/evidence/20261011-native-acceptance")
 const selfTest = process.argv.includes("--self-test")
 
 function statePrompt(request: JevRequest): string {
@@ -42,7 +42,7 @@ function answerCall(conversation: string): string | undefined {
   if (match === null) return undefined
   const taskID = JSON.stringify(match[1])
   const questionID = JSON.stringify(match[2])
-  return `await tools.momo_task({action:"answer",taskID:${taskID},questionID:${questionID},answer:{answer:"approved"}}); return await tools.momo_task({action:"wait",taskID:${taskID},timeoutMs:60000})`
+  return `await tools.momo_task({action:"answer",taskID:${taskID},questionID:${questionID},answer:"approved"}); return await tools.momo_task({action:"wait",taskID:${taskID},timeoutMs:60000})`
 }
 
 function exampleFromSchema(value: unknown): unknown {
@@ -112,7 +112,8 @@ const root = await mkdtemp(path.join(tmpdir(), "momo-native-acceptance-"))
 const qaHome = path.join(root, "test-home")
 const xdg = { data: path.join(root, "xdg-data"), config: path.join(root, "xdg-config"), state: path.join(root, "xdg-state"), cache: path.join(root, "xdg-cache") }
 const configDir = path.join(xdg.config, "opencode")
-const pluginDir = path.join(root, ".opencode", "plugins")
+const pluginDir = path.join(root, "qa-plugins", "momo-native-qa")
+const opencodeBinary = process.env.MOMO_NATIVE_OPENCODE_BIN ?? "/opt/homebrew/Cellar/opencode-v2/2.0.24/bin/opencode"
 const modelLog = path.join(root, "model-requests.jsonl")
 const jevLog = path.join(root, "jev-requests.jsonl")
 const permissionLog = path.join(root, "permission-events.jsonl")
@@ -140,7 +141,7 @@ function isolatedEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/(?:API[_-]?KEY|_KEY$|_TOKEN$|_SECRET$|PASSWORD)/i.test(key)))
   delete env.OPENCODE_DB
   delete env.OPENCODE_CONFIG
-  return { ...env, OPENCODE_TEST_HOME: qaHome, OPENCODE_CONFIG_DIR: configDir, XDG_DATA_HOME: xdg.data, XDG_CONFIG_HOME: xdg.config, XDG_STATE_HOME: xdg.state, XDG_CACHE_HOME: xdg.cache, OPENCODE_DISABLE_AUTOUPDATE: "1", NO_COLOR: "1", ...extra }
+  return { ...env, OPENCODE_TEST_HOME: qaHome, OPENCODE_CONFIG_DIR: configDir, XDG_DATA_HOME: xdg.data, XDG_CONFIG_HOME: xdg.config, XDG_STATE_HOME: xdg.state, XDG_CACHE_HOME: xdg.cache, OPENCODE_DISABLE_AUTOUPDATE: "1", OPENCODE_DISABLE_MODELS_FETCH: "1", NO_COLOR: "1", ...extra }
 }
 
 function readRealDatabase(): JsonRecord | undefined {
@@ -228,7 +229,6 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     if (request.method === "GET" && url.pathname.endsWith("/models")) return sendJson(response, { data: [{ id: "momo-qa-model", object: "model", created: 0, owned_by: "momo-qa" }] })
     if (request.method !== "POST") return response.writeHead(404).end()
     const bodyText = await readJson(request)
-    await appendFile(modelLog, `${JSON.stringify(bodyText)}\n`, { mode: 0o600 })
   const body = bodyText as { model?: string; stream?: boolean; messages?: Array<{ role?: string; content?: unknown }>; tools?: Array<{ function?: { name?: string; parameters?: unknown } }> }
     const last = body.messages?.at(-1)
     const conversationText = JSON.stringify(body.messages ?? [])
@@ -239,7 +239,8 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
       maxParallelWorkers = Math.max(maxParallelWorkers, activeParallelWorkers)
       await new Promise((resolve) => setTimeout(resolve, 2_000))
     }
-    const text = conversationText.includes("MOMO_SHARED_PARENT_WORK_") && last?.role === "tool" ? "MOMO_SHARED_PARENT_AGGREGATED_ALL_FIVE" : conversationText.includes("MOMO_DEPT_WORKER_RESULT") ? "MOMO_DEPARTMENT_RESULT_AGGREGATED" : conversationText.includes("MOMO_QUESTION_DEPT") && conversationText.includes("MOMO_QUESTION_CHILD") && last?.role === "tool" ? "MOMO_QUESTION_DEPARTMENT_AGGREGATED" : last?.role === "tool" ? "MOMO_TASK_ACCEPTANCE_COMPLETED" : conversationText.includes("MOMO_DEPT_CHILD") ? "MOMO_DEPT_WORKER_RESULT" : "MOMO_NATIVE_ACCEPTANCE_READY"
+    const text = conversationText.includes("MOMO_SHARED_PARENT_WORK_") && last?.role === "tool" ? "MOMO_SHARED_PARENT_AGGREGATED_ALL_FIVE" : conversationText.includes("MOMO_DEPT_WORKER_RESULT") ? "MOMO_DEPARTMENT_RESULT_AGGREGATED" : (conversationText.includes("MOMO_QUESTION_DEPT") || conversationText.includes("A child task is waiting for a decision.")) && (last?.role === "tool" || conversationText.includes("MOMO_TASK_ACCEPTANCE_COMPLETED")) ? "MOMO_QUESTION_DEPARTMENT_AGGREGATED" : last?.role === "tool" ? "MOMO_TASK_ACCEPTANCE_COMPLETED" : conversationText.includes("MOMO_DEPT_CHILD") ? "MOMO_DEPT_WORKER_RESULT" : "MOMO_NATIVE_ACCEPTANCE_READY"
+    await appendFile(modelLog, `${JSON.stringify({ ...body, fixtureResponseText: text, fixtureLastRole: last?.role })}\n`, { mode: 0o600 })
     const promptText = latestUserPrompt
     const canUseCodeMode = body.tools?.some((tool) => tool.function?.name === "execute") === true
     const lastUserIndex = body.messages?.map((message) => message.role).lastIndexOf("user") ?? -1
@@ -337,6 +338,7 @@ async function main(): Promise<void> {
   const { modelPort, jevPort } = await startFixture()
   await mkdir(pluginDir, { recursive: true })
   const pluginShim = path.join(pluginDir, "momo-native-acceptance.ts")
+  await writeFile(path.join(pluginDir, "package.json"), JSON.stringify({ name: "momo-native-qa", type: "module", exports: { ".": "./momo-native-acceptance.ts" } }), { mode: 0o600 })
   await writeFile(pluginShim, [
     'import { appendFileSync } from "node:fs"',
     `import momo from ${JSON.stringify(pluginEntry)}`,
@@ -354,10 +356,12 @@ async function main(): Promise<void> {
   await mkdir(path.join(xdg.data, "opencode"), { recursive: true })
   await writeFile(path.join(xdg.data, "opencode", "auth.json"), JSON.stringify({ "momo-qa": { type: "api", key: "local-only" } }), { mode: 0o600 })
   await mkdir(path.join(root, ".omo"), { recursive: true })
+  await mkdir(path.join(qaHome, ".omo"), { recursive: true })
+  await writeFile(path.join(qaHome, ".omo", "model-pool.json"), JSON.stringify({ version: 1, allowed: [{ providerID: "momo-qa", modelID: "momo-qa-model" }], updatedAt: new Date().toISOString() }), { mode: 0o600 })
   await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1 }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
-  await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugin: [pluginShim], model: "momo-qa/momo-qa-model", agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugins: [`file:${pluginDir}`], model: "momo-qa/momo-qa-model", agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
   servicePort = await freePort()
-  opencode = spawn("opencode", ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog }), stdio: ["ignore", "pipe", "pipe"] })
+  opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog }), stdio: ["ignore", "pipe", "pipe"] })
   opencode.stdout.on("data", (chunk: Buffer) => { output += chunk.toString() })
   opencode.stderr.on("data", (chunk: Buffer) => { output += chunk.toString() })
   const authorization = `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}`
@@ -370,7 +374,7 @@ async function main(): Promise<void> {
   if (serviceDatabasePaths.length === 0 || serviceDatabasePaths.some((databasePath) => !databasePath.startsWith(`${canonicalRoot}${path.sep}`))) {
     throw new Error(`Isolated OpenCode service database path is outside its disposable QA root: ${JSON.stringify(serviceDatabasePaths)}`)
   }
-  const version = execFileSync("opencode", ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim()
+  const version = execFileSync(opencodeBinary, ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim()
   if (!/\bv?2\./i.test(version)) throw new Error(`Expected supported OpenCode V2 service, got ${version}`)
   const session = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   stage = "direct task completion"
@@ -440,6 +444,7 @@ async function main(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
   if (questionParent?.state !== "succeeded" || !questionParent.result?.includes("MOMO_QUESTION_DEPARTMENT_AGGREGATED") || questionParent.childTaskIDs?.length !== 1 || questionChild?.state !== "succeeded" || questionChild.answerStatus !== "sent" || questionChild.questionDelivery !== "sent" || questionChild.delivery?.status !== "delivered" || questionChild.delivery.attempts !== 1 || childQuestionCalls !== 1 || parentQuestionAnswers !== 1) {
+    if (questionParent?.sessionID) result.questionContext = await client.session.context({ sessionID: questionParent.sessionID })
     throw new Error(`Async department question did not reach the parent model and return through momo_task answer: ${JSON.stringify({ parent: questionParent, child: questionChild, childQuestionCalls, parentQuestionAnswers, tasks: questionTasks })}`)
   }
   if (questionParent.sessionID === undefined) throw new Error("Department question manager session was not persisted")

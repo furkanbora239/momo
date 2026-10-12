@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "pluginEntry": "dist/index.js",
+  "opencodeVersion": "opencode v2.0.24",
+  "bundleSHA256": "80aa4710889fdde7c6f732952625570d7dd99e7d5690d2e5727edb2501da04a2",
+  "cases": [
+    "one root completes five unique children at once and aggregates results",
+    "async department child question reached the manager and was answered by its model through momo_task",
+    "unanswered child question escalates to a root form and the native field-key answer resumes the same child",
+    "native CLI waits for root aggregation after async child delivery",
+    "manual selection finishes the existing task without a second Jev route",
+    "direct and department tasks complete under the same native task RPC",
+    "five independent root sessions observed five parallel model calls",
+    "consultation from every non-advisor role",
+    "advisor could not create a nested consultation",
+    "department resumes after child and combines child result",
+    "coordinator tool list excludes shell, write, and delegation tools"
+  ],
+  "question": {
+    "parentResult": "MOMO_QUESTION_DEPARTMENT_AGGREGATED",
+    "childAnswer": {
+      "q0": "approved"
+    },
+    "childDelivery": "delivered",
+    "deliveryAttempts": 1,
+    "parentAnswers": 1,
+    "childQuestionCalls": 2
+  },
+  "parallel": {
+    "workers": 5,
+    "uniqueTaskCount": 5,
+    "rootAggregateSeen": true
+  },
+  "cleanup": {
+    "sandboxRemoved": true,
+    "ownedProcessGroupGone": true,
+    "realDatabaseUnchanged": true
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "focused": {
+      "passed": 38,
+      "failed": 0
+    },
+    "full": {
+      "passed": 12703,
+      "skipped": 6,
+      "failed": 0,
+      "seconds": 202.12
+    }
+  },
+  "remainingLiveCases": [
+    "restart the integrated plugin during a queued wait-for-child and verify no duplicate execution",
+    "live active tool watchdog at 60 minutes",
+    "network-failed parent question form delivery retry without duplicate form/notification",
+    "live cancellation of running descendants",
+    "permission hook denial event beyond tool surface filtering"
+  ],
+  "limits": [
+    "Capacity blocking and engine recreation were behavior-tested; a full live server restart is still pending.",
+    "The synthetic delivery final model turn was corrected in the fake fixture; no older model reply is forced into the production result."
+  ]
+}
