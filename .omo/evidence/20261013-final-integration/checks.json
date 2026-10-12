@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-13",
+  "fullBun": {
+    "passed": 12706,
+    "skipped": 6,
+    "failed": 0,
+    "files": 1558,
+    "seconds": 199.61
+  },
+  "typecheck": "passed",
+  "ownedBunProcessExited": true,
+  "remainingOwnedBunTestProcesses": 0,
+  "productionTimeoutsChanged": false,
+  "releaseAccepted": false
+}
