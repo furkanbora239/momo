@@ -21,6 +21,8 @@ describe("native catalog enrichment tool", () => {
     const store = createNativeCatalogKnowledgeStore(join(root, "knowledge.json"))
     let activeOwned = false
     const tool = createNativeCatalogKnowledgeTool(store, (agentID) => activeOwned && agentID === "momo-catalog-researcher", () => Date.parse("2026-10-12T00:00:00.000Z"))
+
+    expect(tool.options).toEqual({ permission: "momo_catalog_enrich", codemode: false })
     const profile = {
       providerID: "provider",
       id: "alias",

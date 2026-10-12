@@ -130,19 +130,22 @@ async function startFakeModel(): Promise<void> {
     const requestPermission = userText.includes("MOMO_PERMISSION_DENY_PROBE") && toolNames.includes("execute")
     const requestShellPermission = userText.includes("MOMO_PERMISSION_SHELL_PROBE") && toolNames.includes("execute")
     const requestEditPermission = userText.includes("MOMO_PERMISSION_EDIT_PROBE") && toolNames.includes("execute")
+    const requestCatalogEnrich = userText.includes("MOMO_CATALOG_ENRICH_DENY_PROBE")
     const toolReply = lastRole === "tool"
     if (body.stream) {
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" })
       const contentDelta = toolReply
-        ? { content: requestTask ? "MOMO_TASK_TOOL_CONFIRMED" : requestShellPermission ? "MOMO_SHELL_PERMISSION_CONFIRMED" : requestEditPermission ? "MOMO_EDIT_PERMISSION_CONFIRMED" : "MOMO_PERMISSION_DENIED_CONFIRMED" }
-        : !requestTask && !requestPermission && !requestShellPermission && !requestEditPermission ? { content: "Momo local QA session" } : undefined
-      const toolName = requestShellPermission ? "shell" : requestEditPermission ? "edit" : "execute"
+        ? { content: requestTask ? "MOMO_TASK_TOOL_CONFIRMED" : requestShellPermission ? "MOMO_SHELL_PERMISSION_CONFIRMED" : requestEditPermission ? "MOMO_EDIT_PERMISSION_CONFIRMED" : requestCatalogEnrich ? "MOMO_CATALOG_ENRICH_DENIED_CONFIRMED" : "MOMO_PERMISSION_DENIED_CONFIRMED" }
+        : !requestTask && !requestPermission && !requestShellPermission && !requestEditPermission && !requestCatalogEnrich ? { content: "Momo local QA session" } : undefined
+      const toolName = requestCatalogEnrich ? "momo_catalog_enrich" : requestShellPermission ? "shell" : requestEditPermission ? "edit" : "execute"
       const args = requestTask
         ? { code: 'return await tools.momo_task({action:"create",prompt:"MOMO_CHILD_PROBE"})' }
         : requestShellPermission
           ? { command: `touch ${deniedMarker}`, description: "permission QA" }
           : requestEditPermission
             ? { path: deniedEditFile, oldString: "unchanged", newString: "modified" }
+            : requestCatalogEnrich
+              ? { providerID: "momo-qa", id: "momo-qa-model", summary: "unauthorized profile", sources: ["https://attacker.example/model"] }
           : { code: `return await import("node:fs").then((fs) => fs.writeFileSync(${JSON.stringify(deniedMarker)}, "bad"))` }
       const call = { index: 0, id: requestTask ? "call_task_probe" : requestShellPermission ? "call_shell_probe" : requestEditPermission ? "call_edit_probe" : "call_denial_probe", type: "function", function: { name: toolName, arguments: JSON.stringify(args) } }
       await appendFile(callLog, `${JSON.stringify({ userText, toolName, arguments: args })}\n`, { mode: 0o600 })
@@ -195,8 +198,10 @@ async function main(): Promise<void> {
     '    editor.add({ info: { id: "momo-qa", name: "Momo local fake", activation: "enabled", package: "aisdk:@ai-sdk/openai-compatible", settings: { baseURL: process.env.MOMO_QA_MODEL_URL, apiKey: "local-only" } }, models: [{ id: "momo-qa-model", modelID: "momo-qa-model", providerID: "momo-qa", name: "Momo QA local", capabilities: { tools: true, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: "active", enabled: true, limit: { context: 8192, output: 2048 } }] })',
     '  })',
     '  await ctx.provider.reload()',
+    '  const setupStarted = performance.now()',
     '  const cleanup = await momo.setup(ctx)',
-    '  appendFileSync(process.env.MOMO_QA_SETUP_LOG, `${JSON.stringify({ setup: true })}\\n`)',
+    '  const setupMs = performance.now() - setupStarted',
+    '  appendFileSync(process.env.MOMO_QA_SETUP_LOG, `${JSON.stringify({ setup: true, setupMs })}\\n`)',
     '  await ctx.session.hook("context", (event) => { appendFileSync(process.env.MOMO_QA_SETUP_LOG, `${JSON.stringify({ contextAgent: event.agent, contextTools: Object.keys(event.tools) })}\\n`) })',
     '  await ctx.permission.hook("evaluate", (event) => {',
     '    const before = event.effect',
@@ -270,7 +275,20 @@ async function main(): Promise<void> {
   if (await Bun.file(deniedMarker).exists()) throw new Error("denied shell command created the marker")
   const editSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   await client.session.prompt({ sessionID: editSession.id, text: "MOMO_PERMISSION_EDIT_PROBE" })
+  await client.session.wait({ sessionID: editSession.id })
   if (await readFile(deniedEditFile, "utf8") !== "unchanged") throw new Error("coordinator direct edit call modified the protected file")
+  stage = "catalog-enrich-role-denial"
+  const knowledgePath = path.join(qaHome, ".omo/native/catalog-knowledge.json")
+  const knowledgeBefore = await Bun.file(knowledgePath).exists() ? await readFile(knowledgePath, "utf8") : undefined
+  const enrichSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  try {
+    await client.session.prompt({ sessionID: enrichSession.id, text: "MOMO_CATALOG_ENRICH_DENY_PROBE" })
+    await client.session.wait({ sessionID: enrichSession.id })
+  } catch (error) {
+    opencodeOutput += `catalog enrich denial result: ${error instanceof Error ? error.message : String(error)}\n`
+  }
+  const knowledgeAfter = await Bun.file(knowledgePath).exists() ? await readFile(knowledgePath, "utf8") : undefined
+  if (knowledgeAfter !== knowledgeBefore) throw new Error("coordinator catalog-enrich attempt changed the sourced knowledge store")
   const requests = (await readFile(modelLog, "utf8")).trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
   const jevRequests = (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
   if (!requests.length) throw new Error("OpenCode did not call the local fake provider")
@@ -302,6 +320,7 @@ async function main(): Promise<void> {
     return [...text.matchAll(/tools\.([A-Za-z0-9_]+)/g)].map((match) => match[1]).filter((name) => name.startsWith("momo_"))
   }))]
   if (!catalogNames.includes("momo_task") || !catalogNames.includes("momo_consult")) throw new Error(`native tools were missing from the real Code Mode catalog: ${JSON.stringify(catalogNames)}`)
+  if (catalogNames.includes("momo_catalog_enrich")) throw new Error(`catalog enrichment remains visible in the coordinator Code Mode catalog: ${JSON.stringify(catalogNames)}`)
   if (catalogNames.some((name) => name.startsWith("momo_task_") || name.startsWith("momo_consult_"))) throw new Error(`legacy task action aliases remain exposed: ${JSON.stringify(catalogNames)}`)
   const taskDeadline = Date.now() + 20_000
   let taskOutput: { tasks?: Array<{ prompt?: string; state?: string; role?: string; model?: { providerID: string; id: string } }> } | undefined
@@ -324,9 +343,13 @@ async function main(): Promise<void> {
   const fakeCalls = (await readFile(callLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { userText: string; toolName: string; arguments: Record<string, unknown> })
   const directEditAttempt = fakeCalls.some((call) => call.toolName === "edit")
   if (!directEditAttempt) throw new Error("the fake provider did not attempt the coordinator edit wrapper")
+  const pluginSetupMs = finalRows.find((row) => row.setup === true)?.setupMs
+  if (typeof pluginSetupMs !== "number" || pluginSetupMs >= 2_000) throw new Error(`native plugin setup exceeded its 2s isolated budget: ${String(pluginSetupMs)}ms`)
   if (await Bun.file(deniedMarker).exists()) throw new Error("the coordinator direct shell call created its marker")
   const activePlugins = plugins.data.map((plugin) => ({ id: plugin.id, status: plugin.state.status }))
-  outcome = { version: execFileSync("opencode", ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim(), providerID: "momo-qa", modelID: "momo-qa-model", pluginID: "oh-my-openagent", pluginStatus: activePlugins.find((plugin) => plugin.id === "oh-my-openagent")?.status, sessionID: session.id, shellSessionID: shellSession.id, editSessionID: editSession.id, taskSessionID: taskSession.id, childTask, permissionHooks: finalRows.filter((row) => typeof row.action === "string"), coordinatorCodeModeTools: coordinatorToolNames, codeModeMomoTools: catalogNames, deniedDynamicImportMarkerCreated: false, directShellToolResult: directShellResult[0], shellWriteMarkerCreated: false, directEditAttempted: true, editMarkerContent: "unchanged", catalogEnrichVisibleInCodeMode: catalogNames.includes("momo_catalog_enrich"), fakeModelRequests: requests.length, liveJevRequests: jevRequests.length, jevRequestBodyPath: path.join(evidenceDir, "jev-requests.jsonl"), actualRequestBodiesPath: path.join(evidenceDir, "request-bodies.jsonl") }
+  const enrichAttempt = (await readFile(callLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { userText: string; toolName: string }).find((call) => call.userText === "MOMO_CATALOG_ENRICH_DENY_PROBE")
+  if (enrichAttempt?.toolName !== "momo_catalog_enrich") throw new Error("fake provider did not attempt direct momo_catalog_enrich execution")
+  outcome = { version: execFileSync("opencode", ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim(), providerID: "momo-qa", modelID: "momo-qa-model", pluginID: "oh-my-openagent", pluginStatus: activePlugins.find((plugin) => plugin.id === "oh-my-openagent")?.status, pluginSetupMs, sessionID: session.id, shellSessionID: shellSession.id, editSessionID: editSession.id, taskSessionID: taskSession.id, enrichSessionID: enrichSession.id, childTask, permissionHooks: finalRows.filter((row) => typeof row.action === "string"), coordinatorCodeModeTools: coordinatorToolNames, codeModeMomoTools: catalogNames, deniedDynamicImportMarkerCreated: false, directShellToolResult: directShellResult[0], shellWriteMarkerCreated: false, directEditAttempted: true, editMarkerContent: "unchanged", catalogEnrichVisibleInCodeMode: catalogNames.includes("momo_catalog_enrich"), catalogEnrichDenied: knowledgeAfter === knowledgeBefore, fakeModelRequests: requests.length, liveJevRequests: jevRequests.length, jevRequestBodyPath: path.join(evidenceDir, "jev-requests.jsonl"), actualRequestBodiesPath: path.join(evidenceDir, "request-bodies.jsonl") }
 }
 
 try {

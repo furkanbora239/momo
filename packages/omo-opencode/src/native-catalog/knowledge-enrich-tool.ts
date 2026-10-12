@@ -71,7 +71,7 @@ export function createNativeCatalogKnowledgeTool(
 ): Info {
   return {
     name: "momo_catalog_enrich",
-    options: { permission: "momo_catalog_enrich" },
+    options: { permission: "momo_catalog_enrich", codemode: false },
     description: "Save a source-backed model research profile. Use only published model/provider documentation; this does not record task success.",
     input: inputSchema,
     execute: async (input, context: ToolContext) => {

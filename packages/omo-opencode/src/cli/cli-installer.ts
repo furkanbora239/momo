@@ -30,6 +30,7 @@ import { starGitHubRepositories } from "./star-request"
 import { getNoModelProvidersWarning, hasAnyConfiguredProvider } from "./provider-availability"
 import { ensureTuiPluginEntry } from "./config-manager/add-tui-plugin-to-tui-config"
 import * as astGrepInstall from "./install-ast-grep-sg"
+import { createOpenCodeVersionProbe } from "../shared/opencode-version-probe"
 
 export async function runCliInstaller(args: InstallArgs, version: string): Promise<number> {
   const validation = validateNonTuiArgs(args)
@@ -70,6 +71,7 @@ export async function runCliInstaller(args: InstallArgs, version: string): Promi
         hasVercelAiGateway: false,
       }
   const isUpdate = hasOpenCode && detected.isInstalled
+  let openCodeVersion: string | null = null
 
   printHeader(isUpdate)
 
@@ -79,7 +81,7 @@ export async function runCliInstaller(args: InstallArgs, version: string): Promi
   if (hasOpenCode) {
     printStep(step++, totalSteps, "Checking OpenCode installation...")
     const installed = await isOpenCodeInstalled()
-    const openCodeVersion = await getOpenCodeVersion()
+    openCodeVersion = await getOpenCodeVersion()
     if (!installed) {
       printWarning(
         "OpenCode binary not found. Plugin will be configured, but you'll need to install OpenCode to use it.",
@@ -112,7 +114,7 @@ export async function runCliInstaller(args: InstallArgs, version: string): Promi
       `Plugin ${isUpdate ? "verified" : "added"} ${SYMBOLS.arrow} ${color.dim(pluginResult.configPath)}`,
     )
     try {
-      ensureTuiPluginEntry()
+      ensureTuiPluginEntry({ versionProbe: createOpenCodeVersionProbe({ version: () => openCodeVersion }) })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       printWarning(`Could not update OpenCode TUI config: ${message}`)
