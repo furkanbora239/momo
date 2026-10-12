@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs"
 import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import { spawn, execFileSync } from "node:child_process"
 import { createServer as createHttpServer } from "node:http"
@@ -11,7 +12,6 @@ const evidence = process.env.MOMO_NATIVE_TUI_EVIDENCE ?? "/private/tmp/momo-v2-r
 const home = path.join(root, "home")
 const xdg = Object.fromEntries(["data", "config", "state", "cache"].map((name) => [name, path.join(root, `xdg-${name}`)])) as Record<string, string>
 const configDir = path.join(xdg.config, "opencode")
-const pluginDir = path.join(root, ".opencode", "plugins")
 const socket = path.join(root, "tmux.sock")
 const tuiSession = `momo-native-tui-${path.basename(root)}`
 const setupLog = path.join(root, "plugin-setup.jsonl")
@@ -29,12 +29,21 @@ function stringContent(value: unknown): string {
   return value.map((item) => item && typeof item === "object" && "text" in item && typeof item.text === "string" ? item.text : "").join(" ")
 }
 
-function responseStream(model: string, toolName?: string): string {
+function responseStream(model: string, toolCall?: { name: string; arguments: string }): string {
   const id = `qa-${Date.now()}`
-  const delta = toolName
-    ? { tool_calls: [{ index: 0, id: "call-qa", type: "function", function: { name: toolName, arguments: "{}" } }] }
+  const delta = toolCall
+    ? { tool_calls: [{ index: 0, id: "call-qa", type: "function", function: toolCall }] }
     : { content: "isolated QA response" }
-  return `data: ${JSON.stringify({ id, object: "chat.completion.chunk", created: 1, model, choices: [{ index: 0, delta, finish_reason: toolName ? "tool_calls" : "stop" }] })}\n\ndata: [DONE]\n\n`
+  return `data: ${JSON.stringify({ id, object: "chat.completion.chunk", created: 1, model, choices: [{ index: 0, delta, finish_reason: toolCall ? "tool_calls" : "stop" }] })}\n\ndata: [DONE]\n\n`
+}
+
+function codeForProbe(probe: string, project: string): string | undefined {
+  const sourceFile = JSON.stringify(path.join(project, "routing-fixture.ts"))
+  const workdir = JSON.stringify(project)
+  if (probe === "read-fallback") return `return await Promise.all([tools.momo_lsp.status(), tools.momo_lsp.diagnostics({ filePath: ${sourceFile} }), tools.momo_ast_grep.search({ pattern: "const QA_MARKER = $VALUE", language: "typescript", paths: [${sourceFile}], workdir: ${workdir} })]);`
+  if (probe === "advisor-write") return `return await tools.momo_lsp.rename({ filePath: ${sourceFile}, line: 1, character: 6, newName: "MUTATED_MARKER" });`
+  if (probe === "worker-rewrite-apply") return `return await tools.momo_ast_grep.rewrite({ pattern: "const QA_MARKER = $VALUE", rewrite: "const QA_MARKER = 2", language: "typescript", paths: [${sourceFile}], workdir: ${workdir}, apply: true });`
+  return undefined
 }
 
 const env = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => {
@@ -57,7 +66,7 @@ async function waitFor(predicate: () => boolean, label: string, timeout = 20_000
 
 async function main(): Promise<void> {
   await mkdir(evidence, { recursive: true, mode: 0o700 })
-  for (const dir of [home, ...Object.values(xdg), configDir, pluginDir, path.join(xdg.data, "opencode")]) await mkdir(dir, { recursive: true, mode: 0o700 })
+  for (const dir of [home, ...Object.values(xdg), configDir, path.join(xdg.data, "opencode")]) await mkdir(dir, { recursive: true, mode: 0o700 })
   server = createHttpServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1")
     if (request.method === "GET" && url.pathname.endsWith("/models")) {
@@ -75,14 +84,19 @@ async function main(): Promise<void> {
       const messages = Array.isArray(parsed.messages) ? parsed.messages as Record<string, unknown>[] : []
       const userText = messages.filter((item) => item.role === "user").map((item) => stringContent(item.content)).join("\n")
       const requestedTool = /MOMO_QA_TOOL_CALL=([a-z0-9_]+)/i.exec(userText)?.[1]
+      const requestedCode = /MOMO_QA_CODE=([a-z0-9_-]+)/i.exec(userText)?.[1]
       const hasToolCall = messages.some((item) => item.role === "assistant" && Array.isArray(item.tool_calls))
       const toolRows = Array.isArray(parsed.tools) ? parsed.tools as Record<string, unknown>[] : []
-      const requested = requestedTool && !hasToolCall
+      const requested = requestedCode && !hasToolCall
+        ? toolRows.find((item) => typeof item.function === "object" && item.function !== null && "name" in item.function && item.function.name === "execute")
+        : requestedTool && !hasToolCall
         ? toolRows.find((item) => typeof item.function === "object" && item.function !== null && "name" in item.function && typeof item.function.name === "string" && item.function.name.toLowerCase().includes(requestedTool.toLowerCase()))
         : undefined
       const toolName = requested && typeof requested.function === "object" && requested.function !== null && "name" in requested.function && typeof requested.function.name === "string" ? requested.function.name : undefined
+      const code = requestedCode ? codeForProbe(requestedCode, root) : undefined
+      const toolCall = toolName ? { name: toolName, arguments: toolName === "execute" && code ? JSON.stringify({ code }) : "{}" } : undefined
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" })
-      response.end(responseStream(String(parsed.model ?? "momo-qa-model-a"), toolName))
+      response.end(responseStream(String(parsed.model ?? "momo-qa-model-a"), toolCall))
       return
     }
     response.writeHead(404).end()
@@ -95,7 +109,7 @@ async function main(): Promise<void> {
       resolve(addr.port)
     })
   })
-  const pluginPackageDir = path.join(pluginDir, "momo-native-qa")
+  const pluginPackageDir = path.join(root, "fixture-plugin")
   const pluginPath = path.join(pluginPackageDir, "index.ts")
   const tuiPath = path.join(pluginPackageDir, "tui.ts")
   const entryPath = "/private/tmp/momo-v2-baseline/packages/omo-opencode/src/index.ts"
@@ -152,6 +166,52 @@ async function main(): Promise<void> {
     roleSurfaceRequests.push({ agent, sessionID: session.id, modelRequest: requestBody })
   }
   await writeFile(path.join(evidence, "native-search-model-surfaces.json"), `${JSON.stringify(roleSurfaceRequests, null, 2)}\n`, { mode: 0o600 })
+  const fixturePath = path.join(root, "routing-fixture.ts")
+  await writeFile(fixturePath, "export const QA_MARKER = 1\nexport function qaRoutingFixture() { return QA_MARKER }\n", { mode: 0o600 })
+  const fallbackRuns: Record<string, unknown>[] = []
+  let fixtureAfterWorker = ""
+  for (const [agent, probe] of [["momo-orchestrator", "read-fallback"], ["momo-worker", "worker-rewrite-apply"], ["momo-advisor", "read-fallback"], ["momo-advisor", "advisor-write"]] as const) {
+    const session = await client.session.create({ location: { directory: root }, agent, model: { providerID: "momo-qa", id: "momo-qa-model-a" }, title: `native MCP ${agent} ${probe}` })
+    await client.session.prompt({ sessionID: session.id, text: `MOMO_QA_CODE=${probe}` })
+    await client.session.wait({ sessionID: session.id })
+    const messages = await client.message.list({ sessionID: session.id })
+    fallbackRuns.push({ agent, probe, sessionID: session.id, messages: messages.data })
+    if (probe === "worker-rewrite-apply") fixtureAfterWorker = await readFile(fixturePath, "utf8")
+  }
+  const fixtureAfter = await readFile(fixturePath, "utf8")
+  await writeFile(path.join(evidence, "native-search-live-calls.json"), `${JSON.stringify({ fallbackRuns, fixtureBefore: "export const QA_MARKER = 1\nexport function qaRoutingFixture() { return QA_MARKER }\n", fixtureAfterWorker, fixtureAfter }, null, 2)}\n`, { mode: 0o600 })
+  if (!fixtureAfterWorker.includes("QA_MARKER = 2")) throw new Error("the worker AST rewrite did not change the fixture value")
+  if (fixtureAfter !== fixtureAfterWorker) throw new Error("a later read-only role changed the fixture after the worker rewrite")
+  const executeResult = (run: Record<string, unknown>): Record<string, unknown> | undefined => {
+    const messages = Array.isArray(run.messages) ? run.messages as Record<string, unknown>[] : []
+    for (const message of messages) {
+      if (!Array.isArray(message.content)) continue
+      const toolPart = message.content.find((part) => part && typeof part === "object" && "type" in part && part.type === "tool")
+      if (toolPart && typeof toolPart === "object" && "state" in toolPart && toolPart.state && typeof toolPart.state === "object") return toolPart.state as Record<string, unknown>
+    }
+    return undefined
+  }
+  const coordinatorRead = executeResult(fallbackRuns[0] ?? {})
+  const workerRewrite = executeResult(fallbackRuns[1] ?? {})
+  const advisorRead = executeResult(fallbackRuns[2] ?? {})
+  const advisorWrite = executeResult(fallbackRuns[3] ?? {})
+  const completedCalls = (result: Record<string, unknown> | undefined) => {
+    const state = result?.status === "completed" && result.metadata && typeof result.metadata === "object" ? result.metadata as Record<string, unknown> : undefined
+    const calls = Array.isArray(state?.toolCalls) ? state.toolCalls as Record<string, unknown>[] : []
+    return calls.filter((call) => call.status === "completed").map((call) => call.tool)
+  }
+  const callOutput = (result: Record<string, unknown> | undefined): string => JSON.stringify(result?.content ?? "")
+  if (!completedCalls(coordinatorRead).includes("momo_ast_grep.search") || !completedCalls(coordinatorRead).includes("momo_lsp.diagnostics")) {
+    throw new Error(`coordinator native search fallback calls did not complete: ${JSON.stringify(coordinatorRead)}`)
+  }
+  if (!callOutput(coordinatorRead).includes("QA_MARKER = 1")) throw new Error("coordinator search did not observe the initial fixture value")
+  if (!completedCalls(workerRewrite).includes("momo_ast_grep.rewrite")) throw new Error(`worker could not use the write-capable ast-grep tool: ${JSON.stringify(workerRewrite)}`)
+  if (!completedCalls(advisorRead).includes("momo_ast_grep.search") || !completedCalls(advisorRead).includes("momo_lsp.diagnostics")) {
+    throw new Error(`advisor native read fallback calls did not complete: ${JSON.stringify(advisorRead)}`)
+  }
+  if (!callOutput(advisorRead).includes("QA_MARKER = 2")) throw new Error("advisor search did not observe the worker's applied value")
+  const advisorWriteText = JSON.stringify(advisorWrite?.content ?? "")
+  if (!advisorWriteText.includes("cannot execute momo_lsp_rename")) throw new Error(`advisor rename was not rejected by native permission policy: ${advisorWriteText}`)
   const tuiEnv = env({ OPENCODE_PASSWORD: password })
   const command = `env ${Object.entries(tuiEnv).filter(([key]) => key.startsWith("OPENCODE_") || key.startsWith("XDG_") || key === "NO_COLOR" || key === "MOMO_QA_MODEL_URL" || key === "MOMO_QA_SETUP_LOG").map(([key, val]) => `${key}=${JSON.stringify(val)}`).join(" ")} opencode --server http://127.0.0.1:${servicePort} ${JSON.stringify(root)}`
   runTmux(["new-session", "-d", "-s", tuiSession, "-x", "150", "-y", "44"])
@@ -165,6 +225,12 @@ async function main(): Promise<void> {
     await writeFile(path.join(evidence, "tui-launch-failure.txt"), `${String(error)}\n\nSERVER CONFIG:\n${await readFile(path.join(configDir, "opencode.json"), "utf8")}\n\nPANE:\n${lastPane}\n\nSERVER:\n${serverLog}\n`, { mode: 0o600 })
     throw error
   }
+  await waitFor(() => existsSync(setupLog) && readFileSync(setupLog, "utf8").includes("tui-setup"), "configured TUI plugin setup")
+  const tuiLoadEvents = await readFile(setupLog, "utf8")
+  if (!tuiLoadEvents.includes("tui-import") || !tuiLoadEvents.includes("tui-setup")) {
+    throw new Error(`configured plugin's ./tui export did not run: ${tuiLoadEvents}`)
+  }
+  await writeFile(path.join(evidence, "tui-config-load-proof.json"), `${JSON.stringify({ configuredPluginEntry: `file:${pluginPackageDir}`, automaticDiscoveryPath: path.join(root, ".opencode", "plugins"), pluginPackagePath: pluginPackageDir, tuiSetupLog: tuiLoadEvents }, null, 2)}\n`, { mode: 0o600 })
   const initial = runTmux(["capture-pane", "-pt", tuiSession])
   if (initial.includes("Plugin failed:")) {
     runTmux(["send-keys", "-t", tuiSession, "Escape"])

@@ -46,18 +46,36 @@ const readTools = new Set([
 const nativeSearchReadTools = new Set<string>(NATIVE_SEARCH_READ_TOOLS.map((name) => name.toLowerCase()))
 const nativeSearchWriteTools = new Set<string>(NATIVE_SEARCH_WRITE_TOOLS.map((name) => name.toLowerCase()))
 
+const nativeSearchServers = ["momo_ast_grep", "momo_lsp"] as const
+
+export function normalizeNativeSearchToolName(name: string): string {
+  const normalized = name.toLowerCase()
+  for (const server of nativeSearchServers) {
+    const canonicalPrefix = `mcp__${server}__`
+    if (normalized.startsWith(canonicalPrefix)) return normalized
+    const runtimePrefixes = [`${server}_`, `${server}.`, `mcp__${server}_`, `mcp__${server}.`]
+    for (const prefix of runtimePrefixes) {
+      if (normalized.startsWith(prefix)) return `${canonicalPrefix}${normalized.slice(prefix.length)}`
+    }
+  }
+  return normalized
+}
+
 function isNativeSearchTool(name: string): boolean {
-  return nativeSearchReadTools.has(name.toLowerCase()) || nativeSearchWriteTools.has(name.toLowerCase())
+  const normalized = normalizeNativeSearchToolName(name)
+  return nativeSearchReadTools.has(normalized) || nativeSearchWriteTools.has(normalized)
 }
 
 function nativeSearchToolAllowed(id: NativeAgentID, name: string): boolean {
   const role = id.slice("momo-".length) as NativeRole
-  return nativeSearchToolsForRole(role).some((tool) => tool.toLowerCase() === name.toLowerCase())
+  const normalized = normalizeNativeSearchToolName(name)
+  return nativeSearchToolsForRole(role).some((tool) => tool.toLowerCase() === normalized)
 }
 
 export function isNativeReadTool(name: string): boolean {
-  const normalized = name.toLowerCase().split("__").at(-1) ?? name.toLowerCase()
-  return readTools.has(normalized) || nativeSearchReadTools.has(name.toLowerCase()) || /^(?:mcp_)?(?:read|search|list|find|fetch|query)(?:_|$)/.test(normalized)
+  const canonical = normalizeNativeSearchToolName(name)
+  const normalized = canonical.split("__").at(-1) ?? canonical
+  return readTools.has(normalized) || nativeSearchReadTools.has(canonical) || /^(?:mcp_)?(?:read|search|list|find|fetch|query)(?:_|$)/.test(normalized)
 }
 
 export function nativeActionEffect(id: NativeAgentID, action: string): "allow" | "deny" | undefined {

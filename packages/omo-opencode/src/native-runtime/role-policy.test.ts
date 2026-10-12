@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import { filterNativeContextTools, nativeActionEffect, nativeAgentPermissions, nativeToolAllowed, ownedAgentID } from "./role-policy"
+import {
+  filterNativeContextTools,
+  isNativeReadTool,
+  nativeActionEffect,
+  nativeAgentPermissions,
+  nativeToolAllowed,
+  normalizeNativeSearchToolName,
+  ownedAgentID,
+} from "./role-policy"
 
 describe("native momo role policy", () => {
   test("coordinators can create tasks while only execution roles can use shell/edit", () => {
@@ -39,5 +47,38 @@ describe("native momo role policy", () => {
     const tools: Record<string, unknown> = { read: {}, shell: {}, momo_task: {}, task: {} }
     filterNativeContextTools("momo-orchestrator", tools, new Set())
     expect(Object.keys(tools).sort()).toEqual(["momo_task", "read", "shell", "task"])
+  })
+})
+
+describe("native Code Mode MCP tool names", () => {
+  test("normalizes actual OpenCode MCP IDs to the narrow configured tool allowlist", () => {
+    expect(normalizeNativeSearchToolName("momo_lsp_status")).toBe("mcp__momo_lsp__status")
+    expect(normalizeNativeSearchToolName("momo_ast_grep_search")).toBe("mcp__momo_ast_grep__search")
+    expect(normalizeNativeSearchToolName("momo_lsp.rename")).toBe("mcp__momo_lsp__rename")
+    expect(normalizeNativeSearchToolName("momo_lsp_unknown")).toBe("mcp__momo_lsp__unknown")
+    expect(isNativeReadTool("momo_lsp_status")).toBe(true)
+    expect(isNativeReadTool("momo_ast_grep_search")).toBe(true)
+    expect(isNativeReadTool("momo_lsp_rename")).toBe(false)
+  })
+
+  test("allows advisor read fallback but rejects MCP writes and allows worker writes", () => {
+    expect(nativeActionEffect("momo-advisor", "momo_lsp_status")).toBeUndefined()
+    expect(nativeActionEffect("momo-advisor", "momo_ast_grep_search")).toBeUndefined()
+    expect(nativeActionEffect("momo-advisor", "momo_lsp_rename")).toBe("deny")
+    expect(nativeActionEffect("momo-advisor", "momo_ast_grep_rewrite")).toBe("deny")
+    expect(nativeActionEffect("momo-orchestrator", "momo_lsp_rename")).toBe("deny")
+    expect(nativeActionEffect("momo-worker", "momo_lsp_rename")).toBeUndefined()
+    expect(nativeActionEffect("momo-worker", "momo_ast_grep_rewrite")).toBeUndefined()
+  })
+
+  test("filters nested MCP tools using the same role allowlist", () => {
+    const advisorTools: Record<string, unknown> = {
+      momo_lsp_status: {}, momo_ast_grep_search: {}, momo_lsp_rename: {}, momo_ast_grep_rewrite: {},
+    }
+    filterNativeContextTools("momo-advisor", advisorTools)
+    expect(Object.keys(advisorTools)).toEqual(["momo_lsp_status", "momo_ast_grep_search"])
+    const workerTools: Record<string, unknown> = { momo_lsp_status: {}, momo_lsp_rename: {}, momo_ast_grep_rewrite: {} }
+    filterNativeContextTools("momo-worker", workerTools)
+    expect(Object.keys(workerTools)).toEqual(["momo_lsp_status", "momo_lsp_rename", "momo_ast_grep_rewrite"])
   })
 })
