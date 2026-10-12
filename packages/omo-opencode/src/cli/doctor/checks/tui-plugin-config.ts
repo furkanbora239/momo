@@ -18,6 +18,7 @@ const TUI_EXPORT_SUBPATH = `./${TUI_SUBPATH}`
 
 interface OpenCodeConfigShape {
   plugin?: (string | [string, unknown])[]
+  plugins?: unknown[]
 }
 
 interface TuiConfigShape {
@@ -26,6 +27,7 @@ interface TuiConfigShape {
 
 interface ServerPluginInfo {
   registered: boolean
+  nativeV2: boolean
   configPath: string | null
   entry: string | null
   packageExportsTui: boolean | null
@@ -80,13 +82,13 @@ function isPackagePluginEntry(entry: unknown): boolean {
   return packageNameFromServerEntry(entry) !== null
 }
 
-function packageExportsTuiForServerEntry(entry: unknown): boolean | null {
+function packageExportsTuiForServerEntry(entry: unknown, configDir?: string): boolean | null {
   if (typeof entry === "string" && entry.startsWith("file:")) return packageJsonExportsTui(fileEntryPackageJsonPath(entry))
 
   const packageName = packageNameFromServerEntry(entry)
   if (packageName === null) return null
 
-  return packageJsonExportsTui(join(getOpenCodeConfigDir({ binary: "opencode" }), "node_modules", packageName, "package.json"))
+  return packageJsonExportsTui(join(configDir ?? getOpenCodeConfigDir({ binary: "opencode" }), "node_modules", packageName, "package.json"))
 }
 
 export function isOurFilePluginEntry(entry: unknown): boolean {
@@ -132,39 +134,51 @@ function isCanonicalNamedTuiPluginEntry(entry: unknown): boolean {
   return typeof entry === "string" && (entry === canonicalPrefix || entry.startsWith(`${canonicalPrefix}@`))
 }
 
-export function detectServerPluginRegistration(): ServerPluginInfo {
-  const paths = getOpenCodeConfigPaths({ binary: "opencode", version: null })
-  const configPath = existsSync(paths.configJsonc)
-    ? paths.configJsonc
-    : existsSync(paths.configJson)
-      ? paths.configJson
-      : null
+export function detectServerPluginRegistration(configDir?: string): ServerPluginInfo {
+  const paths = configDir
+    ? { configJson: join(configDir, "opencode.json"), configJsonc: join(configDir, "opencode.jsonc") }
+    : getOpenCodeConfigPaths({ binary: "opencode", version: null })
+  const configPath = existsSync(paths.configJsonc) ? paths.configJsonc : existsSync(paths.configJson) ? paths.configJson : null
 
   if (!configPath) {
-    return { registered: false, configPath: null, entry: null, packageExportsTui: null }
+    return { registered: false, nativeV2: false, configPath: null, entry: null, packageExportsTui: null }
   }
 
   try {
     const parsed = parseJsonc<OpenCodeConfigShape>(readFileSync(configPath, "utf-8"))
-    const plugins = parsed.plugin ?? []
-    const serverEntry = plugins.find(isServerPluginEntry)
+    const nativeV2 = Array.isArray(parsed.plugins)
+    const plugins: unknown[] = nativeV2 ? parsed.plugins ?? [] : parsed.plugin ?? []
+    const serverEntry = plugins.find((entry) => {
+      const specifier = typeof entry === "string"
+        ? entry
+        : entry && typeof entry === "object" && "package" in entry && typeof entry.package === "string"
+          ? entry.package
+          : undefined
+      return isServerPluginEntry(specifier)
+    })
+    const serverSpecifier = typeof serverEntry === "string"
+      ? serverEntry
+      : serverEntry && typeof serverEntry === "object" && "package" in serverEntry && typeof serverEntry.package === "string"
+        ? serverEntry.package
+        : null
     return {
       registered: serverEntry !== undefined,
+      nativeV2,
       configPath,
-      entry: serverEntry ?? null,
-      packageExportsTui: serverEntry === undefined ? null : packageExportsTuiForServerEntry(serverEntry),
+      entry: serverSpecifier,
+      packageExportsTui: serverSpecifier === null ? null : packageExportsTuiForServerEntry(serverSpecifier, configDir),
     }
   } catch (error) {
     log("[tui-plugin-config] Failed to inspect opencode plugin config", {
       configPath,
       error: error instanceof Error ? error.message : String(error),
     })
-    return { registered: false, configPath, entry: null, packageExportsTui: null }
+    return { registered: false, nativeV2: false, configPath, entry: null, packageExportsTui: null }
   }
 }
 
-export function detectTuiPluginRegistration(): TuiPluginInfo {
-  const tuiJsonPath = join(getOpenCodeConfigDir({ binary: "opencode" }), "tui.json")
+export function detectTuiPluginRegistration(configDir?: string): TuiPluginInfo {
+  const tuiJsonPath = join(configDir ?? getOpenCodeConfigDir({ binary: "opencode" }), "tui.json")
   if (!existsSync(tuiJsonPath)) {
     return {
       registered: false,
@@ -203,10 +217,10 @@ export function detectTuiPluginRegistration(): TuiPluginInfo {
   }
 }
 
-export async function checkTuiPluginConfig(): Promise<CheckResult> {
+export async function checkTuiPluginConfig(options: { configDir?: string } = {}): Promise<CheckResult> {
   const name = CHECK_NAMES[CHECK_IDS.TUI_PLUGIN]
-  const server = detectServerPluginRegistration()
-  const tui = detectTuiPluginRegistration()
+  const server = detectServerPluginRegistration(options.configDir)
+  const tui = detectTuiPluginRegistration(options.configDir)
   const issues: DoctorIssue[] = []
   const details: string[] = []
 
@@ -218,6 +232,34 @@ export async function checkTuiPluginConfig(): Promise<CheckResult> {
       name,
       status: "skip",
       message: "Plugin not registered (server or TUI)",
+      details: details.length > 0 ? details : undefined,
+      issues,
+    }
+  }
+
+  if (server.registered && server.nativeV2) {
+    if (server.packageExportsTui === true) {
+      return {
+        name,
+        status: "pass",
+        message: "OpenCode V2 server plugin exports its automatically loaded TUI entry",
+        details: details.length > 0 ? details : undefined,
+        issues,
+      }
+    }
+    issues.push({
+      title: "OpenCode V2 plugin does not expose its TUI entry",
+      description: server.packageExportsTui === false
+        ? `The registered server package ${server.entry ?? PLUGIN_NAME} does not export "${TUI_EXPORT_SUBPATH}".`
+        : `The registered server package ${server.entry ?? PLUGIN_NAME} could not be inspected for "${TUI_EXPORT_SUBPATH}".`,
+      fix: `Publish the server package with a "${TUI_EXPORT_SUBPATH}" export. OpenCode V2 loads it automatically from the "plugins" entry in ${server.configPath}.`,
+      affects: ["TUI sidebar", "TUI commands"],
+      severity: "warning",
+    })
+    return {
+      name,
+      status: "warn",
+      message: "OpenCode V2 TUI export is missing or unverified",
       details: details.length > 0 ? details : undefined,
       issues,
     }

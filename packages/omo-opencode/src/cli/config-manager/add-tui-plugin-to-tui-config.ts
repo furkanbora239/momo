@@ -18,7 +18,6 @@ import { writeFileAtomically } from "../../shared/write-file-atomically"
 import { applyOpenCodeV2PluginMigration } from "../../config-migration"
 import {
   detectV2ServerEntry,
-  ensureTuiPluginCliEntry,
   existingServerConfigPath,
 } from "./add-tui-plugin-to-cli-config"
 
@@ -159,14 +158,6 @@ function ensureTuiPluginEntryV2(configDir: string): EnsureTuiPluginEntryResult {
     }
   }
 
-  const cliResult = ensureTuiPluginCliEntry({ configDir, serverEntry })
-  if (cliResult.changed) {
-    return {
-      changed: true,
-      reason: "added",
-      ...(migrationDiagnostics === undefined ? {} : { diagnostics: migrationDiagnostics }),
-    }
-  }
   if (migration?.changed) {
     return {
       changed: true,
@@ -176,7 +167,7 @@ function ensureTuiPluginEntryV2(configDir: string): EnsureTuiPluginEntryResult {
   }
   return {
     changed: false,
-    reason: cliResult.reason,
+    reason: "already-present",
     ...(migrationDiagnostics === undefined ? {} : { diagnostics: migrationDiagnostics }),
   }
 }

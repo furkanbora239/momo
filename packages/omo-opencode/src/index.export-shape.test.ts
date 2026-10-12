@@ -1,16 +1,10 @@
 import { describe, expect, it } from "bun:test"
-import pluginModule, { omoPlugin } from "./index"
+import pluginModule from "./index"
 
-describe("oh-my-openagent plugin export shape", () => {
-  it("keeps default module and named server exports aligned", () => {
-    // given
-    const defaultServer = pluginModule.server
-
-    // when
-    const namedServer = omoPlugin
-
-    // then
-    expect(typeof defaultServer).toBe("function")
-    expect(namedServer).toBe(defaultServer)
+describe("oh-my-openagent native plugin export", () => {
+  it("exports the OpenCode v2 plugin definition", () => {
+    expect(pluginModule.id).toBe("oh-my-openagent")
+    expect(typeof pluginModule.setup).toBe("function")
+    expect("server" in pluginModule).toBe(false)
   })
 })

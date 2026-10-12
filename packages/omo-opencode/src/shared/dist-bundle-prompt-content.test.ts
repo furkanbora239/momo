@@ -1,106 +1,18 @@
-/// <reference types="bun-types" />
-
-import { mkdtemp, readFile, rm } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { readFile } from "node:fs/promises"
 import { describe, expect, test } from "bun:test"
 
 const DIST_INDEX = "dist/index.js"
-const PLANNER_SOURCE = "packages/prompts-core/prompts/planner/default.md"
-const BUNDLE_PROBE_SCRIPT = `
-const [distUrl, projectDirectory] = process.argv.slice(1);
-const module = await import(distUrl);
-const hooks = await module.default.server({
-  directory: projectDirectory,
-  client: {},
-  serverUrl: new URL("http://127.0.0.1:1"),
-}, {});
-try {
-  const config = {};
-  await hooks.config(config);
-  const agents = Object.values(config.agent ?? {}).filter(
-    (entry) => typeof entry === "object" && entry !== null && typeof entry.prompt === "string",
-  );
-  process.stdout.write(JSON.stringify(agents));
-} finally {
-  await hooks.dispose?.();
-}
-`
 
-type RuntimeAgent = {
-  mode?: unknown
-  permission?: unknown
-  prompt: string
-}
+describe("native agent bundle assets", () => {
+  test("the published bundle contains owned agent definitions and native frontmatter", async () => {
+    const bundle = Bun.file(DIST_INDEX)
+    expect(await bundle.exists(), `${DIST_INDEX} must exist before this CI-only test runs`).toBe(true)
+    const source = await readFile(DIST_INDEX, "utf8")
 
-describe("dist bundle prompt content", () => {
-  test("#given the built plugin bundle #when its runtime agent factory is executed #then the bundled prompt equals its source artifact", async () => {
-    const distIndex = Bun.file(DIST_INDEX)
-    expect(await distIndex.exists(), `${DIST_INDEX} must exist before this CI-only test runs`).toBe(true)
-
-    const fixtureRoot = await mkdtemp(join(tmpdir(), "omo-dist-prompt-"))
-    const homeDirectory = join(fixtureRoot, "home")
-    const projectDirectory = join(fixtureRoot, "project")
-    // Suppress the momo v1 roster default so Prometheus is registered in this
-    // bundle-content probe. The probe asserts on the bundled prompt content,
-    // not on roster policy; opting out of the v1 default inside the isolated
-    // fixture is intentional. The omo config's harness-neutral schema is
-    // strict at the top level, so the OpenCode-specific key lives under the
-    // [opencode] block (which the harness-neutral schema accepts as an opaque
-    // record and OhMyOpenCodeConfigSchema then parses). See config/validate.ts
-    // mergeViews and omo-config-core/src/schema/config.ts.
-    await Promise.all([
-      Bun.write(join(homeDirectory, ".keep"), ""),
-      Bun.write(join(projectDirectory, ".keep"), ""),
-      Bun.write(join(homeDirectory, ".omo", "omo.jsonc"), '{"[opencode]":{"disabled_agents":[]}}'),
-    ])
-
-    try {
-      const node = Bun.which("node")
-      expect(node, "node is required to execute the published ESM bundle seam").not.toBeNull()
-      const child = Bun.spawn({
-        cmd: [
-          node!,
-          "--input-type=module",
-          "-e",
-          BUNDLE_PROBE_SCRIPT,
-          new URL(`../../../../${DIST_INDEX}`, import.meta.url).href,
-          projectDirectory,
-        ],
-        cwd: process.cwd(),
-        env: {
-          ...Bun.env,
-          HOME: homeDirectory,
-          XDG_CONFIG_HOME: join(homeDirectory, ".config"),
-        },
-        stdout: "pipe",
-        stderr: "pipe",
-      })
-      const [stdout, stderr, exitCode] = await Promise.all([
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text(),
-        child.exited,
-      ])
-      expect(exitCode, `${stdout}\n${stderr}`.trim()).toBe(0)
-
-      const runtimeAgents = JSON.parse(stdout) as RuntimeAgent[]
-
-      const sourcePrompt = await readFile(PLANNER_SOURCE, "utf8")
-      const runtimeAgent = runtimeAgents.find((agent) => agent.prompt === sourcePrompt)
-      expect(runtimeAgent, `${PLANNER_SOURCE} was not returned by the built plugin runtime`).toBeDefined()
-      expect(runtimeAgent).toMatchObject({
-        mode: "all",
-        permission: {
-          task: "allow",
-          write: "deny",
-          edit: "deny",
-          apply_patch: "deny",
-          call_omo_agent: "deny",
-          question: "allow",
-        },
-      })
-    } finally {
-      await rm(fixtureRoot, { recursive: true, force: true })
-    }
-  }, 30_000)
+    expect(source).toContain("momo-native-agent-owned:v1")
+    expect(source).toContain("momo-orchestrator")
+    expect(source).toContain("momo-planner")
+    expect(source).toContain("mode: primary")
+    expect(source).toContain("mode: subagent")
+  })
 })

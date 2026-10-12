@@ -1,6 +1,5 @@
-import * as versionProbe from "../shared/opencode-version-probe"
-import { beforeEach, describe, expect, it, mock, spyOn } from "bun:test"
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { beforeEach, describe, expect, it, mock } from "bun:test"
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { getLocale, initI18n, t } from "../shared/i18n"
@@ -117,7 +116,6 @@ function createTestPluginModule(overrides: Parameters<typeof createPluginModule>
 
 describe("createPluginModule()", () => {
   beforeEach(() => {
-    spyOn(versionProbe, "defaultOpenCodeVersionProbe").mockReturnValue({ available: true, version: "1.4.0", major: 1 })
     mockDetectDuplicateOmoPlugin.mockClear()
     mockGetDuplicateOmoPluginWarning.mockClear()
     mockInjectServerAuthIntoClient.mockClear()
@@ -167,7 +165,7 @@ describe("createPluginModule()", () => {
   })
 
   describe("#given OpenCode server config is present", () => {
-    it("#then startup self-heals the matching TUI plugin entry", async () => {
+    it("#then startup leaves TUI plugin registration to the installer", async () => {
       // given
       const originalConfigDir = process.env.OPENCODE_CONFIG_DIR
       const configDir = mkdtempSync(join(tmpdir(), "omo-server-tui-entry-"))
@@ -185,7 +183,8 @@ describe("createPluginModule()", () => {
         } as Parameters<typeof pluginModule.server>[0])
 
         // then
-        expect(readFileSync(join(configDir, "tui.json"), "utf-8")).toContain(`"${PLUGIN_NAME}"`)
+        expect(existsSync(join(configDir, "tui.json"))).toBe(false)
+        expect(JSON.parse(readFileSync(join(configDir, "opencode.json"), "utf-8"))).toEqual({ plugin: [PLUGIN_NAME] })
       } finally {
         rmSync(configDir, { recursive: true, force: true })
         if (originalConfigDir === undefined) {
@@ -196,7 +195,7 @@ describe("createPluginModule()", () => {
       }
     })
 
-    it("#given sidebar is disabled #then startup still writes the TUI entry for BTW", async () => {
+    it("#given sidebar is disabled #then startup still avoids global TUI config writes", async () => {
       // given
       const originalConfigDir = process.env.OPENCODE_CONFIG_DIR
       const configDir = mkdtempSync(join(tmpdir(), "omo-server-tui-disabled-"))
@@ -214,7 +213,7 @@ describe("createPluginModule()", () => {
         } as Parameters<typeof pluginModule.server>[0])
 
         // then
-        expect(readFileSync(join(configDir, "tui.json"), "utf-8")).toContain(`"${PLUGIN_NAME}"`)
+        expect(existsSync(join(configDir, "tui.json"))).toBe(false)
       } finally {
         rmSync(configDir, { recursive: true, force: true })
         if (originalConfigDir === undefined) {

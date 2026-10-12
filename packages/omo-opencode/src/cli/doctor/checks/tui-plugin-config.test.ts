@@ -21,6 +21,14 @@ function writeOpenCodeConfig(plugins: string[]): void {
   )
 }
 
+function writeOpenCodeV2Config(plugins: unknown[]): void {
+  writeFileSync(
+    join(testConfigDir, "opencode.json"),
+    JSON.stringify({ plugins }, null, 2) + "\n",
+    "utf-8",
+  )
+}
+
 function writeTuiConfig(plugins: readonly unknown[]): void {
   writeFileSync(
     join(testConfigDir, "tui.json"),
@@ -69,6 +77,28 @@ describe("tui-plugin-config check", () => {
     }
   })
 
+  it("accepts the native V2 server plugin export without a separate TUI registry", async () => {
+    writeInstalledPackage(PLUGIN_NAME, { ".": "./dist/index.js", "./tui": "./dist/tui.js" })
+    writeOpenCodeV2Config([PLUGIN_NAME])
+
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
+
+    expect(result.status).toBe("pass")
+    expect(result.message).toContain("automatically loaded TUI entry")
+    expect(result.issues).toHaveLength(0)
+  })
+
+  it("ignores cli.json for V2 server and TUI registration", async () => {
+    writeInstalledPackage(PLUGIN_NAME, { ".": "./dist/index.js", "./tui": "./dist/tui.js" })
+    writeOpenCodeV2Config([PLUGIN_NAME])
+    writeFileSync(join(testConfigDir, "cli.json"), JSON.stringify({ plugins: ["vendor/cli-only"] }))
+
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
+
+    expect(result.status).toBe("pass")
+    expect(result.message).toContain("automatically loaded TUI entry")
+  })
+
   it("passes when both server and TUI package entries are registered", async () => {
     //#given opencode.json has the server entry, the installed package exports ./tui,
     //#      and tui.json has the package entry that OpenCode resolves as kind=tui
@@ -77,7 +107,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([PLUGIN_NAME])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then both are detected and status is pass
     expect(result.status).toBe("pass")
@@ -93,7 +123,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([PLUGIN_NAME, ["./badge.tsx", { label: "custom" }]])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then the tuple entry is ignored and OMO's package entry still passes
     expect(result.status).toBe("pass")
@@ -105,7 +135,7 @@ describe("tui-plugin-config check", () => {
     writeOpenCodeConfig([PLUGIN_NAME])
 
     const ensureResult = ensureTuiPluginEntry({ configDir: testConfigDir, versionProbe: v1Probe })
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     expect(ensureResult).toEqual({ changed: true, reason: "added" })
     expect(result.status).toBe("pass")
@@ -118,7 +148,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig(["some-other-tui-plugin"])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then status is warn with a single warning issue
     expect(result.status).toBe("warn")
@@ -136,7 +166,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig(["some-other-tui-plugin"])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then doctor avoids recommending an unresolvable TUI plugin entry
     expect(result.status).toBe("pass")
@@ -152,7 +182,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([`${PLUGIN_NAME}/tui`])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then doctor flags the unresolvable entry instead of blessing it
     expect(result.status).toBe("warn")
@@ -169,7 +199,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([`${PLUGIN_NAME}/tui`])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then doctor still flags the package subpath because OpenCode installs the spec first
     expect(result.status).toBe("warn")
@@ -190,7 +220,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([fileEntry])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then doctor does not treat the file: URL as an unresolvable named package subpath
     expect(result.status).toBe("pass")
@@ -206,7 +236,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([PLUGIN_NAME])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then doctor diagnoses the canonical installed package instead of the legacy folder
     expect(result.status).toBe("warn")
@@ -218,7 +248,7 @@ describe("tui-plugin-config check", () => {
     writeOpenCodeConfig([PLUGIN_NAME])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then status is warn — missing file means missing entry
     expect(result.status).toBe("warn")
@@ -238,7 +268,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([fileEntry])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then file: entry satisfies registration and status is pass
     expect(result.status).toBe("pass")
@@ -251,7 +281,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig([PLUGIN_NAME])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then status is warn — TUI-only registration can't function without the server side
     expect(result.status).toBe("warn")
@@ -267,7 +297,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig(["some-other-tui-plugin"])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then status is skip — plugin not installed at all
     expect(result.status).toBe("skip")
@@ -281,7 +311,7 @@ describe("tui-plugin-config check", () => {
     writeTuiConfig(["oh-my-opencode"])
 
     //#when running the check
-    const result = await checkTuiPluginConfig()
+    const result = await checkTuiPluginConfig({ configDir: testConfigDir })
 
     //#then legacy aliases are accepted
     expect(result.status).toBe("pass")

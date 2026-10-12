@@ -3,433 +3,99 @@
 > **MODIFIED SOFTWARE NOTICE**  
 > This repository is a token-efficient, cheap-provider-first modified fork of [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) (upstream npm packages: `oh-my-opencode` / `oh-my-openagent`).  
 > Distributed under the original [Sustainable Use License 1.0 (SUL-1.0)](./LICENSE.md) (**not** OSI open source).  
-> The original upstream README is preserved at [README.upstream.md](https://github.com/code-yeongyu/oh-my-openagent).
+> Upstream documentation is available in the [oh-my-openagent repository](https://github.com/code-yeongyu/oh-my-openagent#readme).
 
----
 
-<div align="center">
+momo extends OpenCode v2 with a session-model orchestrator, a Jev routing manager, departments, workers and on-demand readonly consultation. The OpenCode adapter targets v2.0.24. The native implementation passed isolated OpenCode acceptance. [The handoff](notes/native-v2-handoff-20261012.md) records the evidence and delivery PRs; [PR #34](https://github.com/furkanbora239/momo/pull/34) is the final dev delivery gate.
 
-# 🚀 momo
-### The Token-Efficient, Multi-Model Agent Harness for OpenCode
+## Execution model
 
-**Stop burning your budget on simple coding tasks.**  
-momo transforms OpenCode into a high-performance, cost-effective development team: an orchestrator that plans and delegates aggressively to cheap subagents, compresses prompts before submission, and calls flagship models strictly on demand.
-
-[![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-369eff?style=flat-square&logo=opencode)](https://opencode.ai)
-[![Runtime Bun](https://img.shields.io/badge/Runtime-Bun-f472b6?style=flat-square&logo=bun)](https://bun.sh)
-[![License SUL-1.0](https://img.shields.io/badge/License-SUL--1.0-yellow?style=flat-square)](./LICENSE.md)
-
-</div>
-
----
-
-## 📖 Table of Contents
-
-- [💡 Why momo?](#-why-momo)
-- [🏗️ How It Works (Architecture)](#️-how-it-works-architecture)
-- [✨ Core Features & Capabilities](#-core-features--capabilities)
-- [🤖 Streamlined Agent Roster](#-streamlined-agent-roster)
-- [📦 Prerequisites](#-prerequisites)
-- [🚀 Quick Start & Installation](#-quick-start--installation)
-- [⚙️ Configuration Guide (`omo.jsonc`)](#️-configuration-guide-omojsonc)
-- [💬 Slash Commands & Daily Usage](#-slash-commands--daily-usage)
-- [🛠️ Developer & Contributor Guide](#️-developer--contributor-guide)
-- [📂 Codebase Layout](#-codebase-layout)
-- [📜 License & Attribution](#-license--attribution)
-
----
-
-## 💡 Why momo?
-
-Standard AI coding harnesses send massive context windows, entire project trees, and lengthy conversation histories to expensive frontier models (such as Claude Opus 5 / Claude Sonnet 5, GPT-5.6 Sol / GPT-5, or Gemini 3 Pro) on every single turn. For basic edits, typos, minor bug fixes, and routine functions, this consumes millions of unnecessary tokens and runs up huge API bills.
-
-**momo is built around a single North Star:**
-
-> **A cheap, lightweight orchestrator that plans, delegates aggressively to low-cost subagents, selects models dynamically at runtime from a live catalog, and uses a local small model to compress prompts before sending them to the cloud. Flagship frontier models act solely as bound-on-demand advisors.**
-
-### Core Principles:
-
-1. **Delegation Over Direct Implementation:** The orchestrator acts as a technical lead. It investigates, crafts a plan, and delegates tasks to specialized subagents instead of consuming expensive output tokens writing boilerplate directly.
-2. **Cheapest Adequate Model:** Subagent models are selected per-task at runtime (speed, code generation, visual UI, reasoning) from a live provider catalog (`catalog_pick`).
-3. **Prompt Translation & Token Discipline:** Prompts are translated to English and condensed into terse "Caveman" style before cloud submission, by default through a free cloud translator (Google Gemma via the Gemini API), or locally via Ollama (`qwen2.5:1.5b`) when you opt in.
-4. **Zero-Config Start:** Simply install, run `/models` in OpenCode, choose your preferred model, and start coding immediately. No mandatory config files.
-5. **No Surprise Costs:** Frontier models are never called automatically in failure loops; you bind them explicitly when you need high-level architectural advice.
-
----
-
-## 🏗️ How It Works (Architecture)
-
-```
-                       ┌────────────────────────────────────────┐
-                       │ User Prompt (Any Language / Long Text) │
-                       └───────────────────┬────────────────────┘
-                                           │
-                                           ▼
-                       ┌────────────────────────────────────────┐
-                       │  Prompt Translator (Gemma / Ollama)    │
-                       │   -> Translates to English & Compresses│
-                       └───────────────────┬────────────────────┘
-                                           │
-                                           ▼
-                       ┌────────────────────────────────────────┐
-                       │    Main Model (Orchestrator)           │
-                       │    -> Reads Repo-Map & Creates Plan    │
-                       └───────┬────────────────────────┬───────┘
-                               │                        │
-        [Routine Subtasks]     │                        │  [Complex Stuck Bugs]
-                               ▼                        ▼
-      ┌──────────────────────────────────┐    ┌────────────────────────┐
-      │   Live Model Catalog MCP         │    │   On-Demand Advisor    │
-      │   (`catalog_pick`)               │    │   (e.g., Opus / Max)   │
-      │   -> Cheap Subagents (Fast/Code) │    │   via `/advisor`       │
-      └──────────────────────────────────┘    └────────────────────────┘
+```text
+Orchestrator -> Manager/Jev -> worker or department
+Department -> Manager/Jev -> worker
+Orchestrator / department / worker -> Manager/Jev -> advisor
 ```
 
----
+The orchestrator determines tasks and combines results. Its model comes from the OpenCode session selection (`/models`). Manager is a replaceable routing service. It sees the task brief and the eligible connected catalog, including price provenance, context limits, tools, researched profiles and runtime outcomes. Unknown price or ability remains unknown. Model research runs in the background.
 
-## ✨ Core Features & Capabilities
+Departments are planner, executor and reviewer. They own sessions and may assign workers, but cannot open another department. Worker roles are worker, explore, librarian, research and catalog-researcher. Workers can consult but cannot delegate. Advisors can research readonly; they cannot edit, delegate or consult. Coordinators cannot edit or run general shell commands. Direct worker mode remains available in native agent selection.
 
-| | Feature | Description & Benefits |
-| :---: | :--- | :--- |
-| ⚡ | **Prompt Translator & `/caveman`** | Intercepts user prompts before cloud submission. Runs on-demand when prefixed with `/caveman <prompt>` (or `/cavemen <prompt>`, `/c <prompt>`), or automatically on every prompt when configured (`trigger: "always"`). Default mode runs a free cloud translator (Google Gemma via the Gemini API); switch `mode` to `local` for on-device Ollama (e.g. Qwen 2.5 1.5B). Either way, foreign languages are translated to English and text is compressed into dense "Caveman" style, slashing both input and output token costs. |
-| 🗂️ | **Live Model Catalog (`catalog` MCP)** | Queries all connected providers dynamically at session startup (`client.provider.list()`), enriched with a built-in model knowledge base (benchmarks, coding profiles, recommended roles). `catalog_pick` ranks by capability and price with `cost_tier` filters and dynamic role matching. |
-| 🎛️ | **Model Pool (`/pool`)** | Interactive TUI panel managing the hard-allow model pool at `~/.omo/model-pool.json`. Toggling a model off removes it from the allowed set: the catalog MCP hard-filters rows by the pool and the delegation engine enforces it at `task()` time, so blocked models fall back or fail with an actionable error. An empty pool means allow all. |
-| 👁️ | **Subagent Visibility (`/tasks`)** | Renders the running subagent tree in the TUI: agent, model id, task, and status with nesting for child sessions, plus the currently running tool. Selecting a subagent shows the exact prompt the orchestrator gave it. |
-| 🧠 | **On-Demand Advisor (`/advisor`)** | Frontier models stay unbound by default to eliminate surprise billing. When facing architectural roadblocks or tricky bugs, bind an advisor for concise, high-value guidance (<300 tokens). |
-| 🧗 | **Ponytail YAGNI Solution Ladder** | Built-in system prompt discipline: models climb a strict ladder (YAGNI → reuse existing code → stdlib → native feature → existing dependency → 1 line → minimal code). |
-| 🗺️ | **Repo-Map Auto-Injector** | Reads `.codegraph` SQLite indexes and injects a high-level summary of key files, symbols, and dependencies on turn 1, eliminating costly exploratory grep loops. |
-| 🔗 | **Hash-Anchored Edits (Hashline)** | Every line read by an agent is tagged with a content hash (`LINE#ID`). Edits verify line hashes before saving, eliminating broken diffs and hallucinated edit positions. |
-| 🛠️ | **Crafted LSP & AST-Grep Tools** | Built-in language server and tree-sitter AST tools provide instant diagnostics, definition lookups, and syntax-aware search across 25+ programming languages. |
-| 👥 | **Parallel Background Subagents** | Spawns multiple subagents concurrently (`task(subagent_type=..., run_in_background=true)`), enabling uninterrupted parallel research and test runs. |
-| 📐 | **Rules Engine & `AGENTS.md`** | Automatically loads project conventions, coding standards, and directory-scoped `AGENTS.md` instructions directly into the relevant agent context. |
-| 💬 | **Comment & Slop Checker** | Strips out verbose AI pleasantries, generic apologies, and redundant inline commentary, keeping code clean and professional. |
+Jev decisions are applied to both the role and model. Low confidence returns up to three choices; Jev errors return the eligible pool. The caller finishes the existing decision ticket, with fresh availability and pool checks. Selection does not call Jev again or create a second task. There is no silent model substitution.
 
----
+## Install from this checkout
 
-## 🤖 Streamlined Agent Roster
+Use Bun in the root workspace. The vendored Node-targeted MCP packages have their own build tooling.
 
-momo keeps the always-on roster lean to minimize context overhead. A manager hierarchy (dispatcher + department leads) and two specialists extend it, while legacy heavyweights stay in the codebase but disabled by default:
-
-```
-                  ┌─────────────────────────────────────┐
-                  │        momo Orchestrator            │
-                  │   (Coordinates, Plans, Delegates)   │
-                  └──────┬──────────┬──────────┬────────┘
-                         │          │          │
-         ┌───────────────┘          │          └───────────────┐
-         ▼                          ▼                          ▼
-┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
-│     explore      │      │    librarian     │      │     advisor      │
-│  Contextual Grep │      │  External Docs   │      │ Bound On-Demand  │
-│  & Code Search   │      │  & OSS Research  │      │   Architecture   │
-└──────────────────┘      └──────────────────┘      └──────────────────┘
-
-                    ┌─────────────────────────────────────┐
-                    │      Manager Layer (default on)     │
-                    │ planner / executor / reviewer leads │
-                    └──────┬──────────┬──────────┬────────┘
-                           │          │          │
-                           ▼          ▼          ▼
-                    ┌──────────┐ ┌──────────┐ ┌──────────┐
-                    │ planner  │ │ executor │ │ reviewer │
-                    └──────────┘ └──────────┘ └──────────┘
-```
-
-### Active Roster:
-
-1. **momo Orchestrator (Main Agent)**
-   - **Role:** Technical Lead / Coordinator.
-   - **Behavior:** Analyzes the repo map, clarifies requirements, builds executable task plans, and delegates to subagents.
-   - **Model:** Zero-config — automatically inherits whatever model you selected in OpenCode (`/models`).
-2. **planner (Dedicated Read-Only Planner — Tab Switchable)**
-   - **Role:** High-reasoning strategic planner (`mode: "all"`).
-   - **Behavior:** Gathers context, reads `PROJECT_STATE.md` and repository maps, and emits structured plans without modifying code. Switch to it directly via **Tab** in OpenCode.
-3. **worker / sisyphus-junior (Dedicated Direct Execution — Tab Switchable)**
-   - **Role:** Focused task executor without orchestrator overhead (`mode: "all"`).
-   - **Behavior:** Direct execution of fast tasks: test running, single-file edits, git commit and push. Switch to it directly via **Tab** in OpenCode.
-4. **explore (Codebase Search Specialist)**
-   - **Role:** Fast contextual search inside your local repository.
-   - **Trigger:** Locating symbol definitions, tracing references, finding relevant files.
-5. **librarian (External Research Specialist)**
-   - **Role:** External documentation lookups, library API references, and web searches.
-   - **Trigger:** Researching third-party libraries, unfamiliar frameworks, or web resources.
-6. **catalog-researcher (Model Knowledge Specialist)**
-   - **Role:** Researches unknown models (benchmarks, coding profile, price) into the persistent catalog knowledge cache (`~/.omo/catalog-knowledge.json`), surfaced through the `catalog_knowledge` and `catalog_enrich` MCP tools. Catalog rows overlay these facts.
-   - **Trigger:** When the live catalog contains models missing from the knowledge base.
-7. **advisor (On-Demand Senior Architect)**
-   - **Role:** High-level architectural decision-making, debugging stuck failure loops.
-   - **Trigger:** Explicitly bound via `/advisor <model>`. Returns concise, decisive directives.
- 8. **manager (Tier-2 Dispatcher)**
-   - **Role:** Evaluates each task, routes it to the planner or executor, and picks lead models via `catalog_pick`. Never edits directly.
-   - **Trigger:** Sits between the orchestrator and the department leads in the manager hierarchy.
- 9. **executor / reviewer (Department Leads)**
-   - **Role:** `executor` consumes approved plans and delegates to category workers, collecting diff + test evidence; `reviewer` audits changes, runs test verification, and checks edge cases and security. None of them edit directly.
-
-Legacy agents (`prometheus`, `metis`, `momus`, `hephaestus`, `oracle`, `atlas`, `multimodal-looker`) remain in the codebase but ship disabled by default; re-enable any via `disabled_agents` in `omo.jsonc`.
-
-### Subagent Execution Categories:
-When delegating work via `task()`, momo routes tasks to optimized categories:
-- **`quick`:** Trivial tasks, single-file changes, typos, and simple modifications (uses fast flash-tier models).
-- **`deep`:** Goal-oriented autonomous problem-solving on hairy problems requiring deep research; one goal and one deliverable per call.
-- **`visual-engineering`:** Frontend, UI/UX, design, styling, and animation.
-- **`artistry`:** Complex problem-solving with unconventional, creative approaches beyond standard patterns.
-- **`ultrabrain`:** Genuinely hard, logic-heavy tasks; give clear goals, not step-by-step instructions.
-- **`writing`:** Documentation, prose, and technical writing.
-- **`unspecified-low`:** Tasks that don't fit other categories, low effort required.
-- **`unspecified-high`:** Tasks that don't fit other categories, high effort required.
-
----
-
-## 📦 Prerequisites
-
-Before using momo, ensure your system has:
-
-1. **[Bun](https://bun.sh/)** (version 1.1 or higher)  
-   *Note: momo uses Bun for building and running. Do not use npm, yarn, or pnpm in the root workspace.*
-2. **[OpenCode](https://opencode.ai/)** installed and accessible in your PATH (`opencode`).
-3. *(Optional)* **[Ollama](https://ollama.com/)** for local prompt translation.  
-   *(Only needed when you set `local_translator.mode` to `"local"`; the default `"cloud"` mode uses a free Google Gemma translator and needs no Ollama. `auto_install` is opt-in and Linux-only, installing Ollama user-locally under `~/.omo/ollama`.)*
-
----
-
-## 🚀 Quick Start & Installation
-
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/furkanbora239/momo.git
-cd momo
-```
-
-### Step 2: Install Dependencies
 ```bash
 bun install
-```
-
-### Step 3: Build the Plugin
-```bash
 bun run build
 ```
-*This bundles TypeScript sources, compiles MCP servers, and prepares `./dist`.*
 
-### Step 4: Add to OpenCode Configuration
-Add the local plugin path (`file://` URI pointing to `dist/index.js`) to your OpenCode configuration (`~/.config/opencode/opencode.json`):
+Register the package root in OpenCode v2 configuration:
 
 ```json
 {
-  "plugin": [
-    "file:///absolute/path/to/momo/dist/index.js"
-  ]
+  "plugins": ["file:///absolute/path/to/momo"]
 }
 ```
 
-For the OpenCode TUI interface, register the package root in `~/.config/opencode/tui.json`:
+OpenCode loads the package's `./tui` export from that registration. Do not add duplicate entries to `cli.json` or `tui.json`. momo distributes owned markdown agent files and preserves conflicting user-owned files.
 
-```json
-{
-  "plugin": [
-    "file:///absolute/path/to/momo"
-  ]
-}
-```
+Start `opencode`, choose the orchestrator and select its session model. Use native agent/task visibility. `/pool`, `/providers` and `/advisor-pool` manage routing controls.
 
-You can verify the installation at any time:
-```bash
-bun dist/cli/index.js doctor
-opencode debug info
-```
+## Task and consultation tools
 
-### Step 5: Launch OpenCode
-```bash
-opencode
-```
-1. Press `/models` inside OpenCode to choose your primary model.
-2. That model immediately becomes your **momo Orchestrator** with zero extra configuration.
+- `momo_task`: create, resume, select, answer, cancel, status and wait.
+- `momo_consult`: start a single-question consultation, select, status and wait.
 
----
+Task text is the required brief; scope and acceptance criteria are optional. Normal task requests do not choose a model or role. Caller identity and delegation permissions come from the actual OpenCode session. Default assignment runs in the background; explicit waiting is supported.
 
-## ⚙️ Configuration Guide (`omo.jsonc`)
+Tasks persist their root/parent/session lineage, routing decision, attempts, progress, question, children, outcome and delivery. Completion and delivery are separate. Managed question wakeups pass through model/provider capacity. Restart reconciles native sessions and resumes interrupted work in the same session; completed or cancelled work is not rerun. These behaviors have isolated live evidence; remaining fault and timeout cases are listed in the handoff.
 
-momo works out of the box with zero configuration. To customize behavior, create or edit `~/.omo/omo.jsonc` (global) or `.opencode/oh-my-openagent.jsonc` (project-scoped):
+## Configuration and cost controls
+
+momo reads layered `.omo/omo.jsonc` configuration, including the `[opencode]` block. Model identifiers below are placeholders for connected models:
 
 ```jsonc
 {
-  "$schema": "https://raw.githubusercontent.com/furkanbora239/momo/main/assets/oh-my-opencode.schema.json",
-
-  // 1. Prompt Translator (cloud by default, Ollama optional)
-  "local_translator": {
-    "enabled": true,                 // Enable prompt translation & compression
-    "mode": "cloud",                 // "cloud" = free Google Gemma via Gemini API (default), "local" = Ollama
-    "trigger": "command",            // "command" = only on /caveman, /cavemen, or /c (default), "always" = all messages
-    "model": "qwen2.5:1.5b",          // Ollama model tag used when mode is "local"
-    "ollama_host": "http://localhost:11434",
-    "timeout_ms": 30000,
-    "auto_install": false,           // Opt-in: install Ollama user-locally if missing (Linux only)
-    "min_length": 20,                // Skip messages shorter than 20 characters
-    "log_translations": true         // Log inputs/outputs to ~/.omo/local-translator-logs/ for finetuning
-  },
-
-  // 2. Model Catalog MCP
-  "catalog": {
-    "enabled": true,                 // Dynamic runtime model picker (knowledge-base enriched)
-    "prefer_providers": []           // Optional: boost rows from these providers within a tier
-  },
-
-  // 3. Advisor Agent Binding (Optional default)
-  "agents": {
-    "advisor": {
-      "model": "anthropic/claude-opus-5" // Or "openai/gpt-5.6-sol" / "google/gemini-3-pro"
-    }
-  },
-
-  // 4. Category Routing Overrides (Optional)
-  "categories": {
-    "quick": {
-      "model": "google/gemini-3-flash"
+  "[opencode]": {
+    "manager": {
+      "jev": {
+        "confidence_threshold": 0.75
+      },
+      "advisor_models": [
+        { "providerID": "your-provider", "id": "your-advisor-model" }
+      ]
     },
-    "deep": {
-      "model": "opencode-go/glm-5.3-flash"
-    },
-    "ultrabrain": {
-      "model": "openai/gpt-5.6-sol"
+    "background_task": {
+      "defaultConcurrency": 5
     }
-  },
-
-  // 5. Disabled Hooks (Optional token-saving optimization)
-  "disabled_hooks": [
-    // "todoDescriptionOverride"
-  ],
-
-  // 6. Model Pool (managed by the /pool command, stored at ~/.omo/model-pool.json; empty = allow all)
-
-  // 7. Background Delegation
-  "background_task": {
-    "nonBlockingByDefault": true    // default true = task() without run_in_background runs in the background, keeping the orchestrator responsive; set false to make omitted run_in_background resolve to sync (waits)
-  },
-
-  // 8. Comment & Slop Checker Hook
-  "comment_checker": {
-    "enabled": true,                 // Toggle the comment/docstring checker hook
-    "ignore_paths": []               // Paths the checker should skip
-  },
-
-  // 9. Sync Subagent Tuning
-  "experimental": {
-    "sync_stall_timeout_ms": 180000,        // Abort unresponsive subagents after 3 minutes of no activity
-    "sync_production_timeout_ms": 720000,   // Max time for a producing subagent to finish
-    "sync_active_tool_timeout_ms": 3600000, // Max time for an active tool (bash, builds, tests)
-    "preemptive_compaction": false          // Compact the session at 78% context usage (recommended against subagent context bloat)
   }
 }
 ```
 
----
+An empty advisor pool disables consultation. Advisors must also pass the general hard-allow pool. The general pool in `~/.omo/model-pool.json` allows all when missing or valid and empty. Malformed or unreadable native routing controls fail closed. Provider toggles and fresh model availability are checked at dispatch. Existing concurrency and timeout settings remain configurable; native defaults protect active tools for up to 60 minutes and detect silence without active tools after three minutes.
 
-## 💬 Slash Commands & Daily Usage
+The versioned decision ledger records the actual manager inputs, candidate snapshot, response/fallback, caller selection, dispatch, usage and outcome links. It does not copy every chat. Research claims stay separate from verified task results. Export can include old ledger rows through a readonly legacy path.
 
-> 💡 **For full documentation and in-depth guides, see [HELP.md](./HELP.md).**
+## Code search and retained adapters
 
-| Command | Syntax | Description |
-| :--- | :--- | :--- |
-| `/help` | `/help` | OpenCode native command list. Displays all available commands and descriptions in a clean TUI table without sending any prompt to chat or consuming tokens. |
-| `/momo` | `/momo [topic]` | momo Interactive AI Guide. Explains architecture, agents, commands, and configuration directly in chat (responds in Turkish if queried in Turkish). |
-| `/caveman`<br>`/cavemen`<br>`/c` | `/caveman <prompt>`<br>`/cavemen <prompt>`<br>`/c <prompt>` | Prompt Translator & Token Compressor. Translates foreign text (e.g. Turkish) to English and compresses it into high-density Caveman style (30-50% token savings). |
-| `/models` | `/models` | Select your primary model inside OpenCode (automatically sets the momo orchestrator). |
-| `/advisor` | `/advisor <model\|off\|report>` | Bind/unbind an on-demand senior advisor model (e.g. `/advisor anthropic/claude-opus-5`). Zero surprise cost. |
-| `/pool` | `/pool` | Interactive TUI panel for the hard-allow model pool (`~/.omo/model-pool.json`). Toggle models off to block them from catalog and delegation; empty pool = allow all. |
-| `/tasks` | `/tasks` (aliases: `/agents`, `/subagents`) | Show the running subagent tree (agent, model, task, status, running tool). Select one to read the exact prompt it received. |
-| `/goal` | `/goal <objective> \| pause \| resume \| clear` | Set or manage an autonomous multi-step execution loop until completion criteria are met. |
-| `/handoff` | `/handoff [goal]` | Create a detailed context summary to resume work seamlessly in a fresh session. |
-| `/stop-continuation` | `/stop-continuation` | Immediately stop all active continuation mechanisms (goal loops, todo continuation, background tasks). |
-| `/remove-deadcode` | `/remove-deadcode` | Remove unused code across the project with LSP-verified safety. |
-| `/tech-debt-audit` | `/tech-debt-audit` | Run a 9-dimension technical debt audit across the repository. |
-| `/security-research` | `/security-research` | Run team-mode security research audit with vulnerability hunters and PoC engineers. |
-| `omo doctor` | `omo doctor` | Run CLI diagnostics on connected providers, active models, catalog MCP, and plugin health. |
+Native search uses bundled LSP and ast-grep plus file reading and text search. Role policy restricts rename/rewrite to workers and denies unknown MCP tools for readonly roles. Codebase Memory MCP v0.11.0 is an optional pinned candidate; it stays disabled because automatic index freshness did not pass QA. Its managed cache includes its upstream license notice. The old Codegraph default is not restored.
 
-> ℹ️ Legacy heavy planning commands (`/refactor`, `/hyperplan`, and `/remove-ai-slops`) ship disabled by default (token-saving v1 defaults). Re-enable them by setting `disabled_commands` in `omo.jsonc`.
+Codex, Senpi, native CLI and shared core packages remain in-tree. The OpenCode native entry does not activate old V1 client/hook/config bridges, translator commands, category delegation or legacy task sidebars. Programming skills may remain optional for workers. [The archived v1 README](notes/momo-v1-readme.md) preserves historical descriptions and attribution.
 
-
----
-
-## 🛠️ Developer & Contributor Guide
-
-### Branches
-
-| Branch | Purpose |
-|---|---|
-| `main` | Stable, everyday-use snapshot. Verified states promoted from `dev` (typecheck clean, tests green, live-verified behavior). What most users should install. |
-| `dev` | Integration branch. All PRs land here first; experimental or in-progress work stays on `dev` until verified. |
-
-`main` is protected: changes land only via pull request (direct pushes rejected, including for admins), force-push and branch deletion are rejected. See [Branching & Repository Rules](./CONTRIBUTING.md#branching--repository-rules) in CONTRIBUTING.md for the full policy.
-
-### Common Development Commands
+## Development and verification
 
 ```bash
-# Typecheck across all workspace packages (uses tsgo)
 bun run typecheck
-
-# Run OpenCode plugin test suite
-bun test packages/omo-opencode/src
-
-# Run complete workspace tests
 bun test
-
-# Fast subset of the workspace test suite
-bun run test:fast
-
-# Rebuild distribution bundle
 bun run build
-
-# Fast rebuild of the plugin ESM bundle only (skips MCP compilation)
-bun run build:fast
-
-# Watch-mode rebuild of the plugin bundle
-bun run dev
-
-# Regenerate configuration JSON schema
-bun run build:schema
 ```
 
-### Design Guidelines:
-- **No catch-all files:** Never create `utils.ts`, `helpers.ts`, or `service.ts`. Keep modules focused and concise (~200 LOC soft limit).
-- **Factory pattern:** Export factory functions `createXXX()` for tools, hooks, and agents.
-- **Cross-runtime safety:** Use `packages/omo-opencode/src/shared/bun-spawn-shim.ts` for process spawning.
-- **Testing:** Write `bun:test` specs using `given / when / then` blocks. Never assert raw authored prompt strings in tests.
+Typecheck uses tsgo. Run focused behavioral tests and isolated actual OpenCode QA for runtime changes. Keep evidence under `.omo/evidence/`; watch Bun processes because some tests can hang. Never use the user's actual OpenCode database for spawned QA sessions.
 
----
+Current evidence and remaining work: [migration contract](NATIVE_V2_MIGRATION.md), [handoff](notes/native-v2-handoff-20261012.md), [project state](PROJECT_STATE.md). Work lands through reviewable PRs into `dev`; `main` advances only through a verified dev-to-main PR.
 
-## 📂 Codebase Layout
+## License and attribution
 
-```
-omo/
-├── packages/
-│   ├── omo-opencode/        # OpenCode plugin implementation (momo's core focus)
-│   │   └── src/
-│   │       ├── agents/      # Orchestrator, manager layer, Advisor, and prompt builders
-│   │       ├── config/      # Zod configuration schemas & validation
-│   │       ├── features/    # Features (local-translator, repo-map, etc.)
-│   │       ├── hooks/       # OpenCode lifecycle hooks
-│   │       ├── mcp/         # Built-in MCP servers (catalog MCP, ast-grep, lsp)
-│   │       ├── shared/      # Cross-runtime shims, loggers, and audit tools
-│   │       └── tools/       # Tools (delegate-task, advisor, hashline)
-│   ├── model-core/          # Model resolution, aliases, and capability maps
-│   ├── delegate-core/       # Category-to-model delegation logic
-│   ├── prompts-core/        # Shared system prompt components & Ponytail ladder
-│   ├── rules-engine/        # AGENTS.md parsing & context injector
-│   ├── hashline-core/       # Hash-anchored line editing engine
-│   └── lsp-core/            # Language Server Protocol client & daemon
-├── .agents/skills/          # Project skills and automated workflows
-├── PROJECT_STATE.md         # Architecture, active status, and next steps
-└── LICENSE.md               # SUL-1.0 License terms
-```
-
----
-
-## 📜 License & Attribution
-
-- **Original Project:** [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) by YeonGyu Kim and contributors.
-- **License:** Distributed under the **[Sustainable Use License 1.0 (SUL-1.0)](./LICENSE.md)**.
-  - **Free for personal, non-commercial, and educational use and redistribution.**
-  - Commercial use requires upstream licensing.
-  - Relicensing (e.g. to MIT or Apache) is strictly prohibited.
-  - All original copyright notices and modification notices are preserved.
-
+Original project: [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent), by YeonGyu Kim and contributors. All upstream copyright and license notices remain. momo is modified software under [SUL-1.0](LICENSE.md), not OSI open source. Free non-commercial use and redistribution follow that license; commercial use requires upstream licensing. Do not relicense this fork.

@@ -1,0 +1,90 @@
+{
+  "status": "passed",
+  "opencodeVersion": "opencode v2.0.24",
+  "pluginID": "oh-my-openagent",
+  "verifiedCases": [
+    "one root completes five unique children at once and aggregates results",
+    "async department child question reached the manager and was answered by its model through momo_task",
+    "unanswered child question escalates to a root form and the native field-key answer resumes the same child",
+    "native CLI waits for root aggregation after async child delivery",
+    "manual selection finishes the existing task without a second Jev route",
+    "direct and department tasks complete under the same native task RPC",
+    "five independent root sessions observed five parallel model calls",
+    "consultation from every non-advisor role",
+    "advisor could not create a nested consultation",
+    "department resumes after child and combines child result",
+    "coordinator tool list excludes shell, write, and delegation tools"
+  ],
+  "sharedParallelAggregateSeen": true,
+  "sharedParallelMaxWorkers": 5,
+  "maxParallelWorkers": 5,
+  "consultationRoles": [
+    "orchestrator",
+    "planner",
+    "executor",
+    "reviewer",
+    "worker",
+    "explore",
+    "librarian",
+    "research",
+    "catalog-researcher"
+  ],
+  "consultationsPerRole": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "advisorNestedConsultationTasks": 0,
+  "coordinatorTools": [
+    "glob",
+    "grep",
+    "question",
+    "read",
+    "skill",
+    "webfetch",
+    "websearch",
+    "execute"
+  ],
+  "coordinatorDynamicImportMarkerCreated": false,
+  "decisionExportRecords": 202,
+  "liveJevRequests": 28,
+  "localModelRequests": 131,
+  "permissionEvaluations": [
+    {
+      "type": "setup"
+    }
+  ],
+  "selectionState": "succeeded",
+  "selectionRouteCount": 1,
+  "departmentChildCount": 5,
+  "questionChildCalls": 2,
+  "parentQuestionAnswers": 1,
+  "forwardedFormsAfterAnswer": 0,
+  "rootFormAnswerKeys": [
+    "q0"
+  ],
+  "forwardedFormsAfterEscalation": 0,
+  "cliExitCode": 0,
+  "cliSuccess": true,
+  "cleanup": {
+    "sandboxRemoved": true,
+    "ownedProcessGroupGone": true,
+    "realDatabaseUnchanged": true,
+    "databaseBefore": {
+      "session": "5",
+      "session_message": "2338"
+    },
+    "databaseAfter": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  },
+  "rootEntrySHA256": "926112550a5a195805bfda12094fb8dc7b0f01ced860279e2599ea364716ace3",
+  "publishedBundleSHA256": "ae6f07c59a02b83c7b03e420b282a6326f3bcbce887f82445577f5e0c5ff29ac"
+}

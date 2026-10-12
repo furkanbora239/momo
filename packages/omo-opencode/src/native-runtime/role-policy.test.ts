@@ -97,3 +97,29 @@ describe("native Code Mode MCP tool names", () => {
     expect(isNativeReadTool("webfetch")).toBe(true)
   })
 })
+
+
+describe("coordinator unknown action boundary", () => {
+  for (const role of ["momo-orchestrator", "momo-planner", "momo-executor", "momo-reviewer"] as const) {
+    test(`${role} rejects canonical and native unknown actions while preserving readonly tools`, () => {
+      const tools: Record<string, unknown> = {
+        mcp__external__operate: {}, external_operate: {}, momo_lsp_unknown: {},
+        execute: {}, question: {}, skill: {}, read: {}, momo_lsp_status: {}, momo_task: {}, momo_consult: {},
+      }
+      filterNativeContextTools(role, tools)
+      expect(Object.keys(tools).sort()).toEqual(["execute", "momo_consult", "momo_lsp_status", "momo_task", "question", "read", "skill"])
+      for (const name of ["mcp__external__operate", "external_operate", "momo_lsp_unknown"]) {
+        expect(nativeActionEffect(role, name)).toBe("deny")
+      }
+      expect(nativeActionEffect(role, "momo_lsp_status")).toBeUndefined()
+      expect(nativeActionEffect(role, "question")).toBeUndefined()
+      expect(nativeActionEffect(role, "skill")).toBeUndefined()
+    })
+  }
+  test("keeps worker execution available for an unknown custom action", () => {
+    const tools: Record<string, unknown> = { external_operate: {} }
+    filterNativeContextTools("momo-worker", tools)
+    expect(Object.keys(tools)).toEqual(["external_operate"])
+    expect(nativeActionEffect("momo-worker", "external_operate")).toBeUndefined()
+  })
+})

@@ -11,6 +11,29 @@ output tokens as possible. Big models act as bound-on-demand advisors, never def
 executors. Zero-config start: the opencode `/models` selection is the main model.
 Optimized defaults for opencode-go + neuralwatt; any number of providers supported.
 
+## Active OpenCode architecture (2026-10-13)
+
+OpenCode now uses the v2 native entry in `packages/omo-opencode/src/index.ts`. Read
+`PROJECT_STATE.md`, `NATIVE_V2_MIGRATION.md` and
+`notes/native-v2-handoff-20261012.md` before implementation. PRs #30 through #34
+track the migration; use their current GitHub state rather than older checkpoints.
+
+- `src/native-task/`: durable tasks, execution events, forms, delivery and restart.
+- `src/native-routing/` and `src/native-catalog/`: replaceable Jev manager, current
+  eligible model facts, caller selection and versioned routing/outcome logs.
+- `src/native-runtime/`: `momo_task`, `momo_consult`, actual role permissions,
+  advisor pool and native session bridge. Coordinators use a verified readonly
+  allowlist; unknown custom/MCP actions are denied at context and execution boundaries.
+- `assets/native-agents/`: one owned markdown body per role, no family variants.
+- `src/cli/native-run/` and `src/v2/tui/`: active native CLI and catalog controls.
+- `src/native-search/`: managed graph candidate remains disabled after failed
+  freshness QA; LSP, ast-grep and native read/text tools are the active fallback.
+
+The legacy agent/category/hooks/translator touchpoints below describe retained
+historical modules. They are not the active OpenCode path. Do not restore the v1
+bridges, reconciler, alternative delegation or todo continuation. Other adapters,
+shared cores, legal notices and general repository conventions remain applicable.
+
 ## License (fork-critical)
 
 SUL-1.0 "Sustainable Use License" (`LICENSE.md`) — **not** OSI open source.

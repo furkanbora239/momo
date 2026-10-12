@@ -37,6 +37,10 @@ const PROMPT_GATE_FILES = new Set([
 ])
 const RAW_PROMPT_ALLOWLIST = new Map<string, string>([
   [
+    path.join(SOURCE_ROOT, "cli", "native-run", "runner.ts"),
+    "uses the official V2 session.prompt API for a user-initiated root turn after native session creation; CLI completion is tracked through native session/task state",
+  ],
+  [
     path.join(SOURCE_ROOT, "native-runtime", "session-runtime.ts"),
     "uses the official V2 session.prompt API for native task dispatch after durable task/session creation; V2 task identity and delivery metadata provide the idempotency boundary rather than the retired V1 prompt gate",
   ],

@@ -1,7 +1,17 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-10-02  
+**Last Updated:** 2026-10-13
 **Version / Branch:** `dev`
+
+## OpenCode v2 native migration (2026-10-12)
+
+The verified native v2 implementation lives in `packages/omo-opencode/src/native-runtime/`, `native-task/`, `native-routing/`, and `native-catalog/`. The native tool surface is `momo_task` for task lifecycle operations and `momo_consult` for consultation; caller role/session identity comes from the OpenCode runtime. See [NATIVE_V2_MIGRATION.md](./NATIVE_V2_MIGRATION.md) for role rules, manual model selection, advisor-pool configuration, ledger behavior, and current verification limits.
+
+The native model selector uses current v2 provider/model/integration records and the configured hard-allow pool. Jev failures and low confidence expose eligible caller choices instead of triggering a silent fallback. The advisor pool is configured through `[opencode].manager.advisor_models` and remains intersected with the general model pool. The v2 TUI keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns native agent and task visibility. Legacy task trees, sidebars, BTW controls, and prompt translation are not registered by the native TUI entry.
+
+Live v2 proofs now cover same-session restart, completed-work no-rerun, worker cancellation and department descendant cancellation. The native README is current; archived v1 descriptions remain in `notes/momo-v1-readme.md`. Configured watchdog protection/cap, busy-parent result retry, forwarded-form retry and native shell permission denial have also passed isolated live QA. SDK/CI #30, task engine #31 and manager/catalog #32 are merged into dev. Runtime/consultation #33 is also merged. [Native activation #34](https://github.com/furkanbora239/momo/pull/34) is the final dev delivery gate; check its current GitHub state before starting new work. The final activation bundle passed fresh real v2 parallel, department, caller-selection, all-role consultation, parent question/root escalation and native CLI acceptance; Fresh recovery QA also passed five server restarts, no-rerun, cancellations, busy-parent delivery/form retries and tool watchdog resumption. Main promotion and npm publishing are separate.
+
+Current recovery instructions and the ordered remaining work are in [the native v2 handoff](./notes/native-v2-handoff-20261012.md). Read it before implementation. It records pushed checkpoints, uncommitted worktree changes, real harness evidence, unresolved acceptance gates, and safe test-process handling. Earlier checkpoint counts and pending TUI/search notes are historical; the handoff supersedes them. Codebase Memory MCP remains disabled because automatic freshness failed.
 
 ---
 
