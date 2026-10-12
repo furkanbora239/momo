@@ -1,0 +1,71 @@
+{
+  "runtime": "Bun 1.3.14, macOS arm64",
+  "historicalIncident": {
+    "lastCompletedTest": "runBunInstallWithDetails: inherited output",
+    "nextTest": "installer timeout with never-resolving proc.exited",
+    "sample": "hot main-thread execution/JIT frames; unsymbolicated, so historical JS frame not established",
+    "testsCompletedBeforeHang": 9629
+  },
+  "provenMechanism": {
+    "source": "actual createViewPoller",
+    "cause": [
+      "view-poller tests leave polling timers alive after tick()",
+      "installer timeout test makes all global setTimeout callbacks synchronous while awaiting dynamic import",
+      "poller async reads resolve immediately; subsequent schedules execute inline; promise microtasks keep chaining, starving native timer/import progress"
+    ],
+    "oldOverrideWithLivePoller": {
+      "externalDeadlineSeconds": 2,
+      "observedCPUPercent": 87.3,
+      "result": "owned process terminated by external supervisor after import failed to complete"
+    },
+    "disposePollerBeforeOverride": {
+      "exitCode": 0,
+      "result": "import completed"
+    },
+    "restoreNativeSchedulerBeforeAwait": {
+      "exitCode": 0,
+      "result": "import completed with live poller continuing normal asynchronous reads"
+    }
+  },
+  "fix": {
+    "productionChanged": false,
+    "timeoutDefaultsChanged": false,
+    "files": [
+      "packages/omo-opencode/src/v2/tui/view-poller.test.ts",
+      "packages/omo-opencode/src/cli/config-manager/bun-install.test.ts"
+    ],
+    "details": [
+      "dispose every fixture poller in afterEach, including error fixture",
+      "capture only installer timeout using native scheduler; restore spy synchronously before awaiting; invoke captured callback; preserve timeout result and exactly one kill assertion"
+    ]
+  },
+  "verification": {
+    "focused": {
+      "pass": 11,
+      "skip": 1,
+      "fail": 0,
+      "seconds": 0.334
+    },
+    "preFixBoundedCombined": {
+      "files": 72,
+      "pass": 856,
+      "skip": 1,
+      "fail": 0,
+      "seconds": 24.97
+    },
+    "packageTypecheck": "passed",
+    "scriptTypecheck": "passed",
+    "diffCheck": "passed"
+  },
+  "limits": [
+    "the controlled mechanism is proven, but the archived native sample cannot attribute its unsymbolicated JS addresses conclusively",
+    "this does not establish that every previously observed Bun hang had the same cause",
+    "a full integration rerun remains for root after coordinating exclusive suite execution"
+  ],
+  "cleanup": {
+    "ownedDiagnosticProcessesExited": true,
+    "providerCalls": 0,
+    "realUserDatabaseWrites": 0,
+    "originalCheckoutWrites": 0
+  }
+}

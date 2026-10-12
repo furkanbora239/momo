@@ -28,10 +28,6 @@ const scheduleDeferredStartupCheckMock = (runCheck: () => void) => {
 
 let scheduledCheck: (() => void) | null = null
 
-mock.module("./checker/latest-version", () => ({
-  getLatestVersion: latestVersionMock,
-}))
-
 mock.module("./hook/deferred-startup-check", () => ({
   scheduleDeferredStartupCheck: scheduleDeferredStartupCheckMock,
 }))
