@@ -1,6 +1,11 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
 
-import { createViewPoller } from "./view-poller"
+import { createViewPoller, type ViewPoller } from "./view-poller"
+
+const activePollers: ViewPoller[] = []
+afterEach(() => {
+  for (const poller of activePollers.splice(0)) poller.dispose()
+})
 
 type View = { readonly key: string; readonly label: string }
 
@@ -21,6 +26,7 @@ function createHarness(initialKey = "k0") {
     onViewChanged: (next) => changed.push(next),
     onError: (error) => errors.push(error),
   })
+  activePollers.push(poller)
   return {
     poller,
     changed,
@@ -91,6 +97,7 @@ describe("#given a poller whose read fails", () => {
       onError: (error) => errors.push(error),
     })
 
+    activePollers.push(poller)
     await poller.tick()
     await poller.tick()
 

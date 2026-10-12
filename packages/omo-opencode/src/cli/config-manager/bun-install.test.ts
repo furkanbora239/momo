@@ -179,28 +179,6 @@ describe("runBunInstallWithDetails", () => {
         // given
         let killCallCount = 0
         const originalSetTimeout = globalThis.setTimeout
-        const originalClearTimeout = globalThis.clearTimeout
-
-        Object.defineProperty(globalThis, "setTimeout", {
-          configurable: true,
-          value: Object.assign(
-            (callback: TimerHandler) => {
-              if (typeof callback === "function") {
-                callback()
-              }
-
-              return 0
-            },
-            {
-              __promisify__: originalSetTimeout.__promisify__,
-            }
-          ),
-        })
-        Object.defineProperty(globalThis, "clearTimeout", {
-          configurable: true,
-          value: () => undefined,
-        })
-
         spawnWithWindowsHideSpy.mockReturnValue(
           createProc({
             exitCode: null,
@@ -210,29 +188,35 @@ describe("runBunInstallWithDetails", () => {
             },
           })
         )
-        const timeoutAwareModule = await import(`./bun-install?timeout-test=${Date.now()}-${Math.random()}`)
-
+        let expireInstall: (() => void) | undefined
+        const timeoutSpy = spyOn(globalThis, "setTimeout").mockImplementation(
+          (callback: TimerHandler, delay?: number, ...args: unknown[]) => {
+            if (delay === 60_000 && typeof callback === "function") {
+              expireInstall = () => callback(...args)
+            }
+            return originalSetTimeout(callback, delay, ...args)
+          },
+        )
+        let outcomePromise: Promise<BunInstallResult>
         try {
-          // when
-          const outcome = await timeoutAwareModule.runBunInstallWithDetails({ outputMode: "pipe" })
-
-          // then
-          expect(outcome).toEqual({
-            success: false,
-            timedOut: true,
-            error: `bun install timed out after 60 seconds. Try running manually: cd "${EXPECTED_WORKSPACE_DIR}" && bun i`,
-          } satisfies BunInstallResult)
-          expect(killCallCount).toBe(1)
+          // when: capture only this invocation's timeout without yielding the event loop.
+          outcomePromise = runBunInstallWithDetails({ outputMode: "pipe" })
         } finally {
-          Object.defineProperty(globalThis, "setTimeout", {
-            configurable: true,
-            value: originalSetTimeout,
-          })
-          Object.defineProperty(globalThis, "clearTimeout", {
-            configurable: true,
-            value: originalClearTimeout,
-          })
+          timeoutSpy.mockRestore()
         }
+
+        // Other timers and imports keep their native asynchronous behavior.
+        expect(expireInstall).toBeDefined()
+        expireInstall?.()
+        const outcome = await outcomePromise
+
+        // then
+        expect(outcome).toEqual({
+          success: false,
+          timedOut: true,
+          error: `bun install timed out after 60 seconds. Try running manually: cd "${EXPECTED_WORKSPACE_DIR}" && bun i`,
+        } satisfies BunInstallResult)
+        expect(killCallCount).toBe(1)
       })
     })
   })

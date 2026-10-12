@@ -1,0 +1,14 @@
+[
+  {
+    "dispose": "0",
+    "exit": -15,
+    "externalTimeout": true,
+    "process": "72446  87.3 00:02 bun .omo/evidence/20261013-bun-hang/timer-starvation-probe.ts"
+  },
+  {
+    "dispose": "1",
+    "exit": 0,
+    "externalTimeout": false,
+    "process": null
+  }
+]
