@@ -9,7 +9,7 @@ An isolated native v2 implementation is being integrated in `packages/omo-openco
 
 The native model selector uses current v2 provider/model/integration records and the configured hard-allow pool. Jev failures and low confidence expose eligible caller choices instead of triggering a silent fallback. The advisor pool is configured through `[opencode].manager.advisor_models` and remains intersected with the general model pool. The v2 TUI keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns native agent and task visibility. Legacy task trees, sidebars, BTW controls, and prompt translation are not registered by the native TUI entry.
 
-Codebase Memory MCP remains opt-in and disabled by default: fixture testing found source edits were not visible until a full manual reindex. Its role-level fallback wiring and integrated live TUI/task proof remain pending. Unit/typecheck evidence does not claim the native runtime has passed a live OpenCode session.
+Current recovery instructions and the ordered remaining work are in [the native v2 handoff](./notes/native-v2-handoff-20261012.md). Read it before implementation. It records pushed checkpoints, uncommitted worktree changes, real harness evidence, unresolved acceptance gates, and safe test-process handling. Earlier checkpoint counts and pending TUI/search notes are historical; the handoff supersedes them. Codebase Memory MCP remains disabled because automatic freshness failed.
 
 ---
 
