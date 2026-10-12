@@ -203,7 +203,7 @@ async function waitForService(client: ReturnType<typeof OpenCode.make>, director
     } catch (error) {
       lastError = error
       try {
-        const response = await fetch(`http://127.0.0.1:${servicePort}/api/server`, { headers: { authorization: `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}` } })
+        const response = await fetch(`http://127.0.0.1:${servicePort}/api/provider`, { headers: { authorization: `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}` } })
         const body = await response.text()
         lastError = `${String(error)}; raw API status ${response.status}; body ${body.slice(0, 200)}`
       } catch (fetchError) {
@@ -235,6 +235,8 @@ async function main(): Promise<void> {
   for (const dir of [qaHome, ...Object.values(xdg), configDir, path.join(xdg.data, "opencode"), path.join(root, ".opencode", "plugins"), path.join(root, ".omo")]) {
     await mkdir(dir, { recursive: true })
   }
+  await mkdir(path.join(qaHome, ".omo"), { recursive: true })
+  await writeFile(path.join(qaHome, ".omo", "model-pool.json"), `${JSON.stringify({ version: 1, allowed: [freeID, paidID, unknownID].map((modelID) => ({ providerID: fakeProviderID, modelID })), updatedAt: new Date().toISOString() })}\n`, { mode: 0o600 })
   await startFixtures()
   const pluginDir = path.join(root, "qa-plugins", "momo-price-qa")
   await mkdir(pluginDir, { recursive: true })
@@ -245,11 +247,11 @@ async function main(): Promise<void> {
     'import { appendFileSync } from "node:fs"',
     'export default { id: "oh-my-openagent", async setup(ctx) {',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "setup-start" }) + "\\n")`,
-    '  await ctx.provider.transform((editor) => editor.add({ info: { id: "momo-price-qa", name: "Momo local pricing fixture", activation: "enabled", package: "aisdk:@ai-sdk/openai-compatible", settings: { baseURL: process.env.MOMO_PRICE_MODEL_URL, apiKey: "local-fixture-only" } }, models: [',
+    '  await ctx.provider.transform((editor) => { editor.add({ info: { id: "momo-price-qa", name: "Momo local pricing fixture", activation: "enabled", package: "aisdk:@ai-sdk/openai-compatible", settings: { baseURL: process.env.MOMO_PRICE_MODEL_URL, apiKey: "local-fixture-only" } }, models: [',
     '    { id: "momo-free", modelID: "momo-free", providerID: "momo-price-qa", name: "Momo free fixture", capabilities: { tools: true, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: "active", enabled: true, limit: { context: 64000, output: 4096 } },',
     '    { id: "momo-paid", modelID: "momo-paid", providerID: "momo-price-qa", name: "Momo paid fixture", capabilities: { tools: true, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [{ input: 0.2, output: 0.4, cache: { read: 0, write: 0 } }], status: "active", enabled: true, limit: { context: 64000, output: 4096 } },',
     '    { id: "momo-unknown-zero", modelID: "momo-unknown-zero", providerID: "momo-price-qa", name: "Momo unknown zero fixture", capabilities: { tools: true, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: "active", enabled: true, limit: { context: 64000, output: 4096 } },',
-    '  ] }))',
+    '  ] }) })',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "provider-added" }) + "\\n")`,
     '  await ctx.provider.reload()',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "provider-reloaded" }) + "\\n")`,
