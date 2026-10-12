@@ -6,7 +6,7 @@ This is an archived pre-migration README. Its translator, slash commands, catego
 
 > **MODIFIED SOFTWARE NOTICE**  
 > This repository is a token-efficient, cheap-provider-first modified fork of [code-yeongyu/oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) (upstream npm packages: `oh-my-opencode` / `oh-my-openagent`).  
-> Distributed under the original [Sustainable Use License 1.0 (SUL-1.0)](./LICENSE.md) (**not** OSI open source).  
+> Distributed under the original [Sustainable Use License 1.0 (SUL-1.0)](../LICENSE.md) (**not** OSI open source).
 > Upstream documentation is available in the [oh-my-openagent repository](https://github.com/code-yeongyu/oh-my-openagent#readme).
 
 ---
@@ -21,7 +21,7 @@ momo transforms OpenCode into a high-performance, cost-effective development tea
 
 [![OpenCode Plugin](https://img.shields.io/badge/OpenCode-Plugin-369eff?style=flat-square&logo=opencode)](https://opencode.ai)
 [![Runtime Bun](https://img.shields.io/badge/Runtime-Bun-f472b6?style=flat-square&logo=bun)](https://bun.sh)
-[![License SUL-1.0](https://img.shields.io/badge/License-SUL--1.0-yellow?style=flat-square)](./LICENSE.md)
+[![License SUL-1.0](https://img.shields.io/badge/License-SUL--1.0-yellow?style=flat-square)](../LICENSE.md)
 
 </div>
 
@@ -322,7 +322,7 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 ## 💬 Slash Commands & Daily Usage
 
-> 💡 **For full documentation and in-depth guides, see [HELP.md](./HELP.md).**
+> 💡 **For full documentation and in-depth guides, see [HELP.md](../HELP.md).**
 
 | Command | Syntax | Description |
 | :--- | :--- | :--- |
@@ -350,7 +350,7 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 The native runtime uses OpenCode v2 provider, model, integration, session, permission, and TUI APIs directly. Its intended task tools are `momo_task` and `momo_consult`; callers cannot supply their own session or role identity. A route can select a model, request caller selection from refreshed candidates, or report that no eligible model is available. Jev outages and low confidence never trigger a silent fallback.
 
-The native advisor pool is configured at `[opencode].manager.advisor_models` in `~/.omo/omo.jsonc` and is intersected with the general model pool. Native v2 keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns task and agent visibility. The Codebase Memory MCP candidate stays disabled by default because isolated fixture QA found it required a full manual reindex to see source edits. The native migration and evidence limits are documented in [NATIVE_V2_MIGRATION.md](./NATIVE_V2_MIGRATION.md).
+The native advisor pool is configured at `[opencode].manager.advisor_models` in `~/.omo/omo.jsonc` and is intersected with the general model pool. Native v2 keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns task and agent visibility. The Codebase Memory MCP candidate stays disabled by default because isolated fixture QA found it required a full manual reindex to see source edits. The native migration and evidence limits are documented in [NATIVE_V2_MIGRATION.md](../NATIVE_V2_MIGRATION.md).
 
 ## 🛠️ Developer & Contributor Guide
 
@@ -361,7 +361,7 @@ The native advisor pool is configured at `[opencode].manager.advisor_models` in 
 | `main` | Stable, everyday-use snapshot. Verified states promoted from `dev` (typecheck clean, tests green, live-verified behavior). What most users should install. |
 | `dev` | Integration branch. All PRs land here first; experimental or in-progress work stays on `dev` until verified. |
 
-`main` is protected: changes land only via pull request (direct pushes rejected, including for admins), force-push and branch deletion are rejected. See [Branching & Repository Rules](./CONTRIBUTING.md#branching--repository-rules) in CONTRIBUTING.md for the full policy.
+`main` is protected: changes land only via pull request (direct pushes rejected, including for admins), force-push and branch deletion are rejected. See [Branching & Repository Rules](../CONTRIBUTING.md#branching--repository-rules) in CONTRIBUTING.md for the full policy.
 
 ### Common Development Commands
 
@@ -429,7 +429,7 @@ omo/
 ## 📜 License & Attribution
 
 - **Original Project:** [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) by YeonGyu Kim and contributors.
-- **License:** Distributed under the **[Sustainable Use License 1.0 (SUL-1.0)](./LICENSE.md)**.
+- **License:** Distributed under the **[Sustainable Use License 1.0 (SUL-1.0)](../LICENSE.md)**.
   - **Free for personal, non-commercial, and educational use and redistribution.**
   - Commercial use requires upstream licensing.
   - Relicensing (e.g. to MIT or Apache) is strictly prohibited.

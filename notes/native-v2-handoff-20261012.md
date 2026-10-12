@@ -2,6 +2,18 @@
 
 This is the current handoff and execution roadmap. It supersedes the verification and outstanding-work sections of `native-v2-checkpoint-20261012.md`. This migration is not release accepted or merged into dev.
 
+## Current execution state (read this before historical checkpoints)
+
+- Implementation checkpoint through `bd5bc16e9` is pushed on `codex/momo-v2-baseline`. All pricing, question/escalation, parallel, consultation, restart/cancellation, busy-parent retry, tool watchdog and permission live matrices passed on isolated OpenCode 2.0.24 with fake providers.
+- Follow-up in integration clears stale active-tool leases only after native inspection confirms the existing session is no longer running. Focused regression and built-plugin capped-shell resumption passed; full suite is being repeated after fixing archived README relative links.
+- First independent dev PR is prepared in `/private/tmp/momo-v2-sdk-contract`, branch `codex/momo-v2-sdk-contract`: pinned SDKs and permission output propagation. Its actual native permission bridge probe passed, typecheck and complete build passed. Sandbox full-suite failures were process/socket/file-access errors; a full run with required process access is in progress. QA driver and evidence are not yet committed on that branch.
+- Dependent task-engine slice is being prepared in `/private/tmp/momo-v2-task-engine`, branch `codex/momo-v2-task-engine`. Do not overwrite the original repository or the earlier workers' WIP.
+- Git osxkeychain login works for GitHub API outside sandbox; no new login needed. `/private/tmp/momo-gh.py` uses that existing login transiently for gh and redacts credentials. The wrapper contains no credential and is not a repository artifact.
+- Next: finish/check current suites, commit each QA-backed slice, push and open the SDK-contract PR to dev; check CI/review; deliver task engine, routing/catalog, runtime/consult/search and final native activation/docs as dependent reviewable PRs. Release remains incomplete until all slices and gates land.
+
+The sections below are chronological history. Their old immediate-next-step and failed-pricing lists are superseded by the current state above and later checkpoint updates.
+
+
 ## Scope that must survive
 
 OpenCode is v2-only, pinned to SDK/plugin/schema 2.0.24. Keep the other adapters, shared packages and upstream SUL notices. The root session model is the orchestrator model. Jev is a replaceable routing service, not an executing agent. Every task, including department children, passes through it. Departments are planner/executor/reviewer and cannot create departments. Workers cannot delegate. All non-advisor roles may consult; advisors are readonly and cannot delegate or consult. Coordinators cannot edit or run general shell commands.
