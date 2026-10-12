@@ -13,6 +13,7 @@ describe("native run task completion", () => {
     const tasks = await readRootTasks(clientWith({ tasks: [
       { id: "task-1", state: "succeeded", delivery: { status: "pending", attempts: 1 } },
       { id: "task-2", state: "running" },
+      { id: "research-1", state: "awaiting_selection", sourceDecisionID: "origin" },
     ] }), "/workspace", "root-session")
 
     expect(areRootTasksDelivered(tasks)).toBe(false)
@@ -22,6 +23,7 @@ describe("native run task completion", () => {
       { id: "task-3", state: "cancelled", delivery: "delivered" },
     ])).toBe(true)
     expect(areRootTasksDelivered([{ id: "task-4", state: "waiting_question", delivery: "delivered" }])).toBe(false)
+    expect(areRootTasksDelivered([{ id: "research-1", state: "awaiting_selection", sourceDecisionID: "origin" }])).toBe(true)
   })
 
   it("fails explicitly when the native task RPC is absent or malformed", async () => {

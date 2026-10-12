@@ -2,9 +2,10 @@ import { resolveRunModel } from "../run/model-resolver"
 import { executeOnCompleteHook } from "../run/on-complete-hook"
 import { connectNativeService } from "./service"
 import { waitForNativeCompletion } from "./completion"
-import { readRootTasks } from "./tasks"
+import { readRootTasks, userJobTasks } from "./tasks"
 import { resolveNativeAgent } from "./agent"
 import { isSupportedNativeRuntimeVersion } from "../../native-runtime/v2-service-client"
+import { loadNativeRuntimeConfig } from "../../native-runtime/native-config"
 import type { NativeRunOptions, NativeRunResult } from "./types"
 
 export type RunOptions = NativeRunOptions
@@ -15,7 +16,7 @@ export async function run(options: NativeRunOptions): Promise<number> {
   const start = Date.now()
   const directory = options.directory ?? process.cwd()
   const json = options.json ?? false
-  const requestedAgent = options.agent ?? "momo-orchestrator"
+  const requestedAgent = options.agent ?? loadNativeRuntimeConfig(directory).default_run_agent ?? "momo-orchestrator"
   const model = resolveRunModel(options.model)
   const controller = new AbortController()
   let sessionID = ""
@@ -44,7 +45,7 @@ export async function run(options: NativeRunOptions): Promise<number> {
       })
       sessionID = session.id
     }
-    await readRootTasks(client, directory, sessionID)
+    const initialTasks = await readRootTasks(client, directory, sessionID)
     if (!json) process.stderr.write(`Session: ${sessionID}\n`)
     const completion = waitForNativeCompletion({
       client,
@@ -54,13 +55,14 @@ export async function run(options: NativeRunOptions): Promise<number> {
       json,
       verbose: options.verbose ?? false,
       timestamp: options.timestamp ?? true,
+      initialTasks,
     })
     const prompt = client.session.prompt({ sessionID, text: options.message })
     const [, completed] = await Promise.all([prompt, completion])
     if (completed === 130) return 130
     const result: NativeRunResult = {
       sessionId: sessionID,
-      success: completed.success && completed.tasks.every((task) => task.state === "succeeded"),
+      success: completed.success && userJobTasks(completed.tasks).every((task) => task.state === "succeeded"),
       durationMs: Date.now() - start,
       messageCount: completed.messageCount,
       summary: completed.summary || "Run completed",

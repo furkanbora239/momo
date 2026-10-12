@@ -3,7 +3,12 @@ import type { NativeOpenCodeClient } from "./types"
 export type RootTaskSnapshot = {
   id: string
   state: string
+  rootSessionID?: string
+  parentSessionID?: string
   delivery?: string
+  deliveryMessageID?: string
+  deliveryAt?: number
+  sourceDecisionID?: string
 }
 
 export async function readRootTasks(client: NativeOpenCodeClient, directory: string, rootSessionID: string): Promise<RootTaskSnapshot[]> {
@@ -26,7 +31,11 @@ export async function readRootTasks(client: NativeOpenCodeClient, directory: str
 
 export function areRootTasksDelivered(tasks: readonly RootTaskSnapshot[]): boolean {
   const terminal = new Set(["succeeded", "failed", "cancelled"])
-  return tasks.every((task) => terminal.has(task.state) && task.delivery === "delivered")
+  return tasks.filter(isUserTask).every((task) => terminal.has(task.state) && task.delivery === "delivered")
+}
+
+export function userJobTasks(tasks: readonly RootTaskSnapshot[]): RootTaskSnapshot[] {
+  return tasks.filter(isUserTask)
 }
 
 function readTask(value: unknown): RootTaskSnapshot {
@@ -34,7 +43,25 @@ function readTask(value: unknown): RootTaskSnapshot {
     throw new Error("OpenCode native task RPC returned a malformed task record")
   }
   const delivery = isRecord(value.delivery) && typeof value.delivery.status === "string" ? value.delivery.status : undefined
-  return { id: value.id, state: value.state, ...(delivery !== undefined ? { delivery } : {}) }
+  const deliveryMessageID = isRecord(value.delivery) && typeof value.delivery.messageID === "string" ? value.delivery.messageID : undefined
+  const deliveryAt = isRecord(value.delivery) && typeof value.delivery.deliveredAt === "number" ? value.delivery.deliveredAt : undefined
+  const sourceDecisionID = typeof value.sourceDecisionID === "string" ? value.sourceDecisionID : undefined
+  const rootSessionID = typeof value.rootSessionID === "string" ? value.rootSessionID : undefined
+  const parentSessionID = typeof value.parentSessionID === "string" ? value.parentSessionID : undefined
+  return {
+    id: value.id,
+    state: value.state,
+    ...(rootSessionID !== undefined ? { rootSessionID } : {}),
+    ...(parentSessionID !== undefined ? { parentSessionID } : {}),
+    ...(delivery !== undefined ? { delivery } : {}),
+    ...(deliveryMessageID !== undefined ? { deliveryMessageID } : {}),
+    ...(deliveryAt !== undefined ? { deliveryAt } : {}),
+    ...(sourceDecisionID !== undefined ? { sourceDecisionID } : {}),
+  }
+}
+
+function isUserTask(task: RootTaskSnapshot): boolean {
+  return task.sourceDecisionID === undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
