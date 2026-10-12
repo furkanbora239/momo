@@ -1,0 +1,33 @@
+{
+  "name": "codebase-memory-mcp",
+  "version": "0.11.0",
+  "enabled": false,
+  "platform": "darwin-arm64",
+  "archiveSha256": "4dee7f38b63740e6751d7a7ed7eb10291c1f2a3ea2415f599dc68370ca0a2d18",
+  "binarySha256": "a67b7ccead5d2ca852051f8619458ab96af41393257b56fb36e523a110265d48",
+  "runtimePolicy": "managed-cache-only",
+  "installPolicy": "no-installer-or-global-config",
+  "requiredTools": [
+    "index_repository",
+    "search_graph",
+    "trace_path",
+    "check_index_coverage",
+    "list_projects"
+  ],
+  "fallbacks": {
+    "symbolsAndReferences": [
+      "lsp",
+      "ast_grep",
+      "read",
+      "rg"
+    ],
+    "sourceSearch": [
+      "rg",
+      "read",
+      "ast_grep"
+    ]
+  },
+  "fixtureEvidence": ".omo/evidence/20261011-native-search/mcp-qa.json",
+  "automaticFreshnessVerified": false,
+  "enablementGate": "automatic freshness and native-role integration must pass; current fixture requires full manual reindex after source edits"
+}
