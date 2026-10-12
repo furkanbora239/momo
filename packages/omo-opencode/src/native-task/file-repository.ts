@@ -24,6 +24,7 @@ const taskSchema = z.object({
   executionOutcome: z.object({ state: z.enum(["succeeded", "failed"]), result: z.string().optional(), error: z.string().optional() }).optional(),
   childTaskIDs: z.array(z.string()), result: z.string().optional(), error: z.string().optional(),
   delivery: z.object({ status: z.enum(["pending", "delivered"]), messageID: z.string().optional(), attemptedAt: z.number().optional(), deliveredAt: z.number().optional(), attempts: z.number().int().nonnegative(), lastError: z.string().optional() }).optional(),
+  lastExecutionSequence: z.number().int().nonnegative().optional(),
   processedEventIDs: z.array(z.string()), lastActivityAt: z.number(),
 }).passthrough()
 const storeSchema = z.object({ version: z.literal(1), tasks: z.array(taskSchema) })

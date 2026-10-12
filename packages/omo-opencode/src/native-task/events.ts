@@ -15,6 +15,14 @@ export async function handleNativeTaskEvent(
 ): Promise<void> {
   const task = (await deps.repository.list()).find((candidate) => candidate.sessionID === event.sessionID)
   if (task === undefined || isTerminal(task.state) || task.processedEventIDs.includes(event.id)) return
+  if ("sequence" in event && event.sequence !== undefined) {
+    if (task.lastExecutionSequence !== undefined && event.sequence <= task.lastExecutionSequence) return
+    task.lastExecutionSequence = event.sequence
+  }
+  if (task.state === "queued" && (event.type === "execution.succeeded" || event.type === "execution.failed" || event.type === "execution.interrupted")) {
+    await deps.save(task)
+    return
+  }
   task.processedEventIDs.push(event.id)
   if (task.processedEventIDs.length > EVENT_HISTORY_LIMIT) task.processedEventIDs.splice(0, task.processedEventIDs.length - EVENT_HISTORY_LIMIT)
   task.lastActivityAt = deps.now()

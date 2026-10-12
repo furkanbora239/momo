@@ -134,15 +134,16 @@ export type NativeTask = {
   result?: string
   error?: string
   delivery?: NativeTaskDelivery
+  lastExecutionSequence?: number
   processedEventIDs: string[]
   lastActivityAt: number
 }
 
 export type NativeTaskEvent =
-  | { id: string; type: "execution.started"; sessionID: string }
-  | { id: string; type: "execution.succeeded"; sessionID: string; result?: string }
-  | { id: string; type: "execution.failed"; sessionID: string; error: string }
-  | { id: string; type: "execution.interrupted"; sessionID: string }
+  | { id: string; type: "execution.started"; sessionID: string; sequence?: number }
+  | { id: string; type: "execution.succeeded"; sessionID: string; sequence?: number; result?: string }
+  | { id: string; type: "execution.failed"; sessionID: string; sequence?: number; error: string }
+  | { id: string; type: "execution.interrupted"; sessionID: string; sequence?: number }
   | { id: string; type: "tool.started"; sessionID: string; toolID: string; toolName: string }
   | { id: string; type: "tool.finished"; sessionID: string; toolID: string }
   | { id: string; type: "progress"; sessionID: string; message: string }

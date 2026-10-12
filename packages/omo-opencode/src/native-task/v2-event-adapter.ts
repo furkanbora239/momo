@@ -7,13 +7,13 @@ const lastProgressAt = new Map<string, number>()
 export function mapV2TaskEvent(event: OpenCodeEvent): NativeTaskEvent | undefined {
   switch (event.type) {
     case "session.execution.started":
-      return { id: event.id, type: "execution.started", sessionID: event.data.sessionID }
+      return { id: event.id, type: "execution.started", sessionID: event.data.sessionID, sequence: event.durable.seq }
     case "session.execution.succeeded":
-      return { id: event.id, type: "execution.succeeded", sessionID: event.data.sessionID }
+      return { id: event.id, type: "execution.succeeded", sessionID: event.data.sessionID, sequence: event.durable.seq }
     case "session.execution.failed":
-      return { id: event.id, type: "execution.failed", sessionID: event.data.sessionID, error: errorMessage(event.data.error) }
+      return { id: event.id, type: "execution.failed", sessionID: event.data.sessionID, sequence: event.durable.seq, error: errorMessage(event.data.error) }
     case "session.execution.interrupted":
-      return { id: event.id, type: "execution.interrupted", sessionID: event.data.sessionID }
+      return { id: event.id, type: "execution.interrupted", sessionID: event.data.sessionID, sequence: event.durable.seq }
     case "session.tool.input.started":
       toolNames.set(`${event.data.sessionID}:${event.data.id}`, event.data.name)
       return { id: event.id, type: "progress", sessionID: event.data.sessionID, message: "Preparing a tool call" }
