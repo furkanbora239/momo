@@ -35,6 +35,7 @@ const JevBudgetSchema = z
 const JevConfigSchema = z
   .object({
     model: z.string().default("jev-1.13").describe("Jev model identifier."),
+    provider_id: z.string().min(1).default("opencode-go").describe("Connected OpenCode provider whose native credential Jev uses."),
     base_url: z
       .string()
       .url()
@@ -68,6 +69,8 @@ export const ManagerConfigSchema = z
       .enum(["jev", "heuristic", "llm"])
       .default("jev")
       .describe("Routing decision engine: jev (TypeSafe System One), heuristic, or llm."),
+    advisor_models: z.array(z.object({ providerID: z.string().min(1), id: z.string().min(1) })).default([])
+      .describe("Explicit connected model pool for momo_consult. Empty disables consultations."),
     jev: JevConfigSchema.default(JevConfigSchema.parse({})),
   })
   .describe("Manager decision-engine configuration (routing/triage).")
