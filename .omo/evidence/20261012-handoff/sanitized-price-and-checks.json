@@ -1,0 +1,74 @@
+{
+  "status": "passed",
+  "opencodeVersion": "opencode v2.0.24",
+  "priceClaimPersistedBy": "momo_catalog_enrich",
+  "providerModelIdentity": "momo-price-qa/momo-free",
+  "sourceURL": "https://fixture.example/models/momo-free/pricing",
+  "jevCandidateFacts": {
+    "free": {
+      "pricesPerMillion": {
+        "input": 0,
+        "output": 0
+      },
+      "priceCurrency": "USD",
+      "priceOrigin": "https://fixture.example/models/momo-free/pricing"
+    },
+    "priced": {
+      "pricesPerMillion": {
+        "input": 0.2,
+        "output": 0.4
+      },
+      "priceCurrency": "USD"
+    },
+    "unknownZero": {
+      "pricesPerMillion": {
+        "input": "unknown",
+        "output": "unknown"
+      },
+      "priceCurrency": "unknown"
+    }
+  },
+  "selectedTask": {
+    "id": "ntask_5ceb36b1-fbaa-42e7-be75-05f98f1ddc40",
+    "role": "worker",
+    "model": {
+      "providerID": "momo-price-qa",
+      "id": "momo-free"
+    },
+    "state": "succeeded",
+    "delivery": {
+      "status": "delivered",
+      "attempts": 1,
+      "messageID": "msg_cc71582693f1268fe3bb6385d3",
+      "attemptedAt": 1791822106151,
+      "deliveredAt": 1791822106165
+    }
+  },
+  "fakeProviderRequestCount": 15,
+  "jevRequestCount": 3,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "realUserDatabaseUnchanged": true,
+  "pluginEntry": "dist/index.js",
+  "bundleSHA256": "b162688080d13836adca4e77d5b02026637a9013b0eab5bf09bbfb7c014f0f3f",
+  "productionCheckpoint": "15bac1166937ac73d8343f51de784122a2c25f82",
+  "limits": [
+    "Published-price source is a fixture URL, not a real provider capability claim.",
+    "This does not prove integrated restart, cancellation, watchdog or fault-injection cases."
+  ],
+  "checks": {
+    "typecheck": "passed",
+    "focusedTests": {
+      "passed": 94,
+      "failed": 0
+    },
+    "fullTests": {
+      "passed": 12699,
+      "skipped": 6,
+      "failed": 0,
+      "files": 1558,
+      "seconds": 196.06
+    },
+    "build": "passed"
+  }
+}

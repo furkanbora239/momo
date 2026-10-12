@@ -138,6 +138,8 @@ function readUserText(request: ModelRequest): string {
 }
 
 function chooseJevCandidate(criteria: CandidateCriteria): string {
+  const research = Object.keys(criteria).find((key) => key.startsWith("catalog-researcher|") && key.endsWith(`/${paidID}`))
+  if (research && Object.keys(criteria).every((key) => key.startsWith("catalog-researcher|"))) return research
   const options = Object.entries(criteria).flatMap(([key, raw]) => {
     let value: RecordValue
     try { value = JSON.parse(raw) as RecordValue } catch { return [] }
@@ -183,7 +185,11 @@ async function startFixtures(): Promise<void> {
     const body = await jsonBody(request) as { questions?: { candidate?: { criteria?: CandidateCriteria }; lane?: { criteria?: Record<string, string> } } }
     await recordLine(jevLog, body)
     const criteria = body.questions?.candidate?.criteria ?? {}
-    const key = chooseJevCandidate(criteria)
+    let key: string
+    try { key = chooseJevCandidate(criteria) } catch (error) {
+      sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) })
+      return
+    }
     sendJson(response, 200, { model: "local-jev-fixture", answers: {
       candidate: { type: "choice", choice: key, confidence: 0.99, probabilities: { [key]: 1 } },
       lane: { type: "choice", choice: "direct", confidence: 0.99, probabilities: { direct: 1 } },
@@ -289,13 +295,22 @@ async function main(): Promise<void> {
   const rootSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: fakeProviderID, id: paidID } })
   await client.session.prompt({ sessionID: rootSession.id, text: "Choose a cheap adequate worker for this task: MOMO_PRICE_ROUTE" })
   await client.session.wait({ sessionID: rootSession.id })
-  const taskRows = await readTasks(client, rootSession.id, root)
-  const task = taskRows.find((row) => row.prompt === "MOMO_PRICE_WORKER_TASK")
+  let task: RecordValue | undefined
+  const taskDeadline = Date.now() + 30_000
+  while (Date.now() < taskDeadline) {
+    const taskRows = await readTasks(client, rootSession.id, root)
+    task = taskRows.find((row) => row.prompt === "MOMO_PRICE_WORKER_TASK")
+    if (task?.state === "succeeded" && (task.delivery as RecordValue | undefined)?.status === "delivered") break
+    if (task?.state === "failed" || task?.state === "cancelled") break
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
   if (!task || task.state !== "succeeded" || task.role !== "worker" || (task.model as RecordValue | undefined)?.id !== freeID || task.delivery && (task.delivery as RecordValue).status !== "delivered") {
     throw new Error(`Native task did not dispatch and complete on the source-backed free worker candidate: ${JSON.stringify(task)}`)
   }
   const jevRows = (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { questions?: { candidate?: { criteria?: CandidateCriteria } } })
-  const lastCriteria = jevRows.at(-1)?.questions?.candidate?.criteria ?? {}
+  const workerRequests = jevRows.filter((row) => row.questions?.candidate?.criteria?.[`worker|${fakeProviderID}/${freeID}`] !== undefined)
+  if (workerRequests.length !== 1) throw new Error(`Expected exactly one worker route, observed ${workerRequests.length}`)
+  const lastCriteria = workerRequests[0]?.questions?.candidate?.criteria ?? {}
   const factFor = (id: string): RecordValue => {
     const raw = lastCriteria[`worker|${fakeProviderID}/${id}`]
     if (!raw) throw new Error(`Jev request omitted worker candidate ${id}; received ${Object.keys(lastCriteria).length} candidates`)
