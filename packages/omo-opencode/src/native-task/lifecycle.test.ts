@@ -8,6 +8,23 @@ async function startWorker(harness: ReturnType<typeof createHarness>, callerSess
 }
 
 describe("native task lifecycle", () => {
+  it("discards an interrupted execution's expired tool lease before resuming its existing session", async () => {
+    const h = createHarness({ activeToolTimeoutMs: 100, silenceTimeoutMs: 1000 })
+    const task = await startWorker(h)
+    await h.engine.onEvent({ id: "old-shell", type: "tool.started", sessionID: task.sessionID ?? "", toolID: "old-tool", toolName: "shell" })
+    h.advance(101)
+    expect(await h.engine.checkWatchdogs()).toEqual([task.id])
+
+    const resumed = await h.engine.resume(task.id, "root")
+
+    expect(resumed).toMatchObject({ state: "running", sessionID: task.sessionID, activeTools: [] })
+    expect(await h.engine.checkWatchdogs()).toEqual([])
+    expect(h.runtime.starts).toHaveLength(1)
+    expect(h.runtime.resumes).toHaveLength(1)
+    await h.engine.onEvent({ id: "resumed-result", type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "resumed work" })
+    expect(await h.repository.get(task.id)).toMatchObject({ state: "succeeded", result: "resumed work" })
+  })
+
   it("ignores an older execution finish after a new department execution has started", async () => {
     const h = createHarness()
     const task = await startWorker(h)

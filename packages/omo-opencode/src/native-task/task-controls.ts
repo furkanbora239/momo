@@ -69,6 +69,7 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
         return
       }
       task.state = "queued"
+      task.activeTools = []
       await deps.save(task)
       shouldPump = true
     })
