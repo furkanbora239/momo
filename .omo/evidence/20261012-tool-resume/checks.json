@@ -1,0 +1,23 @@
+{
+  "fullSuite": {
+    "command": "bun test",
+    "pass": 12706,
+    "skip": 6,
+    "fail": 0,
+    "files": 1558,
+    "seconds": 203.66,
+    "exitCode": 0,
+    "runAlone": true
+  },
+  "typecheck": {
+    "command": "bun run typecheck",
+    "exitCode": 0
+  },
+  "builtPlugin": "bun build packages/omo-opencode/src/index.ts --outdir dist --target bun --format esm --external zod --external cross-spawn; bun run build:node-require-shim",
+  "liveEvidence": "sanitized-summary.json",
+  "markdownLinks": {
+    "pass": 16,
+    "fail": 0
+  },
+  "previousAttempts": "README link failure fixed; one CPU-active Bun hang stopped after preserving diagnostics. Neither earlier run counted as a pass."
+}
