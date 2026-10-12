@@ -218,5 +218,14 @@
       ]
     }
   },
-  "remaining": "Standalone full-suite/build gate and dev PR publication are pending."
+  "remaining": "Dev PR publication and external CI/review gates remain pending. Native activation is a later slice.",
+  "fullSuite": {
+    "pass": 12536,
+    "skip": 6,
+    "fail": 0,
+    "files": 1536,
+    "seconds": 208.53,
+    "exitCode": 0
+  },
+  "build": "passed"
 }

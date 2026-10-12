@@ -1,0 +1,24 @@
+{
+  "fullSuite": {
+    "pass": 12536,
+    "skip": 6,
+    "fail": 0,
+    "files": 1536,
+    "seconds": 208.53,
+    "exitCode": 0
+  },
+  "typecheck": {
+    "command": "bun run typecheck",
+    "exitCode": 0
+  },
+  "build": {
+    "command": "bun run build",
+    "exitCode": 0
+  },
+  "focusedSuite": {
+    "pass": 33,
+    "fail": 0,
+    "assertions": 118
+  },
+  "initialRun": "One provenance check reached an empty submodule before concurrent checkout completed; dependencies were then fully prepared, focused provenance passed and the entire suite passed."
+}
