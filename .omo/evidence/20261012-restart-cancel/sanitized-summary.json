@@ -1,0 +1,75 @@
+{
+  "status": "passed",
+  "lifecycle": {
+    "status": "passed",
+    "realServerRestarts": 5,
+    "resumed": {
+      "taskID": "ntask_dc6e4f7e-c373-44b8-954f-83090f4600d8",
+      "sessionID": "ses_0ee069751fc7f2453ade97dcf6",
+      "decisionID": "ntask_dc6e4f7e-c373-44b8-954f-83090f4600d8",
+      "attempts": 2,
+      "state": "succeeded",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_a15d93816ca744dca55a835be6",
+        "attemptedAt": 1791824573593,
+        "deliveredAt": 1791824573607
+      }
+    },
+    "completedTaskDidNotRerun": true,
+    "cancelled": {
+      "taskID": "ntask_1ec42abf-2f4a-4ea7-b578-153c4ab32f64",
+      "sessionID": "ses_a279654dced026dbb3bbffd724",
+      "attempts": 1,
+      "state": "cancelled",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_abdf49aaa747e435c6982a6011",
+        "attemptedAt": 1791824575489,
+        "deliveredAt": 1791824575518
+      }
+    },
+    "cancelledSessionInactive": true,
+    "cancelledTaskDidNotResume": true,
+    "departmentRestart": {
+      "sameTaskAndSessionIDs": true,
+      "childParentTaskID": "ntask_cc216f71-ef23-4b2b-bd84-c2bf7a906b4f",
+      "departmentTaskID": "ntask_cc216f71-ef23-4b2b-bd84-c2bf7a906b4f",
+      "state": "succeeded"
+    },
+    "cancelledDepartmentTree": {
+      "parentState": "cancelled",
+      "descendantState": "cancelled",
+      "inactive": true,
+      "retainedAcrossRestart": true
+    }
+  },
+  "opencodeVersion": "opencode v2.0.24",
+  "realUserDatabaseUnchanged": true,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "pluginEntry": "dist/index.js",
+  "bundleSHA256": "16e79e0acfbc3e0b4a4c21cb3600d892f8b18bbc703a972a51dd0a0d479abc73",
+  "checks": {
+    "focusedTests": {
+      "passed": 40,
+      "failed": 0
+    },
+    "fullTests": {
+      "passed": 12705,
+      "skipped": 6,
+      "failed": 0,
+      "files": 1558,
+      "seconds": 188.93
+    },
+    "typecheck": "passed",
+    "build": "passed"
+  },
+  "remainingLiveGates": [
+    "Active-tool watchdog protection/cap",
+    "Injected parent form/result delivery failures without duplicates",
+    "Explicit native permission-hook denial beyond tool catalog filtering"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.json",
+  "include": [
+    "./momo-native-price-acceptance.ts",
+    "./momo-native-restart-cancel.ts"
+  ]
+}

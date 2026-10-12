@@ -3,11 +3,13 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/pro
 import { existsSync } from "node:fs"
 import { spawn, execFileSync } from "node:child_process"
 import { createServer as createNetServer } from "node:net"
-import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { createServer as createHttpServer, type ServerResponse } from "node:http"
 import { tmpdir } from "node:os"
 import path from "node:path"
 import { randomUUID } from "node:crypto"
 import { OpenCode } from "../../packages/omo-opencode/node_modules/@opencode/client/dist/promise/index.js"
+
+import { proveNativeRestartAndCancel } from "./momo-native-restart-cancel"
 
 type RecordValue = Record<string, unknown>
 type ModelRequest = { model?: string; stream?: boolean; messages?: Array<{ role?: string; content?: unknown }> }
@@ -90,9 +92,9 @@ function sendJson(response: ServerResponse, status: number, payload: unknown): v
   response.end(JSON.stringify(payload))
 }
 
-async function jsonBody(request: IncomingMessage): Promise<unknown> {
+async function jsonBody(request: AsyncIterable<unknown>): Promise<unknown> {
   let raw = ""
-  for await (const chunk of request) raw += chunk.toString()
+  for await (const chunk of request) raw += String(chunk)
   return raw.length ? JSON.parse(raw) as unknown : {}
 }
 
@@ -168,12 +170,22 @@ async function startFixtures(): Promise<void> {
     await recordLine(modelLog, parsed)
     const userText = readUserText(parsed)
     const lastRole = parsed.messages?.at(-1)?.role
+    const lifecycleMarker = userText.match(/MOMO_LIFECYCLE_CREATE (MOMO_LIFECYCLE_[A-Z_]+)/)?.[1]
+    const cancelID = userText.match(/MOMO_LIFECYCLE_CANCEL (ntask_[A-Za-z0-9_-]+)/)?.[1]
     let toolCall: { name: string; arguments: Record<string, unknown> } | undefined
-    if (lastRole === "user" && userText.includes("MOMO_PRICE_RESEARCH")) {
+    if (lastRole === "user" && lifecycleMarker) {
+      toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:${JSON.stringify(lifecycleMarker)}})` } }
+    } else if (lastRole === "user" && cancelID) {
+      toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"cancel",taskID:${JSON.stringify(cancelID)}})` } }
+    } else if (lastRole === "user" && /^MOMO_LIFECYCLE_(?:RESTART|CANCEL)_DEPARTMENT$/.test(userText)) {
+      const childMarker = userText.includes("RESTART") ? "MOMO_LIFECYCLE_DEPARTMENT_RESTART_CHILD" : "MOMO_LIFECYCLE_DEPARTMENT_CANCEL_CHILD"
+      toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:${JSON.stringify(childMarker)}})` } }
+    } else if (lastRole === "user" && userText.includes("MOMO_PRICE_RESEARCH")) {
       toolCall = { name: "momo_catalog_enrich", arguments: { providerID: fakeProviderID, id: freeID, summary: "Fixture source-backed model profile", sources: [modelSource], price: { currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source: modelSource } } }
     } else if (lastRole === "user" && userText.includes("MOMO_PRICE_ROUTE")) {
       toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:"MOMO_PRICE_WORKER_TASK",waitMs:60000})` } }
     }
+    if (/^MOMO_LIFECYCLE_(?:(?:RESTART|CANCEL)_CHILD|DEPARTMENT_(?:RESTART|CANCEL)_CHILD)$/.test(userText.replace(/^"|"$/g, ""))) await new Promise((resolve) => setTimeout(resolve, 15_000))
     sendChat(response, chatPayload(parsed, toolCall), parsed.stream === true)
   })
   await new Promise<void>((resolve, reject) => { modelServer?.once("error", reject); modelServer?.listen(modelPort, "127.0.0.1", resolve) })
@@ -182,17 +194,22 @@ async function startFixtures(): Promise<void> {
   jevServer = createHttpServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1")
     if (request.method !== "POST" || !url.pathname.endsWith("/systemone")) return sendJson(response, 404, { error: "unsupported local Jev endpoint" })
-    const body = await jsonBody(request) as { questions?: { candidate?: { criteria?: CandidateCriteria }; lane?: { criteria?: Record<string, string> } } }
+    const body = await jsonBody(request) as { state?: unknown; questions?: { candidate?: { criteria?: CandidateCriteria }; lane?: { criteria?: Record<string, string> } } }
     await recordLine(jevLog, body)
     const criteria = body.questions?.candidate?.criteria ?? {}
+    const state = typeof body.state === "string" ? JSON.parse(body.state) as { input?: { prompt?: string } } : body.state as { input?: { prompt?: string } } | undefined
+    const department = /^MOMO_LIFECYCLE_(?:RESTART|CANCEL)_DEPARTMENT$/.test(state?.input?.prompt ?? "")
     let key: string
-    try { key = chooseJevCandidate(criteria) } catch (error) {
+    try {
+      key = department ? `planner|${fakeProviderID}/${freeID}` : chooseJevCandidate(criteria)
+      if (!(key in criteria)) throw new Error(`Fixture selection unavailable: ${key}`)
+    } catch (error) {
       sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) })
       return
     }
     sendJson(response, 200, { model: "local-jev-fixture", answers: {
       candidate: { type: "choice", choice: key, confidence: 0.99, probabilities: { [key]: 1 } },
-      lane: { type: "choice", choice: "direct", confidence: 0.99, probabilities: { direct: 1 } },
+      lane: { type: "choice", choice: department ? "department" : "direct", confidence: 0.99, probabilities: { [department ? "department" : "direct"]: 1 } },
     }, usage: { input_tokens: 19, output_tokens: 5 } })
   })
   await new Promise<void>((resolve, reject) => { jevServer?.once("error", reject); jevServer?.listen(jevPort, "127.0.0.1", resolve) })
@@ -277,8 +294,8 @@ async function main(): Promise<void> {
     env: envForQa({ OPENCODE_SERVER_PASSWORD: servicePassword, MOMO_PRICE_MODEL_URL: `http://127.0.0.1:${modelPort}/v1` }),
     stdio: ["ignore", "pipe", "pipe"],
   })
-  service.stdout.on("data", (chunk: Buffer) => { serviceOutput += chunk.toString() })
-  service.stderr.on("data", (chunk: Buffer) => { serviceOutput += chunk.toString() })
+  service.stdout?.on("data", (chunk: Buffer) => { serviceOutput += chunk.toString() })
+  service.stderr?.on("data", (chunk: Buffer) => { serviceOutput += chunk.toString() })
   const headers = { authorization: `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}` }
   const client = OpenCode.make({ baseUrl: `http://127.0.0.1:${servicePort}`, headers })
   await waitForService(client, root)
@@ -325,8 +342,30 @@ async function main(): Promise<void> {
   const modelRows = (await readFile(modelLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as ModelRequest)
   if (!modelRows.some((row) => row.model === freeID)) throw new Error(`Fake provider never received a worker dispatch using ${freeID}`)
 
+  const lifecycle = process.env.MOMO_NATIVE_LIFECYCLE === "1" ? await proveNativeRestartAndCancel({
+    client, directory: root, providerID: fakeProviderID, modelID: paidID,
+    tasks: (sessionID) => readTasks(client, sessionID, root),
+    modelCallCount: async () => (await readFile(modelLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as ModelRequest).filter((request) => request.model === freeID).length,
+    workerStarted: async (marker) => (await readFile(modelLog, "utf8")).trim().split("\n").filter(Boolean).some((line) => readUserText(JSON.parse(line) as ModelRequest).replace(/^"|"$/g, "") === marker),
+    restart: async () => {
+      if (service?.pid === undefined) throw new Error("Missing task-owned service PID")
+      const pid = service.pid
+      process.kill(-pid, "SIGTERM")
+      const deadline = Date.now() + 5_000
+      while (service.exitCode === null && service.signalCode === null && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 100))
+      if (service.exitCode === null && service.signalCode === null) throw new Error("Task-owned service failed to stop for restart")
+      service = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], {
+        cwd: root, detached: true, env: envForQa({ OPENCODE_SERVER_PASSWORD: servicePassword, MOMO_PRICE_MODEL_URL: `http://127.0.0.1:${modelPort}/v1` }), stdio: ["ignore", "pipe", "pipe"],
+      })
+      service.stdout?.on("data", (chunk: Buffer) => { serviceOutput += chunk.toString() })
+      service.stderr?.on("data", (chunk: Buffer) => { serviceOutput += chunk.toString() })
+      await waitForService(client, root)
+    },
+  }) : undefined
+
   outcome = {
     status: "passed",
+    ...(lifecycle ? { lifecycle } : {}),
     opencodeVersion: version,
     pluginEntry,
     priceClaimPersistedBy: "momo_catalog_enrich",
@@ -338,8 +377,8 @@ async function main(): Promise<void> {
       unknownZero: { pricesPerMillion: jevUnknown.pricesPerMillion, priceCurrency: jevUnknown.priceCurrency },
     },
     selectedTask: { id: task.id, role: task.role, model: task.model, state: task.state, delivery: task.delivery },
-    fakeProviderRequestCount: modelRows.length,
-    jevRequestCount: jevRows.length,
+    fakeProviderRequestCount: (await readFile(modelLog, "utf8")).trim().split("\n").filter(Boolean).length,
+    jevRequestCount: (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).length,
     temporaryRootsOnly: true,
     noProviderCredentials: true,
   }
