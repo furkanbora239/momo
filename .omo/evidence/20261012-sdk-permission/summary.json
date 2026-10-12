@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "opencodeVersion": "opencode v2.0.24",
+  "nativeShellAttempted": true,
+  "bridgeHookStatus": "deny",
+  "deniedCommandDidNotWrite": true,
+  "providerCalls": 3,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "ownedServerExited": true,
+  "realUserDatabaseUnchanged": true,
+  "testedPermissionBridgeSHA256": "3d7f7db5ba3c735122b893cf8f5db756248dedf25e0b001a8f3c7ed7279ad807",
+  "sdkVersions": {
+    "@opencode/client": "2.0.24",
+    "@opencode/plugin": "2.0.24",
+    "@opencode/schema": "2.0.24"
+  }
+}

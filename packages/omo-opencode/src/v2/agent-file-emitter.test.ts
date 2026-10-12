@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -102,7 +102,7 @@ describe("#given OPENCODE_CONFIG_DIR is set", () => {
     try {
       process.env.OPENCODE_CONFIG_DIR = root
       const resolved = resolveAgentEmissionDirectory({ fallbackRoot: "/fixture/project" })
-      expect(resolved).toBe(join(root, "agents"))
+      expect(resolved).toBe(join(realpathSync(root), "agents"))
     } finally {
       rmSync(root, { recursive: true, force: true })
     }

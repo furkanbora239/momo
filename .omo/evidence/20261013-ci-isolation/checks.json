@@ -1,0 +1,25 @@
+{
+  "focusedSuite": {
+    "pass": 157,
+    "fail": 0,
+    "assertions": 347,
+    "files": 3,
+    "seconds": 3.55
+  },
+  "ciFailuresDiagnosed": {
+    "registryMocks": "An unused preserved latest-version module mock returned 3.0.1 to unrelated checker tests on Linux. Hook tests already inject runBackgroundUpdateCheck, so the module mock was removed.",
+    "backgroundContinuation": "Parent context may legitimately read parent messages. The assertion now rejects child-session polling and the synchronous result sentinel while retaining exactly one manager resume."
+  },
+  "remaining": "External momo CI re-verification pending. User explicitly selected momo CI; inherited ci.yml is disabled_manually and its source is preserved. No failed native test was skipped.",
+  "fullSuite": {
+    "pass": 12503,
+    "skip": 6,
+    "fail": 0,
+    "files": 1532,
+    "seconds": 192.18,
+    "exitCode": 0
+  },
+  "typecheck": "passed",
+  "livePermissionEvidence": "summary.json",
+  "bunHangEvidence": "../20261013-bun-hang/sanitized-summary.json"
+}

@@ -1,0 +1,4 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["./momo-v2-permission-acceptance.ts"]
+}

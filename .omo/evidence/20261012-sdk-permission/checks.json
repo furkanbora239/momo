@@ -1,0 +1,34 @@
+{
+  "typecheck": {
+    "command": "bun run typecheck",
+    "exitCode": 0
+  },
+  "qaTypecheck": {
+    "command": "./node_modules/.bin/tsgo --noEmit -p script/qa/tsconfig.permission.json",
+    "exitCode": 0
+  },
+  "build": {
+    "command": "bun run build",
+    "exitCode": 0,
+    "dependencies": "Pinned submodules initialized from verified local repositories."
+  },
+  "fullSuite": {
+    "command": "bun test",
+    "exitCode": 0,
+    "pass": 12503,
+    "skip": 6,
+    "fail": 0,
+    "files": 1532,
+    "seconds": 200.28
+  },
+  "focusedPermissionAndEmission": {
+    "pass": 11,
+    "fail": 0
+  },
+  "repairedBaselineFixtures": {
+    "pass": 148,
+    "fail": 0
+  },
+  "liveEvidence": "summary.json",
+  "earlierRuns": "Sandbox process/socket/file access failures and baseline fixture isolation failures were diagnosed and corrected; only the final full run is acceptance."
+}

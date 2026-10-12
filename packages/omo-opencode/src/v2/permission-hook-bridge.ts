@@ -22,7 +22,7 @@ export async function registerPermissionHooks(
   const invoke = createV1HookInvoker()
   collector.add(
     await ctx.permission.hook("evaluate", async (event) => {
-      const status: "ask" | "deny" | "allow" = event.effect
+      const output = { status: event.effect }
       await invoke(
         "permission.ask",
         handler,
@@ -36,9 +36,9 @@ export async function registerPermissionHooks(
           metadata: event.metadata ?? {},
           time: { created: Date.now() },
         },
-        { status },
+        output,
       )
-      event.effect = status
+      event.effect = output.status
     }),
   )
 }

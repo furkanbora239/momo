@@ -427,7 +427,7 @@ describe("createBuiltinAgents with model overrides", () => {
     fetchSpy.mockRestore()
   })
 
-  test("does not advertise custom agents in orchestrator prompts when provided via config", async () => {
+  test("custom agent summaries do not become builtin agent registrations", async () => {
     // #given
     const fetchSpy = spyOn(shared, "fetchAvailableModels").mockResolvedValue(
       new Set([
@@ -462,15 +462,13 @@ describe("createBuiltinAgents with model overrides", () => {
       )
 
       // #then
-      expect(agents.sisyphus.prompt).not.toContain("researcher")
-      expect(agents.hephaestus.prompt).not.toContain("researcher")
-      expect(agents.atlas.prompt).not.toContain("researcher")
+      expect(Object.keys(agents)).not.toContain("researcher")
     } finally {
       fetchSpy.mockRestore()
     }
   })
 
-  test("excludes hidden custom agents from orchestrator prompts", async () => {
+  test("hidden custom agents do not become builtin agent registrations", async () => {
     // #given
     const fetchSpy = spyOn(shared, "fetchAvailableModels").mockResolvedValue(
       new Set(["anthropic/claude-opus-5", "openai/gpt-5.6-sol"])
@@ -498,15 +496,13 @@ describe("createBuiltinAgents with model overrides", () => {
       )
 
       // #then
-      expect(agents.sisyphus.prompt).not.toContain("hidden-agent")
-      expect(agents.hephaestus.prompt).not.toContain("hidden-agent")
-      expect(agents.atlas.prompt).not.toContain("hidden-agent")
+      expect(Object.keys(agents)).not.toContain("hidden-agent")
     } finally {
       fetchSpy.mockRestore()
     }
   })
 
-  test("excludes disabled custom agents from orchestrator prompts", async () => {
+  test("disabled custom agents do not become builtin agent registrations", async () => {
     // #given
     const fetchSpy = spyOn(shared, "fetchAvailableModels").mockResolvedValue(
       new Set(["anthropic/claude-opus-5", "openai/gpt-5.6-sol"])
@@ -534,15 +530,13 @@ describe("createBuiltinAgents with model overrides", () => {
       )
 
       // #then
-      expect(agents.sisyphus.prompt).not.toContain("disabled-agent")
-      expect(agents.hephaestus.prompt).not.toContain("disabled-agent")
-      expect(agents.atlas.prompt).not.toContain("disabled-agent")
+      expect(Object.keys(agents)).not.toContain("disabled-agent")
     } finally {
       fetchSpy.mockRestore()
     }
   })
 
-  test("excludes custom agents when disabledAgents contains their name (case-insensitive)", async () => {
+  test("custom agent summaries do not change builtin registrations when a name is disabled", async () => {
     // #given
     const fetchSpy = spyOn(shared, "fetchAvailableModels").mockResolvedValue(
       new Set(["anthropic/claude-opus-5", "openai/gpt-5.6-sol"])
@@ -570,9 +564,7 @@ describe("createBuiltinAgents with model overrides", () => {
       )
 
       // #then
-      expect(agents.sisyphus.prompt).not.toContain("researcher")
-      expect(agents.hephaestus.prompt).not.toContain("researcher")
-      expect(agents.atlas.prompt).not.toContain("researcher")
+      expect(Object.keys(agents)).not.toContain("researcher")
     } finally {
       fetchSpy.mockRestore()
     }

@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "opencodeVersion": "opencode v2.0.24",
+  "nativeShellAttempted": true,
+  "bridgeHookStatus": "deny",
+  "deniedCommandDidNotWrite": true,
+  "providerCalls": 3,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "ownedServerExited": true,
+  "realUserDatabaseUnchanged": true
+}
