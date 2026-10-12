@@ -3,7 +3,6 @@ import type { PluginContext } from "../plugin/types"
 import type { HookName } from "../config"
 import { validatePluginConfig } from "../config/validate"
 import { initConfigContext } from "../cli/config-manager/config-context"
-import { ensureTuiPluginEntry } from "../cli/config-manager/add-tui-plugin-to-tui-config"
 
 import { createHooks } from "../create-hooks"
 import { createManagers } from "../create-managers"
@@ -266,13 +265,6 @@ export async function assemblePluginRuntime(
     deps.recordPluginTelemetry({ configEnabled: pluginConfig.telemetry })
   } catch (error) {
     deps.log("[posthog] plugin telemetry failed", {
-      error: error instanceof Error ? error.message : String(error),
-    })
-  }
-  try {
-    ensureTuiPluginEntry()
-  } catch (error) {
-    deps.log("[tui] tui.json self-heal failed", {
       error: error instanceof Error ? error.message : String(error),
     })
   }
