@@ -64,3 +64,9 @@ Use Bun/tsgo. Read opencode-qa and work-with-pr skills; old v1 route examples ar
 Bun tests sometimes hang. Start one controlled suite, redirect logs, poll output and inspect only its exact PID/process tree. Stop only confirmed task-owned stuck processes. User OpenCode and TUI processes are unrelated; verify process ownership instead of blindly killing them. Never run broad pkill. Keep focused QA command exit/result and real harness evidence distinct.
 
 The local ulw state is engine `.omo/ulw-loop/momo-v2-native/`: brief.md, goals.json and ledger.jsonl. Three release criteria remain pending. Do not mark them passed from partial probes.
+
+## Checkpoint update after handoff push
+
+The previously uncommitted integration engine, runtime, CLI and pricing changes are now saved: `e5348d629` strict controls/ledger/policy, `23b4f1f4f` sourced prices and strict adapter wiring, `72350668e` lifecycle/reconciliation, `8da126d4a` question delivery, `c4860446e` CLI completion, and `8a4d84fed` QA drivers. The earlier WIP directions describe their origin; do not re-copy the old routing files over these commits. Only temporary cache/config files remain untracked in integration.
+
+Latest verification: 50 focused strict-control/catalog/router/role tests passed (190 assertions); 44 lifecycle/runtime/CLI/pricing tests passed (162 assertions); full monorepo typecheck passed. The pricing real-harness driver is still not accepted and the adversarial live matrix remains partial. These commits save implementation progress and do not close release gates. The root verified the engine summary file reports passed and adversarial.json explicitly lists its remaining live cases. Exact stale department-result ordering analysis is still required.
