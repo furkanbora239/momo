@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "deliveryProof": {
+    "status": "passed",
+    "injectedHttpStatus": 503,
+    "faultKinds": [
+      "form",
+      "result"
+    ],
+    "stableRetryIDs": true,
+    "resultRetriedAfterBusyParent": true,
+    "singleForwardedForm": true,
+    "answeredField": "q0",
+    "childState": "succeeded",
+    "childResultAcceptedOnce": true,
+    "forwardedFormsClosed": true,
+    "injectedResultIDs": [
+      "msg_b9f05c72efd6e337ca5ea219cd"
+    ]
+  },
+  "opencodeVersion": "opencode v2.0.24",
+  "ownedProcessGroupGone": true,
+  "realUserDatabaseUnchanged": true,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "pluginEntry": "dist/index.js",
+  "bundleSHA256": "16e79e0acfbc3e0b4a4c21cb3600d892f8b18bbc703a972a51dd0a0d479abc73",
+  "retriedTaskDelivery": {
+    "status": "delivered",
+    "attempts": 2,
+    "messageID": "msg_b9f05c72efd6e337ca5ea219cd",
+    "attemptedAt": 1791826023443,
+    "deliveredAt": 1791826023463
+  }
+}

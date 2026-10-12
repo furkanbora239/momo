@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "toolProof": {
+    "status": "passed",
+    "configuredSilenceTimeoutMs": 60000,
+    "configuredActiveToolTimeoutMs": 70000,
+    "protectedAfterSilenceThreshold": {
+      "taskID": "ntask_ee9e7244-14fd-45b2-86c6-ead61d1b870e",
+      "state": "running",
+      "tools": [
+        "shell"
+      ]
+    },
+    "completedProtectedTask": {
+      "taskID": "ntask_ee9e7244-14fd-45b2-86c6-ead61d1b870e",
+      "state": "succeeded",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_57d3a68f10f8af1ff0bdfc29d5",
+        "attemptedAt": 1791826059744,
+        "deliveredAt": 1791826059758
+      }
+    },
+    "interruptedAtToolCap": {
+      "taskID": "ntask_78101050-9292-40d8-bc48-67a8042fb813",
+      "state": "interrupted",
+      "error": "Task exceeded the active tool timeout."
+    },
+    "nativePermissionHookDeniedShell": true,
+    "deniedCommandDidNotWrite": true,
+    "limits": [
+      "Isolated configured thresholds exercise both watchdog branches. The production defaults remain 180000/3600000 ms; this probe does not wait for the literal 60-minute default cap."
+    ]
+  },
+  "opencodeVersion": "opencode v2.0.24",
+  "ownedProcessGroupGone": true,
+  "realUserDatabaseUnchanged": true,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "pluginEntry": "dist/index.js",
+  "bundleSHA256": "16e79e0acfbc3e0b4a4c21cb3600d892f8b18bbc703a972a51dd0a0d479abc73"
+}

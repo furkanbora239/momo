@@ -9,6 +9,8 @@ import path from "node:path"
 import { randomUUID } from "node:crypto"
 import { OpenCode } from "../../packages/omo-opencode/node_modules/@opencode/client/dist/promise/index.js"
 
+import { proveNativeDeliveryRetries } from "./momo-native-delivery-proof"
+import { proveNativeToolWatchdog } from "./momo-native-tool-watchdog"
 import { proveNativeRestartAndCancel } from "./momo-native-restart-cancel"
 
 type RecordValue = Record<string, unknown>
@@ -22,6 +24,8 @@ const configDir = path.join(xdg.config, "opencode")
 const evidenceDir = process.env.MOMO_NATIVE_PRICE_EVIDENCE_DIR ?? path.join(process.cwd(), ".omo/evidence/20261012-native-price-proof")
 const modelLog = path.join(root, "fake-model-requests.jsonl")
 const jevLog = path.join(root, "jev-requests.jsonl")
+const deliveryFaultLog = path.join(root, "delivery-faults.jsonl")
+const denialLog = path.join(root, "permission-denial.jsonl")
 const setupLog = path.join(root, "plugin-setup.jsonl")
 const knowledgePath = path.join(qaHome, ".omo/native/catalog-knowledge.json")
 const modelSource = "https://fixture.example/models/momo-free/pricing"
@@ -170,10 +174,18 @@ async function startFixtures(): Promise<void> {
     await recordLine(modelLog, parsed)
     const userText = readUserText(parsed)
     const lastRole = parsed.messages?.at(-1)?.role
+    const toolMarker = userText.match(/MOMO_TOOL_CREATE (MOMO_TOOL_[A-Z_]+)/)?.[1]
     const lifecycleMarker = userText.match(/MOMO_LIFECYCLE_CREATE (MOMO_LIFECYCLE_[A-Z_]+)/)?.[1]
     const cancelID = userText.match(/MOMO_LIFECYCLE_CANCEL (ntask_[A-Za-z0-9_-]+)/)?.[1]
     let toolCall: { name: string; arguments: Record<string, unknown> } | undefined
-    if (lastRole === "user" && lifecycleMarker) {
+    if (lastRole === "user" && toolMarker) {
+      toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:${JSON.stringify(toolMarker)}})` } }
+    } else if (lastRole === "user" && userText === "MOMO_TOOL_QUESTION") {
+      toolCall = { name: "question", arguments: { questions: [{ header: "Fixture", question: "Approve fixture?", options: [{ label: "approved", description: "Continue the isolated proof" }] }] } }
+    } else if (lastRole === "user" && /^MOMO_TOOL_(?:PROTECTION|CAP|DENIAL)$/.test(userText)) {
+      const command = userText === "MOMO_TOOL_DENIAL" ? "printf denied > no-user-config-write" : userText === "MOMO_TOOL_CAP" ? "sleep 120" : "sleep 65"
+      toolCall = { name: "shell", arguments: { command, timeout: 180_000 } }
+    } else if (lastRole === "user" && lifecycleMarker) {
       toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:${JSON.stringify(lifecycleMarker)}})` } }
     } else if (lastRole === "user" && cancelID) {
       toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"cancel",taskID:${JSON.stringify(cancelID)}})` } }
@@ -186,6 +198,7 @@ async function startFixtures(): Promise<void> {
       toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:"MOMO_PRICE_WORKER_TASK",waitMs:60000})` } }
     }
     if (/^MOMO_LIFECYCLE_(?:(?:RESTART|CANCEL)_CHILD|DEPARTMENT_(?:RESTART|CANCEL)_CHILD)$/.test(userText.replace(/^"|"$/g, ""))) await new Promise((resolve) => setTimeout(resolve, 15_000))
+    if (process.env.MOMO_NATIVE_DELIVERY_QA === "1" && lastRole === "tool" && userText.includes("MOMO_PRICE_ROUTE")) await new Promise((resolve) => setTimeout(resolve, 5_000))
     sendChat(response, chatPayload(parsed, toolCall), parsed.stream === true)
   })
   await new Promise<void>((resolve, reject) => { modelServer?.once("error", reject); modelServer?.listen(modelPort, "127.0.0.1", resolve) })
@@ -268,6 +281,7 @@ async function main(): Promise<void> {
   await writeFile(pluginShim, [
     `import momo from ${JSON.stringify(pluginEntry)}`,
     'import { appendFileSync } from "node:fs"',
+    ...(process.env.MOMO_NATIVE_DELIVERY_QA === "1" ? [`import { installNativeQaDeliveryFaults } from ${JSON.stringify(path.join(process.cwd(), "script/qa/momo-native-delivery-faults.ts"))}`] : []),
     'export default { id: "oh-my-openagent", async setup(ctx) {',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "setup-start" }) + "\\n")`,
     '  await ctx.provider.transform((editor) => { editor.add({ info: { id: "momo-price-qa", name: "Momo local pricing fixture", activation: "enabled", package: "aisdk:@ai-sdk/openai-compatible", settings: { baseURL: process.env.MOMO_PRICE_MODEL_URL, apiKey: "local-fixture-only" } }, models: [',
@@ -278,12 +292,17 @@ async function main(): Promise<void> {
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "provider-added" }) + "\\n")`,
     '  await ctx.provider.reload()',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "provider-reloaded" }) + "\\n")`,
-    '  return momo.setup(ctx)',
+    ...(process.env.MOMO_NATIVE_DELIVERY_QA === "1" ? [`  const restoreFetch = installNativeQaDeliveryFaults(${JSON.stringify(deliveryFaultLog)})`] : []),
+    '  const cleanup = await momo.setup(ctx)',
+    ...(process.env.MOMO_NATIVE_TOOL_QA === "1" ? [
+      `  await ctx.permission.hook("evaluate", (event) => { if ((event.action === "shell" || event.action === "bash") && event.resources.some((resource) => resource.includes("no-user-config-write"))) { event.effect = "deny"; appendFileSync(${JSON.stringify(denialLog)}, JSON.stringify({ action: event.action, agent: event.agent, effect: event.effect }) + "\\n") } })`,
+    ] : []),
+    process.env.MOMO_NATIVE_DELIVERY_QA === "1" ? '  return async () => { restoreFetch(); await cleanup() }' : '  return cleanup',
     '}}',
   ].join("\n"), { mode: 0o600 })
   await writeFile(path.join(configDir, "service.json"), `${JSON.stringify({ password: servicePassword })}\n`, { mode: 0o600 })
   await writeFile(path.join(xdg.data, "opencode/auth.json"), `${JSON.stringify({ [fakeProviderID]: { type: "api", key: fakeProviderKey } })}\n`, { mode: 0o600 })
-  await writeFile(path.join(root, ".omo/omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: fakeProviderID, base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "local-jev-fixture", max_attempts: 1 } } } }, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(path.join(root, ".omo/omo.jsonc"), `${JSON.stringify({ "[opencode]": { ...(process.env.MOMO_NATIVE_TOOL_QA === "1" ? { background_task: { staleTimeoutMs: 60_000, activeToolTimeoutMs: 70_000 } } : {}), manager: { jev: { provider_id: fakeProviderID, base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "local-jev-fixture", max_attempts: 1 } } } }, null, 2)}\n`, { mode: 0o600 })
   await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugins: [`file:${pluginDir}`], model: `${fakeProviderID}/${paidID}`, agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
   servicePort = await freePort()
   const version = execFileSync(opencodeBinary, ["--version"], { cwd: root, env: envForQa(), encoding: "utf8" }).trim()
@@ -363,8 +382,23 @@ async function main(): Promise<void> {
     },
   }) : undefined
 
+  const toolProof = process.env.MOMO_NATIVE_TOOL_QA === "1" ? await proveNativeToolWatchdog({
+    client, directory: root, providerID: fakeProviderID, modelID: paidID,
+    tasks: (sessionID) => readTasks(client, sessionID, root),
+    denialObserved: async () => existsSync(denialLog) && (await readFile(denialLog, "utf8")).includes('"effect":"deny"'),
+    deniedFileExists: () => existsSync(path.join(root, "no-user-config-write")),
+  }) : undefined
+
+  const deliveryProof = process.env.MOMO_NATIVE_DELIVERY_QA === "1" ? await proveNativeDeliveryRetries({
+    client, directory: root, providerID: fakeProviderID, modelID: paidID,
+    tasks: (sessionID) => readTasks(client, sessionID, root),
+    faults: async () => (await readFile(deliveryFaultLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { kind: string; id: string; injected: boolean; parentBusy?: boolean }),
+  }) : undefined
+
   outcome = {
     status: "passed",
+    ...(deliveryProof ? { deliveryProof } : {}),
+    ...(toolProof ? { toolProof } : {}),
     ...(lifecycle ? { lifecycle } : {}),
     opencodeVersion: version,
     pluginEntry,
@@ -401,6 +435,10 @@ try {
     const groupAlive = () => {
       try { process.kill(-service!.pid!, 0); return true } catch (error) {
         if (error instanceof Error && "code" in error && error.code === "ESRCH") return false
+        if (error instanceof Error && "code" in error && error.code === "EPERM") {
+          const groups = execFileSync("ps", ["-axo", "pgid="], { encoding: "utf8" }).split("\n").map((line) => line.trim())
+          return groups.includes(String(service?.pid))
+        }
         throw error
       }
     }
@@ -410,7 +448,12 @@ try {
     if (groupAlive()) signalGroup("SIGKILL")
     const killDeadline = Date.now() + 3_000
     while (groupAlive() && Date.now() < killDeadline) await new Promise((resolve) => setTimeout(resolve, 100))
-    if (groupAlive()) outcome = { ...outcome, cleanupError: "OpenCode QA process group did not exit after SIGKILL" }
+    const ownedProcessGroupGone = !groupAlive()
+    outcome = { ...outcome, ownedProcessGroupGone }
+    if (!ownedProcessGroupGone) {
+      outcome = { ...outcome, cleanupError: "OpenCode QA process group did not exit after SIGKILL" }
+      process.exitCode = 1
+    }
   }
   for (const server of [modelServer, jevServer]) if (server?.listening) await new Promise<void>((resolve) => server.close(() => resolve()))
   const realDbAfter = readRealDatabase()

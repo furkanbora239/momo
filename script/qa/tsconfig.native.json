@@ -2,6 +2,9 @@
   "extends": "../tsconfig.json",
   "include": [
     "./momo-native-price-acceptance.ts",
-    "./momo-native-restart-cancel.ts"
+    "./momo-native-restart-cancel.ts",
+    "./momo-native-tool-watchdog.ts",
+    "./momo-native-delivery-faults.ts",
+    "./momo-native-delivery-proof.ts"
   ]
 }
