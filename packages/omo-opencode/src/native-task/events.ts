@@ -70,6 +70,9 @@ export async function handleNativeTaskEvent(
       if (task.question?.id === event.questionID) {
         task.answer = event.answer
         task.answerStatus = "sent"
+        task.questionDelivery = "sent"
+        task.questionEscalationStatus = undefined
+        task.questionDeadlineAt = undefined
         task.state = "running"
       }
       break

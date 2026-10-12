@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { createHarness } from "./engine.test-support"
+import { createNativeTaskEngine } from "./engine"
+import { FakeNativeTaskRuntime } from "./testing"
 
 async function startWorker(harness: ReturnType<typeof createHarness>, callerSessionID = "root") {
   return harness.engine.create({ prompt: "Execute task", callerSessionID })
@@ -84,6 +86,51 @@ describe("native task lifecycle", () => {
     expect(harness.runtime.escalations).toEqual(["q-escalate", "q-escalate"])
   })
 
+  it("does not retry a failed escalation after the root answers", async () => {
+    const harness = createHarness({ questionTimeoutMs: 10 })
+    const task = await startWorker(harness)
+    await harness.engine.onEvent({ id: "ask-before-root-answer", type: "question.asked", sessionID: task.sessionID ?? "", question: { id: "root-answered", prompt: "Approve?" } })
+    harness.runtime.escalationAction = async () => { throw new Error("root inbox unavailable") }
+    harness.advance(11)
+    await harness.engine.checkWatchdogs()
+    expect((await harness.repository.get(task.id))?.questionEscalationStatus).toBe("pending")
+
+    await harness.engine.answer(task.id, "root", "root-answered", "approved")
+    await harness.engine.checkWatchdogs()
+
+    expect((await harness.repository.get(task.id))?.questionEscalationStatus).toBeUndefined()
+    expect(harness.runtime.escalations).toEqual(["root-answered"])
+  })
+
+  it("periodically retries a failed parent question notification with the same stable task and question IDs", async () => {
+    const harness = createHarness()
+    const task = await startWorker(harness)
+    let failures = 1
+    harness.runtime.askAction = async () => {
+      if (failures-- > 0) throw new Error("parent inbox temporarily unavailable")
+    }
+    await harness.engine.onEvent({ id: "question-delivery", type: "question.asked", sessionID: task.sessionID ?? "", question: { id: "question-stable", prompt: "Choose" } })
+    expect((await harness.repository.get(task.id))?.questionDelivery).toBe("pending")
+
+    await harness.engine.checkWatchdogs()
+
+    expect((await harness.repository.get(task.id))?.questionDelivery).toBe("sent")
+    expect(harness.runtime.questionAttempts).toEqual([{ taskID: task.id, questionID: "question-stable" }, { taskID: task.id, questionID: "question-stable" }])
+  })
+
+  it("does not retry a failed question notification after the parent answers", async () => {
+    const harness = createHarness()
+    const task = await startWorker(harness)
+    harness.runtime.askAction = async () => { throw new Error("parent inbox temporarily unavailable") }
+    await harness.engine.onEvent({ id: "question-failed", type: "question.asked", sessionID: task.sessionID ?? "", question: { id: "answered-before-retry", prompt: "Choose" } })
+
+    await harness.engine.answer(task.id, "root", "answered-before-retry", "yes")
+    await harness.engine.checkWatchdogs()
+
+    expect((await harness.repository.get(task.id))?.questionDelivery).toBe("sent")
+    expect(harness.runtime.questionAttempts).toHaveLength(1)
+  })
+
   it("keeps a failed answer durable and retries the original form answer after restart", async () => {
     const harness = createHarness()
     const task = await startWorker(harness)
@@ -110,11 +157,14 @@ describe("native task lifecycle", () => {
       if (failures-- > 0) throw new Error("parent temporarily unavailable")
     }
     await harness.engine.onEvent({ id: "complete", type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "done" })
-    expect((await harness.repository.get(task.id))?.delivery?.status).toBe("pending")
+    const pendingDelivery = (await harness.repository.get(task.id))?.delivery
+    expect(pendingDelivery?.status).toBe("pending")
+    expect(pendingDelivery?.messageID).toBe(`native-delivery-${task.id}`)
 
     await harness.engine.reconcile()
 
     expect((await harness.repository.get(task.id))?.delivery?.status).toBe("delivered")
+    expect((await harness.repository.get(task.id))?.delivery?.messageID).toBe(`native-delivery-${task.id}`)
     expect(harness.runtime.starts).toHaveLength(1)
     expect(harness.runtime.deliveries).toHaveLength(2)
   })
@@ -134,6 +184,56 @@ describe("native task lifecycle", () => {
     expect(await harness.repository.get(task.id)).toMatchObject({ state: "succeeded", result: "inspected result", delivery: { status: "delivered" } })
     expect(harness.runtime.starts).toHaveLength(1)
     expect(harness.runtime.resumes).toHaveLength(0)
+  })
+
+  it("resumes a persisted in-place wait lease when the existing V2 session was interrupted", async () => {
+    const harness = createHarness()
+    const task = await startWorker(harness)
+    const persisted = await harness.repository.get(task.id)
+    if (persisted === undefined) throw new Error("Expected a persisted task")
+    persisted.state = "queued"
+    persisted.resumeInPlace = true
+    await harness.repository.save(persisted)
+
+    const restartedRuntime = new FakeNativeTaskRuntime()
+    restartedRuntime.inspect = async () => ({ state: "interrupted" })
+    const restartedEngine = createNativeTaskEngine({
+      repository: harness.repository,
+      router: harness.router,
+      runtime: restartedRuntime,
+      now: () => 2_000,
+    })
+
+    await restartedEngine.reconcile()
+
+    expect(await harness.repository.get(task.id)).toMatchObject({ state: "running", resumeInPlace: undefined })
+    expect(restartedRuntime.resumes).toHaveLength(1)
+    expect(restartedRuntime.starts).toHaveLength(0)
+  })
+
+  it("keeps a genuinely live V2 wait generation in place after reconciliation", async () => {
+    const harness = createHarness()
+    const task = await startWorker(harness)
+    const persisted = await harness.repository.get(task.id)
+    if (persisted === undefined) throw new Error("Expected a persisted task")
+    persisted.state = "queued"
+    persisted.resumeInPlace = true
+    await harness.repository.save(persisted)
+
+    const restartedRuntime = new FakeNativeTaskRuntime()
+    restartedRuntime.inspect = async () => ({ state: "running" })
+    const restartedEngine = createNativeTaskEngine({
+      repository: harness.repository,
+      router: harness.router,
+      runtime: restartedRuntime,
+      now: () => 2_000,
+    })
+
+    await restartedEngine.reconcile()
+
+    expect(await harness.repository.get(task.id)).toMatchObject({ state: "running", resumeInPlace: undefined })
+    expect(restartedRuntime.resumes).toHaveLength(0)
+    expect(restartedRuntime.starts).toHaveLength(0)
   })
 
   it("holds a completed department in waiting_children until its active worker finishes", async () => {

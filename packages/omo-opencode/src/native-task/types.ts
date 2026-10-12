@@ -83,7 +83,7 @@ export type NativeTaskQuestion = {
 
 export type NativeTaskToolActivity = { id: string; name: string; startedAt: number }
 export type NativeTaskUsage = { inputTokens: number; outputTokens: number; scope: "session_cumulative" }
-export type NativeTaskDelivery = { status: "pending" | "delivered"; deliveredAt?: number; attempts: number; lastError?: string }
+export type NativeTaskDelivery = { status: "pending" | "delivered"; messageID?: string; attemptedAt?: number; deliveredAt?: number; attempts: number; lastError?: string }
 
 export type NativeTask = {
   id: string
@@ -165,6 +165,7 @@ export type NativeTaskRuntime = {
   resume(input: { taskID: string; sessionID: string }): Promise<void>
   interrupt(input: { sessionID: string }): Promise<void>
   deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void>
+  deliveryMessageID?(taskID: string): string
   ask(input: { parentSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   escalateQuestion(input: { rootSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   answer(input: { sessionID: string; questionID: string; answer: unknown }): Promise<void>

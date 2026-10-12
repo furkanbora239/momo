@@ -50,6 +50,7 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
   readonly interrupts: string[] = []
   readonly deliveries: Array<{ taskID: string; result: string }> = []
   readonly questions: string[] = []
+  readonly questionAttempts: Array<{ taskID: string; questionID: string }> = []
   readonly escalations: string[] = []
   readonly answers: Array<{ questionID: string; answer: unknown }> = []
   readonly parentContinuations: string[] = []
@@ -57,6 +58,7 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
   deliverAction?: () => Promise<void>
   answerAction?: () => Promise<void>
   escalationAction?: () => Promise<void>
+  askAction?: () => Promise<void>
   async resolveCaller(sessionID: string): Promise<{ role: import("./types").NativeTaskRole; rootSessionID: string }> {
     return this.callers.get(sessionID) ?? { role: "orchestrator", rootSessionID: sessionID }
   }
@@ -79,7 +81,12 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
     this.deliveries.push({ taskID: input.taskID, result: input.result })
     await this.deliverAction?.()
   }
-  async ask(input: Parameters<NativeTaskRuntime["ask"]>[0]): Promise<void> { this.questions.push(input.question.id) }
+  deliveryMessageID(taskID: string): string { return `native-delivery-${taskID}` }
+  async ask(input: Parameters<NativeTaskRuntime["ask"]>[0]): Promise<void> {
+    this.questions.push(input.question.id)
+    this.questionAttempts.push({ taskID: input.taskID, questionID: input.question.id })
+    await this.askAction?.()
+  }
   async escalateQuestion(input: Parameters<NativeTaskRuntime["escalateQuestion"]>[0]): Promise<void> {
     this.escalations.push(input.question.id)
     await this.escalationAction?.()

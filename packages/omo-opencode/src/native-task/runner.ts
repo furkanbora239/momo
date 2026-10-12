@@ -10,15 +10,17 @@ export async function runNativeTask(
     now: () => number
     onAllocated: (task: NativeTask) => Promise<void>
     onResume: (task: NativeTask) => Promise<void>
+    consumeInPlaceLease: (taskID: string) => boolean
   },
 ): Promise<void> {
-  if (task.resumeInPlace === true) {
+  if (deps.consumeInPlaceLease(task.id)) {
     task.resumeInPlace = undefined
     task.state = "running"
     task.lastActivityAt = deps.now()
     await deps.save(task)
     return
   }
+  task.resumeInPlace = undefined
   if (task.role === undefined || task.model === undefined) {
     task.state = "failed"
     task.error = "Queued task has no selected role or model."

@@ -33,6 +33,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
   const now = options.now ?? Date.now
   const maxConcurrent = options.maxConcurrent === undefined ? Number.POSITIVE_INFINITY : (options.maxConcurrent === 0 ? Number.POSITIVE_INFINITY : Math.max(1, options.maxConcurrent))
   const taskLocks = new Map<string, Promise<void>>()
+  const inPlaceLeases = new Set<string>()
   let pumping: Promise<void> | undefined
 
   async function save(task: NativeTask): Promise<NativeTask> {
@@ -152,6 +153,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
           now,
           onAllocated: recordDispatch,
           onResume: controls.resumeExecution,
+          consumeInPlaceLease: (taskID) => inPlaceLeases.delete(taskID),
         })
         const finished = await get(current.id)
         if (finished.state === "failed") await recordOutcome(finished)
@@ -224,6 +226,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       parent.state = "queued"
       parent.resumeInPlace = true
       await save(parent)
+      inPlaceLeases.add(parentTaskID)
       queued = true
     })
     if (queued) await pump()
@@ -351,6 +354,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     get,
     save,
     withTaskLock,
+    inPlaceLeases,
     pump,
     controls,
     retryChildWake,

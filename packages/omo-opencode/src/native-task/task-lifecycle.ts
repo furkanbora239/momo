@@ -8,6 +8,7 @@ type TaskLifecycleOptions = {
   get: (taskID: string) => Promise<NativeTask>
   save: (task: NativeTask) => Promise<NativeTask>
   withTaskLock: <T>(taskID: string, action: () => Promise<T>) => Promise<T>
+  inPlaceLeases: Set<string>
   pump: () => Promise<void>
   controls: {
     deliver(taskID: string): Promise<NativeTask>
@@ -35,16 +36,23 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
         })
       }
       const beforeInspect = await deps.get(stored.id)
-      if (beforeInspect.state === "running" && beforeInspect.sessionID !== undefined) {
+      const queuedInPlaceResume = beforeInspect.state === "queued" && beforeInspect.resumeInPlace === true
+      const inspectExistingSession = beforeInspect.state === "running" || beforeInspect.state === "waiting_children" || queuedInPlaceResume
+      if (inspectExistingSession && beforeInspect.sessionID !== undefined) {
         await deps.withTaskLock(stored.id, async () => {
           const current = await deps.get(stored.id)
-          const state = await deps.options.runtime.inspect(current.sessionID ?? "")
-          if (state.state === "running") return
-          if (state.state === "succeeded") await deps.finishFromInspection(current, { state: "succeeded", result: state.result })
-          else if (state.state === "failed") await deps.finishFromInspection(current, { state: "failed", error: state.error, result: state.result })
-          else if (state.state === "missing") await deps.failMissingSession(current)
+          const inspection = await deps.options.runtime.inspect(current.sessionID ?? "")
+          if (inspection.state === "running") {
+            if (current.state === "queued" && current.resumeInPlace === true) deps.inPlaceLeases.add(current.id)
+            return
+          }
+          if (inspection.state === "succeeded") await deps.finishFromInspection(current, { state: "succeeded", result: inspection.result })
+          else if (inspection.state === "failed") await deps.finishFromInspection(current, { state: "failed", error: inspection.error, result: inspection.result })
+          else if (inspection.state === "missing") await deps.failMissingSession(current)
           else {
             current.state = "interrupted"
+            current.resumeInPlace = undefined
+            current.waitForTaskID = undefined
             await deps.save(current)
           }
         })
@@ -117,15 +125,18 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     const timeout = deps.options.silenceTimeoutMs ?? 180_000
     const activeToolTimeout = deps.options.activeToolTimeoutMs ?? 3_600_000
     const interrupted: string[] = []
-    const escalations: NativeTask[] = []
+    const recoverableTaskIDs = new Set<string>()
     for (const task of await deps.options.repository.list()) {
       await deps.withTaskLock(task.id, async () => {
         const current = await deps.get(task.id)
+        if (current.questionDelivery === "pending" || current.questionEscalationStatus === "pending" || current.childrenWakePending || current.dispatchStatus === "pending" || ((current.state === "succeeded" || current.state === "failed") && current.outcomeStatus !== "recorded")) {
+          recoverableTaskIDs.add(current.id)
+        }
         if (current.state === "waiting_question" && !current.questionEscalated && current.questionDeadlineAt !== undefined && current.questionDeadlineAt <= deps.now() && current.question !== undefined) {
           current.questionEscalated = true
           current.questionEscalationStatus = "pending"
           await deps.save(current)
-          escalations.push(current)
+          recoverableTaskIDs.add(current.id)
           interrupted.push(`${current.id}:question`)
           return
         }
@@ -151,17 +162,24 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
         interrupted.push(current.id)
       })
     }
-    for (const task of escalations) await deliverEscalation(task)
+    for (const taskID of recoverableTaskIDs) {
+      const current = await deps.get(taskID)
+      if (current.questionDelivery === "pending" && current.question !== undefined) await deps.controls.deliverQuestion(current)
+      if (current.questionEscalationStatus === "pending") await deliverEscalation(current)
+      if (current.childrenWakePending) await deps.retryChildWake(current)
+      await deps.withTaskLock(current.id, async () => deps.retryRouterRecords(await deps.get(current.id)))
+    }
     return interrupted
   }
 
   async function deliverEscalation(task: NativeTask): Promise<void> {
-    if (task.question === undefined || task.questionEscalationStatus !== "pending") return
+    const before = await deps.get(task.id)
+    if (before.question === undefined || before.question.id !== task.question?.id || before.questionEscalationStatus !== "pending" || before.state !== "waiting_question" || before.answer !== undefined || before.questionEscalated !== true) return
     try {
-      await deps.options.runtime.escalateQuestion({ rootSessionID: task.rootSessionID, taskID: task.id, question: task.question })
+      await deps.options.runtime.escalateQuestion({ rootSessionID: before.rootSessionID, taskID: before.id, question: before.question })
       await deps.withTaskLock(task.id, async () => {
         const current = await deps.get(task.id)
-        if (current.question?.id !== task.question?.id || current.questionEscalationStatus !== "pending") return
+        if (current.question?.id !== before.question?.id || current.questionEscalationStatus !== "pending" || current.state !== "waiting_question" || current.answer !== undefined) return
         current.questionEscalationStatus = "sent"
         await deps.save(current)
       })

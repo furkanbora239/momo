@@ -86,6 +86,9 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       if (task.sessionID === undefined) throw new Error("Question task has no child session")
       task.answer = value
       task.answerStatus = "pending"
+      task.questionDelivery = "sent"
+      task.questionEscalationStatus = undefined
+      task.questionDeadlineAt = undefined
       task.lastActivityAt = deps.now()
       task.state = "queued"
       await deps.save(task)
@@ -147,6 +150,8 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
         const task = await deps.get(taskID)
         if (task.delivery?.status !== "pending" || task.result === undefined) return
         task.delivery.attempts += 1
+        task.delivery.messageID ??= deps.options.runtime.deliveryMessageID?.(task.id)
+        task.delivery.attemptedAt = deps.now()
         delivery = { parentSessionID: task.parentSessionID, taskID: task.id, result: task.result }
         await deps.save(task)
       })
@@ -156,7 +161,7 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       await deps.withTaskLock(taskID, async () => {
         const task = await deps.get(taskID)
         if (task.delivery?.status !== "pending" || task.result !== delivery?.result) return
-        if (failure === undefined) task.delivery = { status: "delivered", attempts: task.delivery.attempts, deliveredAt: deps.now() }
+        if (failure === undefined) task.delivery = { status: "delivered", attempts: task.delivery.attempts, messageID: task.delivery.messageID, attemptedAt: task.delivery.attemptedAt, deliveredAt: deps.now() }
         else task.delivery.lastError = failure
         await deps.save(task)
       })
@@ -176,7 +181,7 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
     try {
       await deps.withTaskLock(task.id, async () => {
         const current = await deps.get(task.id)
-        if (current.question?.id !== questionID || current.questionDelivery !== "pending") return
+        if (current.question?.id !== questionID || current.questionDelivery !== "pending" || current.state !== "waiting_question" || current.answerStatus !== undefined) return
         question = current.question
       })
       if (question === undefined) return
