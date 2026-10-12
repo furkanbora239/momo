@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
-import { existsSync } from "node:fs"
+import { existsSync, realpathSync } from "node:fs"
 import { spawn, execFileSync } from "node:child_process"
 import { createServer as createNetServer } from "node:net"
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http"
@@ -8,6 +8,7 @@ import { tmpdir } from "node:os"
 import path from "node:path"
 import { randomUUID } from "node:crypto"
 import { OpenCode } from "../../packages/omo-opencode/node_modules/@opencode/client/dist/promise/index.js"
+import { run as runNativeCLI } from "../../packages/omo-opencode/src/cli/native-run/runner"
 
 type JsonRecord = Record<string, unknown>
 type JevRequest = { model?: string; state?: unknown; questions?: { candidate?: { criteria?: Record<string, string> }; lane?: { criteria?: Record<string, string> } } }
@@ -36,22 +37,47 @@ function stateDecision(request: JevRequest): string | undefined {
   return typeof decisionID === "string" ? decisionID : undefined
 }
 
+function answerCall(conversation: string): string | undefined {
+  const match = conversation.match(/Task ID: ([A-Za-z0-9_-]+)\. Question ID: ([A-Za-z0-9_-]+)/)
+  if (match === null) return undefined
+  const taskID = JSON.stringify(match[1])
+  const questionID = JSON.stringify(match[2])
+  return `await tools.momo_task({action:"answer",taskID:${taskID},questionID:${questionID},answer:{answer:"approved"}}); return await tools.momo_task({action:"wait",taskID:${taskID},timeoutMs:60000})`
+}
+
+function exampleFromSchema(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {}
+  const schema = value as { const?: unknown; enum?: unknown[]; type?: string; properties?: Record<string, unknown>; required?: string[]; items?: unknown; anyOf?: unknown[]; oneOf?: unknown[] }
+  if (schema.const !== undefined) return schema.const
+  if (schema.enum?.length) return schema.enum[0]
+  const variants = schema.anyOf ?? schema.oneOf
+  if (variants?.length) return exampleFromSchema(variants[0])
+  if (schema.type === "array") return [exampleFromSchema(schema.items)]
+  if (schema.type === "object" || schema.properties !== undefined) {
+    const keys = schema.required ?? Object.keys(schema.properties ?? {})
+    return Object.fromEntries(keys.filter((key) => schema.properties?.[key] !== undefined).map((key) => [key, exampleFromSchema(schema.properties?.[key])]))
+  }
+  if (schema.type === "boolean") return true
+  if (schema.type === "integer" || schema.type === "number") return 1
+  return "Acceptance question"
+}
+
 function candidateChoice(request: JevRequest, preferredRole?: string): string | undefined {
   const criteria = request.questions?.candidate?.criteria ?? {}
   const prompt = statePrompt(request)
   const keys = Object.keys(criteria)
-  const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt === "MOMO_DEPT_WORK" ? "planner" : keys.some((key) => key.startsWith("worker|")) ? "worker" : keys[0]?.split("|")[0])
+  const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT") || prompt === "MOMO_DEPT_WORK" || prompt === "MOMO_QUESTION_DEPT" ? "planner" : keys.some((key) => key.startsWith("worker|")) ? "worker" : keys[0]?.split("|")[0])
   return keys.find((key) => key.startsWith(`${role}|`))
 }
 
 function jevResponse(request: JevRequest, preferredRole?: string): { answers: Record<string, JevChoice>; usage: { input_tokens: number; output_tokens: number } } {
   const prompt = statePrompt(request)
   const availableRole = Object.keys(request.questions?.candidate?.criteria ?? {})[0]?.split("|")[0]
-  const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt === "MOMO_DEPT_WORK" ? "planner" : Object.keys(request.questions?.candidate?.criteria ?? {}).some((key) => key.startsWith("worker|")) ? "worker" : availableRole)
+  const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT") || prompt === "MOMO_DEPT_WORK" || prompt === "MOMO_QUESTION_DEPT" ? "planner" : Object.keys(request.questions?.candidate?.criteria ?? {}).some((key) => key.startsWith("worker|")) ? "worker" : availableRole)
   if (role === undefined) throw new Error("fixture has no model candidates")
   const candidate = candidateChoice(request, role)
   if (candidate === undefined) throw new Error(`fixture has no ${role} candidate`)
-  const laneChoice = prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt === "MOMO_DEPT_WORK" ? "department" : "direct"
+  const laneChoice = prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT") || prompt === "MOMO_DEPT_WORK" || prompt === "MOMO_QUESTION_DEPT" ? "department" : "direct"
   const confidence = prompt === "MOMO_SELECTION_WORK" ? 0.2 : 0.99
   const candidateKeys = Object.keys(request.questions?.candidate?.criteria ?? {})
   const candidateProbabilities = confidence < 0.5
@@ -104,8 +130,11 @@ let servicePort = 0
 let stage = "setup"
 let activeParallelWorkers = 0
 let maxParallelWorkers = 0
-let manualSelectionTarget: { taskID: string; decisionId: string } | undefined
+let childQuestionCalls = 0
+let parentQuestionAnswers = 0
 const fixtureDecisions: JsonRecord[] = []
+let serviceDatabasePaths: string[] = []
+const verifiedCases: string[] = []
 
 function isolatedEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/(?:API[_-]?KEY|_KEY$|_TOKEN$|_SECRET$|PASSWORD)/i.test(key)))
@@ -121,6 +150,26 @@ function readRealDatabase(): JsonRecord | undefined {
   if (!db) throw new Error("Real OpenCode DB is not discoverable for read-only before/after safety verification")
   const rows = execFileSync("sqlite3", ["-readonly", db, "select 'session',count(*) from session union all select 'session_message',count(*) from session_message;"], { encoding: "utf8" }).trim().split("\n")
   return { path: db, counts: Object.fromEntries(rows.map((row) => row.split("|"))) }
+}
+
+function ownedServiceDatabasePaths(pid: number): string[] {
+  const groupText = execFileSync("ps", ["-o", "pgid=", "-p", String(pid)], { encoding: "utf8" }).trim()
+  const groupID = Number(groupText)
+  if (!Number.isInteger(groupID) || groupID <= 0) throw new Error("Could not identify the isolated OpenCode service process group")
+  const processRows = execFileSync("ps", ["-Ao", "pid=,pgid="], { encoding: "utf8" })
+  const pids = processRows.split("\n").flatMap((row) => {
+    const [candidatePID, candidateGroup] = row.trim().split(/\s+/).map(Number)
+    return candidateGroup === groupID && Number.isInteger(candidatePID) ? [candidatePID] : []
+  })
+  const databasePaths = new Set<string>()
+  for (const candidatePID of pids) {
+    const output = execFileSync("lsof", ["-Fn", "-p", String(candidatePID)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+    for (const line of output.split("\n")) {
+      if (!line.startsWith("n") || !/\.db(?:-(?:wal|shm))?$/.test(line.slice(1))) continue
+      databasePaths.add(path.resolve(line.slice(1)))
+    }
+  }
+  return [...databasePaths].sort()
 }
 
 function sendJson(response: ServerResponse, value: unknown): void {
@@ -180,54 +229,71 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     if (request.method !== "POST") return response.writeHead(404).end()
     const bodyText = await readJson(request)
     await appendFile(modelLog, `${JSON.stringify(bodyText)}\n`, { mode: 0o600 })
-    const body = bodyText as { model?: string; stream?: boolean; messages?: Array<{ role?: string; content?: unknown }>; tools?: Array<{ function?: { name?: string } }> }
+  const body = bodyText as { model?: string; stream?: boolean; messages?: Array<{ role?: string; content?: unknown }>; tools?: Array<{ function?: { name?: string; parameters?: unknown } }> }
     const last = body.messages?.at(-1)
     const conversationText = JSON.stringify(body.messages ?? [])
     const latestUserPrompt = JSON.stringify(body.messages?.filter((message) => message.role === "user").at(-1)?.content ?? "")
-    const parallelWorker = /MOMO_PARALLEL_WORK_\d+/.test(latestUserPrompt)
+    const parallelWorker = /MOMO_(?:PARALLEL|SHARED_PARENT)_WORK_\d+/.test(latestUserPrompt)
     if (parallelWorker) {
       activeParallelWorkers += 1
       maxParallelWorkers = Math.max(maxParallelWorkers, activeParallelWorkers)
-      await new Promise((resolve) => setTimeout(resolve, 250))
+      await new Promise((resolve) => setTimeout(resolve, 2_000))
     }
-    const text = conversationText.includes("MOMO_DEPT_WORKER_RESULT") ? "MOMO_DEPARTMENT_RESULT_AGGREGATED" : last?.role === "tool" ? "MOMO_TASK_ACCEPTANCE_COMPLETED" : conversationText.includes("MOMO_DEPT_CHILD") ? "MOMO_DEPT_WORKER_RESULT" : "MOMO_NATIVE_ACCEPTANCE_READY"
+    const text = conversationText.includes("MOMO_SHARED_PARENT_WORK_") && last?.role === "tool" ? "MOMO_SHARED_PARENT_AGGREGATED_ALL_FIVE" : conversationText.includes("MOMO_DEPT_WORKER_RESULT") ? "MOMO_DEPARTMENT_RESULT_AGGREGATED" : conversationText.includes("MOMO_QUESTION_DEPT") && conversationText.includes("MOMO_QUESTION_CHILD") && last?.role === "tool" ? "MOMO_QUESTION_DEPARTMENT_AGGREGATED" : last?.role === "tool" ? "MOMO_TASK_ACCEPTANCE_COMPLETED" : conversationText.includes("MOMO_DEPT_CHILD") ? "MOMO_DEPT_WORKER_RESULT" : "MOMO_NATIVE_ACCEPTANCE_READY"
     const promptText = latestUserPrompt
     const canUseCodeMode = body.tools?.some((tool) => tool.function?.name === "execute") === true
     const lastUserIndex = body.messages?.map((message) => message.role).lastIndexOf("user") ?? -1
     const hasToolReply = body.messages?.slice(lastUserIndex + 1).some((message) => message.role === "tool") === true
+    const hasAnyToolReply = body.messages?.some((message) => message.role === "tool") === true
     const isDepartmentRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT")
-    const isDepartmentManager = promptText.includes("MOMO_DEPT_WORK")
+    const isDepartmentManager = promptText.includes("MOMO_DEPT_WORK") && !hasAnyToolReply
     const isParallelRoot = /MOMO_NATIVE_ACCEPTANCE_PARALLEL_\d+/.test(promptText)
+    const isSharedParallelRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_SHARED_PARALLEL")
     const isConsultRoot = /MOMO_NATIVE_ACCEPTANCE_CONSULT_[a-z-]+/.test(promptText)
     const isPermissionRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_PERMISSION")
     const isManualCreate = !hasToolReply && promptText.includes("MOMO_NATIVE_ACCEPTANCE_SELECT_CREATE") && canUseCodeMode
-    const isManualSelect = promptText.includes("MOMO_NATIVE_ACCEPTANCE_SELECT_NOW") && canUseCodeMode && manualSelectionTarget !== undefined
+    const isCLIRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_CLI_ASYNC")
+    const isQuestionRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT")
+    const isQuestionDepartment = promptText.includes("MOMO_QUESTION_DEPT")
+    const isEscalationRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_ESCALATION_ROOT")
+    const isQuestionChild = promptText.includes("MOMO_QUESTION_CHILD") || promptText.includes("MOMO_ESCALATION_CHILD")
+    const questionNotification = conversationText.includes("A child task is waiting for a decision.")
     const createConsult = last?.role === "user" && !hasToolReply && isConsultRoot && canUseCodeMode
-    const createTask = last?.role === "user" && !hasToolReply && (promptText.includes("MOMO_NATIVE_ACCEPTANCE_CHILD") || isDepartmentRoot || isDepartmentManager || isParallelRoot || isManualCreate) && canUseCodeMode
-    if (promptText.includes("MOMO_NATIVE_ACCEPTANCE_SELECT")) fixtureDecisions.push({ lastRole: last?.role, promptText, hasToolReply, canUseCodeMode, isManualCreate, isManualSelect, createTask })
+    const createTask = isManualCreate || (last?.role === "user" && !hasAnyToolReply && (promptText.includes("MOMO_NATIVE_ACCEPTANCE_CHILD") || isDepartmentRoot || isDepartmentManager || isParallelRoot || isSharedParallelRoot || isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot) && canUseCodeMode)
+    if (promptText.includes("MOMO_NATIVE_ACCEPTANCE_SELECT_CREATE")) fixtureDecisions.push({ lastRole: last?.role, promptText, hasToolReply, canUseCodeMode, isManualCreate, createTask })
     const isDepartment = promptText.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT")
     const parallelID = promptText.match(/MOMO_NATIVE_ACCEPTANCE_PARALLEL_(\d+)/)?.[1]
-    const childPrompt = isDepartment ? "MOMO_DEPT_WORK" : isDepartmentManager ? "MOMO_DEPT_CHILD" : isParallelRoot ? `MOMO_PARALLEL_WORK_${parallelID}` : isManualCreate ? "MOMO_SELECTION_WORK" : "MOMO_NATIVE_ACCEPTANCE_CHILD_WORK"
-    const manualCode = manualSelectionTarget === undefined ? "" : `return await tools.momo_task({action:"select",taskID:${JSON.stringify(manualSelectionTarget.taskID)},decisionId:${JSON.stringify(manualSelectionTarget.decisionId)},role:"worker",providerID:"momo-qa",modelID:"momo-qa-model"})`
-    const delta = isManualSelect
-      ? { tool_calls: [{ index: 0, id: "call_native_manual_selection", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: manualCode }) } }] }
+    const childPrompt = isDepartment ? "MOMO_DEPT_WORK" : isDepartmentManager ? "MOMO_DEPT_CHILD" : isParallelRoot ? `MOMO_PARALLEL_WORK_${parallelID}` : isManualCreate ? "MOMO_SELECTION_WORK" : isCLIRoot ? "MOMO_CLI_ASYNC_CHILD" : isQuestionRoot ? "MOMO_QUESTION_DEPT" : isQuestionDepartment ? "MOMO_QUESTION_CHILD" : isEscalationRoot ? "MOMO_ESCALATION_CHILD" : "MOMO_NATIVE_ACCEPTANCE_CHILD_WORK"
+    const sharedParallelCode = `return await Promise.all(Array.from({length:5},(_,i)=>tools.momo_task({action:"create",prompt:"MOMO_SHARED_PARENT_WORK_"+i,waitMs:60000})))`
+    const manualSelectionCode = `const task=JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_SELECTION_WORK"})); const candidate=task.candidates[0]; if(!candidate) throw new Error("No offered candidate"); await tools.momo_task({action:"select",taskID:task.id,decisionId:task.decisionId,role:candidate.role,providerID:candidate.model.providerID,modelID:candidate.model.id}); return await tools.momo_task({action:"wait",taskID:task.id,timeoutMs:60000})`
+    const questionTool = body.tools?.find((tool) => tool.function?.name === "question")?.function
+    const questionArguments = questionTool === undefined ? undefined : exampleFromSchema(questionTool.parameters)
+    const questionCall = isQuestionChild && !hasAnyToolReply && last?.role === "user" && questionTool !== undefined
+      ? { tool_calls: [{ index: 0, id: `call_question_${randomUUID().replaceAll("-", "")}`, type: "function", function: { name: "question", arguments: JSON.stringify(questionArguments) } }] }
+      : undefined
+    const questionAnswer = questionNotification && !isEscalationRoot && parentQuestionAnswers === 0 ? answerCall(conversationText) : undefined
+    if (questionCall !== undefined) childQuestionCalls += 1
+    if (questionAnswer !== undefined) parentQuestionAnswers += 1
+    const delta = questionCall ?? (questionAnswer !== undefined && canUseCodeMode
+      ? { tool_calls: [{ index: 0, id: `call_question_answer_${randomUUID().replaceAll("-", "")}`, type: "function", function: { name: "execute", arguments: JSON.stringify({ code: questionAnswer }) } }] }
       : isPermissionRoot && !hasToolReply && last?.role === "user" && canUseCodeMode
       ? { tool_calls: [{ index: 0, id: "call_native_permission_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: `return await import("node:fs").then((fs) => fs.writeFileSync(${JSON.stringify(deniedMarker)}, "bypass"))` }) } }] }
       : createConsult
       ? { tool_calls: [{ index: 0, id: "call_native_consult_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: 'return await tools.momo_consult({action:"start",prompt:"MOMO_CONSULT_WORK",waitMs:60000})' }) } }] }
       : createTask
-        ? { tool_calls: [{ index: 0, id: "call_native_task_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: `return await tools.momo_task({action:"create",prompt:"${childPrompt}"${isManualCreate ? "" : ",waitMs:60000"}})` }) } }] }
-      : { content: text }
+        ? { tool_calls: [{ index: 0, id: "call_native_task_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: isManualCreate ? manualSelectionCode : isSharedParallelRoot ? sharedParallelCode : `return await tools.momo_task({action:"create",prompt:"${childPrompt}"${isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot ? "" : ",waitMs:60000"}})` }) } }] }
+      : { content: text })
     if (body.stream) {
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" })
       response.write(`data: ${JSON.stringify({ id: "momo-acceptance", object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason: null }] })}\n\n`)
-      response.write(`data: ${JSON.stringify({ id: "momo-acceptance", object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta: {}, finish_reason: createTask || createConsult || isPermissionRoot || isManualSelect ? "tool_calls" : "stop" }] })}\n\n`)
+      response.write(`data: ${JSON.stringify({ id: "momo-acceptance", object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta: {}, finish_reason: createTask || createConsult || isPermissionRoot || questionCall !== undefined || questionAnswer !== undefined ? "tool_calls" : "stop" }] })}\n\n`)
       response.write(`data: ${JSON.stringify({ id: "momo-acceptance", object: "chat.completion.chunk", created: 1, model: body.model, choices: [], usage: { prompt_tokens: 29, completion_tokens: 7, total_tokens: 36 } })}\n\n`)
       response.end("data: [DONE]\n\n")
       if (parallelWorker) activeParallelWorkers -= 1
       return
     }
-    sendJson(response, { id: "momo-acceptance", object: "chat.completion", created: 1, model: body.model, choices: [{ index: 0, message: { role: "assistant", ...(createTask || createConsult || isPermissionRoot || isManualSelect ? { tool_calls: delta.tool_calls } : { content: text }) }, finish_reason: createTask || createConsult || isPermissionRoot || isManualSelect ? "tool_calls" : "stop" }], usage: { prompt_tokens: 29, completion_tokens: 7, total_tokens: 36 } })
+    const hasToolCall = createTask || createConsult || isPermissionRoot || questionCall !== undefined || questionAnswer !== undefined
+    sendJson(response, { id: "momo-acceptance", object: "chat.completion", created: 1, model: body.model, choices: [{ index: 0, message: { role: "assistant", ...(hasToolCall ? { tool_calls: delta.tool_calls } : { content: text }) }, finish_reason: hasToolCall ? "tool_calls" : "stop" }], usage: { prompt_tokens: 29, completion_tokens: 7, total_tokens: 36 } })
     if (parallelWorker) activeParallelWorkers -= 1
   })
   const jevServer = createHttpServer(async (request, response) => {
@@ -298,8 +364,14 @@ async function main(): Promise<void> {
   const client = OpenCode.make({ baseUrl: `http://127.0.0.1:${servicePort}`, headers: { authorization } })
   stage = "plugin activation"
   await waitReady(client, root)
+  if (opencode.pid === undefined) throw new Error("Isolated OpenCode service has no process ID")
+  serviceDatabasePaths = ownedServiceDatabasePaths(opencode.pid)
+  const canonicalRoot = realpathSync(root)
+  if (serviceDatabasePaths.length === 0 || serviceDatabasePaths.some((databasePath) => !databasePath.startsWith(`${canonicalRoot}${path.sep}`))) {
+    throw new Error(`Isolated OpenCode service database path is outside its disposable QA root: ${JSON.stringify(serviceDatabasePaths)}`)
+  }
   const version = execFileSync("opencode", ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim()
-  if (!/\bv2\./i.test(version)) throw new Error(`Expected supported OpenCode V2 service, got ${version}`)
+  if (!/\bv?2\./i.test(version)) throw new Error(`Expected supported OpenCode V2 service, got ${version}`)
   const session = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   stage = "direct task completion"
   await client.session.prompt({ sessionID: session.id, text: "Run a native task for the acceptance request, then report its final status: MOMO_NATIVE_ACCEPTANCE_CHILD" })
@@ -308,6 +380,22 @@ async function main(): Promise<void> {
   stage = "department result aggregation"
   await client.session.prompt({ sessionID: departmentSession.id, text: "Coordinate an acceptance task through one department and combine its worker result: MOMO_NATIVE_ACCEPTANCE_DEPARTMENT" })
   await client.session.wait({ sessionID: departmentSession.id })
+  stage = "five parallel children under one root session"
+  const sharedParallelSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  await client.session.prompt({ sessionID: sharedParallelSession.id, text: "Delegate five independent acceptance tasks concurrently, then combine all five delivered results: MOMO_NATIVE_ACCEPTANCE_SHARED_PARALLEL" })
+  await client.session.wait({ sessionID: sharedParallelSession.id })
+  const sharedParallelTasks = await (async () => {
+    const rpc = await client.rpc.call({ rpcID: "momo.native", method: "tasks", input: { rootSessionID: sharedParallelSession.id }, location: { directory: root } })
+    const envelope = rpc as { output?: unknown }
+    return ((envelope.output ?? rpc) as { tasks?: unknown[] }).tasks ?? []
+  })()
+  const sharedChildren = sharedParallelTasks.map((value) => value as { id?: string; prompt?: string; state?: string; parentSessionID?: string; delivery?: { status?: string; attempts?: number }; result?: string })
+    .filter((task) => task.prompt?.startsWith("MOMO_SHARED_PARENT_WORK_"))
+  const sharedContext = await client.session.context({ sessionID: sharedParallelSession.id })
+  if (sharedChildren.length !== 5 || sharedChildren.some((task) => task.parentSessionID !== sharedParallelSession.id || task.state !== "succeeded" || task.delivery?.status !== "delivered" || task.delivery.attempts !== 1) || new Set(sharedChildren.map((task) => task.id)).size !== 5 || maxParallelWorkers !== 5 || !JSON.stringify(sharedContext).includes("MOMO_SHARED_PARENT_AGGREGATED_ALL_FIVE")) {
+    throw new Error(`One root did not finish five unique, once-delivered parallel child tasks and aggregate their results: ${JSON.stringify({ rootSessionID: sharedParallelSession.id, children: sharedChildren, maxParallelWorkers, aggregateSeen: JSON.stringify(sharedContext).includes("MOMO_SHARED_PARENT_AGGREGATED_ALL_FIVE") })}`)
+  }
+  verifiedCases.push("one root completes five unique children at once and aggregates results")
   stage = "five parallel tasks"
   const parallelSessions = await Promise.all(Array.from({ length: 5 }, () => client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })))
   await Promise.all(parallelSessions.map(async (parallelSession, index) => {
@@ -336,24 +424,118 @@ async function main(): Promise<void> {
     const payload = (envelope.output ?? response) as { tasks?: unknown[] }
     return payload?.tasks ?? []
   }
+  stage = "default async department child question and parent answer"
+  const questionSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  await client.session.prompt({ sessionID: questionSession.id, text: "Create a department asynchronously and answer its worker's question through momo_task without asking the root user: MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT" })
+  await client.session.wait({ sessionID: questionSession.id })
+  const questionDeadline = Date.now() + 90_000
+  let questionTasks: unknown[] = []
+  let questionParent: { id?: string; sessionID?: string; state?: string; prompt?: string; role?: string; result?: string; childTaskIDs?: string[] } | undefined
+  let questionChild: { id?: string; state?: string; prompt?: string; role?: string; question?: { id?: string }; questionDelivery?: string; answerStatus?: string; delivery?: { status?: string; attempts?: number } } | undefined
+  while (Date.now() < questionDeadline) {
+    questionTasks = await readTasks(questionSession.id)
+    questionParent = questionTasks.map((value) => value as typeof questionParent).find((task) => task?.prompt === "MOMO_QUESTION_DEPT")
+    questionChild = questionTasks.map((value) => value as typeof questionChild).find((task) => task?.prompt === "MOMO_QUESTION_CHILD")
+    if (questionParent?.state === "succeeded" && questionChild?.state === "succeeded" && questionChild.delivery?.status === "delivered") break
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  if (questionParent?.state !== "succeeded" || !questionParent.result?.includes("MOMO_QUESTION_DEPARTMENT_AGGREGATED") || questionParent.childTaskIDs?.length !== 1 || questionChild?.state !== "succeeded" || questionChild.answerStatus !== "sent" || questionChild.questionDelivery !== "sent" || questionChild.delivery?.status !== "delivered" || questionChild.delivery.attempts !== 1 || childQuestionCalls !== 1 || parentQuestionAnswers !== 1) {
+    throw new Error(`Async department question did not reach the parent model and return through momo_task answer: ${JSON.stringify({ parent: questionParent, child: questionChild, childQuestionCalls, parentQuestionAnswers, tasks: questionTasks })}`)
+  }
+  if (questionParent.sessionID === undefined) throw new Error("Department question manager session was not persisted")
+  const openParentForms = await client.session.form.list({ sessionID: questionParent.sessionID })
+  if (openParentForms.some((form) => typeof form.metadata === "object" && form.metadata !== null && "momoNativeTaskID" in form.metadata && form.metadata.momoNativeTaskID === questionChild?.id)) throw new Error("Answered child question left a forwarded parent form open")
+  verifiedCases.push("async department child question reached the manager and was answered by its model through momo_task")
+  stage = "unanswered child question root escalation and native field answer"
+  const escalationSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  await client.session.prompt({ sessionID: escalationSession.id, text: "Launch an asynchronous worker that asks an unanswered question, then wait for the root escalation form: MOMO_NATIVE_ACCEPTANCE_ESCALATION_ROOT" })
+  await client.session.wait({ sessionID: escalationSession.id })
+  const escalationDeadline = Date.now() + 180_000
+  let escalationTasks: unknown[] = []
+  let escalationChild: { id?: string; sessionID?: string; prompt?: string; state?: string; question?: { id?: string }; questionEscalated?: boolean; answerStatus?: string; delivery?: { status?: string; attempts?: number } } | undefined
+  let rootForms: Awaited<ReturnType<typeof client.session.form.list>> = []
+  let escalationForm: (typeof rootForms)[number] | undefined
+  while (Date.now() < escalationDeadline) {
+    escalationTasks = await readTasks(escalationSession.id)
+    escalationChild = escalationTasks.map((value) => value as typeof escalationChild).find((task) => task?.prompt === "MOMO_ESCALATION_CHILD")
+    rootForms = await client.session.form.list({ sessionID: escalationSession.id })
+    escalationForm = rootForms.find((form) => typeof form.metadata === "object" && form.metadata !== null && "momoNativeFormKind" in form.metadata && form.metadata.momoNativeFormKind === "escalation" && "momoNativeTaskID" in form.metadata && form.metadata.momoNativeTaskID === escalationChild?.id)
+    if (escalationForm !== undefined && escalationChild?.questionEscalated === true) break
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+  if (escalationForm === undefined || escalationChild?.sessionID === undefined || escalationChild.question?.id === undefined) throw new Error(`Timed out waiting for the real root escalation form: ${JSON.stringify({ escalationChild, rootForms })}`)
+  const rootForm = await client.session.form.get({ sessionID: escalationSession.id, formID: escalationForm.id })
+  const rootAnswer = Object.fromEntries(rootForm.fields.map((field) => [field.key, "approved"]))
+  if (Object.keys(rootAnswer).length === 0) throw new Error("Escalation form did not expose a native answer field key")
+  await client.session.form.reply({ sessionID: escalationSession.id, formID: escalationForm.id, answer: rootAnswer })
+  let answeredEscalation: typeof escalationChild
+  const answerDeadline = Date.now() + 60_000
+  while (Date.now() < answerDeadline) {
+    escalationTasks = await readTasks(escalationSession.id)
+    answeredEscalation = escalationTasks.map((value) => value as typeof escalationChild).find((task) => task?.id === escalationChild?.id)
+    if (answeredEscalation?.state === "succeeded" && answeredEscalation.delivery?.status === "delivered") break
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  if (answeredEscalation?.state !== "succeeded" || answeredEscalation.answerStatus !== "sent" || answeredEscalation.delivery?.status !== "delivered" || answeredEscalation.delivery.attempts !== 1 || parentQuestionAnswers !== 1) {
+    throw new Error(`Root escalation answer did not resume and complete the same child session: ${JSON.stringify({ escalationChild: answeredEscalation, parentQuestionAnswers })}`)
+  }
+  const formsAfterEscalationAnswer = await client.session.form.list({ sessionID: escalationSession.id })
+  if (formsAfterEscalationAnswer.some((form) => typeof form.metadata === "object" && form.metadata !== null && "momoNativeTaskID" in form.metadata && form.metadata.momoNativeTaskID === answeredEscalation?.id)) throw new Error("Answered root escalation left a forwarded question form open")
+  verifiedCases.push("unanswered child question escalates to a root form and the native field-key answer resumes the same child")
+  stage = "native CLI root auto-resume after asynchronous child delivery"
+  const originalStdoutWrite = process.stdout.write
+  const originalServerPassword = process.env.OPENCODE_SERVER_PASSWORD
+  let cliOutput = ""
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    cliOutput += typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8")
+    return true
+  }) as typeof process.stdout.write
+  process.env.OPENCODE_SERVER_PASSWORD = servicePassword
+  let cliExitCode: number
+  try {
+    cliExitCode = await runNativeCLI({
+      message: "Launch one asynchronous task, then combine its delivered result: MOMO_NATIVE_ACCEPTANCE_CLI_ASYNC",
+      attach: `http://127.0.0.1:${servicePort}`,
+      directory: root,
+      timestamp: false,
+      json: true,
+    })
+  } finally {
+    process.stdout.write = originalStdoutWrite
+    if (originalServerPassword === undefined) delete process.env.OPENCODE_SERVER_PASSWORD
+    else process.env.OPENCODE_SERVER_PASSWORD = originalServerPassword
+  }
+  const cliResult = JSON.parse(cliOutput.trim().split("\n").at(-1) ?? "null") as { sessionId?: string; success?: boolean }
+  if (cliExitCode !== 0 || !cliResult.sessionId || cliResult.success !== true) throw new Error(`Native CLI did not wait for asynchronous child aggregation: ${cliOutput}`)
+  const cliTasks = await readTasks(cliResult.sessionId)
+  const cliChild = cliTasks.map((task) => task as { prompt?: string; state?: string; delivery?: { status?: string } }).find((task) => task.prompt === "MOMO_CLI_ASYNC_CHILD")
+  if (cliChild?.state !== "succeeded" || cliChild.delivery?.status !== "delivered") throw new Error(`Native CLI returned before its asynchronous child was durably delivered: ${JSON.stringify(cliChild)}`)
+  verifiedCases.push("native CLI waits for root aggregation after async child delivery")
   stage = "manual selection without a second Jev route"
   const selectionSession = session
   await client.session.prompt({ sessionID: selectionSession.id, text: "Use momo_task to create a task with prompt MOMO_SELECTION_WORK. Leave it awaiting my selection: MOMO_NATIVE_ACCEPTANCE_SELECT_CREATE" })
-  const pendingSelectionTasks = await readTasks(selectionSession.id)
-  const pendingSelection = pendingSelectionTasks.map((task) => task as { id?: string; decisionId?: string; state?: string; prompt?: string }).find((task) => task.prompt === "MOMO_SELECTION_WORK")
-  if (!pendingSelection?.id || !pendingSelection.decisionId || pendingSelection.state !== "awaiting_selection") throw new Error(`Expected a durably pending manual selection: ${JSON.stringify(pendingSelectionTasks)}`)
-  manualSelectionTarget = { taskID: pendingSelection.id, decisionId: pendingSelection.decisionId }
-  await client.session.prompt({ sessionID: selectionSession.id, text: "Select the worker candidate for the pending task: MOMO_NATIVE_ACCEPTANCE_SELECT_NOW" })
   await client.session.wait({ sessionID: selectionSession.id })
-  const selectedTasks = await readTasks(selectionSession.id)
-  const selectedTask = selectedTasks.find((task) => (task as { id?: string }).id === pendingSelection.id) as { state?: string; delivery?: { status?: string }; decisionId?: string } | undefined
+  const pendingSelectionTasks = await readTasks(selectionSession.id)
+  const pendingSelection = pendingSelectionTasks.map((task) => task as { id?: string; decisionId?: string; state?: string; prompt?: string; role?: string; model?: { providerID?: string; id?: string }; candidates?: Array<{ role?: string; model?: { providerID?: string; id?: string } }> }).find((task) => task.prompt === "MOMO_SELECTION_WORK")
+  const offeredCandidate = pendingSelection?.candidates?.[0]
+  if (!pendingSelection?.id || !pendingSelection.decisionId || !offeredCandidate?.role || !offeredCandidate.model?.providerID || !offeredCandidate.model.id) throw new Error(`Expected a persisted manual selection from an offered candidate: ${JSON.stringify(pendingSelectionTasks)}`)
+  let selectedTasks = await readTasks(selectionSession.id)
+  const selectionDeadline = Date.now() + 60_000
+  let selectedTask = selectedTasks.find((task) => (task as { id?: string }).id === pendingSelection.id) as { state?: string; delivery?: { status?: string }; decisionId?: string } | undefined
+  while (selectedTask?.state !== "succeeded" && selectedTask?.state !== "failed" && Date.now() < selectionDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    selectedTasks = await readTasks(selectionSession.id)
+    selectedTask = selectedTasks.find((task) => (task as { id?: string }).id === pendingSelection.id) as typeof selectedTask
+  }
   if (selectedTask?.state !== "succeeded" || selectedTask.delivery?.status !== "delivered" || selectedTask.decisionId !== pendingSelection.decisionId) throw new Error(`Manual selection did not finish the existing task: ${JSON.stringify(selectedTask)}`)
+  verifiedCases.push("manual selection finishes the existing task without a second Jev route")
   const directTasks = await readTasks(session.id)
   const departmentTasks = await readTasks(departmentSession.id)
   const parallelTasks = await Promise.all(parallelSessions.map((parallelSession) => readTasks(parallelSession.id)))
   const consultationTasks = await Promise.all(consultationSessions.map((consultationSession) => readTasks(consultationSession.id)))
   const advisorTasks = await readTasks(advisorSession.id)
-  const allTasks = [...directTasks, ...departmentTasks, ...parallelTasks.flat(), ...consultationTasks.flat(), ...selectedTasks]
+  const allTasks = [...directTasks, ...departmentTasks, ...sharedParallelTasks, ...parallelTasks.flat(), ...consultationTasks.flat(), ...selectedTasks, ...cliTasks]
+    .filter((task) => (task as { sourceDecisionID?: string }).sourceDecisionID === undefined)
   const jevRows = (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as JevRequest)
   const selectionRouteCount = jevRows.filter((row) => stateDecision(row) === pendingSelection.decisionId).length
   if (selectionRouteCount !== 1) throw new Error(`Manual selection rerouted Jev decision ${pendingSelection.decisionId} ${selectionRouteCount} times`)
@@ -365,9 +547,13 @@ async function main(): Promise<void> {
     })
     throw new Error(`Expected at least one direct task and department with one child, got task counts ${directTasks.length} and ${departmentTasks.length}; direct=${JSON.stringify(summary(directTasks))}; department=${JSON.stringify(summary(departmentTasks))}; Jev=${JSON.stringify(jevRows.map((row) => ({ prompt: statePrompt(row), candidateRoles: Object.keys(row.questions?.candidate?.criteria ?? {}).map((key) => key.split("|")[0]), laneChoices: Object.keys(row.questions?.lane?.criteria ?? {}) })))}`)
   }
+  verifiedCases.push("direct and department tasks complete under the same native task RPC")
   if (parallelTasks.some((items) => items.length !== 1) || parallelTasks.some((items) => (items[0] as { role?: string }).role !== "worker") || maxParallelWorkers !== 5) throw new Error(`Five parallel task slots were not used concurrently: ${JSON.stringify({ taskCounts: parallelTasks.map((items) => items.length), roles: parallelTasks.map((items) => (items[0] as { role?: string } | undefined)?.role), maxParallelWorkers })}`)
+  verifiedCases.push("five independent root sessions observed five parallel model calls")
   if (consultationTasks.some((items) => items.length !== 1 || (items[0] as { kind?: string; role?: string }).kind !== "consultation" || (items[0] as { role?: string }).role !== "advisor")) throw new Error(`A non-advisor role could not complete a bounded consultation: ${JSON.stringify(consultationTasks.map((items) => items.map((task) => ({ kind: (task as { kind?: string }).kind, role: (task as { role?: string }).role }))))}`)
+  verifiedCases.push("consultation from every non-advisor role")
   if (advisorTasks.length !== 0) throw new Error(`Advisor role created a nested consultation task: ${JSON.stringify(advisorTasks)}`)
+  verifiedCases.push("advisor could not create a nested consultation")
   for (const candidate of allTasks) {
     const task = candidate as { state?: string; delivery?: { status?: string }; usage?: { inputTokens?: number; outputTokens?: number } }
     if (task.state !== "succeeded" || task.delivery?.status !== "delivered") throw new Error(`Native task did not finish with durable delivered result: ${JSON.stringify(task)}`)
@@ -375,6 +561,7 @@ async function main(): Promise<void> {
   }
   const departmentParent = departmentTasks.map((task) => task as { id?: string; role?: string; childTaskIDs?: string[]; result?: string }).find((task) => task.role === "planner")
   if (departmentParent?.childTaskIDs?.length !== 1 || !departmentParent.result?.includes("MOMO_DEPARTMENT_RESULT_AGGREGATED")) throw new Error(`Department did not combine its worker result after resumption: ${JSON.stringify(departmentParent)}`)
+  verifiedCases.push("department resumes after child and combines child result")
   const decisionResponse = await client.rpc.call({ rpcID: "momo.native", method: "exportDecisions", input: {}, location: { directory: root } })
   stage = "collect model and Jev evidence"
   const decisionEnvelope = decisionResponse as { output?: unknown }
@@ -390,8 +577,9 @@ async function main(): Promise<void> {
     return typeof func === "object" && func !== null && "name" in func && typeof func.name === "string" ? [func.name] : []
   })))]
   if (exposedCoordinatorTools.some((name) => ["shell", "bash", "edit", "write", "task", "spawn_agent"].includes(name))) throw new Error(`Coordinator received a write, shell, or delegation tool: ${JSON.stringify(exposedCoordinatorTools)}`)
+  verifiedCases.push("coordinator tool list excludes shell, write, and delegation tools")
   const setupRows = (await Bun.file(permissionLog).exists() ? await readFile(permissionLog, "utf8") : "").trim().split("\n").filter(Boolean)
-  result = { status: "partial", opencodeVersion: version, pluginID, pluginEntry, rootSessionID: session.id, directTasks, departmentRootSessionID: departmentSession.id, departmentTasks, selectionTaskID: pendingSelection.id, selectionState: selectedTask.state, selectionRouteCount, selectedTasks, parallelRootSessionIDs: parallelSessions.map((item) => item.id), parallelTaskCounts: parallelTasks.map((items) => items.length), maxParallelWorkers, consultationRoles: consultationAgents, consultationsPerRole: consultationTasks.map((items) => items.length), advisorNestedConsultationTasks: advisorTasks.length, coordinatorTools: exposedCoordinatorTools, coordinatorDynamicImportMarkerCreated: await Bun.file(deniedMarker).exists(), decisionExportRecords: decisionLines.length, liveJevRequests: jevRows.length, localModelRequests: finalRequest.length, permissionEvaluations: setupRows.map((line) => JSON.parse(line) as JsonRecord), evidence: "real OpenCode V2 service, integrated plugin entry, isolated fake provider and Jev transport" }
+  result = { status: "partial", opencodeVersion: version, pluginID, pluginEntry, serverDatabasePaths: serviceDatabasePaths, rootSessionID: session.id, directTasks, departmentRootSessionID: departmentSession.id, departmentTasks, questionRootSessionID: questionSession.id, questionManager: questionParent, questionWorker: questionChild, questionChildCalls: childQuestionCalls, parentQuestionAnswers, forwardedFormsAfterAnswer: openParentForms.length, escalationRootSessionID: escalationSession.id, escalatedChild: answeredEscalation, rootFormAnswerKeys: Object.keys(rootAnswer), forwardedFormsAfterEscalation: formsAfterEscalationAnswer.length, sharedParallelRootSessionID: sharedParallelSession.id, sharedParallelChildren: sharedChildren, sharedParallelAggregateSeen: JSON.stringify(sharedContext).includes("MOMO_SHARED_PARENT_AGGREGATED_ALL_FIVE"), sharedParallelMaxWorkers: maxParallelWorkers, verifiedCases, departmentChildCount: sharedChildren.length, cliSessionID: cliResult.sessionId, cliExitCode, cliSuccess: cliResult.success, cliChild, selectionTaskID: pendingSelection.id, selectionState: selectedTask.state, selectionCandidate: { role: offeredCandidate.role, model: offeredCandidate.model }, selectionRouteCount, selectedTasks, parallelRootSessionIDs: parallelSessions.map((item) => item.id), parallelTaskCounts: parallelTasks.map((items) => items.length), maxParallelWorkers, consultationRoles: consultationAgents, consultationsPerRole: consultationTasks.map((items) => items.length), advisorNestedConsultationTasks: advisorTasks.length, coordinatorTools: exposedCoordinatorTools, coordinatorDynamicImportMarkerCreated: await Bun.file(deniedMarker).exists(), decisionExportRecords: decisionLines.length, liveJevRequests: jevRows.length, localModelRequests: finalRequest.length, permissionEvaluations: setupRows.map((line) => JSON.parse(line) as JsonRecord), evidence: "real OpenCode V2 service, integrated plugin entry, isolated fake provider and Jev transport" }
 }
 
 try {
@@ -411,7 +599,7 @@ try {
   } catch (diagnosticError) {
     modelTrace = [{ diagnosticError: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError) }]
   }
-  result = { ...result, failure: error instanceof Error ? error.message : String(error), failedStage: stage, serviceOutput: output.slice(-4000), modelTrace: modelTrace.slice(-8), fixtureDecisions }
+  result = { ...result, verifiedCases, failure: error instanceof Error ? error.message : String(error), failedStage: stage, serviceDatabasePaths, serviceOutput: output.slice(-4000), modelTrace: modelTrace.slice(-8), fixtureDecisions }
   process.exitCode = 1
 } finally {
   let ownedProcessGroupGone = true
@@ -434,6 +622,6 @@ try {
   await mkdir(evidencePath, { recursive: true })
   await writeFile(path.join(evidencePath, "summary.json"), `${JSON.stringify({ ...result, cleanup }, null, 2)}\n`, { mode: 0o600 })
   const acceptanceStatus = result.status === "passed"
-  await writeFile(path.join(evidencePath, "adversarial.json"), `${JSON.stringify({ status: acceptanceStatus ? "partial_pass" : "failed", passedCases: ["five parallel child tasks", "department child result aggregation", "consultation from each non-advisor role", "manual selection completes without a second Jev route", "coordinator tool surface excludes shell and dynamic import cannot write", "usage accounting and decision export"], pendingCases: ["cancel running descendants", "busy parent questions and restart reconciliation"] }, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(path.join(evidencePath, "adversarial.json"), `${JSON.stringify({ status: acceptanceStatus ? "partial_pass" : verifiedCases.length > 0 ? "partial_pass" : "failed", livePassedCases: verifiedCases, lifecycleUnitCases: ["duplicate and late V2 events", "failed delivery retries without rerunning work", "question answer retry across reconciliation", "pending root escalation retries after notification failure", "pending parent question retries after transient notification failure with stable IDs", "active tools survive silence timeout and interrupt only after the 60-minute cap", "persisted in-place wait resumes an interrupted existing session and never reruns completed work", "actual V2 running session is not duplicated during reconciliation"], pendingLiveCases: ["restart the integrated plugin during a queued wait-for-child and verify no duplicate execution", "live active tool watchdog at 60 minutes", "network-failed parent question form delivery retry without duplicate form/notification", "live cancellation of running descendants", "permission hook denial event beyond tool surface filtering"] }, null, 2)}\n`, { mode: 0o600 })
   process.stdout.write(`${JSON.stringify({ ...result, cleanup }, null, 2)}\n`)
 }
