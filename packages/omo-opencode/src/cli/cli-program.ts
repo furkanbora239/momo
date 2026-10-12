@@ -151,7 +151,7 @@ program
    .command("run <message>")
    .allowUnknownOption()
    .passThroughOptions()
-  .description("Run opencode with todo/background task completion enforcement")
+  .description("Run OpenCode v2 and wait for native momo tasks to finish")
   .option("-a, --agent <name>", "Agent to use (default: from CLI/env/config, fallback: Sisyphus)")
   .option("-m, --model <provider/model>", "Model override (e.g., anthropic/claude-sonnet-4)")
   .option("-d, --directory <path>", "Working directory")
@@ -184,8 +184,8 @@ Available core agents:
   Sisyphus, Hephaestus, Prometheus, Atlas
 
 Unlike 'opencode run', this command waits until:
-  - All todos are completed or cancelled
-  - All child sessions (background tasks) are idle
+  - The root execution has completed
+  - All native momo tasks have a terminal state and their result delivery is confirmed
 `)
   .action(async (message: string, options) => {
     if (options.port && options.attach) {
