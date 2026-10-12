@@ -12,11 +12,11 @@
     "fail": 0
   },
   "fullBun": {
-    "pass": 12614,
+    "pass": 12616,
     "skip": 6,
     "fail": 0,
-    "files": 1551,
-    "seconds": 182.8
+    "files": 1552,
+    "seconds": 191.46
   },
   "publishedNativeHostAcceptance": "passed",
   "sourceSHA256": {
@@ -32,5 +32,22 @@
   "realUserDatabaseUnchanged": true,
   "legacyV1InitPerfTests": "Retired alongside their removed plugin.server entry; native entry is verified through actual host acceptance. No performance-rate claim.",
   "releaseAccepted": false,
-  "remaining": "Remote CI/review and dev merge for runtime/activation PRs"
+  "remaining": "Final remote CI/review and dev merge for activation PR #34",
+  "publishedNativeRecoveryAcceptance": {
+    "status": "passed",
+    "serverRestarts": 5,
+    "delivery": "passed",
+    "toolWatchdog": "passed",
+    "ownedGroupsGone": true,
+    "userDatabaseUnchanged": true
+  },
+  "failedCombinedQaAttempt": {
+    "accepted": false,
+    "reason": "Fault injection state reset on every fixture service restart, conflicting with the single-injection assertion across a composed QA run. QA now restores injection/attempt state from its own log; two restart continuity regressions and the fresh combined native run passed. Production runtime unchanged."
+  },
+  "additionalFocusedQaRegressions": {
+    "pass": 2,
+    "fail": 0,
+    "assertions": 10
+  }
 }

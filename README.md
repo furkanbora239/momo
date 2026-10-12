@@ -6,7 +6,7 @@
 > Upstream documentation is available in the [oh-my-openagent repository](https://github.com/code-yeongyu/oh-my-openagent#readme).
 
 
-momo extends OpenCode v2 with a session-model orchestrator, a Jev routing manager, departments, workers and on-demand readonly consultation. The OpenCode adapter targets v2.0.24. The native migration is being verified; remaining release gates are recorded in [the handoff](notes/native-v2-handoff-20261012.md).
+momo extends OpenCode v2 with a session-model orchestrator, a Jev routing manager, departments, workers and on-demand readonly consultation. The OpenCode adapter targets v2.0.24. The native implementation passed isolated OpenCode acceptance. [The handoff](notes/native-v2-handoff-20261012.md) records the evidence and delivery PRs; [PR #34](https://github.com/furkanbora239/momo/pull/34) is the final dev delivery gate.
 
 ## Execution model
 

@@ -1,0 +1,169 @@
+{
+  "status": "passed",
+  "deliveryProof": {
+    "status": "passed",
+    "injectedHttpStatus": 503,
+    "faultKinds": [
+      "form",
+      "result"
+    ],
+    "stableRetryIDs": true,
+    "resultRetriedAfterBusyParent": true,
+    "singleForwardedForm": true,
+    "answeredField": "q0",
+    "childState": "succeeded",
+    "childResultAcceptedOnce": true,
+    "forwardedFormsClosed": true,
+    "injectedResultIDs": [
+      "msg_afbaea64bc8d8f58a4abca4ba3"
+    ]
+  },
+  "toolProof": {
+    "status": "passed",
+    "configuredSilenceTimeoutMs": 60000,
+    "configuredActiveToolTimeoutMs": 70000,
+    "protectedAfterSilenceThreshold": {
+      "taskID": "ntask_23045be3-8e6a-44f5-8d92-5bd7d1a60cb3",
+      "state": "running",
+      "tools": [
+        "shell"
+      ]
+    },
+    "completedProtectedTask": {
+      "taskID": "ntask_23045be3-8e6a-44f5-8d92-5bd7d1a60cb3",
+      "state": "succeeded",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_637805c2ab4fdbf40e8de613a0",
+        "attemptedAt": 1791843117104,
+        "deliveredAt": 1791843117119
+      }
+    },
+    "interruptedAtToolCap": {
+      "taskID": "ntask_4363d2c8-1936-4cad-b979-da7a44429221",
+      "state": "interrupted",
+      "error": "Task exceeded the active tool timeout."
+    },
+    "resumedAfterToolCap": {
+      "taskID": "ntask_4363d2c8-1936-4cad-b979-da7a44429221",
+      "sessionID": "ses_62fbf73344601830744f59ce91",
+      "state": "succeeded",
+      "expiredToolLeaseCleared": true
+    },
+    "nativePermissionHookDeniedShell": true,
+    "deniedCommandDidNotWrite": true,
+    "limits": [
+      "Isolated configured thresholds exercise both watchdog branches. The production defaults remain 180000/3600000 ms; this probe does not wait for the literal 60-minute default cap."
+    ]
+  },
+  "lifecycle": {
+    "status": "passed",
+    "realServerRestarts": 5,
+    "resumed": {
+      "taskID": "ntask_4b0ec1d2-aa24-48fa-8bd3-5d4594f674e4",
+      "sessionID": "ses_c2cb4ca01ec0cff2aaa93ca21a",
+      "decisionID": "ntask_4b0ec1d2-aa24-48fa-8bd3-5d4594f674e4",
+      "attempts": 2,
+      "state": "succeeded",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_6c2baf38c2447bb36c714d9dc4",
+        "attemptedAt": 1791843046179,
+        "deliveredAt": 1791843046192
+      }
+    },
+    "completedTaskDidNotRerun": true,
+    "cancelled": {
+      "taskID": "ntask_670c87df-65a0-4940-a9fd-0f5b6b0c0f8a",
+      "sessionID": "ses_8640861332bc22790a0145feff",
+      "attempts": 1,
+      "state": "cancelled",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_ecb2f6e2b76eb3496a9f8d94fa",
+        "attemptedAt": 1791843047981,
+        "deliveredAt": 1791843048009
+      }
+    },
+    "cancelledSessionInactive": true,
+    "cancelledTaskDidNotResume": true,
+    "departmentRestart": {
+      "sameTaskAndSessionIDs": true,
+      "childParentTaskID": "ntask_87340aff-7358-4cbc-a3b5-a9283e19f58d",
+      "departmentTaskID": "ntask_87340aff-7358-4cbc-a3b5-a9283e19f58d",
+      "state": "succeeded"
+    },
+    "cancelledDepartmentTree": {
+      "parentState": "cancelled",
+      "descendantState": "cancelled",
+      "inactive": true,
+      "retainedAcrossRestart": true
+    }
+  },
+  "opencodeVersion": "opencode v2.0.24",
+  "pluginEntry": "/private/tmp/momo-v2-activation/dist/index.js",
+  "priceClaimPersistedBy": "momo_catalog_enrich",
+  "providerModelIdentity": "momo-price-qa/momo-free",
+  "sourceURL": "https://fixture.example/models/momo-free/pricing",
+  "jevCandidateFacts": {
+    "free": {
+      "pricesPerMillion": {
+        "input": 0,
+        "output": 0
+      },
+      "priceCurrency": "USD",
+      "priceOrigin": "https://fixture.example/models/momo-free/pricing"
+    },
+    "priced": {
+      "pricesPerMillion": {
+        "input": 0.2,
+        "output": 0.4
+      },
+      "priceCurrency": "USD"
+    },
+    "unknownZero": {
+      "pricesPerMillion": {
+        "input": "unknown",
+        "output": "unknown"
+      },
+      "priceCurrency": "unknown"
+    }
+  },
+  "selectedTask": {
+    "id": "ntask_288af133-a8cf-4c74-866b-eb07114c6d54",
+    "role": "worker",
+    "model": {
+      "providerID": "momo-price-qa",
+      "id": "momo-free"
+    },
+    "state": "succeeded",
+    "delivery": {
+      "status": "delivered",
+      "attempts": 2,
+      "messageID": "msg_afbaea64bc8d8f58a4abca4ba3",
+      "attemptedAt": 1791843044523,
+      "deliveredAt": 1791843044572
+    }
+  },
+  "fakeProviderRequestCount": 116,
+  "jevRequestCount": 23,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "ownedProcessGroupGone": true,
+  "realUserDatabaseUnchanged": true,
+  "realDatabaseBefore": {
+    "counts": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  },
+  "realDatabaseAfter": {
+    "counts": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  }
+}
