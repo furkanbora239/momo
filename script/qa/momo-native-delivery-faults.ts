@@ -1,9 +1,19 @@
-import { appendFileSync } from "node:fs"
+import { appendFileSync, existsSync, readFileSync } from "node:fs"
 
 export function installNativeQaDeliveryFaults(logPath: string): () => void {
   const original = globalThis.fetch
   const failed = new Set<string>()
   const attempts = new Map<string, number>()
+  // One fault per family for the entire QA run, including service restarts.
+  if (existsSync(logPath)) {
+    for (const line of readFileSync(logPath, "utf8").split("\n").filter(Boolean)) {
+      const row: unknown = JSON.parse(line)
+      if (typeof row !== "object" || row === null || !("kind" in row) ||
+          (row.kind !== "form" && row.kind !== "result")) throw new Error("Invalid QA delivery fault log")
+      attempts.set(row.kind, (attempts.get(row.kind) ?? 0) + 1)
+      if ("injected" in row && row.injected === true) failed.add(row.kind)
+    }
+  }
   globalThis.fetch = Object.assign(async (...args: Parameters<typeof fetch>): Promise<Response> => {
     const [source, options] = args
     const request = source instanceof Request ? source : undefined
