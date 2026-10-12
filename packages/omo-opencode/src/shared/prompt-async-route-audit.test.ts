@@ -37,6 +37,10 @@ const PROMPT_GATE_FILES = new Set([
 ])
 const RAW_PROMPT_ALLOWLIST = new Map<string, string>([
   [
+    path.join(SOURCE_ROOT, "native-runtime", "session-runtime.ts"),
+    "uses the official V2 session.prompt API for native task dispatch after durable task/session creation; V2 task identity and delivery metadata provide the idempotency boundary rather than the retired V1 prompt gate",
+  ],
+  [
     path.join(SOURCE_ROOT, "plugin", "event.ts"),
     "team idle wake hint wires a client facade for downstream gate-routed dispatch",
   ],

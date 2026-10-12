@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 
 import { registerCardKeymapV2 } from "./card-keymap-v2"
-import { createFakeV2TuiContext } from "./fake-tui-context"
+import { createFakeSolidRuntime, createFakeV2TuiContext } from "./fake-tui-context"
 import { createV2TuiFacade } from "./tui-facade"
 
 function bindOf(command: { readonly bind?: false | string }): string {
@@ -20,8 +20,9 @@ describe("#given card keymap actions", () => {
   it("#when registered #then a mode-scoped priority layer is added", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
 
-    registerCardKeymapV2(facade, "omo.tui-card.tasks", {
+    registerCardKeymapV2(facade, solid, "omo.tui-card.tasks", {
       onMoveUp: () => undefined,
       onMoveDown: () => undefined,
       onActivate: () => undefined,
@@ -37,8 +38,9 @@ describe("#given card keymap actions", () => {
   it("#when registered #then navigation and control keys are bound as inline commands", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
 
-    registerCardKeymapV2(facade, "omo.tui-card.tasks", {
+    registerCardKeymapV2(facade, solid, "omo.tui-card.tasks", {
       onMoveUp: () => undefined,
       onMoveDown: () => undefined,
       onActivate: () => undefined,
@@ -58,9 +60,10 @@ describe("#given card keymap actions", () => {
   it("#when a command runs #then it dispatches to the matching action", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
     const calls: string[] = []
 
-    registerCardKeymapV2(facade, "omo.tui-card.tasks", {
+    registerCardKeymapV2(facade, solid, "omo.tui-card.tasks", {
       onMoveUp: () => calls.push("up"),
       onMoveDown: () => calls.push("down"),
       onActivate: () => calls.push("activate"),
@@ -83,8 +86,9 @@ describe("#given card keymap actions with a type-to-filter input", () => {
   it("#when registered #then every filter char and backspace are bound", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
 
-    registerCardKeymapV2(facade, "omo.tui-card.pool", {
+    registerCardKeymapV2(facade, solid, "omo.tui-card.pool", {
       onMoveUp: () => undefined,
       onMoveDown: () => undefined,
       onActivate: () => undefined,
@@ -104,9 +108,10 @@ describe("#given card keymap actions with a type-to-filter input", () => {
   it("#when a filter char command runs #then it dispatches the char to the action", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
     const chars: string[] = []
 
-    registerCardKeymapV2(facade, "omo.tui-card.pool", {
+    registerCardKeymapV2(facade, solid, "omo.tui-card.pool", {
       onMoveUp: () => undefined,
       onMoveDown: () => undefined,
       onActivate: () => undefined,
@@ -128,9 +133,10 @@ describe("#given card keymap actions with extra bindings", () => {
   it("#when registered #then the extra key is bound and dispatches to its run", () => {
     const fake = createFakeV2TuiContext()
     const facade = createV2TuiFacade(fake.ctx)
+    const solid = createFakeSolidRuntime()
     const calls: string[] = []
 
-    registerCardKeymapV2(facade, "omo.tui-card.pool", {
+    registerCardKeymapV2(facade, solid, "omo.tui-card.pool", {
       onMoveUp: () => undefined,
       onMoveDown: () => undefined,
       onActivate: () => undefined,

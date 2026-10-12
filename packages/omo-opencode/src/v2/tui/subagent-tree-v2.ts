@@ -161,7 +161,8 @@ export function registerSubagentTreeV2(
         run: () => openTasksDialog(),
       },
     ],
-  }))
+    mode: "global",
+  }), solid)
 
   facade.onCleanup(() => {
     stopPolling()

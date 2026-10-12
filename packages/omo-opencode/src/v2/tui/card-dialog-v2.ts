@@ -224,7 +224,7 @@ export function createCardDialogV2<Node, Card extends CardDescriptor>(
     close()
   }
 
-  registerCardKeymapV2(input.facade, input.mode, {
+  registerCardKeymapV2(input.facade, input.solid, input.mode, {
     onMoveUp: () => moveFocusBy(-1),
     onMoveDown: () => moveFocusBy(1),
     onActivate: activate,

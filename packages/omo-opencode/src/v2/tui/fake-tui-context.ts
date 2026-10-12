@@ -56,6 +56,7 @@ export type FakeV2TuiContextInput = {
   readonly messages?: readonly FakeMessage[]
   readonly fetchedMessages?: readonly FakeMessage[]
   readonly selectResult?: unknown
+  readonly rpcOutput?: unknown
 }
 
 export type FakeV2TuiContext = {
@@ -72,6 +73,7 @@ export type FakeV2TuiContext = {
   readonly renderRequests: number
   readonly messageSyncs: string[]
   readonly clientMessageListCalls: unknown[]
+  readonly clientRpcCalls: unknown[]
   readonly defaultLocationCalls: number
 }
 
@@ -108,6 +110,7 @@ export function createFakeV2TuiContext(
   let renderRequests = 0
   const messageSyncs: string[] = []
   const clientMessageListCalls: unknown[] = []
+  const clientRpcCalls: unknown[] = []
   let defaultLocationCalls = 0
 
   const ctx = {
@@ -122,6 +125,12 @@ export function createFakeV2TuiContext(
       getSelection: () => null,
     },
     client: {
+      rpc: {
+        call: (call: unknown) => {
+          clientRpcCalls.push(call)
+          return Promise.resolve({ output: input.rpcOutput })
+        },
+      },
       message: {
         list: (call: unknown) => {
           clientMessageListCalls.push(call)
@@ -185,6 +194,10 @@ export function createFakeV2TuiContext(
       slot: (claim: SlotClaim) => {
         const record: FakeSlotClaimRecord = { claim, unregistered: false }
         slotClaims.push(record)
+        // Simulate the host mount: the real host invokes the claim render
+        // inside its Solid tree, which is where deferred keymap layers get
+        // created.
+        ;(claim.render as (input: unknown) => unknown)({})
         return () => {
           record.unregistered = true
         }
@@ -212,6 +225,7 @@ export function createFakeV2TuiContext(
     },
     messageSyncs,
     clientMessageListCalls,
+    clientRpcCalls,
     get defaultLocationCalls(): number {
       return defaultLocationCalls
     },

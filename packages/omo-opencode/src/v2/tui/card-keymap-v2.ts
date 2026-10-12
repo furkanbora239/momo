@@ -1,6 +1,9 @@
 import type { KeymapCommand } from "@opencode/plugin/tui/context"
 
-import { DEFAULT_FILTER_CHARS } from "../../features/tui-card"
+import {
+  DEFAULT_FILTER_CHARS,
+  type SolidRuntime,
+} from "../../features/tui-card"
 import type { V2TuiFacade } from "./tui-facade"
 
 export type CardKeymapActionsV2 = {
@@ -30,8 +33,9 @@ const CARD_LAYER_PRIORITY = 20_000
  * by the calling component and disposed with it, so there is no manual
  * unregister to return.
  */
-export function registerCardKeymapV2(
+export function registerCardKeymapV2<Node>(
   facade: V2TuiFacade,
+  solid: SolidRuntime<Node>,
   mode: string,
   actions: CardKeymapActionsV2,
 ): CardKeymapLayerV2 {
@@ -54,6 +58,9 @@ export function registerCardKeymapV2(
   for (const extra of actions.extraBindings ?? []) {
     commands.push({ bind: extra.key, run: () => extra.run() })
   }
-  facade.addKeymapLayer(() => ({ mode, priority: CARD_LAYER_PRIORITY, commands }))
+  facade.addKeymapLayer(
+    () => ({ mode, priority: CARD_LAYER_PRIORITY, commands }),
+    solid,
+  )
   return { mode }
 }
