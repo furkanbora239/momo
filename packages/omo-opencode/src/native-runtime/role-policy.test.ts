@@ -81,4 +81,19 @@ describe("native Code Mode MCP tool names", () => {
     filterNativeContextTools("momo-worker", workerTools)
     expect(Object.keys(workerTools)).toEqual(["momo_lsp_status", "momo_lsp_rename", "momo_ast_grep_rewrite"])
   })
+
+  test("does not trust unknown MCP status or search actions as read-only", () => {
+    const advisorTools: Record<string, unknown> = {
+      mcp__external__status: {}, mcp__external__search: {}, mcp__momo_lsp__status: {},
+      read: {}, grep: {}, webfetch: {},
+    }
+    filterNativeContextTools("momo-advisor", advisorTools)
+    expect(Object.keys(advisorTools).sort()).toEqual(["grep", "mcp__momo_lsp__status", "read", "webfetch"])
+    expect(nativeActionEffect("momo-advisor", "mcp__external__status")).toBe("deny")
+    expect(nativeActionEffect("momo-advisor", "mcp__external__search")).toBe("deny")
+    expect(nativeActionEffect("momo-orchestrator", "mcp__external__status")).toBe("deny")
+    expect(nativeActionEffect("momo-advisor", "mcp__momo_lsp__status")).toBeUndefined()
+    expect(isNativeReadTool("mcp__external__search")).toBe(false)
+    expect(isNativeReadTool("webfetch")).toBe(true)
+  })
 })

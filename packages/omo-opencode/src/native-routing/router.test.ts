@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises"
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createJsonlNativeRouterStore } from "./jsonl-store"
@@ -82,6 +82,21 @@ function deps(options: {
 }
 
 describe("native task routing", () => {
+  test("corrupt active ledger prevents Jev replay after restart", async () => {
+    const root = await mkdtemp(join(tmpdir(), "momo-native-ledger-corrupt-"))
+    tempDirs.push(root)
+    const path = join(root, "routing-ledger.jsonl")
+    await writeFile(path, '{"version":1,"type":"decision","decisionId":"stable","status":"awaiting_selection"}\n', "utf8")
+    let calls = 0
+    const router = createNativeRouter(deps({
+      store: createJsonlNativeRouterStore(path),
+      choose: async () => { calls += 1; return answer("worker", model("free")) },
+    }))
+
+    await expect(router.route(input({ decisionId: "stable" }))).rejects.toThrow("corrupt active ledger")
+    expect(calls).toBe(0)
+  })
+
   test("sends the complete task and the full real catalog to Jev without a six-model cap", async () => {
     const models = Array.from({ length: 8 }, (_, index) => model(`model-${index}`, {
       inputPricePerMillion: index === 0 ? 0 : undefined,
@@ -496,7 +511,7 @@ describe("native task routing", () => {
       input: input({ rootSessionID: "root-session-42" }),
       allowedRoles: ["worker"],
       candidates: [{
-        role: "worker", model: modelRef, facts: modelRef,
+        role: "worker", model: modelRef, facts: { ...modelRef, available: true, inputPricePerMillion: 0, outputPricePerMillion: 0, priceCurrency: "USD", priceSource: "provider", priceOrigin: "https://provider.example/free-pricing" },
         knowledge: { model: modelRef, known: false },
       }],
       knowledge: [], outcomes: [], instructions: "full decision brief",
@@ -505,10 +520,60 @@ describe("native task routing", () => {
     expect(requestHeaders["x-opencode-session"]).toBe("root-session-42")
     expect(requestHeaders.Authorization).toBe("Bearer secret-api-key")
     expect(JSON.stringify(requestBody)).toContain("full decision brief")
+    const sent = requestBody as { questions: { candidate: { criteria: Record<string, string> } } }
+    const candidateCriteria = JSON.parse(sent.questions.candidate.criteria["worker|connected-provider/worker-model"]!) as Record<string, unknown>
+    expect(candidateCriteria.pricesPerMillion).toEqual({ input: 0, output: 0 })
+    expect(candidateCriteria.priceCurrency).toBe("USD")
+    expect(candidateCriteria.priceOrigin).toBe("https://provider.example/free-pricing")
     expect(JSON.stringify(result.source)).toContain("root-session-42")
     expect(JSON.stringify(result.source)).toContain("[redacted]")
     expect(JSON.stringify(result.source)).not.toContain("secret-api-key")
     expect(JSON.stringify(result.source)).toContain('"status":200')
+  })
+
+  test("sends sourced free, priced, and unknown candidates to real Jev transport so an adequate free candidate can win", async () => {
+    let criteria: Record<string, string> = {}
+    const backend = createNativeJevBackend({
+      getApiKey: () => "fixture-key",
+      postJson: async (_url, _headers, body) => {
+        const payload = body as { questions: { candidate: { criteria: Record<string, string> } } }
+        criteria = payload.questions.candidate.criteria
+        const adequate = Object.entries(criteria).filter(([, serialized]) => {
+          const item = JSON.parse(serialized) as { pricesPerMillion: { input: number | string; output: number | string }; contextLength: number; toolCall: boolean }
+          return item.toolCall && item.contextLength >= 32_000 && item.pricesPerMillion.input !== "unknown" && item.pricesPerMillion.output !== "unknown"
+        })
+        const selected = adequate.find(([key, serialized]) => {
+          const item = JSON.parse(serialized) as { pricesPerMillion: { input: number | string; output: number | string } }
+          return key.includes("free/") && item.pricesPerMillion.input === 0 && item.pricesPerMillion.output === 0
+        }) ?? adequate.sort((left, right) => {
+          const getCost = (value: string) => {
+            const item = JSON.parse(value) as { pricesPerMillion: { input: number | string; output: number | string } }
+            return Number(item.pricesPerMillion.input) + Number(item.pricesPerMillion.output)
+          }
+          return getCost(left[1]) - getCost(right[1])
+        })[0]
+        if (!selected) throw new Error("no adequate candidate was delivered to Jev")
+        return { status: 200, body: { model: "local-jev", answers: {
+          candidate: { type: "choice", choice: selected[0], confidence: 0.98, probabilities: { [selected[0]]: 1 } },
+          lane: { type: "choice", choice: "direct", confidence: 0.99, probabilities: { direct: 1 } },
+        }, usage: { input_tokens: 25, output_tokens: 5 } } }
+      },
+    })
+    const candidates: NativeJevRequest["candidates"] = [
+      { role: "worker", model: model("free-model", { providerID: "free" }), facts: { ...model("free-model", { providerID: "free", inputPricePerMillion: 0, outputPricePerMillion: 0, priceCurrency: "USD", priceSource: "provider", priceOrigin: "https://provider.example/free", contextLength: 64_000, toolCall: true }), available: true }, knowledge: { model: model("free-model", { providerID: "free" }), known: false } },
+      { role: "worker", model: model("paid-model", { providerID: "paid" }), facts: { ...model("paid-model", { providerID: "paid", inputPricePerMillion: 0.2, outputPricePerMillion: 0.4, priceCurrency: "USD", priceSource: "opencode.model.list", priceOrigin: "opencode.model.list", contextLength: 64_000, toolCall: true }), available: true }, knowledge: { model: model("paid-model", { providerID: "paid" }), known: false } },
+      { role: "worker", model: model("unknown-zero", { providerID: "unknown" }), facts: { ...model("unknown-zero", { providerID: "unknown", priceCurrency: "unknown", priceSource: "unknown", contextLength: 64_000, toolCall: true }), available: true }, knowledge: { model: model("unknown-zero", { providerID: "unknown" }), known: false } },
+    ]
+    const result = await backend.choose({
+      decisionId: "free-price-proof", input: input({ requiredContextLength: 32_000 }), allowedRoles: ["worker"], candidates,
+      knowledge: [], outcomes: [], instructions: "choose least cost adequate",
+    })
+
+    expect(result.model).toMatchObject({ providerID: "free", id: "free-model" })
+    expect(JSON.parse(criteria["worker|free/free-model"]!).priceCurrency).toBe("USD")
+    expect(JSON.parse(criteria["worker|free/free-model"]!).priceOrigin).toBe("https://provider.example/free")
+    expect(JSON.parse(criteria["worker|unknown/unknown-zero"]!).pricesPerMillion).toEqual({ input: "unknown", output: "unknown" })
+    expect(JSON.parse(criteria["worker|paid/paid-model"]!).pricesPerMillion).toEqual({ input: 0.2, output: 0.4 })
   })
 
   test("retains sanitized Jev HTTP status and error evidence on failures", async () => {
@@ -608,11 +673,12 @@ describe("native task routing", () => {
     const directory = await mkdtemp(join(tmpdir(), "momo-native-ledger-"))
     tempDirs.push(directory)
     const path = join(directory, "routing.jsonl")
+    const legacyPath = join(directory, "legacy.jsonl")
     const legacy = '{"schemaVersion":2,"id":"legacy-export","training":{"answer":"kept"}}\n'
     const malformed = '{"version":1,"type":"decision","decisionId":"broken"}\n'
-    await (await import("node:fs/promises")).writeFile(path, legacy + malformed, "utf8")
+    await (await import("node:fs/promises")).writeFile(legacyPath, legacy + malformed, "utf8")
     const reported: Array<[number, string]> = []
-    const store = createJsonlNativeRouterStore(path, (line, reason) => reported.push([line, reason]))
+    const store = createJsonlNativeRouterStore(path, { legacyPaths: [legacyPath], onMalformedRecord: (line, reason) => reported.push([line, reason]) })
     const candidate = model("free")
     const router = createNativeRouter(deps({ store, choose: async () => answer("worker", candidate) }))
     const result = await router.route(input())
@@ -622,8 +688,8 @@ describe("native task routing", () => {
     expect(result.kind).toBe("selected")
     expect(exported[0]).toBe(legacy.trim())
     expect(exported[1]).toBe(malformed.trim())
-    expect(reported).toEqual([[2, "unsupported or invalid version-1 record"]])
-    expect(contents.startsWith(legacy)).toBe(true)
+    expect(reported).toEqual([])
+    expect(contents.startsWith("{\"version\":1,")).toBe(true)
     const parsed = JSON.parse(exported.at(-1)!) as NativeDecisionRecord
     expect(parsed.version).toBe(1)
     expect(parsed.request.input.prompt).toBe(input().prompt)

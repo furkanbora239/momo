@@ -37,9 +37,20 @@ export function createJsonlNativeRouterStore(
           const parsed: unknown = JSON.parse(line)
           const record = parseNativeLedgerRecord(parsed)
           if (record) records.push(record)
-          else if (isVersionedNativeLedgerValue(parsed)) onMalformedRecord(index + 1, "unsupported or invalid version-1 record")
+          else if (isVersionedNativeLedgerValue(parsed)) {
+            const reason = "unsupported or invalid version-1 record"
+            onMalformedRecord(index + 1, reason)
+            throw new Error(`[native-routing] corrupt active ledger record at line ${index + 1}: ${reason}`)
+          } else {
+            const reason = "unexpected legacy or unversioned record in active ledger"
+            onMalformedRecord(index + 1, reason)
+            throw new Error(`[native-routing] corrupt active ledger record at line ${index + 1}: ${reason}`)
+          }
         } catch (error) {
-          onMalformedRecord(index + 1, error instanceof Error ? "invalid JSON" : "JSON parser failed")
+          if (error instanceof Error && error.message.startsWith("[native-routing] corrupt active ledger")) throw error
+          const reason = "invalid JSON"
+          onMalformedRecord(index + 1, reason)
+          throw new Error(`[native-routing] corrupt active ledger record at line ${index + 1}: ${reason}`, { cause: error })
         }
       }
       return records

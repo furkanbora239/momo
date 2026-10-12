@@ -74,8 +74,18 @@ function nativeSearchToolAllowed(id: NativeAgentID, name: string): boolean {
 
 export function isNativeReadTool(name: string): boolean {
   const canonical = normalizeNativeSearchToolName(name)
+  // MCP names are action namespaces, not local builtin names. A server's
+  // arbitrary `status` or `search` action is not trusted as read-only.
+  if (canonical.startsWith("mcp__")) return nativeSearchReadTools.has(canonical)
   const normalized = canonical.split("__").at(-1) ?? canonical
   return readTools.has(normalized) || nativeSearchReadTools.has(canonical) || /^(?:mcp_)?(?:read|search|list|find|fetch|query)(?:_|$)/.test(normalized)
+}
+
+function isUnverifiedMcpReadAction(name: string): boolean {
+  if (!name.startsWith("mcp__")) return false
+  if (nativeSearchReadTools.has(name)) return false
+  const action = name.split("__").at(-1) ?? ""
+  return /^(?:status|search)(?:_|$)/.test(action)
 }
 
 export function nativeActionEffect(id: NativeAgentID, action: string): "allow" | "deny" | undefined {
@@ -85,6 +95,7 @@ export function nativeActionEffect(id: NativeAgentID, action: string): "allow" |
   if (name === "momo_consult") return id === "momo-advisor" ? "deny" : "allow"
   if (name === "momo_catalog_enrich") return id === "momo-catalog-researcher" ? "allow" : "deny"
   if (isNativeSearchTool(name)) return nativeSearchToolAllowed(id, name) ? undefined : "deny"
+  if ((coordinators.has(id) || id === "momo-advisor") && isUnverifiedMcpReadAction(normalizeNativeSearchToolName(name))) return "deny"
   if (name === "task" || name.includes("subagent") || name.includes("delegate") || name.startsWith("momo_task_")) return "deny"
   if (id === "momo-advisor") return isNativeReadTool(name) ? undefined : "deny"
   if (id === "momo-catalog-researcher" && name !== "execute" && name !== "momo_catalog_enrich" && !isNativeReadTool(name)) return "deny"
@@ -99,6 +110,10 @@ export function filterNativeContextTools(agent: string | undefined, tools: Recor
   if (!role) return
   for (const name of Object.keys(tools)) {
     const normalized = name.toLowerCase()
+    if ((coordinators.has(role) || role === "momo-advisor") && isUnverifiedMcpReadAction(normalizeNativeSearchToolName(normalized))) {
+      delete tools[name]
+      continue
+    }
     if (role === "momo-advisor" && normalized !== "execute" && !isNativeReadTool(normalized)) delete tools[name]
     if (role === "momo-catalog-researcher" && normalized !== "execute" && normalized !== "momo_catalog_enrich" && !isNativeReadTool(normalized)) delete tools[name]
     if (isNativeSearchTool(normalized) && !nativeSearchToolAllowed(role, normalized)) delete tools[name]
