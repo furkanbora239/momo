@@ -1,0 +1,231 @@
+{
+  "status": "module-probes-passed",
+  "focusedTests": {
+    "pass": 33,
+    "fail": 0,
+    "assertions": 118
+  },
+  "typecheck": "passed",
+  "nativeTaskSourceSHA256": {
+    "engine.test-support.ts": "45db3e5da6a69b7224701a85432e52a1c27c2d9dbbbf1bb87c5f665370517592",
+    "engine.ts": "7e562a35b3b3e2ff93ae15ee2b469c0c6786c6943cad2ecae864c8e9c029c692",
+    "events.ts": "f757f1455f0ef2257f523523292f47cf70777bc8007391ba25c75192dceb89b3",
+    "file-repository.test.ts": "2703307bfe811c49efe49c810e1081f7b66a71bb9768a6954ec9dd700430841c",
+    "file-repository.ts": "d948c09f57a9d166a67c8959215395cbe6bc3c328484e9c0ac0d346a465503b4",
+    "guards.ts": "5b20599cb80d537448f02473135b9b80fdb01140abe43ed2056287da1eaf4aab",
+    "id.ts": "6fc07ea8eaa7ee594b57d73e569e73c64fa344ac9e94cd2e146cf14a3cd1319b",
+    "index.ts": "5eafc75765a8422e148cd21ff29d30f47ab27c67a5de82413482a95803258a32",
+    "lifecycle.test.ts": "c36c46c16663a88b1a23963baa36a6d1d66bc47a1cec1d11798d2c8320f169bf",
+    "lifecycle.ts": "98673150308ca60029d59b953082f8003a4857478e38d913a71e3d4cb2559d12",
+    "policy.ts": "4253304916b45ab1dc1e770ce6eab05b7c3a393eecf1491b4cd1e61dd522ebfa",
+    "runner.ts": "398429fc204afe12e6fe881ce50e1b3e51c0596a6804be46a1576bf95967468d",
+    "scheduling.test.ts": "1169816ed442bf9a0b6eca34ca2aceba4f9b7c051ef14f78c859d7516f03020b",
+    "task-controls.ts": "0352ef77a2ea34fdd58ae6cc3fc74312e12422d149535132942c0bcf0bfbed88",
+    "task-lifecycle.ts": "45b69abf7e3f09c400131835bd63645d868908e71de152d438ec45a5a13fda45",
+    "testing.ts": "1b9a000a3960a86f1e0c24ab319241ef5c9ee3cf8ece33c9ae973f7850d96035",
+    "types.ts": "c3506fa4227e4aa6929df64103607d55800eea7d739b367609abb97874cbe889",
+    "v2-event-adapter.test.ts": "9d7f7460d7a5c3193ad9236069060ba641e1d96471c30d1bb24089abdff5b2f7",
+    "v2-event-adapter.ts": "21570eb7708419c7d2637756a3730ea15e2707bc4822f3dea1e335252c0c1bc0"
+  },
+  "liveHarness": "Source-identical engine exercised through the integration native adapter, not a claim that this inert module activates the native entry by itself.",
+  "liveEvidence": {
+    "toolResume": {
+      "status": "passed",
+      "toolProof": {
+        "status": "passed",
+        "configuredSilenceTimeoutMs": 60000,
+        "configuredActiveToolTimeoutMs": 70000,
+        "protectedAfterSilenceThreshold": {
+          "taskID": "ntask_1d1ac065-b9ed-4dc4-bcdc-c7bf09f98183",
+          "state": "running",
+          "tools": [
+            "shell"
+          ]
+        },
+        "completedProtectedTask": {
+          "taskID": "ntask_1d1ac065-b9ed-4dc4-bcdc-c7bf09f98183",
+          "state": "succeeded",
+          "delivery": {
+            "status": "delivered",
+            "attempts": 1,
+            "messageID": "msg_3a54d768340358f07deb8e0da3",
+            "attemptedAt": 1791828209481,
+            "deliveredAt": 1791828209486
+          }
+        },
+        "interruptedAtToolCap": {
+          "taskID": "ntask_7b53a79b-81e4-41b8-9a18-c1ec4a5d80fc",
+          "state": "interrupted",
+          "error": "Task exceeded the active tool timeout."
+        },
+        "resumedAfterToolCap": {
+          "taskID": "ntask_7b53a79b-81e4-41b8-9a18-c1ec4a5d80fc",
+          "sessionID": "ses_c39d611cead02aee28b7e4a8c3",
+          "state": "succeeded",
+          "expiredToolLeaseCleared": true
+        },
+        "nativePermissionHookDeniedShell": true,
+        "deniedCommandDidNotWrite": true,
+        "limits": [
+          "Isolated configured thresholds exercise both watchdog branches. The production defaults remain 180000/3600000 ms; this probe does not wait for the literal 60-minute default cap."
+        ]
+      },
+      "opencodeVersion": "opencode v2.0.24",
+      "temporaryRootsOnly": true,
+      "noProviderCredentials": true,
+      "ownedProcessGroupGone": true,
+      "realUserDatabaseUnchanged": true,
+      "pluginEntry": "dist/index.js",
+      "bundleSHA256": "db864469bec5b885077e0d6e2257b66bcb24a23b16ae0a6567350818d35565e4"
+    },
+    "restartAndCancellation": {
+      "status": "passed",
+      "lifecycle": {
+        "status": "passed",
+        "realServerRestarts": 5,
+        "resumed": {
+          "taskID": "ntask_dc6e4f7e-c373-44b8-954f-83090f4600d8",
+          "sessionID": "ses_0ee069751fc7f2453ade97dcf6",
+          "decisionID": "ntask_dc6e4f7e-c373-44b8-954f-83090f4600d8",
+          "attempts": 2,
+          "state": "succeeded",
+          "delivery": {
+            "status": "delivered",
+            "attempts": 1,
+            "messageID": "msg_a15d93816ca744dca55a835be6",
+            "attemptedAt": 1791824573593,
+            "deliveredAt": 1791824573607
+          }
+        },
+        "completedTaskDidNotRerun": true,
+        "cancelled": {
+          "taskID": "ntask_1ec42abf-2f4a-4ea7-b578-153c4ab32f64",
+          "sessionID": "ses_a279654dced026dbb3bbffd724",
+          "attempts": 1,
+          "state": "cancelled",
+          "delivery": {
+            "status": "delivered",
+            "attempts": 1,
+            "messageID": "msg_abdf49aaa747e435c6982a6011",
+            "attemptedAt": 1791824575489,
+            "deliveredAt": 1791824575518
+          }
+        },
+        "cancelledSessionInactive": true,
+        "cancelledTaskDidNotResume": true,
+        "departmentRestart": {
+          "sameTaskAndSessionIDs": true,
+          "childParentTaskID": "ntask_cc216f71-ef23-4b2b-bd84-c2bf7a906b4f",
+          "departmentTaskID": "ntask_cc216f71-ef23-4b2b-bd84-c2bf7a906b4f",
+          "state": "succeeded"
+        },
+        "cancelledDepartmentTree": {
+          "parentState": "cancelled",
+          "descendantState": "cancelled",
+          "inactive": true,
+          "retainedAcrossRestart": true
+        }
+      },
+      "opencodeVersion": "opencode v2.0.24",
+      "realUserDatabaseUnchanged": true,
+      "temporaryRootsOnly": true,
+      "noProviderCredentials": true,
+      "pluginEntry": "dist/index.js",
+      "bundleSHA256": "16e79e0acfbc3e0b4a4c21cb3600d892f8b18bbc703a972a51dd0a0d479abc73",
+      "checks": {
+        "focusedTests": {
+          "passed": 40,
+          "failed": 0
+        },
+        "fullTests": {
+          "passed": 12705,
+          "skipped": 6,
+          "failed": 0,
+          "files": 1558,
+          "seconds": 188.93
+        },
+        "typecheck": "passed",
+        "build": "passed"
+      },
+      "remainingLiveGates": [
+        "Active-tool watchdog protection/cap",
+        "Injected parent form/result delivery failures without duplicates",
+        "Explicit native permission-hook denial beyond tool catalog filtering"
+      ]
+    },
+    "questionAndParallel": {
+      "status": "passed",
+      "pluginEntry": "dist/index.js",
+      "opencodeVersion": "opencode v2.0.24",
+      "bundleSHA256": "80aa4710889fdde7c6f732952625570d7dd99e7d5690d2e5727edb2501da04a2",
+      "cases": [
+        "one root completes five unique children at once and aggregates results",
+        "async department child question reached the manager and was answered by its model through momo_task",
+        "unanswered child question escalates to a root form and the native field-key answer resumes the same child",
+        "native CLI waits for root aggregation after async child delivery",
+        "manual selection finishes the existing task without a second Jev route",
+        "direct and department tasks complete under the same native task RPC",
+        "five independent root sessions observed five parallel model calls",
+        "consultation from every non-advisor role",
+        "advisor could not create a nested consultation",
+        "department resumes after child and combines child result",
+        "coordinator tool list excludes shell, write, and delegation tools"
+      ],
+      "question": {
+        "parentResult": "MOMO_QUESTION_DEPARTMENT_AGGREGATED",
+        "childAnswer": {
+          "q0": "approved"
+        },
+        "childDelivery": "delivered",
+        "deliveryAttempts": 1,
+        "parentAnswers": 1,
+        "childQuestionCalls": 2
+      },
+      "parallel": {
+        "workers": 5,
+        "uniqueTaskCount": 5,
+        "rootAggregateSeen": true
+      },
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true
+      },
+      "checks": {
+        "typecheck": "passed",
+        "build": "passed",
+        "focused": {
+          "passed": 38,
+          "failed": 0
+        },
+        "full": {
+          "passed": 12703,
+          "skipped": 6,
+          "failed": 0,
+          "seconds": 202.12
+        }
+      },
+      "remainingLiveCases": [
+        "restart the integrated plugin during a queued wait-for-child and verify no duplicate execution",
+        "live active tool watchdog at 60 minutes",
+        "network-failed parent question form delivery retry without duplicate form/notification",
+        "live cancellation of running descendants",
+        "permission hook denial event beyond tool surface filtering"
+      ],
+      "limits": [
+        "Capacity blocking and engine recreation were behavior-tested; a full live server restart is still pending.",
+        "The synthetic delivery final model turn was corrected in the fake fixture; no older model reply is forced into the production result."
+      ]
+    }
+  },
+  "remaining": "Dev PR publication and external CI/review gates remain pending. Native activation is a later slice.",
+  "fullSuite": {
+    "pass": 12536,
+    "skip": 6,
+    "fail": 0,
+    "files": 1536,
+    "seconds": 208.53,
+    "exitCode": 0
+  },
+  "build": "passed"
+}
