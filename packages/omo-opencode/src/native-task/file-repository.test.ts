@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
+import { tmpdir } from "node:os"
 import { createFileNativeTaskRepository } from "./file-repository"
 import type { NativeTask } from "./types"
 
@@ -10,7 +11,7 @@ afterEach(async () => {
 })
 
 async function setupPath(): Promise<string> {
-  const directory = await mkdtemp("/private/tmp/native-task-store-")
+  const directory = await mkdtemp(join(tmpdir(), "native-task-store-"))
   directories.push(directory)
   return join(directory, "tasks.json")
 }
