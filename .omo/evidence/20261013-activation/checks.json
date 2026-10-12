@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-13",
+  "typecheck": "passed",
+  "build": "passed",
+  "focused": {
+    "pass": 78,
+    "fail": 0,
+    "assertions": 227
+  },
+  "markdown": {
+    "pass": 16,
+    "fail": 0
+  },
+  "fullBun": {
+    "pass": 12614,
+    "skip": 6,
+    "fail": 0,
+    "files": 1551,
+    "seconds": 182.8
+  },
+  "publishedNativeHostAcceptance": "passed",
+  "sourceSHA256": {
+    "packages/omo-opencode/src/index.ts": "926112550a5a195805bfda12094fb8dc7b0f01ced860279e2599ea364716ace3",
+    "packages/omo-opencode/src/v2/tui/index.ts": "7aafb081b811f3423af5fc3c6007b5d5019d19f83c036a7ccc20761d9ba6ccb1",
+    "packages/omo-opencode/src/v2/tui/native-catalog-keymap.ts": "d4e69ac1e521029b3b3e091d5b15fe0541e55de69447a767d519e0bcd9450781",
+    "packages/omo-opencode/src/cli/native-run/runner.ts": "20254f4cb484e7c180630486f6e8ae32aded532b8a2c71bc1566a22973d28867",
+    "packages/omo-opencode/src/cli/native-run/completion.ts": "88f004a31e603aff81302ff3e833c8191640e0481102a23333ae20c9aab4d5e1",
+    "script/build.ts": "de4a444cac859175ce100e76e683d8572cc4e6a4128108f4d4ceb9565a855850"
+  },
+  "ownedTestProcessExited": true,
+  "nativeQaOwnedGroupsGone": true,
+  "realUserDatabaseUnchanged": true,
+  "legacyV1InitPerfTests": "Retired alongside their removed plugin.server entry; native entry is verified through actual host acceptance. No performance-rate claim.",
+  "releaseAccepted": false,
+  "remaining": "Remote CI/review and dev merge for runtime/activation PRs"
+}

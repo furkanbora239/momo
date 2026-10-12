@@ -1,0 +1,66 @@
+{
+  "status": "passed",
+  "opencodeVersion": "opencode v2.0.24",
+  "pluginEntry": "/private/tmp/momo-v2-activation/dist/index.js",
+  "priceClaimPersistedBy": "momo_catalog_enrich",
+  "providerModelIdentity": "momo-price-qa/momo-free",
+  "sourceURL": "https://fixture.example/models/momo-free/pricing",
+  "jevCandidateFacts": {
+    "free": {
+      "pricesPerMillion": {
+        "input": 0,
+        "output": 0
+      },
+      "priceCurrency": "USD",
+      "priceOrigin": "https://fixture.example/models/momo-free/pricing"
+    },
+    "priced": {
+      "pricesPerMillion": {
+        "input": 0.2,
+        "output": 0.4
+      },
+      "priceCurrency": "USD"
+    },
+    "unknownZero": {
+      "pricesPerMillion": {
+        "input": "unknown",
+        "output": "unknown"
+      },
+      "priceCurrency": "unknown"
+    }
+  },
+  "selectedTask": {
+    "id": "ntask_2464fe19-0f61-4392-86d7-67d1f6d22965",
+    "role": "worker",
+    "model": {
+      "providerID": "momo-price-qa",
+      "id": "momo-free"
+    },
+    "state": "succeeded",
+    "delivery": {
+      "status": "delivered",
+      "attempts": 1,
+      "messageID": "msg_17940d9d73be8d1ca25075c4ba",
+      "attemptedAt": 1791842060485,
+      "deliveredAt": 1791842060490
+    }
+  },
+  "fakeProviderRequestCount": 11,
+  "jevRequestCount": 3,
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "ownedProcessGroupGone": true,
+  "realUserDatabaseUnchanged": true,
+  "realDatabaseBefore": {
+    "counts": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  },
+  "realDatabaseAfter": {
+    "counts": {
+      "session": "5",
+      "session_message": "2338"
+    }
+  }
+}
