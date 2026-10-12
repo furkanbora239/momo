@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   cla:
+    if: github.repository_owner == 'code-yeongyu'
     runs-on: ubuntu-latest
     steps:
       - name: Check stored CLA signatures
