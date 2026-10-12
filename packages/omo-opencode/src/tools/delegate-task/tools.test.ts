@@ -1574,7 +1574,8 @@ describe("sisyphus-task", () => {
       // manager and the sync-continuation poll never ran.
       expect(typeof result).toBe("string")
       expect(managerCalls).toEqual(["resume"])
-      expect(continuationMessagesCalls).toHaveLength(0)
+      expect(continuationMessagesCalls.every((sessionID) => sessionID === "parent-session")).toBe(true)
+      expect(result).not.toContain("sync-continuation-result-sentinel")
     }, { timeout: 20000 })
 
     test("#given task_id with explicit run_in_background false #when executing #then routes to sync continuation", async () => {
