@@ -258,6 +258,31 @@ describe("native task routing", () => {
     }
   })
 
+  test("manual selection is restricted to presented low-confidence choices and refreshes without another Jev call", async () => {
+    const models = [model("m0"), model("m1"), model("m2"), model("m3")]
+    const probabilities = Object.fromEntries(models.map((item, index) => [`worker|${item.providerID}/${item.id}`, [0.4, 0.3, 0.2, 0.1][index]!]))
+    let calls = 0
+    const router = createNativeRouter(deps({ models, choose: async () => {
+      calls += 1
+      return answer("worker", models[0]!, 0.4, probabilities)
+    } }))
+
+    const pending = await router.route(input())
+    if (pending.kind !== "awaiting_selection") throw new Error("expected low-confidence selection ticket")
+    const rejected = await router.select(pending.decisionId, models[3]!, "worker", "parent-1")
+
+    expect(rejected.kind).toBe("awaiting_selection")
+    if (rejected.kind === "awaiting_selection") {
+      expect(rejected.decisionId).toBe(pending.decisionId)
+      expect(rejected.candidates.map((candidate) => candidate.model.id)).toEqual(["m0", "m1", "m2"])
+    }
+    expect(calls).toBe(1)
+
+    const selected = await router.select(pending.decisionId, models[2]!, "worker", "parent-1")
+    expect(selected).toMatchObject({ kind: "selected", decisionId: pending.decisionId, role: "worker", model: { providerID: models[2]!.providerID, id: models[2]!.id } })
+    expect(calls).toBe(1)
+  })
+
   test("does not dispatch a role that conflicts with Jev's actual lane answer", async () => {
     const router = createNativeRouter(deps({ choose: async () => ({
       ...answer("planner", model("free")),
@@ -602,6 +627,29 @@ describe("native task routing", () => {
     const parsed = JSON.parse(exported.at(-1)!) as NativeDecisionRecord
     expect(parsed.version).toBe(1)
     expect(parsed.request.input.prompt).toBe(input().prompt)
+  })
+
+  test("exports a real legacy ledger path without loading its rows as native state", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "momo-native-legacy-export-"))
+    tempDirs.push(directory)
+    const legacyPath = join(directory, ".omo", "decision-ledger.jsonl")
+    const nativePath = join(directory, "projects", "root", "routing-ledger.jsonl")
+    const legacy = '{"schemaVersion":2,"id":"legacy-live","training":{"answer":"unchanged"}}\n{malformed legacy row}\n'
+    await (await import("node:fs/promises")).mkdir(join(directory, ".omo"), { recursive: true })
+    await (await import("node:fs/promises")).writeFile(legacyPath, legacy, "utf8")
+    const store = createJsonlNativeRouterStore(nativePath, { legacyPaths: [legacyPath, nativePath] })
+    const loadedBeforeRoute = await store.load()
+    const candidate = model("free")
+    const router = createNativeRouter(deps({ store, choose: async () => answer("worker", candidate) }))
+    const result = await router.route(input())
+    const exported = await router.exportLedger()
+
+    expect(loadedBeforeRoute).toEqual([])
+    expect(result.kind).toBe("selected")
+    expect(exported.slice(0, 2)).toEqual(legacy.trimEnd().split("\n"))
+    expect(exported.filter((line) => line.includes('"legacy-live"'))).toHaveLength(1)
+    expect(await readFile(legacyPath, "utf8")).toBe(legacy)
+    expect((await store.load()).some((record) => record.type === "decision")).toBe(true)
   })
 
   test("stores the JSONL ledger with private permissions and reports non-serializable records", async () => {

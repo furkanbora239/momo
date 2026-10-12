@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { createNativeTaskEngine } from "../native-task"
 import type { NativeTaskEngine, NativeTaskRole } from "../native-task"
@@ -90,7 +91,9 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   const appConfig = loadNativeRuntimeConfig(ctx.location.directory)
   const managerConfig = appConfig.manager ?? ManagerConfigSchema.parse({})
   const repository = createFileNativeTaskRepository(`${dataRoot}/tasks.json`)
-  const routerStore = createJsonlNativeRouterStore(`${dataRoot}/routing-ledger.jsonl`)
+  const routerStore = createJsonlNativeRouterStore(`${dataRoot}/routing-ledger.jsonl`, {
+    legacyPaths: [join(homeRoot(), ".omo/decision-ledger.jsonl")],
+  })
   const knowledgeStore = createNativeCatalogKnowledgeStore(`${homeRoot()}/.omo/native/catalog-knowledge.json`)
   const advisorPool = getAdvisorPoolConfig(ctx.location.directory)
   const catalog = createNativeCatalogAdapter({

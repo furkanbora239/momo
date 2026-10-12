@@ -92,18 +92,25 @@ async function startFakeModel(): Promise<void> {
     if (request.method === "POST" && url.pathname.endsWith("/systemone")) {
       let raw = ""
       for await (const chunk of request) raw += chunk.toString()
-      const body = JSON.parse(raw) as { questions?: { candidate?: { criteria?: Record<string, string> }; lane?: { criteria?: Record<string, string> } } }
+      const body = JSON.parse(raw) as { state?: string; questions?: { candidate?: { criteria?: Record<string, string> }; lane?: { criteria?: Record<string, string> } } }
       await appendFile(jevLog, `${JSON.stringify(body)}\n`, { mode: 0o600 })
       const candidates = Object.keys(body.questions?.candidate?.criteria ?? {})
-      const candidate = candidates.find((key) => key.startsWith("worker|momo-qa/")) ?? candidates.find((key) => key.startsWith("catalog-researcher|momo-qa/"))
+      const manualSelection = typeof body.state === "string" && (JSON.parse(body.state) as { input?: { prompt?: string } }).input?.prompt === "MOMO_MANUAL_SELECTION_PROBE"
+      const workerCandidates = candidates.filter((key) => key.startsWith("worker|momo-qa/")).sort()
+      const candidate = manualSelection
+        ? candidates.find((key) => key.startsWith("planner|momo-qa/"))
+        : workerCandidates.find((key) => key.endsWith("/momo-qa-model")) ?? candidates.find((key) => key.startsWith("catalog-researcher|momo-qa/"))
       if (!candidate) {
         response.writeHead(422, { "content-type": "application/json" })
         response.end(JSON.stringify({ error: "fixture found no worker candidate" }))
         return
       }
+      const probabilities = manualSelection
+        ? Object.fromEntries(candidates.map((key) => [key, key.startsWith("planner|") ? 0.4 : key.startsWith("executor|") ? 0.3 : key.startsWith("reviewer|") ? 0.2 : key.startsWith("worker|") ? 0.1 : 0]))
+        : { [candidate]: 1 }
       json(response, { answers: {
-        candidate: { type: "choice", choice: candidate, confidence: 0.99, probabilities: { [candidate]: 1 } },
-        lane: { type: "choice", choice: "direct", confidence: 0.99, probabilities: { direct: 1 } },
+        candidate: { type: "choice", choice: candidate, confidence: manualSelection ? 0.4 : 0.99, probabilities },
+        lane: { type: "choice", choice: manualSelection ? "department" : "direct", confidence: 0.99, probabilities: { direct: manualSelection ? 0 : 1, department: manualSelection ? 1 : 0 } },
       }, usage: { input_tokens: 1, output_tokens: 1 } })
       return
     }
@@ -126,25 +133,29 @@ async function startFakeModel(): Promise<void> {
     const toolNames = (body.tools ?? []).flatMap((tool) => typeof tool.function?.name === "string" ? [tool.function.name] : [])
     const systemText = body.messages?.find((message) => message.role === "system")?.content
     const systemPrompt = typeof systemText === "string" ? systemText : JSON.stringify(systemText ?? "")
+    const requestManualSelection = userText.includes("MOMO_TASK_MANUAL_SELECTION_PROBE") && toolNames.includes("execute") && systemPrompt.includes("tools.momo_task(")
     const requestTask = userText.includes("MOMO_TASK_PROBE") && toolNames.includes("execute") && systemPrompt.includes("tools.momo_task(")
     const requestPermission = userText.includes("MOMO_PERMISSION_DENY_PROBE") && toolNames.includes("execute")
     const requestShellPermission = userText.includes("MOMO_PERMISSION_SHELL_PROBE") && toolNames.includes("execute")
     const requestEditPermission = userText.includes("MOMO_PERMISSION_EDIT_PROBE") && toolNames.includes("execute")
     const requestCatalogEnrich = userText.includes("MOMO_CATALOG_ENRICH_DENY_PROBE")
+    const requestCatalogResearch = userText.includes("MOMO_CATALOG_ENRICH_ALLOW_PROBE") && toolNames.includes("momo_catalog_enrich")
     const toolReply = lastRole === "tool"
     if (body.stream) {
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" })
       const contentDelta = toolReply
         ? { content: requestTask ? "MOMO_TASK_TOOL_CONFIRMED" : requestShellPermission ? "MOMO_SHELL_PERMISSION_CONFIRMED" : requestEditPermission ? "MOMO_EDIT_PERMISSION_CONFIRMED" : requestCatalogEnrich ? "MOMO_CATALOG_ENRICH_DENIED_CONFIRMED" : "MOMO_PERMISSION_DENIED_CONFIRMED" }
-        : !requestTask && !requestPermission && !requestShellPermission && !requestEditPermission && !requestCatalogEnrich ? { content: "Momo local QA session" } : undefined
-      const toolName = requestCatalogEnrich ? "momo_catalog_enrich" : requestShellPermission ? "shell" : requestEditPermission ? "edit" : "execute"
-      const args = requestTask
+        : !requestTask && !requestManualSelection && !requestPermission && !requestShellPermission && !requestEditPermission && !requestCatalogEnrich && !requestCatalogResearch ? { content: "Momo local QA session" } : undefined
+      const toolName = requestCatalogEnrich || requestCatalogResearch ? "momo_catalog_enrich" : requestShellPermission ? "shell" : requestEditPermission ? "edit" : "execute"
+      const args = requestManualSelection
+        ? { code: 'const created = JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_MANUAL_SELECTION_PROBE"})); const denied = JSON.parse(await tools.momo_task({action:"select",taskID:created.id,decisionId:created.decisionId,role:"worker",providerID:"momo-qa",modelID:"momo-qa-model"})); const selected = JSON.parse(await tools.momo_task({action:"select",taskID:created.id,decisionId:created.decisionId,role:"planner",providerID:"momo-qa",modelID:"momo-qa-model"})); return {created,denied,selected}' }
+        : requestTask
         ? { code: 'return await tools.momo_task({action:"create",prompt:"MOMO_CHILD_PROBE"})' }
         : requestShellPermission
           ? { command: `touch ${deniedMarker}`, description: "permission QA" }
           : requestEditPermission
             ? { path: deniedEditFile, oldString: "unchanged", newString: "modified" }
-            : requestCatalogEnrich
+            : requestCatalogEnrich || requestCatalogResearch
               ? { providerID: "momo-qa", id: "momo-qa-model", summary: "unauthorized profile", sources: ["https://attacker.example/model"] }
           : { code: `return await import("node:fs").then((fs) => fs.writeFileSync(${JSON.stringify(deniedMarker)}, "bad"))` }
       const call = { index: 0, id: requestTask ? "call_task_probe" : requestShellPermission ? "call_shell_probe" : requestEditPermission ? "call_edit_probe" : "call_denial_probe", type: "function", function: { name: toolName, arguments: JSON.stringify(args) } }
@@ -218,6 +229,9 @@ async function main(): Promise<void> {
   }, null, 2)}\n`, { mode: 0o600 })
   await mkdir(path.join(root, ".omo"), { recursive: true })
   await mkdir(path.join(qaHome, ".omo"), { recursive: true })
+  const legacyLedgerPath = path.join(qaHome, ".omo/decision-ledger.jsonl")
+  const legacyLedgerLine = '{"schemaVersion":2,"id":"isolated-legacy-export"}'
+  await writeFile(legacyLedgerPath, `${legacyLedgerLine}\n`, { mode: 0o600 })
   await writeFile(deniedEditFile, "unchanged", { mode: 0o600 })
   await writeFile(path.join(qaHome, ".omo", "model-pool.json"), `${JSON.stringify({ version: 1, allowed: [{ providerID: "momo-qa", modelID: "momo-qa-model", preferred: true }], updatedAt: "2026-10-12T00:00:00.000Z" }, null, 2)}\n`, { mode: 0o600 })
   await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: {
@@ -289,6 +303,16 @@ async function main(): Promise<void> {
   }
   const knowledgeAfter = await Bun.file(knowledgePath).exists() ? await readFile(knowledgePath, "utf8") : undefined
   if (knowledgeAfter !== knowledgeBefore) throw new Error("coordinator catalog-enrich attempt changed the sourced knowledge store")
+  stage = "catalog-researcher-enrichment"
+  const researcherSession = await client.session.create({ location: { directory: root }, agent: "momo-catalog-researcher", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  await client.session.prompt({ sessionID: researcherSession.id, text: "MOMO_CATALOG_ENRICH_ALLOW_PROBE" })
+  await client.session.wait({ sessionID: researcherSession.id })
+  const researcherRequest = (await readFile(modelLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { messages?: Array<{ role?: string; content?: unknown }>; tools?: Array<{ function?: { name?: string } }> }).find((request) =>
+    request.messages?.some((message) => message.role === "user" && message.content === "MOMO_CATALOG_ENRICH_ALLOW_PROBE") &&
+    request.messages?.some((message) => message.role === "system" && typeof message.content === "string" && message.content.includes("You are momo's catalog researcher")))
+  if (!researcherRequest?.tools?.some((tool) => tool.function?.name === "momo_catalog_enrich")) throw new Error("catalog researcher did not receive momo_catalog_enrich as a direct tool")
+  const knowledgeResearched = await Bun.file(knowledgePath).exists() ? await readFile(knowledgePath, "utf8") : ""
+  if (!knowledgeResearched.includes('"momo-qa/momo-qa-model"') || !knowledgeResearched.includes("https://attacker.example/model")) throw new Error("owned catalog researcher did not persist the sourced enrichment profile")
   const requests = (await readFile(modelLog, "utf8")).trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>)
   const jevRequests = (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>)
   if (!requests.length) throw new Error("OpenCode did not call the local fake provider")
@@ -335,6 +359,25 @@ async function main(): Promise<void> {
   if (!childTask || childTask.state !== "succeeded" || childTask.role !== "worker" || childTask.model?.providerID !== "momo-qa") {
     throw new Error(`native task did not complete through the isolated provider: ${JSON.stringify(taskOutput)}`)
   }
+  const manualSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  await client.session.prompt({ sessionID: manualSession.id, text: "MOMO_TASK_MANUAL_SELECTION_PROBE" })
+  await client.session.wait({ sessionID: manualSession.id })
+  const manualDeadline = Date.now() + 20_000
+  let manualTask: { prompt?: string; state?: string; role?: string; model?: { providerID: string; id: string } } | undefined
+  while (Date.now() < manualDeadline) {
+    const response = await client.rpc.call({ rpcID: "momo.native", method: "tasks", location: { directory: root }, input: { rootSessionID: manualSession.id } })
+    const tasks = (response.output as { tasks?: Array<typeof manualTask> } | undefined)?.tasks ?? []
+    manualTask = tasks.find((task) => task?.prompt === "MOMO_MANUAL_SELECTION_PROBE")
+    if (manualTask?.state === "succeeded" || manualTask?.state === "failed") break
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+  if (!manualTask || manualTask.state !== "succeeded" || manualTask.role !== "planner" || manualTask.model?.id !== "momo-qa-model") {
+    throw new Error(`manual selection did not reject valid-but-unoffered worker and dispatch offered planner: ${JSON.stringify(manualTask)}`)
+  }
+  const exportedDecisions = await client.rpc.call({ rpcID: "momo.native", method: "exportDecisions", location: { directory: root }, input: {} })
+  const exportedLegacyLines = (exportedDecisions.output as { lines?: string[] } | undefined)?.lines ?? []
+  if (!exportedLegacyLines.includes(legacyLedgerLine)) throw new Error("native exportDecisions RPC omitted the isolated legacy ledger line")
+  if (await readFile(legacyLedgerPath, "utf8") !== `${legacyLedgerLine}\n`) throw new Error("legacy decision ledger was modified during native export")
   const directShellResult = requests.flatMap((request) => {
     const messages = Array.isArray(request.messages) ? request.messages as Array<{ role?: string; content?: unknown }> : []
     return messages.flatMap((message) => message.role === "tool" && typeof message.content === "string" && message.content.toLowerCase().includes("shell") ? [message.content] : [])
@@ -349,7 +392,7 @@ async function main(): Promise<void> {
   const activePlugins = plugins.data.map((plugin) => ({ id: plugin.id, status: plugin.state.status }))
   const enrichAttempt = (await readFile(callLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { userText: string; toolName: string }).find((call) => call.userText === "MOMO_CATALOG_ENRICH_DENY_PROBE")
   if (enrichAttempt?.toolName !== "momo_catalog_enrich") throw new Error("fake provider did not attempt direct momo_catalog_enrich execution")
-  outcome = { version: execFileSync("opencode", ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim(), providerID: "momo-qa", modelID: "momo-qa-model", pluginID: "oh-my-openagent", pluginStatus: activePlugins.find((plugin) => plugin.id === "oh-my-openagent")?.status, pluginSetupMs, sessionID: session.id, shellSessionID: shellSession.id, editSessionID: editSession.id, taskSessionID: taskSession.id, enrichSessionID: enrichSession.id, childTask, permissionHooks: finalRows.filter((row) => typeof row.action === "string"), coordinatorCodeModeTools: coordinatorToolNames, codeModeMomoTools: catalogNames, deniedDynamicImportMarkerCreated: false, directShellToolResult: directShellResult[0], shellWriteMarkerCreated: false, directEditAttempted: true, editMarkerContent: "unchanged", catalogEnrichVisibleInCodeMode: catalogNames.includes("momo_catalog_enrich"), catalogEnrichDenied: knowledgeAfter === knowledgeBefore, fakeModelRequests: requests.length, liveJevRequests: jevRequests.length, jevRequestBodyPath: path.join(evidenceDir, "jev-requests.jsonl"), actualRequestBodiesPath: path.join(evidenceDir, "request-bodies.jsonl") }
+  outcome = { version: execFileSync("opencode", ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim(), providerID: "momo-qa", modelID: "momo-qa-model", pluginID: "oh-my-openagent", pluginStatus: activePlugins.find((plugin) => plugin.id === "oh-my-openagent")?.status, pluginSetupMs, sessionID: session.id, shellSessionID: shellSession.id, editSessionID: editSession.id, taskSessionID: taskSession.id, manualSessionID: manualSession.id, enrichSessionID: enrichSession.id, researcherSessionID: researcherSession.id, childTask, manualTask, permissionHooks: finalRows.filter((row) => typeof row.action === "string"), coordinatorCodeModeTools: coordinatorToolNames, codeModeMomoTools: catalogNames, deniedDynamicImportMarkerCreated: false, directShellToolResult: directShellResult[0], shellWriteMarkerCreated: false, directEditAttempted: true, editMarkerContent: "unchanged", catalogEnrichVisibleInCodeMode: catalogNames.includes("momo_catalog_enrich"), catalogEnrichDenied: knowledgeAfter === knowledgeBefore, catalogResearcherEnrichAllowed: knowledgeResearched.includes("https://attacker.example/model"), legacyDecisionExported: exportedLegacyLines.includes(legacyLedgerLine), fakeModelRequests: requests.length, liveJevRequests: jevRequests.length, jevRequestBodyPath: path.join(evidenceDir, "jev-requests.jsonl"), actualRequestBodiesPath: path.join(evidenceDir, "request-bodies.jsonl") }
 }
 
 try {

@@ -1,14 +1,16 @@
 import { appendFile, chmod, mkdir, readFile } from "node:fs/promises"
-import { dirname } from "node:path"
+import { dirname, resolve } from "node:path"
 import type { NativeLedgerRecord, NativeRouterStore } from "./types"
 import { isVersionedNativeLedgerValue, parseNativeLedgerRecord } from "./ledger-validation"
 
 export function createJsonlNativeRouterStore(
   path: string,
-  onMalformedRecord: (lineNumber: number, reason: string) => void = (lineNumber, reason) => {
-    console.error(`[native-routing] ignored malformed JSONL record at line ${lineNumber}: ${reason}`)
-  },
+  options: NativeJsonlRouterStoreOptions | ((lineNumber: number, reason: string) => void) = {},
 ): NativeRouterStore {
+  const config = typeof options === "function" ? { onMalformedRecord: options } : options
+  const onMalformedRecord = config.onMalformedRecord ?? ((lineNumber, reason) => {
+    console.error(`[native-routing] ignored malformed JSONL record at line ${lineNumber}: ${reason}`)
+  })
   let queue = Promise.resolve()
   const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
     const next = queue.then(operation, operation)
@@ -16,9 +18,9 @@ export function createJsonlNativeRouterStore(
     return next
   }
 
-  async function rawLines(): Promise<string[]> {
+  async function rawLines(filePath = path): Promise<string[]> {
     try {
-      const contents = await readFile(path, "utf8")
+      const contents = await readFile(filePath, "utf8")
       return contents.split(/\r?\n/).filter((line) => line.length > 0)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return []
@@ -53,6 +55,16 @@ export function createJsonlNativeRouterStore(
       await appendFile(path, `${line}\n`, { encoding: "utf8", mode: 0o600 })
       await chmod(path, 0o600)
     }),
-    exportLines: () => serialize(() => rawLines()),
+    exportLines: () => serialize(async () => {
+      const paths = [...new Set([...(config.legacyPaths ?? []), path].map((filePath) => resolve(filePath)))]
+      const exported: string[] = []
+      for (const filePath of paths) exported.push(...await rawLines(filePath))
+      return exported
+    }),
   }
+}
+
+export type NativeJsonlRouterStoreOptions = {
+  readonly legacyPaths?: readonly string[]
+  readonly onMalformedRecord?: (lineNumber: number, reason: string) => void
 }

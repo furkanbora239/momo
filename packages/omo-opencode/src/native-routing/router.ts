@@ -314,12 +314,18 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       if (!record) return { kind: "unavailable", reason: "routing decision does not exist" }
       if (record.request.input.parentSessionID !== callerSessionID) return { kind: "unavailable", reason: "caller does not own this routing decision" }
       if (record.status !== "awaiting_selection") return { kind: "unavailable", reason: "routing decision is no longer awaiting selection" }
-      const choices = await snapshot(record.request.input)
+      const refreshedCandidates = await snapshot(record.request.input)
+      const offered = record.choiceCandidates ?? record.request.candidates
+      const presentedCandidates = refreshedCandidates.filter((candidate) => offered.some((option) =>
+        option.role === candidate.role && sameModel(option.model, candidate.model)))
+      const choices = presentedCandidates.length > 0 ? presentedCandidates : refreshedCandidates
       const snapshots = [...record.candidateSnapshots, { capturedAt: new Date(now()).toISOString(), source: "selection-revalidation" as const, candidates: choices }]
-      const candidate = choices.find((item) => item.role === role && sameModel(item.model, modelRef))
+      const candidate = offered.some((option) => option.role === role && sameModel(option.model, modelRef))
+        ? choices.find((item) => item.role === role && sameModel(item.model, modelRef))
+        : undefined
       if (!candidate) {
         if (choices.length === 0) return { kind: "unavailable", reason: "no eligible available models" }
-        const refreshed = { ...record, candidateSnapshots: snapshots, status: "awaiting_selection" as const, reason: "selection is no longer available; choose from refreshed candidates" }
+        const refreshed = { ...record, candidateSnapshots: snapshots, choiceCandidates: choices, status: "awaiting_selection" as const, reason: "selection is not among the current offered candidates; choose from refreshed candidates" }
         await setRecord(refreshed)
         return { kind: "awaiting_selection", decisionId, reason: refreshed.reason ?? "selection unavailable", candidates: choices }
       }
