@@ -27,7 +27,7 @@
     "packages/omo-opencode/src/native-search/fallback.ts": "26e2198528dc2edf3f1b948144c8ba735cf55e787508f926f3ad388206de2471",
     "packages/omo-opencode/src/native-search/index.ts": "6bf9d8219744a62326ff2355f62b17d3ed1dc93469495fdae6dc6baa6f7b58fb",
     "packages/omo-opencode/src/native-search/license.ts": "caa1ae0d11ba4d3e4742b4ceaa5b99578243363c67ec56f39ec4c6d6b622f197",
-    "packages/omo-opencode/src/native-search/mcp-config.test.ts": "bfea19398df4366ac4727937cdf3173115ed59f6844b7f5840e872bfe79fdc72",
+    "packages/omo-opencode/src/native-search/mcp-config.test.ts": "d191e553fd359a8d02364e89c5651610c74f3582b37b346cb8bee3f4956daa02",
     "packages/omo-opencode/src/native-search/mcp-config.ts": "da9fb737084f91fa0f740c3c7ba16a041707f970d66be41131982af2bdcd1a9b",
     "packages/omo-opencode/src/native-search/runtime.ts": "59270565f13824da445569114863306984b12d78b8be65c2656520928ffe42f6",
     "packages/omo-opencode/src/native-search/scripts/qa-mcp-release.mjs": "dd2f6504efa4dd25050a83f2c2dce645ecf344a0c863de5a2bafcaa95b3a5829",
@@ -72,5 +72,6 @@
     "files": 1551,
     "seconds": 188.5
   },
-  "ownedBunTestProcessExited": true
+  "ownedBunTestProcessExited": true,
+  "linuxCiRepair": "Archive-integrity fixture explicitly chooses darwin-arm64, the pinned release platform, before supplying corrupt archive bytes. Production platform guard is unchanged; focused tests and typecheck passed. Remote CI rerun pending."
 }
