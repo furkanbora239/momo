@@ -242,6 +242,17 @@ describe("native V2 session runtime", () => {
     expect(original).toBe(false)
   })
 
+  it("reconciles an aborted assistant step as interruption even when native outcome says failed", async () => {
+    const h = harness()
+    const session = h.sessions.get("ses_child")!
+    h.sessions.set("ses_child", { ...session, outcome: "failed" })
+    h.setContext([{
+      id: "assistant-aborted", type: "assistant", agent: "momo-worker", model: { providerID: "momo-qa", id: "momo-qa-model" },
+      time: { created: 1, completed: 2 }, content: [], error: { type: "aborted", message: "Step interrupted" },
+    }])
+    expect(await h.runtime.inspect("ses_child")).toEqual({ state: "interrupted" })
+  })
+
   it("inspects native active state and completed assistant context instead of idle events", async () => {
     const h = harness()
     h.setActive({ ses_child: { type: "running" } })

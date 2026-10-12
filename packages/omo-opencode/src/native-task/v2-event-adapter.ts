@@ -11,6 +11,7 @@ export function mapV2TaskEvent(event: OpenCodeEvent): NativeTaskEvent | undefine
     case "session.execution.succeeded":
       return { id: event.id, type: "execution.succeeded", sessionID: event.data.sessionID, sequence: event.durable.seq }
     case "session.execution.failed":
+      if (event.data.error.type === "aborted") return { id: event.id, type: "execution.interrupted", sessionID: event.data.sessionID, sequence: event.durable.seq }
       return { id: event.id, type: "execution.failed", sessionID: event.data.sessionID, sequence: event.durable.seq, error: errorMessage(event.data.error) }
     case "session.execution.interrupted":
       return { id: event.id, type: "execution.interrupted", sessionID: event.data.sessionID, sequence: event.durable.seq }
