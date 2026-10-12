@@ -12791,6 +12791,10 @@
               "type": "number",
               "minimum": 60000
             },
+            "activeToolTimeoutMs": {
+              "type": "number",
+              "minimum": 60000
+            },
             "messageStalenessTimeoutMs": {
               "type": "number",
               "minimum": 60000
@@ -13241,9 +13245,33 @@
                 "llm"
               ]
             },
+            "advisor_models": {
+              "default": [],
+              "description": "Explicit connected model pool for momo_consult. Empty disables consultations.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "providerID": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "providerID",
+                  "id"
+                ],
+                "additionalProperties": false
+              }
+            },
             "jev": {
               "default": {
                 "model": "jev-1.13",
+                "provider_id": "opencode-go",
                 "base_url": "https://opencode.ai/zen/v1",
                 "confidence_threshold": 0.75,
                 "max_attempts": 5,
@@ -13262,6 +13290,12 @@
                   "default": "jev-1.13",
                   "description": "Jev model identifier.",
                   "type": "string"
+                },
+                "provider_id": {
+                  "default": "opencode-go",
+                  "description": "Connected OpenCode provider whose native credential Jev uses.",
+                  "type": "string",
+                  "minLength": 1
                 },
                 "base_url": {
                   "default": "https://opencode.ai/zen/v1",
@@ -13342,6 +13376,7 @@
               },
               "required": [
                 "model",
+                "provider_id",
                 "base_url",
                 "confidence_threshold",
                 "max_attempts",
@@ -13354,6 +13389,7 @@
           },
           "required": [
             "decision_engine",
+            "advisor_models",
             "jev"
           ],
           "additionalProperties": false,
@@ -29577,6 +29613,10 @@
                     "type": "number",
                     "minimum": 60000
                   },
+                  "activeToolTimeoutMs": {
+                    "type": "number",
+                    "minimum": 60000
+                  },
                   "messageStalenessTimeoutMs": {
                     "type": "number",
                     "minimum": 60000
@@ -30027,9 +30067,33 @@
                       "llm"
                     ]
                   },
+                  "advisor_models": {
+                    "default": [],
+                    "description": "Explicit connected model pool for momo_consult. Empty disables consultations.",
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "providerID": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "providerID",
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
                   "jev": {
                     "default": {
                       "model": "jev-1.13",
+                      "provider_id": "opencode-go",
                       "base_url": "https://opencode.ai/zen/v1",
                       "confidence_threshold": 0.75,
                       "max_attempts": 5,
@@ -30048,6 +30112,12 @@
                         "default": "jev-1.13",
                         "description": "Jev model identifier.",
                         "type": "string"
+                      },
+                      "provider_id": {
+                        "default": "opencode-go",
+                        "description": "Connected OpenCode provider whose native credential Jev uses.",
+                        "type": "string",
+                        "minLength": 1
                       },
                       "base_url": {
                         "default": "https://opencode.ai/zen/v1",
@@ -30128,6 +30198,7 @@
                     },
                     "required": [
                       "model",
+                      "provider_id",
                       "base_url",
                       "confidence_threshold",
                       "max_attempts",
@@ -30140,6 +30211,7 @@
                 },
                 "required": [
                   "decision_engine",
+                  "advisor_models",
                   "jev"
                 ],
                 "additionalProperties": false,
