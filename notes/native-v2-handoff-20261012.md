@@ -10,7 +10,7 @@ Use `momo_task` and `momo_consult`; native alternate delegation must not bypass 
 
 ## Branches and recovery
 
-- Integration: `/private/tmp/momo-v2-baseline`, branch `codex/momo-v2-baseline`, remote pushed through `e3bcbe3ba` before this note. Start here. Original checkout `/Volumes/harici_ssd/code/ai/momo` is kept clean.
+- Integration: `/private/tmp/momo-v2-baseline`, branch `codex/momo-v2-baseline`, remote pushed through `e3bcbe3ba` before this note. Start here. Original checkout the primary momo checkout is kept clean.
 - Engine scratch: `/private/tmp/momo-v2-native`, branch `codex/momo-v2-native`.
 - Routing scratch: `/private/tmp/momo-v2-routing`, branch `codex/momo-v2-routing`.
 - Existing worker names: native_engine, native_routing, v2_baseline (Luna). At this handoff the engine and baseline workers hit usage limits; routing finished its latest slice. Retain all worktrees.
@@ -59,8 +59,8 @@ Local evidence directories:
 
 ## QA and process discipline
 
-Use Bun/tsgo. Read opencode-qa and work-with-pr skills; old v1 route examples are not authority for v2. Isolate OPENCODE_TEST_HOME, all XDG directories and OPENCODE_CONFIG_DIR; strip inherited provider secrets, including OPENCODE_GO_B_KEY. Use only fake local model/Jev endpoints and explicit fake hard pools. Do not change process HOME or touch user databases/global client configuration. Verify cleanup and unchanged user DB counts.
+Use Bun/tsgo. Read opencode-qa and work-with-pr skills; old v1 route examples are not authority for v2. Isolate OPENCODE_TEST_HOME, all XDG directories and OPENCODE_CONFIG_DIR; strip inherited provider secrets, including inherited provider keys. Use only fake local model/Jev endpoints and explicit fake hard pools. Do not change process HOME or touch user databases/global client configuration. Verify cleanup and unchanged user DB counts.
 
-Bun tests sometimes hang. Start one controlled suite, redirect logs, poll output and inspect only its exact PID/process tree. Stop only confirmed task-owned stuck processes. At earlier checks user OpenCode PID 89475 and TUI PID 6363 were unrelated; IDs may change, so verify ownership instead of blindly killing them. Never run broad pkill. Keep focused QA command exit/result and real harness evidence distinct.
+Bun tests sometimes hang. Start one controlled suite, redirect logs, poll output and inspect only its exact PID/process tree. Stop only confirmed task-owned stuck processes. User OpenCode and TUI processes are unrelated; verify process ownership instead of blindly killing them. Never run broad pkill. Keep focused QA command exit/result and real harness evidence distinct.
 
 The local ulw state is engine `.omo/ulw-loop/momo-v2-native/`: brief.md, goals.json and ledger.jsonl. Three release criteria remain pending. Do not mark them passed from partial probes.
