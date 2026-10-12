@@ -24,8 +24,10 @@ The integrated worktree passed 99 focused tests with 333 assertions and the full
 monorepo typecheck. The full suite completed under escalated execution in
 171.71 seconds: 12,643 passed, 6 skipped, and 46 failed. The earlier sandbox
 run stalled in two-process memory tests and its confirmed task-owned process
-was stopped. The full build currently fails because its legacy require-shim
-patcher expects a helper absent from the native bundle; build:fast passed.
+was stopped. The native bundle no longer needs Bun's require helper. The build patcher now
+accepts helper-free bundles, still rejects unresolved require calls, and passed
+four focused tests and script typecheck. The complete build passed after this
+fix and schema regeneration. The full suite has not yet been rerun after it.
 Isolated OpenCode 2.0.24 fake-provider probes exercised real
 Jev HTTP requests, worker dispatch, result delivery, native forms, and shell
 denial. User database counts remained unchanged. These probes are narrower than
