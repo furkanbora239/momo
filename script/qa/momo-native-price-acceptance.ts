@@ -30,6 +30,7 @@ const setupLog = path.join(root, "plugin-setup.jsonl")
 const knowledgePath = path.join(qaHome, ".omo/native/catalog-knowledge.json")
 const modelSource = "https://fixture.example/models/momo-free/pricing"
 const deniedMarker = path.join(root, "no-user-config-write")
+const untrustedToolMarker = path.join(root, "untrusted-tool-calls")
 const fakeProviderID = "momo-price-qa"
 const freeID = "momo-free"
 const paidID = "momo-paid"
@@ -195,6 +196,8 @@ async function startFixtures(): Promise<void> {
     } else if (lastRole === "user" && /^MOMO_LIFECYCLE_(?:RESTART|CANCEL)_DEPARTMENT$/.test(userText)) {
       const childMarker = userText.includes("RESTART") ? "MOMO_LIFECYCLE_DEPARTMENT_RESTART_CHILD" : "MOMO_LIFECYCLE_DEPARTMENT_CANCEL_CHILD"
       toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:${JSON.stringify(childMarker)}})` } }
+    } else if (lastRole === "user" && userText.includes("MOMO_UNKNOWN_POLICY_PROBE")) {
+      toolCall = { name: "execute", arguments: { code: 'const observations=[]; try { await tools.external_operate({}); observations.push("native:ran") } catch { observations.push("native:blocked") } try { await tools.mcp__external__operate({}); observations.push("canonical:ran") } catch { observations.push("canonical:blocked") } return observations.join(",")' } }
     } else if (lastRole === "user" && userText.includes("MOMO_PRICE_RESEARCH")) {
       toolCall = { name: "momo_catalog_enrich", arguments: { providerID: fakeProviderID, id: freeID, summary: "Fixture source-backed model profile", sources: [modelSource], price: { currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source: modelSource } } }
     } else if (lastRole === "user" && userText.includes("MOMO_PRICE_ROUTE")) {
@@ -284,6 +287,7 @@ async function main(): Promise<void> {
   await writeFile(pluginShim, [
     `import momo from ${JSON.stringify(pluginEntry)}`,
     'import { appendFileSync } from "node:fs"',
+    ...(process.env.MOMO_NATIVE_POLICY_QA === "1" ? [`import { z } from ${JSON.stringify(Bun.resolveSync("zod", process.cwd()))}`] : []),
     ...(process.env.MOMO_NATIVE_DELIVERY_QA === "1" ? [`import { installNativeQaDeliveryFaults } from ${JSON.stringify(path.join(process.cwd(), "script/qa/momo-native-delivery-faults.ts"))}`] : []),
     'export default { id: "oh-my-openagent", async setup(ctx) {',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "setup-start" }) + "\\n")`,
@@ -296,6 +300,10 @@ async function main(): Promise<void> {
     '  await ctx.provider.reload()',
     `  appendFileSync(${JSON.stringify(setupLog)}, JSON.stringify({ stage: "provider-reloaded" }) + "\\n")`,
     ...(process.env.MOMO_NATIVE_DELIVERY_QA === "1" ? [`  const restoreFetch = installNativeQaDeliveryFaults(${JSON.stringify(deliveryFaultLog)})`] : []),
+    ...(process.env.MOMO_NATIVE_POLICY_QA === "1" ? [
+      `  await ctx.tool.transform((editor) => { for (const name of ["external_operate", "mcp__external__operate"]) editor.add({ name, options: { pinned: true }, description: "QA untrusted action", input: z.object({}), execute: async (_input, tool) => { appendFileSync(${JSON.stringify(untrustedToolMarker)}, tool.agent + ":" + name + String.fromCharCode(10)); return { content: "ran" } } }) })`,
+      '  await ctx.permission.hook("evaluate", async (event) => { if (["external_operate", "mcp__external__operate"].includes(event.action)) { const agent = event.agent ?? (await ctx.session.get({ sessionID: event.sessionID })).agent; if (agent === "momo-worker") event.effect = "allow" } })',
+    ] : []),
     '  const cleanup = await momo.setup(ctx)',
     ...(process.env.MOMO_NATIVE_TOOL_QA === "1" ? [
       `  await ctx.permission.hook("evaluate", (event) => { if ((event.action === "shell" || event.action === "bash") && event.resources.some((resource) => resource.includes("no-user-config-write"))) { event.effect = "deny"; appendFileSync(${JSON.stringify(denialLog)}, JSON.stringify({ action: event.action, agent: event.agent, effect: event.effect }) + "\\n") } })`,
@@ -398,8 +406,25 @@ async function main(): Promise<void> {
     faults: async () => (await readFile(deliveryFaultLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as { kind: string; id: string; injected: boolean; parentBusy?: boolean }),
   }) : undefined
 
+  let policyProof: RecordValue | undefined
+  if (process.env.MOMO_NATIVE_POLICY_QA === "1") {
+    const readonlyRoles = ["momo-orchestrator", "momo-planner", "momo-executor", "momo-reviewer", "momo-advisor"]
+    for (const agent of readonlyRoles) {
+      const session = await client.session.create({ location: { directory: root }, agent, model: { providerID: fakeProviderID, id: paidID } })
+      await client.session.prompt({ sessionID: session.id, text: "MOMO_UNKNOWN_POLICY_PROBE" })
+      await client.session.wait({ sessionID: session.id })
+    }
+    if (existsSync(untrustedToolMarker)) throw new Error("Readonly role executed an unknown action")
+    const control = await client.session.create({ location: { directory: root }, agent: "momo-worker", model: { providerID: fakeProviderID, id: paidID } })
+    await client.session.prompt({ sessionID: control.id, text: "MOMO_UNKNOWN_POLICY_PROBE" })
+    await client.session.wait({ sessionID: control.id })
+    const calls = existsSync(untrustedToolMarker) ? (await readFile(untrustedToolMarker, "utf8")).trim().split("\n") : []
+    if (calls.length !== 2 || calls.some((line) => !line.startsWith("momo-worker:"))) throw new Error(`Unknown-action worker control failed: ${JSON.stringify(calls)}`)
+    policyProof = { status: "passed", readonlyRoles, unknownActionAliases: ["external_operate", "mcp__external__operate"], readonlyCalls: 0, workerControlCalls: calls.length }
+  }
   outcome = {
     status: "passed",
+    ...(policyProof ? { policyProof } : {}),
     ...(deliveryProof ? { deliveryProof } : {}),
     ...(toolProof ? { toolProof } : {}),
     ...(lifecycle ? { lifecycle } : {}),
