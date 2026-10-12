@@ -3,6 +3,14 @@
 **Last Updated:** 2026-10-02  
 **Version / Branch:** `dev`
 
+## OpenCode v2 native migration (2026-10-12)
+
+An isolated native v2 implementation is being integrated in `packages/omo-opencode/src/native-runtime/`, `native-task/`, `native-routing/`, and `native-catalog/`. The intended native tool surface is `momo_task` for task lifecycle operations and `momo_consult` for consultation; caller role/session identity comes from the OpenCode runtime. See [NATIVE_V2_MIGRATION.md](./NATIVE_V2_MIGRATION.md) for role rules, manual model selection, advisor-pool configuration, ledger behavior, and current verification limits.
+
+The native model selector uses current v2 provider/model/integration records and the configured hard-allow pool. Jev failures and low confidence expose eligible caller choices instead of triggering a silent fallback. The advisor pool is configured through `[opencode].manager.advisor_models` and remains intersected with the general model pool. The v2 TUI keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns native agent and task visibility. Legacy task trees, sidebars, BTW controls, and prompt translation are not registered by the native TUI entry.
+
+Codebase Memory MCP remains opt-in and disabled by default: fixture testing found source edits were not visible until a full manual reindex. Its role-level fallback wiring and integrated live TUI/task proof remain pending. Unit/typecheck evidence does not claim the native runtime has passed a live OpenCode session.
+
 ---
 
 ## 1. Purpose & North Star

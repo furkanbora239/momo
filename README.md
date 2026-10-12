@@ -350,6 +350,12 @@ momo works out of the box with zero configuration. To customize behavior, create
 
 ---
 
+## OpenCode v2 Native Runtime (Integration in Progress)
+
+The native runtime uses OpenCode v2 provider, model, integration, session, permission, and TUI APIs directly. Its intended task tools are `momo_task` and `momo_consult`; callers cannot supply their own session or role identity. A route can select a model, request caller selection from refreshed candidates, or report that no eligible model is available. Jev outages and low confidence never trigger a silent fallback.
+
+The native advisor pool is configured at `[opencode].manager.advisor_models` in `~/.omo/omo.jsonc` and is intersected with the general model pool. Native v2 keeps `/pool`, `/providers`, and `/advisor-pool`; OpenCode owns task and agent visibility. The Codebase Memory MCP candidate stays disabled by default because isolated fixture QA found it required a full manual reindex to see source edits. The native migration and evidence limits are documented in [NATIVE_V2_MIGRATION.md](./NATIVE_V2_MIGRATION.md).
+
 ## 🛠️ Developer & Contributor Guide
 
 ### Branches
