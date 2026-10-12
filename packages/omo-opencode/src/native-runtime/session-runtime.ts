@@ -159,6 +159,7 @@ export function createNativeSessionRuntime(input: {
       await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
       return
     }
+    if ((await requiredTask(args.taskID)).parentTaskID !== undefined) return
     await api.session.synthetic({
       sessionID: args.parentSessionID,
       id: questionNotificationID(args.taskID, args.question.id),

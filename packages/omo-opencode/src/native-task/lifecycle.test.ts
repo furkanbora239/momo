@@ -8,6 +8,46 @@ async function startWorker(harness: ReturnType<typeof createHarness>, callerSess
 }
 
 describe("native task lifecycle", () => {
+  it("ignores an older execution finish after a new department execution has started", async () => {
+    const h = createHarness()
+    const task = await startWorker(h)
+    const sessionID = task.sessionID ?? ""
+    await h.engine.onEvent({ id: "new-start", type: "execution.started", sessionID, sequence: 30 })
+    await h.engine.onEvent({ id: "old-finish", type: "execution.succeeded", sessionID, sequence: 29, result: "old result" })
+    expect(await h.repository.get(task.id)).toMatchObject({ state: "running", lastExecutionSequence: 30 })
+    expect(h.runtime.deliveries).toHaveLength(0)
+    await h.engine.onEvent({ id: "new-finish", type: "execution.succeeded", sessionID, sequence: 31, result: "new result" })
+    expect(await h.repository.get(task.id)).toMatchObject({ state: "succeeded", result: "new result" })
+    expect(h.runtime.deliveries).toEqual([{ taskID: task.id, result: "new result" }])
+  })
+
+  it("queues a question wake behind another worker using the same model capacity", async () => {
+    const h = createHarness({ defaultConcurrency: 1 })
+    const model = { providerID: "test", id: "shared" }
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "dept", role: "planner", model })
+    const department = await startWorker(h)
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "worker", role: "worker", model: { providerID: "test", id: "child-model" } })
+    const child = await h.engine.create({ prompt: "Child", callerSessionID: department.sessionID ?? "" })
+    await h.engine.onEvent({ id: "dept-wait", type: "execution.succeeded", sessionID: department.sessionID ?? "", sequence: 1, result: "initial" })
+    const childRunning = await h.repository.get(child.id)
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "blocker", role: "worker", model })
+    const blocker = await h.engine.create({ prompt: "Blocker", callerSessionID: "root" })
+    await h.engine.onEvent({ id: "question", type: "question.asked", sessionID: childRunning?.sessionID ?? "", question: { id: "q", prompt: "Which option?" } })
+    expect(await h.repository.get(blocker.id)).toMatchObject({ state: "running" })
+    expect(await h.repository.get(department.id)).toMatchObject({ state: "queued" })
+    expect(h.runtime.parentContinuations).toHaveLength(0)
+    await h.engine.onEvent({ id: "late-dept-finish", type: "execution.succeeded", sessionID: department.sessionID ?? "", sequence: 2, result: "stale" })
+    expect(await h.repository.get(department.id)).toMatchObject({ state: "queued" })
+    h.runtime.inspect = async () => ({ state: "running" })
+    const restarted = createNativeTaskEngine({ repository: h.repository, router: h.router, runtime: h.runtime, defaultConcurrency: 1 })
+    await restarted.reconcile()
+    expect(await h.repository.get(department.id)).toMatchObject({ state: "queued" })
+    expect(h.runtime.parentContinuations).toHaveLength(0)
+    await restarted.onEvent({ id: "blocker-finish", type: "execution.succeeded", sessionID: (await h.repository.get(blocker.id))?.sessionID ?? "", result: "done" })
+    expect(await h.repository.get(department.id)).toMatchObject({ state: "running" })
+    expect(h.runtime.parentContinuations).toHaveLength(1)
+  })
+
   it("ignores duplicate and late V2 events after persisting the first terminal result", async () => {
     const harness = createHarness()
     const task = await startWorker(harness)

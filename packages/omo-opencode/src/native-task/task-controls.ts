@@ -9,6 +9,7 @@ type TaskControlsOptions = {
   save: (task: NativeTask) => Promise<NativeTask>
   withTaskLock: <T>(taskID: string, action: () => Promise<T>) => Promise<T>
   pump: () => Promise<void>
+  wakeParentForQuestion: (childTaskID: string, questionID: string) => Promise<boolean>
   releaseWaitSlot: (taskID: string, callerSessionID: string) => Promise<string | undefined>
   resumeWaitSlot: (parentTaskID: string, taskID: string) => Promise<void>
   recordOutcome: (task: NativeTask) => Promise<void>
@@ -186,12 +187,16 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       })
       if (question === undefined) return
       let failure: string | undefined
-      try { await deps.options.runtime.ask({ parentSessionID: task.parentSessionID, taskID: task.id, question }) } catch (error) { failure = errorText(error) }
+      let accepted = false
+      try {
+        await deps.options.runtime.ask({ parentSessionID: task.parentSessionID, taskID: task.id, question })
+        accepted = await deps.wakeParentForQuestion(task.id, questionID)
+      } catch (error) { failure = errorText(error) }
       await deps.withTaskLock(task.id, async () => {
         const current = await deps.get(task.id)
         if (current.question?.id !== questionID || current.questionDelivery !== "pending") return
-        if (failure === undefined) current.questionDelivery = "sent"
-        else current.error = `Question delivery failed: ${failure}`
+        if (failure === undefined && accepted) current.questionDelivery = "sent"
+        else if (failure !== undefined) current.error = `Question delivery failed: ${failure}`
         await deps.save(current)
       })
     } catch (error) {

@@ -200,6 +200,27 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     if (shouldResume) await pump()
   }
 
+  async function wakeParentForQuestion(childTaskID: string, questionID: string): Promise<boolean> {
+    const child = await get(childTaskID)
+    if (child.state !== "waiting_question" || child.question?.id !== questionID || child.answer !== undefined) return true
+    if (child.parentTaskID === undefined) return true
+    let accepted = false
+    await withTaskLock(child.parentTaskID, async () => {
+      const parent = await get(child.parentTaskID ?? "")
+      if (parent.waitForTaskID === child.id || isTerminal(parent.state)) { accepted = true; return }
+      if (parent.state === "queued" && parent.parentWakeID === `question:${child.id}:${questionID}`) { accepted = true; return }
+      if (parent.state !== "waiting_children" || parent.waitForTaskID !== undefined) return
+      parent.state = "queued"
+      parent.executionOutcome = undefined
+      parent.parentWakeMessage = `A child task is waiting for a decision. Task ID: ${child.id}. Question ID: ${questionID}. ${child.question?.prompt}. Use momo_task answer with this task ID, question ID, and your answer before continuing.`
+      parent.parentWakeID = `question:${child.id}:${questionID}`
+      await save(parent)
+      accepted = true
+    })
+    if (accepted) await pump()
+    return accepted
+  }
+
   async function releaseWaitSlot(taskID: string, callerSessionID: string): Promise<string | undefined> {
     const parent = (await options.repository.list()).find((task) => task.sessionID === callerSessionID && task.childTaskIDs.includes(taskID) && task.state === "running")
     if (parent === undefined) return undefined
@@ -341,6 +362,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     save,
     withTaskLock,
     pump,
+    wakeParentForQuestion,
     releaseWaitSlot,
     resumeWaitSlot,
     recordOutcome,

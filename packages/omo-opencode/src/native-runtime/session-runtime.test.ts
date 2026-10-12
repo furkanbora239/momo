@@ -174,6 +174,14 @@ describe("native V2 session runtime", () => {
     release?.()
   })
 
+  it("creates a managed parent form without bypassing the task scheduler through a synthetic wake", async () => {
+    const h = harness()
+    h.task.parentTaskID = "department"
+    await h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
+    expect(h.calls.filter((call) => call.name === "form.create")).toHaveLength(1)
+    expect(h.calls.filter((call) => call.name === "synthetic")).toHaveLength(0)
+  })
+
   it("creates field-keyed native forms and routes root escalation answers back to the child form", async () => {
     const h = harness()
     await h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
