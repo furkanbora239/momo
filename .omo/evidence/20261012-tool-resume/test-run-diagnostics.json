@@ -1,0 +1,14 @@
+{
+  "firstRun": {
+    "result": "failed",
+    "reason": "archived README links broken",
+    "pass": 12705,
+    "skip": 6,
+    "fail": 1
+  },
+  "secondRun": {
+    "result": "terminated",
+    "reason": "no output for over two minutes at final installer-test boundary; task-owned Bun process remained CPU-active; one-second native stack sample saved outside repository"
+  },
+  "next": "Repeat after the concurrent SDK-contract suite finishes. Do not claim partial suite as passing."
+}

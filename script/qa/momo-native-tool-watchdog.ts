@@ -43,8 +43,10 @@ export async function proveNativeToolWatchdog(input: {
     active = await input.client.session.active()
   }
   if (active[String(capped.sessionID)] !== undefined) throw new Error("Timed-out native tool session remains active")
-  await input.client.session.prompt({ sessionID: root.id, text: `MOMO_LIFECYCLE_CANCEL ${capped.id}` })
+  await input.client.session.prompt({ sessionID: root.id, text: `MOMO_TOOL_RESUME ${capped.id}` })
   await input.client.session.wait({ sessionID: root.id })
+  const resumed = await poll("MOMO_TOOL_CAP", (row) => row.state === "succeeded" && (row.delivery as TaskRow | undefined)?.status === "delivered", 10_000)
+  if (resumed.sessionID !== capped.sessionID || resumed.decisionId !== capped.decisionId || !Array.isArray(resumed.activeTools) || resumed.activeTools.length !== 0) throw new Error("Capped tool did not resume its existing assignment without the expired tool lease")
 
   await create("MOMO_TOOL_DENIAL")
   await poll("MOMO_TOOL_DENIAL", (row) => row.state === "succeeded", 10_000)
@@ -54,6 +56,7 @@ export async function proveNativeToolWatchdog(input: {
     protectedAfterSilenceThreshold: { taskID: protectedTask.id, state: protectedTask.state, tools: tools.map((tool) => tool.name) },
     completedProtectedTask: { taskID: completed.id, state: completed.state, delivery: completed.delivery },
     interruptedAtToolCap: { taskID: capped.id, state: capped.state, error: capped.error },
+    resumedAfterToolCap: { taskID: resumed.id, sessionID: resumed.sessionID, state: resumed.state, expiredToolLeaseCleared: true },
     nativePermissionHookDeniedShell: true, deniedCommandDidNotWrite: true,
     limits: ["Isolated configured thresholds exercise both watchdog branches. The production defaults remain 180000/3600000 ms; this probe does not wait for the literal 60-minute default cap."],
   }

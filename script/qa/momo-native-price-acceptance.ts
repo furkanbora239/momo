@@ -177,8 +177,11 @@ async function startFixtures(): Promise<void> {
     const toolMarker = userText.match(/MOMO_TOOL_CREATE (MOMO_TOOL_[A-Z_]+)/)?.[1]
     const lifecycleMarker = userText.match(/MOMO_LIFECYCLE_CREATE (MOMO_LIFECYCLE_[A-Z_]+)/)?.[1]
     const cancelID = userText.match(/MOMO_LIFECYCLE_CANCEL (ntask_[A-Za-z0-9_-]+)/)?.[1]
+    const resumeID = userText.match(/MOMO_TOOL_RESUME (ntask_[A-Za-z0-9_-]+)/)?.[1]
     let toolCall: { name: string; arguments: Record<string, unknown> } | undefined
-    if (lastRole === "user" && toolMarker) {
+    if (lastRole === "user" && resumeID) {
+      toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"resume",taskID:${JSON.stringify(resumeID)}})` } }
+    } else if (lastRole === "user" && toolMarker) {
       toolCall = { name: "execute", arguments: { code: `return await tools.momo_task({action:"create",prompt:${JSON.stringify(toolMarker)}})` } }
     } else if (lastRole === "user" && userText === "MOMO_TOOL_QUESTION") {
       toolCall = { name: "question", arguments: { questions: [{ header: "Fixture", question: "Approve fixture?", options: [{ label: "approved", description: "Continue the isolated proof" }] }] } }

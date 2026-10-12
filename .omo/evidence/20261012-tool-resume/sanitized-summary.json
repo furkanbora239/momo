@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "toolProof": {
+    "status": "passed",
+    "configuredSilenceTimeoutMs": 60000,
+    "configuredActiveToolTimeoutMs": 70000,
+    "protectedAfterSilenceThreshold": {
+      "taskID": "ntask_1d1ac065-b9ed-4dc4-bcdc-c7bf09f98183",
+      "state": "running",
+      "tools": [
+        "shell"
+      ]
+    },
+    "completedProtectedTask": {
+      "taskID": "ntask_1d1ac065-b9ed-4dc4-bcdc-c7bf09f98183",
+      "state": "succeeded",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_3a54d768340358f07deb8e0da3",
+        "attemptedAt": 1791828209481,
+        "deliveredAt": 1791828209486
+      }
+    },
+    "interruptedAtToolCap": {
+      "taskID": "ntask_7b53a79b-81e4-41b8-9a18-c1ec4a5d80fc",
+      "state": "interrupted",
+      "error": "Task exceeded the active tool timeout."
+    },
+    "resumedAfterToolCap": {
+      "taskID": "ntask_7b53a79b-81e4-41b8-9a18-c1ec4a5d80fc",
+      "sessionID": "ses_c39d611cead02aee28b7e4a8c3",
+      "state": "succeeded",
+      "expiredToolLeaseCleared": true
+    },
+    "nativePermissionHookDeniedShell": true,
+    "deniedCommandDidNotWrite": true,
+    "limits": [
+      "Isolated configured thresholds exercise both watchdog branches. The production defaults remain 180000/3600000 ms; this probe does not wait for the literal 60-minute default cap."
+    ]
+  },
+  "opencodeVersion": "opencode v2.0.24",
+  "temporaryRootsOnly": true,
+  "noProviderCredentials": true,
+  "ownedProcessGroupGone": true,
+  "realUserDatabaseUnchanged": true,
+  "pluginEntry": "dist/index.js",
+  "bundleSHA256": "db864469bec5b885077e0d6e2257b66bcb24a23b16ae0a6567350818d35565e4"
+}
