@@ -36,6 +36,8 @@ describe("native search V2 MCP configuration", () => {
     const directory = await mkdtemp(join(tmpdir(), "momo-native-search-provision-"))
     try {
       await expect(provisionNativeSearchBinary({
+        platform: "darwin",
+        arch: "arm64",
         runtimeRoot: join(directory, "runtime"),
         fetcher: async () => new Response("not the pinned archive", { status: 200 }),
       })).rejects.toThrow("archive SHA-256 mismatch")
