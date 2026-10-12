@@ -1,0 +1,121 @@
+{
+  "status": "independent-checks-passed",
+  "sourceSHA256": {
+    "packages/omo-opencode/src/native-routing/candidate-ranking.ts": "541b476ef26e0818eb91845ba7350baab67612e79afd347676abc272da572e5f",
+    "packages/omo-opencode/src/native-routing/index.ts": "753baf29f4e78430b09949d140329fdcf46df7aa4bce5876c183028136c98641",
+    "packages/omo-opencode/src/native-routing/jev-adapter.ts": "96a3d1a8cec1eda77b3b0f2257a770174c1f52cd052b4e43467d984820a4aea4",
+    "packages/omo-opencode/src/native-routing/jev-answer-validation.ts": "0db8577fa7e4de9c85de2c57c2d263c7426cebc928c0dddb123bfa0649fdc862",
+    "packages/omo-opencode/src/native-routing/jsonl-store.ts": "1f57e267e38b1be9dc433b75758c88c8495b2638dffbf7a502aaeea42804fef8",
+    "packages/omo-opencode/src/native-routing/ledger-validation.ts": "ef69baca5ec7623bf342b85e6217d861c17c6fbbb1f3fc5134ddc2d434aae7cd",
+    "packages/omo-opencode/src/native-routing/outcome-reader.test.ts": "5631c2a9686e8aaed53e568998bc7be6c42c4aac69c58af016560e525378b761",
+    "packages/omo-opencode/src/native-routing/outcome-reader.ts": "868dd95f0603b90270faeed0b8f983e2ad232a12a0cf42d1b21c40d750c658a3",
+    "packages/omo-opencode/src/native-routing/role-policy.ts": "f6d94a5ec74fe452ad1e2dc8fd293fac549546319bf1d7a0b6c01839cc318294",
+    "packages/omo-opencode/src/native-routing/router.test.ts": "7d53eec6ce41a8bc7d4a88c2c365bf00ae65ba06151c958469ad7dad12e61317",
+    "packages/omo-opencode/src/native-routing/router.ts": "98f33f4322ef093a604106f6cb96d16316f7dd53ae974d970427dec01115ea87",
+    "packages/omo-opencode/src/native-routing/types.ts": "ee59d0475086370dc66f21c26e76ca2eefb4fbb9924216236426427544bca436",
+    "packages/omo-opencode/src/native-catalog/adapter.test.ts": "696ed32c67d5660bd55127dd135c2cfe6b653e2a85aa7da305408bab01e3a42b",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "6841953989716b381f872523569932b8858c3735434ed5137369b113785fc5fc",
+    "packages/omo-opencode/src/native-catalog/index.ts": "e750ad81f26e0ead212051206dd81a59857a1a129f3fce90ebe45abc5fe73727",
+    "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.test.ts": "408a16b0ec5e6d0b6daf8c0fb32b23eb96ba67cd0782e502876e622828fada67",
+    "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.ts": "920f8c72781232ab58880c772dddc2c48b4fd7abfc0d0c4c58cddfbbc3f3d8dc",
+    "packages/omo-opencode/src/native-catalog/knowledge-facts.ts": "3c4ed46d23f76be9974aaef2721411822b7cbe909099e078aff300c3f59ae4c8",
+    "packages/omo-opencode/src/native-catalog/knowledge-store.test.ts": "89190d391dd61998f0565980716d9e1510ec4d8bc8e6583abb267af1387eaf23",
+    "packages/omo-opencode/src/native-catalog/knowledge-store.ts": "67ff5922eabcd6baa75994488ccfa84f40a2c265a4a2340534a9f1b55c07b054",
+    "packages/omo-opencode/src/native-catalog/live-models.ts": "097923804340d59f964d2ec4b3f79f13451e535b1f8a6accd4f3fb70efcefb21",
+    "packages/omo-opencode/src/native-catalog/model-facts.ts": "5af29cac93082be25ffe56f53c045500080aebda2a4ed26be5404c7d344f92c9",
+    "packages/omo-opencode/src/native-catalog/native-control-stores.test.ts": "3181b71f4f583cc5ff09c62e0c4dc303006db41375da9f814ee21d1f66cd819f",
+    "packages/omo-opencode/src/native-catalog/native-control-stores.ts": "e53edff414af65791953949d33a65d0a6d4cbdd8c8387c26f7452337f4d349f7",
+    "packages/omo-opencode/src/native-catalog/paths.ts": "cc3f06ab05b8eccec2de56a378d5f5ed83271da07b8b68850341a44a72ab97c6",
+    "packages/omo-opencode/src/native-catalog/pricing-routing.test.ts": "7b0bb623660c4cab22ccadf5cb996f8dc9ec9f00973b854f8d149afe01315031",
+    "packages/omo-opencode/src/native-catalog/types.ts": "763b9105c69cbcb99c029286884f0342b926f6e3be58d1ac73bcd7ca8f0fe37e"
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "focusedSuite": {
+    "pass": 47,
+    "fail": 0,
+    "assertions": 174
+  },
+  "fullSuite": {
+    "pass": 12550,
+    "skip": 6,
+    "fail": 0,
+    "files": 1539,
+    "seconds": 226.12
+  },
+  "nativeHarnessEvidence": {
+    "status": "passed",
+    "opencodeVersion": "opencode v2.0.24",
+    "priceClaimPersistedBy": "momo_catalog_enrich",
+    "providerModelIdentity": "momo-price-qa/momo-free",
+    "sourceURL": "https://fixture.example/models/momo-free/pricing",
+    "jevCandidateFacts": {
+      "free": {
+        "pricesPerMillion": {
+          "input": 0,
+          "output": 0
+        },
+        "priceCurrency": "USD",
+        "priceOrigin": "https://fixture.example/models/momo-free/pricing"
+      },
+      "priced": {
+        "pricesPerMillion": {
+          "input": 0.2,
+          "output": 0.4
+        },
+        "priceCurrency": "USD"
+      },
+      "unknownZero": {
+        "pricesPerMillion": {
+          "input": "unknown",
+          "output": "unknown"
+        },
+        "priceCurrency": "unknown"
+      }
+    },
+    "selectedTask": {
+      "id": "ntask_5ceb36b1-fbaa-42e7-be75-05f98f1ddc40",
+      "role": "worker",
+      "model": {
+        "providerID": "momo-price-qa",
+        "id": "momo-free"
+      },
+      "state": "succeeded",
+      "delivery": {
+        "status": "delivered",
+        "attempts": 1,
+        "messageID": "msg_cc71582693f1268fe3bb6385d3",
+        "attemptedAt": 1791822106151,
+        "deliveredAt": 1791822106165
+      }
+    },
+    "fakeProviderRequestCount": 15,
+    "jevRequestCount": 3,
+    "temporaryRootsOnly": true,
+    "noProviderCredentials": true,
+    "realUserDatabaseUnchanged": true,
+    "pluginEntry": "dist/index.js",
+    "bundleSHA256": "b162688080d13836adca4e77d5b02026637a9013b0eab5bf09bbfb7c014f0f3f",
+    "productionCheckpoint": "15bac1166937ac73d8343f51de784122a2c25f82",
+    "limits": [
+      "Published-price source is a fixture URL, not a real provider capability claim.",
+      "This does not prove integrated restart, cancellation, watchdog or fault-injection cases."
+    ],
+    "checks": {
+      "typecheck": "passed",
+      "focusedTests": {
+        "passed": 94,
+        "failed": 0
+      },
+      "fullTests": {
+        "passed": 12699,
+        "skipped": 6,
+        "failed": 0,
+        "files": 1558,
+        "seconds": 196.06
+      },
+      "build": "passed"
+    }
+  },
+  "limits": "These modules remain inert until the later runtime activation slice. Source-identical manager/catalog code was exercised through the integration native adapter; this PR does not by itself activate delegation."
+}
