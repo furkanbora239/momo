@@ -1,30 +1,9 @@
 import { createJevClient, type JevCallResult, type JevClient, type JevClientDeps, type PostJson } from "@oh-my-opencode/decision-core"
+import { candidateCriteria, JEV_CHOICE_LIMIT, stagedNativeAnswer } from "./jev-staged-selection"
 import type { NativeJev, NativeJevAnswer, NativeJevHttpAttempt, NativeJevRequest } from "./types"
 
 const candidateKey = (role: string, providerID: string, id: string): string => `${role}|${providerID}/${id}`
 
-function modelCriteria(request: NativeJevRequest): Record<string, string> {
-  const criteria: Record<string, string> = {}
-  for (const candidate of request.candidates) {
-    const { facts, model, knowledge } = candidate
-    const key = candidateKey(candidate.role, model.providerID, model.id)
-    criteria[key] = JSON.stringify({
-      role: candidate.role,
-      model,
-      pricesPerMillion: {
-        input: facts.inputPricePerMillion ?? "unknown",
-        output: facts.outputPricePerMillion ?? "unknown",
-      },
-      priceCurrency: facts.priceCurrency ?? "unknown",
-      priceOrigin: facts.priceOrigin ?? facts.priceSource ?? "unknown",
-      contextLength: facts.contextLength ?? "unknown",
-      toolCall: facts.toolCall ?? "unknown",
-      capabilities: facts.capabilities ?? "unknown",
-      knowledge: knowledge.known ? knowledge : "unknown",
-    })
-  }
-  return criteria
-}
 
 function decodeChoice(raw: JevCallResult["answers"][string] | undefined): {
   choice: string
@@ -47,7 +26,7 @@ function questionsFor(request: NativeJevRequest) {
     candidate: {
       type: "choice" as const,
       instructions: "Choose the least costly role and model that can meet the request. Unknown price is not free, and unknown ability is not verified.",
-      criteria: modelCriteria(request),
+      criteria: candidateCriteria(request.candidates),
     },
     lane: {
       type: "choice" as const,
@@ -61,6 +40,7 @@ function questionsFor(request: NativeJevRequest) {
 }
 
 function nativeAnswer(client: JevClient, request: NativeJevRequest): Promise<NativeJevAnswer> {
+  if (request.candidates.length > JEV_CHOICE_LIMIT) return stagedNativeAnswer(client, request)
   return client.ask(JSON.stringify(request), questionsFor(request)).then((result) => {
     const candidateChoice = decodeChoice(result.answers.candidate)
     const lane = decodeChoice(result.answers.lane)
