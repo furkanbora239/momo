@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "bundleSHA256": "902f6185aa1a700139345b8c6d9c1ff7870a935c129a348e217eba4a65bdf169",
+  "opencodeVersion": "opencode v2.0.27",
+  "verifiedCases": [
+    "actual Code Mode create/list ID recovery",
+    "424 candidates paged and selected without Jev replay",
+    "authoritative role permission metadata",
+    "bounded status/select/wait/cancel",
+    "complete result paging and unknown acceptance",
+    "consultation compact DTO and recovery",
+    "raw RPC preserves historical record"
+  ],
+  "proof": {
+    "role": "tool",
+    "tool_call_id": "call_api_probe",
+    "content": "{\n  \"apiProof\": \"MOMO_API_PROOF_PASSED\",\n  \"taskID\": \"ntask_ac2bf32a-b5ca-4e2b-990e-06662b277061\",\n  \"decisionId\": \"ntask_ac2bf32a-b5ca-4e2b-990e-06662b277061\",\n  \"candidateCount\": 424,\n  \"statusBytes\": 641,\n  \"selectedBytes\": 807,\n  \"waitBytes\": 2938,\n  \"cancelBytes\": 650,\n  \"resultLength\": 10023,\n  \"verification\": \"unknown\"\n}"
+  },
+  "rawTaskBytes": 352120,
+  "rawCandidateCount": 424,
+  "taskID": "ntask_ac2bf32a-b5ca-4e2b-990e-06662b277061",
+  "decisionId": "ntask_ac2bf32a-b5ca-4e2b-990e-06662b277061",
+  "cleanup": {
+    "sandboxRemoved": true,
+    "ownedProcessGroupGone": true,
+    "realDatabaseUnchanged": true,
+    "databaseBefore": {
+      "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+      "counts": {
+        "session": "249",
+        "session_v2": "304",
+        "session_message": "17652"
+      }
+    },
+    "databaseAfter": {
+      "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+      "counts": {
+        "session": "249",
+        "session_v2": "304",
+        "session_message": "17652"
+      }
+    }
+  }
+}
