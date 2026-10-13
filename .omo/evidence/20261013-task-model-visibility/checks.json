@@ -42,7 +42,10 @@
     "xtermPTYCleanupRecorded": true,
     "fullTestProcessGroupExited": true,
     "fullTestTimedOut": false,
-    "userDatabaseUnchanged": true
+    "userDatabaseUnchanged": true,
+    "recordedXtermPTYPIDsGone": true,
+    "taskSpecificBuildCommandsGone": true,
+    "taskOwnedDependencySymlinksRemoved": true
   },
   "localArtifacts": {
     "runningScreenshot": "mounted/tui/terminal.png",
