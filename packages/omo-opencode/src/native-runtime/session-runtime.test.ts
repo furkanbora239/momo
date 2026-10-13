@@ -155,6 +155,9 @@ describe("native V2 session runtime", () => {
       model: { providerID: "momo-qa", id: "momo-qa-model" },
       location: { directory: "/workspace" },
     })
+    expect(String(args.title)).toContain("worker")
+    expect(String(args.title)).toContain("momo-qa/momo-qa-model")
+    expect(String(args.title)).toContain(h.task.id)
     expect((args.metadata as Record<string, unknown>).momoNativeTask).toMatchObject({ taskID: h.task.id, rootSessionID: "ses_root", role: "worker" })
   })
 

@@ -8,6 +8,7 @@ import type { NativeAdvisorPoolControl } from "../../native-runtime/tui/catalog-
 import { createNativeCatalogControlStores } from "../../native-runtime/tui/control-stores"
 import { resolveNativeHomeDirectory } from "../../native-catalog/paths"
 import { registerNativeCatalogKeymapControls } from "./native-catalog-keymap"
+import { loadNativeTaskSidebar } from "./native-task-sidebar"
 import { getAdvisorPool } from "../../native-runtime/advisor-pool-config"
 
 type NativeCatalogView = Pick<NativeCatalogAdapter, "refresh" | "snapshot" | "listProviderIDs">
@@ -50,6 +51,7 @@ function createRpcCatalogView(ctx: V2TuiContext, directory: string): NativeCatal
 }
 
 export type V2TuiSetupDeps = {
+  readonly registerTaskSidebar?: (ctx: V2TuiContext) => Promise<() => void>
   readonly getCatalog?: (ctx: V2TuiContext) => NativeCatalogView | undefined
   readonly getAdvisorPool?: (ctx: V2TuiContext) => NativeAdvisorPoolControl | undefined
   readonly homeDirectory?: (ctx: V2TuiContext) => string
@@ -96,6 +98,10 @@ export function createV2TuiSetup(
       }
       const stores = createNativeCatalogControlStores(deps.homeDirectory?.(ctx))
       cleanups.push(registerNativeCatalogKeymapControls(ctx, catalog, stores, advisorPool))
+    })
+
+    await runRegistration("[native-task-sidebar]", async () => {
+      cleanups.push(await (deps.registerTaskSidebar ?? loadNativeTaskSidebar)(ctx))
     })
 
     return () => {

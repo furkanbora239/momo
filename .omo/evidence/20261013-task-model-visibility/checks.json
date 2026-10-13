@@ -1,0 +1,63 @@
+{
+  "sdk": "@opencode/plugin and @opencode/client 2.0.24; OpenCode v2.0.24",
+  "sourcePaths": [
+    "packages/omo-opencode/src/native-runtime/session-runtime.ts",
+    "packages/omo-opencode/src/v2/tui/native-task-view.ts",
+    "packages/omo-opencode/src/v2/tui/native-task-poller.ts",
+    "packages/omo-opencode/src/v2/tui/native-task-sidebar.ts",
+    "packages/omo-opencode/src/v2/tui/index.ts"
+  ],
+  "bundleSHA256": {
+    "server": "4a591135909a1a54bd4f11cfd30144499177e711456d1cdefce9aaa6626f218a",
+    "tui": "c4a47615c9f6fb1b2d42fc621f10dd0c7ef44305c853865fbddabb6d19f210da"
+  },
+  "automated": {
+    "focused": {
+      "pass": 19,
+      "fail": 0,
+      "assertions": 84
+    },
+    "typecheck": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "pass": 12629,
+      "skip": 6,
+      "fail": 0,
+      "assertions": 54786,
+      "files": 1554,
+      "seconds": 187.16
+    }
+  },
+  "actualNativeOpenCode": {
+    "taskAssignmentMatchesChildSession": true,
+    "titleIncludesRoleProviderModelAndTaskIdentity": true,
+    "otherRootRPCEmpty": true,
+    "postMountEmptyToDispatchedRefresh": true,
+    "runningFullLongProviderModelWrap": true,
+    "nativeRootSwitchClearsOldTasks": true,
+    "managedTaskEmptyLabel": true
+  },
+  "cleanup": {
+    "ownedNativeServerProcessGroupExited": true,
+    "xtermPTYCleanupRecorded": true,
+    "fullTestProcessGroupExited": true,
+    "fullTestTimedOut": false,
+    "userDatabaseUnchanged": true,
+    "recordedXtermPTYPIDsGone": true,
+    "taskSpecificBuildCommandsGone": true,
+    "taskOwnedDependencySymlinksRemoved": true
+  },
+  "localArtifacts": {
+    "runningScreenshot": "mounted/tui/terminal.png",
+    "rootSwitchScreenshot": "mounted/switch/terminal.png",
+    "captureCleanup": [
+      "mounted/tui/metadata.json",
+      "mounted/switch/metadata.json"
+    ],
+    "mountedRefresh": "mounted/mounted-rpc-polls.jsonl"
+  },
+  "coverageLimits": [
+    "Only momo_task/momo_consult managed native tasks are displayed.",
+    "Waiting, awaiting-selection, stale/unavailable, ordering, abort and disposal branches are behavior-tested; actual TUI proof covers running assignment, live refresh and root switching."
+  ]
+}
