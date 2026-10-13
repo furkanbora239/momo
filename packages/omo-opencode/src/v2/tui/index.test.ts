@@ -69,7 +69,7 @@ describe("#given the V2 TUI plugin module", () => {
 describe("#given a setup that does not load a second Solid runtime", () => {
   it("#when setup runs #then it registers controls through the native V2 context", async () => {
     const fake = createFakeV2TuiContext()
-    const setup = createV2TuiSetup({ getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
+    const setup = createV2TuiSetup({ registerTaskSidebar: async () => () => undefined, getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
 
     const cleanup = await setup(fake.ctx)
 
@@ -82,7 +82,7 @@ describe("#given a setup that does not load a second Solid runtime", () => {
   it("#when the server catalog RPC fails #then the slash command reports the error in a toast", async () => {
     const fake = createFakeV2TuiContext({ directory: "/fake/project" })
     fake.ctx.client.rpc.call = async () => { throw new Error("server is offline") }
-    const setup = createV2TuiSetup({ getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
+    const setup = createV2TuiSetup({ registerTaskSidebar: async () => () => undefined, getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
 
     await setup(fake.ctx)
     const pool = fake.keymapLayers[0]?.().commands?.find((command) => command.id === "omo.native.pool")
@@ -119,7 +119,7 @@ describe("#given a setup with isolated catalog and advisor controls", () => {
       read: () => advisorModels,
       write: (models) => { advisorModels.splice(0, advisorModels.length, ...models) },
     })
-    const setup = createV2TuiSetup()
+    const setup = createV2TuiSetup({ registerTaskSidebar: async () => () => undefined })
 
     const cleanup = await setup(fake.ctx)
     expect(typeof cleanup).toBe("function")

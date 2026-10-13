@@ -41,7 +41,9 @@ Register the package root in OpenCode v2 configuration:
 
 OpenCode loads the package's `./tui` export from that registration. Do not add duplicate entries to `cli.json` or `tui.json`. momo distributes owned markdown agent files and preserves conflicting user-owned files.
 
-Start `opencode`, choose the orchestrator and select its session model. Use native agent/task visibility. `/pool`, `/providers` and `/advisor-pool` manage routing controls.
+Start `opencode`, choose `momo-orchestrator` and select its session model. `/pool`, `/providers` and `/advisor-pool` manage routing controls.
+
+The native sidebar shows each managed momo task's assigned provider/model, role, state and short summary for the current root session. Active work appears before finished history; complete model identifiers wrap. Tasks awaiting selection show `unassigned`. Failed refreshes are marked stale or unavailable. Native child session titles also include their role, dispatched provider/model and task identity. The panel covers tasks created through `momo_task` and `momo_consult`. For an existing legacy session, restart OpenCode after updating the plugin and select `momo-orchestrator` for new managed tasks.
 
 ## Task and consultation tools
 
