@@ -1,0 +1,248 @@
+{
+  "finding": "F01",
+  "contract": "overflow-only hierarchical-conditional-v1",
+  "bundleSha256": "9754d637b46761316ce29c07360c7dceecf47a2f8ad9003105814e2c387f4a78",
+  "focusedTests": {
+    "passed": 40,
+    "failed": 0,
+    "assertions": 159
+  },
+  "fullSuite": {
+    "passed": 12614,
+    "skipped": 20,
+    "failed": 0,
+    "assertions": 47269,
+    "seconds": 165.28,
+    "note": "One additional malformed-group regression added afterward passed focused verification; production source unchanged."
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "live": [
+    {
+      "status": "passed",
+      "opencodeVersion": "opencode v2.0.27",
+      "modelCount": 53,
+      "catalogSizes": [
+        53,
+        53,
+        53,
+        53,
+        53,
+        53,
+        53,
+        53
+      ],
+      "choiceCounts": [
+        8,
+        2,
+        53,
+        8,
+        2,
+        53,
+        5,
+        2,
+        53,
+        8,
+        2,
+        53
+      ],
+      "liveJevRequests": 8,
+      "verifiedCases": [
+        "full eligible catalog automatic root worker, department lead and department child",
+        "weak confidence remains explicit caller-selection",
+        "every actual Jev transport question respects 255-choice boundary"
+      ],
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true,
+        "databaseBefore": {
+          "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+          "counts": {
+            "session": "249",
+            "session_v2": "304",
+            "session_message": "17652"
+          }
+        },
+        "databaseAfter": {
+          "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+          "counts": {
+            "session": "249",
+            "session_v2": "304",
+            "session_message": "17652"
+          }
+        }
+      },
+      "directTasks": [
+        {
+          "id": "ntask_5a1def0a-3b5a-4a68-b1b2-7d7e348fd923",
+          "rootSessionID": "ses_ecaf7930effeQ5Ri3e5iIVzBrY",
+          "parentSessionID": "ses_ecaf7930effeQ5Ri3e5iIVzBrY",
+          "state": "succeeded",
+          "role": "worker",
+          "model": {
+            "providerID": "momo-qa",
+            "id": "momo-qa-model-52"
+          },
+          "decisionId": "ntask_5a1def0a-3b5a-4a68-b1b2-7d7e348fd923",
+          "attempts": 1
+        }
+      ],
+      "departmentTasks": [
+        {
+          "id": "ntask_9819d0b7-5584-43f5-ae3c-45d8bc6b5db3",
+          "rootSessionID": "ses_ecaf79016ffeGFJ0u4gJ0zZgTE",
+          "parentSessionID": "ses_ecaf79016ffeGFJ0u4gJ0zZgTE",
+          "state": "succeeded",
+          "role": "planner",
+          "model": {
+            "providerID": "momo-qa",
+            "id": "momo-qa-model-52"
+          },
+          "decisionId": "ntask_9819d0b7-5584-43f5-ae3c-45d8bc6b5db3",
+          "attempts": 1
+        },
+        {
+          "id": "ntask_4314dd04-5749-459c-976d-2f88e47663e2",
+          "rootSessionID": "ses_ecaf79016ffeGFJ0u4gJ0zZgTE",
+          "parentSessionID": "ses_1844e4d49d05963b801993baf3",
+          "state": "succeeded",
+          "role": "worker",
+          "model": {
+            "providerID": "momo-qa",
+            "id": "momo-qa-model-52"
+          },
+          "decisionId": "ntask_4314dd04-5749-459c-976d-2f88e47663e2",
+          "attempts": 1
+        }
+      ],
+      "selectionTasks": [
+        {
+          "id": "ntask_45b2bb2c-5dfd-4d1f-97c5-17dd530dd487",
+          "rootSessionID": "ses_ecaf78e02ffetIivjOCSmveBwk",
+          "parentSessionID": "ses_ecaf78e02ffetIivjOCSmveBwk",
+          "state": "awaiting_selection",
+          "decisionId": "ntask_45b2bb2c-5dfd-4d1f-97c5-17dd530dd487",
+          "attempts": 0
+        }
+      ]
+    },
+    {
+      "status": "passed",
+      "opencodeVersion": "opencode v2.0.27",
+      "modelCount": 256,
+      "catalogSizes": [
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256,
+        256
+      ],
+      "choiceCounts": [
+        8,
+        2,
+        128,
+        2,
+        8,
+        2,
+        128,
+        2,
+        5,
+        2,
+        128,
+        2,
+        8,
+        2,
+        128,
+        2
+      ],
+      "liveJevRequests": 12,
+      "verifiedCases": [
+        "full eligible catalog automatic root worker, department lead and department child",
+        "weak confidence remains explicit caller-selection",
+        "every actual Jev transport question respects 255-choice boundary"
+      ],
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true,
+        "databaseBefore": {
+          "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+          "counts": {
+            "session": "249",
+            "session_v2": "304",
+            "session_message": "17652"
+          }
+        },
+        "databaseAfter": {
+          "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+          "counts": {
+            "session": "249",
+            "session_v2": "304",
+            "session_message": "17652"
+          }
+        }
+      },
+      "directTasks": [
+        {
+          "id": "ntask_8e0f9bf0-3370-45f1-98cb-2ccdee4920cc",
+          "rootSessionID": "ses_ecaf717f0ffeKnl32F37Gzj0Vv",
+          "parentSessionID": "ses_ecaf717f0ffeKnl32F37Gzj0Vv",
+          "state": "succeeded",
+          "role": "worker",
+          "model": {
+            "providerID": "momo-qa",
+            "id": "momo-qa-model-255"
+          },
+          "decisionId": "ntask_8e0f9bf0-3370-45f1-98cb-2ccdee4920cc",
+          "attempts": 1
+        }
+      ],
+      "departmentTasks": [
+        {
+          "id": "ntask_6511ccbc-872b-4ce5-81f0-77b5745da73a",
+          "rootSessionID": "ses_ecaf71303ffebvBSPf5g1XrWYd",
+          "parentSessionID": "ses_ecaf71303ffebvBSPf5g1XrWYd",
+          "state": "succeeded",
+          "role": "planner",
+          "model": {
+            "providerID": "momo-qa",
+            "id": "momo-qa-model-255"
+          },
+          "decisionId": "ntask_6511ccbc-872b-4ce5-81f0-77b5745da73a",
+          "attempts": 1
+        },
+        {
+          "id": "ntask_ab77ad92-cef0-4bf1-ae39-c82ce8622117",
+          "rootSessionID": "ses_ecaf71303ffebvBSPf5g1XrWYd",
+          "parentSessionID": "ses_282847f9bf5066c8968059d681",
+          "state": "succeeded",
+          "role": "worker",
+          "model": {
+            "providerID": "momo-qa",
+            "id": "momo-qa-model-255"
+          },
+          "decisionId": "ntask_ab77ad92-cef0-4bf1-ae39-c82ce8622117",
+          "attempts": 1
+        }
+      ],
+      "selectionTasks": [
+        {
+          "id": "ntask_2ecd3322-c6a0-4a00-9cd5-228fbeb3ca20",
+          "rootSessionID": "ses_ecaf70ae8ffeVO9SOOFD8yQi4f",
+          "parentSessionID": "ses_ecaf70ae8ffeVO9SOOFD8yQi4f",
+          "state": "awaiting_selection",
+          "decisionId": "ntask_2ecd3322-c6a0-4a00-9cd5-228fbeb3ca20",
+          "attempts": 0
+        }
+      ]
+    }
+  ]
+}
