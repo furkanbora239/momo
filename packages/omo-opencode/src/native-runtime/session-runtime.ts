@@ -76,7 +76,7 @@ export function createNativeSessionRuntime(input: {
     const created = await api.session.create({
       id: sessionID,
       parentID: args.parentSessionID,
-      title: `momo task ${args.taskID}`,
+      title: `momo ${args.role} · ${args.model.providerID}/${args.model.id} · ${args.taskID}`,
       agent: agentID,
       model: { providerID: args.model.providerID, id: args.model.id },
       location: { directory: parent.location.directory },
