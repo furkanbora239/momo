@@ -1,0 +1,94 @@
+{
+  "status": "passed",
+  "nativeFormProof": {
+    "id": "frm_1399407f70016MuwVuBGGaN85v",
+    "sessionID": "ses_f43807b3b7525ac6fe913caa68",
+    "title": "Choose exact native identifiers",
+    "fields": [
+      {
+        "key": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+        "required": true,
+        "type": "string",
+        "options": [
+          {
+            "value": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv",
+            "label": "Continue"
+          }
+        ]
+      }
+    ],
+    "state": {
+      "status": "answered",
+      "answer": {
+        "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk": "vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
+      }
+    }
+  },
+  "bundleSHA256": "445afd2ca648d364de5b3503076b6a961b89171b061a27b8d5e1bb8bd34ec927",
+  "opencodeVersion": "opencode v2.0.28",
+  "verifiedCases": [
+    "actual Code Mode create/list ID recovery",
+    "424 candidates paged and selected without Jev replay",
+    "authoritative role permission metadata",
+    "bounded status/select/wait/cancel",
+    "complete result paging and unknown acceptance",
+    "consultation compact DTO and recovery",
+    "raw RPC preserves historical record",
+    "actual native long-key and long-option answer from detail"
+  ],
+  "proof": {
+    "role": "tool",
+    "tool_call_id": "call_api_probe",
+    "content": "{\n  \"apiProof\": \"MOMO_API_PROOF_PASSED\",\n  \"taskID\": \"ntask_126ee178-dc95-43e7-9df0-b6fd30949290\",\n  \"decisionId\": \"ntask_126ee178-dc95-43e7-9df0-b6fd30949290\",\n  \"candidateCount\": 424,\n  \"statusBytes\": 641,\n  \"selectedBytes\": 807,\n  \"waitBytes\": 2938,\n  \"cancelBytes\": 650,\n  \"resultLength\": 10023,\n  \"verification\": \"unknown\"\n}"
+  },
+  "rawTaskBytes": 352120,
+  "rawCandidateCount": 424,
+  "taskID": "ntask_126ee178-dc95-43e7-9df0-b6fd30949290",
+  "decisionId": "ntask_126ee178-dc95-43e7-9df0-b6fd30949290",
+  "cleanup": {
+    "sandboxRemoved": true,
+    "ownedProcessGroupGone": true,
+    "realDatabaseUnchanged": true,
+    "databaseBefore": {
+      "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+      "counts": {
+        "session": "249",
+        "session_v2": "313",
+        "session_message": "17931"
+      }
+    },
+    "databaseAfter": {
+      "path": "/home/furkanbora/.local/share/opencode/opencode.db",
+      "counts": {
+        "session": "249",
+        "session_v2": "313",
+        "session_message": "17931"
+      }
+    }
+  },
+  "verifiedAt": "2026-10-14",
+  "testedBaseCommit": "dc22e8ac4",
+  "productionSourceSHA256": {
+    "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "a1cc1f588ac178fdc8f6d56000b62f1dacbd541de92eb5f447653e5c258d5e16",
+    "packages/omo-opencode/src/native-runtime/task-tools.ts": "2e99c9a09ccdd5cbf2f7ed370b6515636414f0f946304432be9e1714d136e780",
+    "packages/omo-opencode/src/native-runtime/session-runtime.ts": "e4d9dda0b843033b0377b40fd477f21dd1de8b9ef397ccbb79c7a41addca39f0"
+  },
+  "gates": {
+    "scriptTypecheck": "passed",
+    "monorepoTypecheck": "passed",
+    "build": "passed; existing rebuilt production bundle before fixture-only update",
+    "fullSuite": {
+      "passed": 12625,
+      "skipped": 20,
+      "failed": 0,
+      "assertions": 42953,
+      "files": 1554,
+      "seconds": 161.9
+    },
+    "fixtureSelfTest": "passed",
+    "standaloneOptionsFocused": {
+      "passed": 9,
+      "assertions": 58
+    }
+  }
+}
