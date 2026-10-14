@@ -10,7 +10,7 @@ import { randomUUID, createHash } from "node:crypto"
 import { OpenCode } from "../../packages/omo-opencode/node_modules/@opencode/client/dist/promise/index.js"
 
 type JsonRecord = Record<string, unknown>
-type JevRequest = { model?: string; state?: unknown; questions?: { candidate?: { criteria?: Record<string, string> }; lane?: { criteria?: Record<string, string> } } }
+type JevRequest = { model?: string; state?: unknown; questions?: Record<string, { criteria?: Record<string, string> }> }
 type JevChoice = { type: "choice"; choice: string; confidence: number; probabilities: Record<string, number> }
 
 const evidencePath = process.env.MOMO_NATIVE_EVIDENCE_DIR ?? path.join(process.cwd(), ".omo/evidence/20261013-api-repair")
@@ -46,6 +46,18 @@ function candidateChoice(request: JevRequest, preferredRole?: string): string | 
 }
 
 function jevResponse(request: JevRequest, preferredRole?: string): { answers: Record<string, JevChoice>; usage: { input_tokens: number; output_tokens: number } } {
+  if (request.questions?.role || request.questions?.group) {
+    const prompt = statePrompt(request)
+    const role = preferredRole ?? (prompt.includes("DEPARTMENT") || prompt === "MOMO_DEPT_WORK" ? "planner" : "worker")
+    const answers = Object.fromEntries(Object.entries(request.questions).map(([name, question]) => {
+      const keys = Object.keys(question.criteria ?? {})
+      if (keys.length > 255) throw new Error("Too many fixture choices")
+      const selected = name === "role" ? keys.includes(role) ? role : keys[0] : name === "lane" ? ["planner", "executor", "reviewer"].includes(role) ? "department" : "direct" : keys.at(-1)
+      if (!selected || !keys.includes(selected)) throw new Error(`Unavailable ${name} fixture choice`)
+      return [name, { type: "choice" as const, choice: selected, confidence: prompt === "MOMO_SELECTION_WORK" ? 0.2 : 0.99, probabilities: { [selected]: 1 } }]
+    }))
+    return { answers, usage: { input_tokens: 13, output_tokens: 5 } }
+  }
   const prompt = statePrompt(request)
   const availableRole = Object.keys(request.questions?.candidate?.criteria ?? {})[0]?.split("|")[0]
   const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT") || prompt === "MOMO_DEPT_WORK" || prompt === "MOMO_QUESTION_DEPT" ? "planner" : Object.keys(request.questions?.candidate?.criteria ?? {}).some((key) => key.startsWith("worker|")) ? "worker" : availableRole)
@@ -75,7 +87,11 @@ function assertSelfTest(): void {
   let rejected = false
   try { jevResponse({ questions: { candidate: { criteria: {} } } }) } catch (error) { rejected = error instanceof Error }
   if (!rejected) throw new Error("Jev fixture must reject an unavailable role rather than inventing a candidate")
-  process.stdout.write("momo-native-acceptance fixture self-test passed\n")
+  const staged = jevResponse({ state: JSON.stringify({ input: { prompt: "MOMO_API_FORM_WORK" } }), questions: { role: { criteria: { planner: "lead", worker: "edit" } }, lane: { criteria: { direct: "direct", department: "lead" } } } })
+  if (staged.answers.role?.choice !== "worker" || staged.answers.lane?.choice !== "direct") throw new Error("Staged fixture did not select a valid worker role/lane")
+  const grouped = jevResponse({ questions: { group: { criteria: { "group-0": "[]", "group-1": "[]" } } } })
+  if (grouped.answers.group?.choice !== "group-1") throw new Error("Staged group fixture failed")
+  process.stdout.write("momo-native-api-acceptance fixture self-test passed\n")
 }
 
 if (selfTest) {
@@ -103,6 +119,9 @@ let output = ""
 let dbBefore: JsonRecord | undefined
 let result: JsonRecord = { status: "failed" }
 let servicePort = 0
+let qaClient: ReturnType<typeof OpenCode.make>
+let qaRootSessionID = ""
+let nativeFormProof: unknown
 let stage = "setup"
 const fixtureDecisions: JsonRecord[] = []
 let serviceDatabasePaths: string[] = []
@@ -218,10 +237,31 @@ check(finished.resultTruncated && finished.resultLength>2048 && size(finished)<8
 let offset=0, result=""; do {const page=await parse({action:"result",taskID:task.id,offset,limit:4096}); result+=page.result; offset=page.nextOffset;}while(offset!==undefined);
 check(result=== "MOMO_API_WORKER_RESULT:"+"x".repeat(10000),"full result recovery");
 const detail=await parse({action:"detail",taskID:task.id});check(detail.prompt==="MOMO_SELECTION_WORK","detail");
+const formTask=await parse({action:"create",prompt:"MOMO_API_FORM_WORK"});
+let formStatus; for(let i=0;i<30;i++){formStatus=await parse({action:"wait",taskID:formTask.id,timeoutMs:1000});if(formStatus.state==="waiting_question")break;}
+check(formStatus?.state==="waiting_question","native form waiting");
+const formDetail=await parse({action:"detail",taskID:formTask.id}); const field=formDetail.questionFields[0];
+check(field.key==="k".repeat(140) && field.options[0].value==="v".repeat(300),"exact native identifiers");
+await parse({action:"answer",taskID:formTask.id,questionID:formDetail.question.id,answer:{[field.key]:field.options[0].value}});
+const formFinished=await parse({action:"wait",taskID:formTask.id,timeoutMs:60000});check(formFinished.state==="succeeded","native form completion");
 const cancelledTask=await parse({action:"create",prompt:"MOMO_SELECTION_WORK"}); const cancelled=await parse({action:"cancel",taskID:cancelledTask.id}); check(size(cancelled)<8192 && cancelled.state==="cancelled","cancel bound");
 const consult=JSON.parse(await tools.momo_consult({action:"start",prompt:"MOMO_API_ADVISOR",waitMs:60000}));check(consult.state==="succeeded" && !consult.rolePermissions.canEdit,"consult dto");
 const consultList=JSON.parse(await tools.momo_consult({action:"list"}));check(consultList.tasks.some(t=>t.id===consult.id),"consult recovery");
 return {apiProof:"MOMO_API_PROOF_PASSED",taskID:task.id,decisionId:before.decisionId,candidateCount:424,statusBytes:size(before),selectedBytes:size(selected),waitBytes:size(finished),cancelBytes:size(cancelled),resultLength:result.length,verification:finished.execution.verification};`
+    if (prompt.includes("MOMO_API_FORM_WORK") && !prompt.includes("MOMO_API_PROBE") && !prompt.includes("A child task") && !body.messages?.some(message=>message.role==="tool")) {
+      const rpc=await qaClient.rpc.call({rpcID:"momo.native",method:"tasks",input:{rootSessionID:qaRootSessionID},location:{directory:root}})
+      const payload=(rpc as {output?:unknown}).output??rpc
+      const task=(payload as {tasks:JsonRecord[]}).tasks.find(task=>task.prompt==="MOMO_API_FORM_WORK")
+      if (typeof task?.sessionID !== "string") throw new Error("Form fixture task session missing")
+      const form=await qaClient.session.form.create({sessionID:task.sessionID,title:"Choose exact native identifiers",fields:[{key:"k".repeat(140),type:"string",required:true,options:[{value:"v".repeat(300),label:"Continue"}]}]})
+      const deadline=Date.now()+45000
+      while(Date.now()<deadline){
+        const detail=await qaClient.session.form.get({sessionID:task.sessionID,formID:form.id})
+        if(detail.state.status!=="pending") {nativeFormProof=detail;break}
+        await new Promise(resolve=>setTimeout(resolve,100))
+      }
+      if (!nativeFormProof || !JSON.stringify(nativeFormProof).includes('"'+"v".repeat(300)+'"')) throw new Error("Native form did not receive exact answer")
+    }
     const text = prompt.includes("MOMO_SELECTION_WORK") ? "MOMO_API_WORKER_RESULT:" + "x".repeat(10000) : "MOMO_API_READY"
     const delta = isRoot ? { tool_calls: [{ index: 0, id: "call_api_probe", type: "function", function: { name: "execute", arguments: JSON.stringify({ code }) } }] } : { content: text }
     await appendFile(modelLog, `${JSON.stringify(body)}\n`, { mode: 0o600 })
@@ -305,6 +345,7 @@ async function main(): Promise<void> {
   opencode.stderr?.on("data", (chunk: Buffer) => { output += chunk.toString() })
   const authorization = `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}`
   const client = OpenCode.make({ baseUrl: `http://127.0.0.1:${servicePort}`, headers: { authorization } })
+  qaClient = client
   stage = "plugin activation"
   await waitReady(client, root)
   if (opencode.pid === undefined) throw new Error("Isolated OpenCode service has no process ID")
@@ -316,12 +357,14 @@ async function main(): Promise<void> {
   const version = execFileSync(opencodeBinary, ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim()
   if (!/\bv?2\./i.test(version)) throw new Error(`Expected supported OpenCode V2 service, got ${version}`)
   const session = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  qaRootSessionID = session.id
   stage = "code-mode API lifecycle"
   await client.session.prompt({sessionID:session.id,text:"MOMO_API_PROBE"})
   await client.session.wait({sessionID:session.id})
   const context=await client.session.context({sessionID:session.id})
   const serialized=JSON.stringify(context)
-  if (!serialized.includes("MOMO_API_PROOF_PASSED")) throw new Error(`Code-mode API assertions did not complete: ${serialized.slice(-8000)}`)
+  await mkdir(evidencePath, { recursive: true })
+  await writeFile(path.join(evidencePath, "native-context.json"), JSON.stringify(context, null, 2))
   const rpc=await client.rpc.call({rpcID:"momo.native",method:"tasks",input:{rootSessionID:session.id},location:{directory:root}})
   const payload=(rpc as {output?:unknown}).output??rpc
   const tasks=(payload as {tasks:JsonRecord[]}).tasks
@@ -331,11 +374,11 @@ async function main(): Promise<void> {
   if (jevRows.filter(row=>stateDecision(row)===completed.decisionId).length!==1) throw new Error("Manual selection replayed Jev")
   const modelRows=(await readFile(modelLog,"utf8")).trim().split("\n").filter(Boolean).map(line=>JSON.parse(line) as JsonRecord)
   const toolReplies=modelRows.flatMap(row=>Array.isArray(row.messages)?row.messages as JsonRecord[]:[]).filter(message=>message.role==="tool" && JSON.stringify(message.content).includes("MOMO_API_PROOF_PASSED"))
-  if (!toolReplies.length) throw new Error("Proof marker absent from actual tool response")
+  if (!toolReplies.length) throw new Error(`Proof marker absent from actual tool response: ${JSON.stringify(modelRows.flatMap(row => Array.isArray(row.messages) ? row.messages as JsonRecord[] : []).filter(message => message.role === "tool").map(message => ({ id: message.tool_call_id, content: JSON.stringify(message.content).slice(0, 6000) })))}`)
   const rawTaskBytes=Buffer.byteLength(JSON.stringify(completed,null,2))
   if (rawTaskBytes<=8192) throw new Error("Fixture did not reproduce the baseline raw-record bloat")
-  verifiedCases.push("actual Code Mode create/list ID recovery", "424 candidates paged and selected without Jev replay", "authoritative role permission metadata", "bounded status/select/wait/cancel", "complete result paging and unknown acceptance", "consultation compact DTO and recovery", "raw RPC preserves historical record")
-  result={status:"passed",bundleSHA256:createHash("sha256").update(await readFile(pluginEntry!)).digest("hex"),opencodeVersion:version,verifiedCases,proof:toolReplies[0],rawTaskBytes,rawCandidateCount:completed.candidates.length,taskID:completed.id,decisionId:completed.decisionId}
+  verifiedCases.push("actual Code Mode create/list ID recovery", "424 candidates paged and selected without Jev replay", "authoritative role permission metadata", "bounded status/select/wait/cancel", "complete result paging and unknown acceptance", "consultation compact DTO and recovery", "raw RPC preserves historical record", "actual native long-key and long-option answer from detail")
+  result={status:"passed",nativeFormProof,bundleSHA256:createHash("sha256").update(await readFile(pluginEntry!)).digest("hex"),opencodeVersion:version,verifiedCases,proof:toolReplies[0],rawTaskBytes,rawCandidateCount:completed.candidates.length,taskID:completed.id,decisionId:completed.decisionId}
 }
 
 try {
@@ -350,7 +393,7 @@ try {
       const messages = Array.isArray(request.messages) ? request.messages as JsonRecord[] : []
       const lastUser = messages.filter((message) => message.role === "user").at(-1)?.content
       const tools = Array.isArray(request.tools) ? request.tools as JsonRecord[] : []
-      return { lastUser, toolNames: tools.flatMap((tool) => typeof tool.function === "object" && tool.function !== null && "name" in tool.function && typeof tool.function.name === "string" ? [tool.function.name] : []), stream: request.stream }
+      return { lastUser: (JSON.stringify(lastUser) ?? "").slice(0, 512), toolResults: messages.filter(message => message.role === "tool").map(message => ({ id: message.tool_call_id, content: JSON.stringify(message.content).slice(0, 6000) })), toolNames: tools.flatMap((tool) => typeof tool.function === "object" && tool.function !== null && "name" in tool.function && typeof tool.function.name === "string" ? [tool.function.name] : []), stream: request.stream }
     })
   } catch (diagnosticError) {
     modelTrace = [{ diagnosticError: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError) }]
