@@ -60,6 +60,46 @@ describe("public native task output", () => {
     expect(output.questionFields?.[0]?.options).toEqual([{value:"yes",label:"Yes"}])
   })
 
+  test("detail flags UTF8 assignment truncation including exact byte boundaries", () => {
+    const output = taskDetail(task({ prompt: "界".repeat(1000), scope: "界".repeat(500), acceptance: "界".repeat(500) }))
+    expect(output.detailTruncated).toBe(true)
+    expect(Buffer.byteLength(output.prompt ?? "")).toBeLessThanOrEqual(2048)
+    expect(Buffer.byteLength(output.scope ?? "")).toBeLessThanOrEqual(1024)
+    expect(Buffer.byteLength(output.acceptance ?? "")).toBeLessThanOrEqual(1024)
+    const exact = taskDetail(task({ prompt: "界".repeat(682) + "ab", scope: "界".repeat(341) + "a", acceptance: "界".repeat(341) + "a" }))
+    expect(exact.detailTruncated).toBe(false)
+    expect(exact.prompt).toBe("界".repeat(682) + "ab")
+    expect(taskDetail(task({ scope: "界".repeat(342) })).detailTruncated).toBe(true)
+    expect(taskDetail(task({ acceptance: "界".repeat(342) })).detailTruncated).toBe(true)
+  })
+
+  test("question identifiers and complete options remain exact or require the native form", () => {
+    const key = "k".repeat(140)
+    const value = "v".repeat(300)
+    const options = Array.from({ length: 12 }, (_, index) => ({ value: value + index, label: "界".repeat(200) }))
+    const record = task({ state: "waiting_question", question: { id: "form-1", prompt: "Choose", options: [value], form: { fields: [{ key, type: "select", options }] } } })
+    const output = taskDetail(record)
+    expect(output.questionFields?.[0]?.key).toBe(key)
+    expect(output.questionFields?.[0]?.options).toHaveLength(12)
+    expect(output.questionFields?.[0]?.options?.[0]).toMatchObject({ value: value + "0" })
+    expect(output.question?.options).toEqual([value])
+    const oversized = taskDetail(task({ state: "waiting_question", question: { id: "form-2", prompt: "Choose", options: ["v".repeat(20000)], form: { fields: [{ key: "k".repeat(20000), type: "string" }] } } }))
+    expect(oversized.questionFields).toBeUndefined()
+    expect(oversized.questionFieldsTruncated).toBe(true)
+    expect(oversized.requiresNativeForm).toBe(true)
+    expect(oversized.question?.options).toBeUndefined()
+    expect(oversized.question?.requiresNativeForm).toBe(true)
+    expect(Buffer.byteLength(JSON.stringify(oversized))).toBeLessThan(8192)
+  })
+
+  test("oversized standalone options require the native form at both detail levels", () => {
+    const output = taskDetail(task({ state: "waiting_question", question: { id: "standalone", prompt: "Choose", options: ["v".repeat(3000)] } }))
+    expect(output.question?.options).toBeUndefined()
+    expect(output.question?.requiresNativeForm).toBe(true)
+    expect(output.requiresNativeForm).toBe(true)
+    expect(output.questionFieldsTruncated).toBe(false)
+  })
+
   test("list and recovery grant root and parent access but reject siblings and other roots", async () => {
     const repository = new MemoryNativeTaskRepository()
     for (const record of [task(), task({ id: "sibling", parentSessionID: "other-parent" }), task({ id: "maintenance", requiredRole: "catalog-researcher", sourceDecisionID: "source" }), task({ id: "other-root", rootSessionID: "other", parentSessionID: "elsewhere" }), task({ id: "consult", kind: "consultation" })]) await repository.save(record)
