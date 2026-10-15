@@ -1,0 +1,109 @@
+{
+  "version": "2.0.28",
+  "sourceHashes": {
+    "native-runtime/session-runtime.ts": "439b32703615fd3c10effa03e06ad079b35a907b25f5b9c02f3563750de742a3",
+    "native-task/task-controls.ts": "29140e0d7182fa772845d0dd804eed027c77ebc1d3e3468996458b272ed56ffc",
+    "native-task/task-lifecycle.ts": "175a33f05ae7311053b6bb9b1f5c159312af94a0f78d3632eaee69fbd7e1fdee",
+    "native-task/file-repository.ts": "7bab5b4103d0270bef97cdfbbe99e02db0ee29ee8db90bf7557ea9c0fc98eed3",
+    "native-task/v2-event-adapter.ts": "5a9387a4632e3199c5d4ee82d3d07fcafbfadd3f3ca64614403524904aab4c94",
+    "native-task/child-batch-delivery.ts": "f0f8c925f0a8af5589058c1f9c5bcb2c27cd7aeb9c02e6b109a5b668429deafe",
+    "native-task/types.ts": "f670260548e5643b837172c1bca2cd7d4a6f0b9c5b3ce989c4600d139e1ccd6e",
+    "native-runtime/delivery-message-id.ts": "d308ab9874dbbc3374be1e48c7c594b3dc41728b3a84bb83dc0dbf9e5471acf6"
+  },
+  "bundleHash": "46fcc1937fc71edd25d6b2ec1549bfd2d3dd1ba109b31bb6a44309746694628f",
+  "status": "passed",
+  "cleanup": {
+    "realDatabaseCountsBefore": {
+      "session": 249,
+      "session_v2": 314,
+      "session_message": 18016
+    },
+    "realDatabaseCountsAfter": {
+      "session": 249,
+      "session_v2": 314,
+      "session_message": 18016
+    },
+    "unchanged": true,
+    "ownedGroups": [
+      16610,
+      16871
+    ],
+    "ownedProcessGroupGone": true
+  },
+  "disposableRootRemoved": true,
+  "integration": {
+    "runtime": "actual-built-plugin",
+    "busyRoot": {
+      "admissionObserved": true,
+      "receiptVersion": 2,
+      "consumedOnce": true,
+      "pendingInbox": 0
+    },
+    "nativeQuestion": {
+      "persistedAnswer": {
+        "q0": "approved"
+      },
+      "sameChildSession": true,
+      "pendingInbox": 0
+    },
+    "department": {
+      "cancelledChildren": 2,
+      "nativeAggregationGenerations": 1,
+      "originalChildResultsPreserved": true,
+      "pendingInbox": 0
+    },
+    "legacyRestart": {
+      "sameChildSession": true,
+      "attempts": 1,
+      "workerCallsUnchanged": true,
+      "receiptVersion": 2,
+      "pendingInbox": 0
+    }
+  },
+  "contract": {
+    "baseline": {
+      "queuedWhileBusy": true,
+      "observedByBusyGeneration": false,
+      "pendingAfterIdle": 0,
+      "nativeDrainsAfterGeneration": true
+    },
+    "fixed": {
+      "receipt": {
+        "status": "admitted"
+      },
+      "contextOccurrences": 1,
+      "pendingInbox": 0,
+      "observedByBusyModel": true
+    },
+    "department": {
+      "children": 2,
+      "modelGenerations": 1,
+      "pendingInbox": 0
+    },
+    "status": "passed",
+    "cleanup": {
+      "realDatabaseCountsBefore": {
+        "session": 249,
+        "session_v2": 314,
+        "session_message": 18016
+      },
+      "realDatabaseCountsAfter": {
+        "session": 249,
+        "session_v2": 314,
+        "session_message": 18016
+      },
+      "unchanged": true,
+      "ownedGroups": [
+        17224,
+        17322
+      ],
+      "ownedProcessGroupGone": true
+    }
+  },
+  "gates": {
+    "focused": "51 pass, 0 fail, 184 assertions",
+    "build": "passed",
+    "typecheck": "passed",
+    "fullSuite": "12634 pass, 20 skip, 0 fail; 36989 assertions; 1554 files; 244.33s"
+  }
+}

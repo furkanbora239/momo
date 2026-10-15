@@ -78,6 +78,109 @@ describe("native task lifecycle", () => {
     expect(harness.runtime.deliveries.filter((item) => item.taskID === task.id)).toHaveLength(1)
   })
 
+  it("records parent consumption separately from admission and recovers a missing notification", async () => {
+    const h = createHarness()
+    const task = await startWorker(h)
+    h.runtime.deliver = async (input) => { h.runtime.deliveries.push({ taskID: input.taskID, result: input.result }); return { status: "admitted" } }
+    await h.engine.onEvent({ id: "complete", type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "done" })
+    expect((await h.repository.get(task.id))?.delivery?.status).toBe("admitted")
+    await h.engine.onEvent({ id: "wrong-parent", type: "delivery.consumed", sessionID: "other", inboxID: `native-delivery-${task.id}` })
+    expect((await h.repository.get(task.id))?.delivery?.status).toBe("admitted")
+    await h.engine.onEvent({ id: "consumed", type: "delivery.consumed", sessionID: "root", inboxID: `native-delivery-${task.id}` })
+    expect((await h.repository.get(task.id))?.delivery?.status).toBe("delivered")
+    expect(h.runtime.deliveries).toHaveLength(1)
+    expect(h.runtime.starts).toHaveLength(1)
+  })
+
+  it("persists the result message identity before a synchronous consumed event", async () => {
+    const h = createHarness()
+    const task = await startWorker(h)
+    h.runtime.deliver = async () => {
+      expect((await h.repository.get(task.id))?.delivery?.messageID).toBe(`native-delivery-${task.id}`)
+      await h.engine.onEvent({ id: "early-consumed", type: "delivery.consumed", sessionID: "root", inboxID: `native-delivery-${task.id}` })
+      return { status: "admitted" }
+    }
+    await h.engine.onEvent({ id: "complete", type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "done" })
+    expect((await h.repository.get(task.id))?.delivery?.status).toBe("delivered")
+  })
+
+  it("retries a lost admitted notification and inspects consumption without restarting", async () => {
+    const h = createHarness()
+    const task = await startWorker(h)
+    h.runtime.deliver = async (input) => { h.runtime.deliveries.push({ taskID: input.taskID, result: input.result }); return { status: "admitted" } }
+    let observed: "missing" | "delivered" = "missing"
+    h.runtime.inspectDelivery = async () => observed
+    await h.engine.onEvent({ id: "complete", type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "done" })
+    await h.engine.retryDeliveries()
+    expect(h.runtime.deliveries).toHaveLength(2)
+    observed = "delivered"
+    await h.engine.retryDeliveries()
+    expect((await h.repository.get(task.id))?.delivery?.status).toBe("delivered")
+    expect(h.runtime.deliveries).toHaveLength(2)
+    expect(h.runtime.starts).toHaveLength(1)
+  })
+
+  it("admits the final cancelled child before the single department wake", async () => {
+    const h = createHarness()
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "dept", role: "planner", model: { providerID: "test", id: "dept" } })
+    const department = await startWorker(h)
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "child", role: "worker", model: { providerID: "test", id: "child" } })
+    const first = await h.engine.create({ prompt: "first", callerSessionID: department.sessionID ?? "" })
+    const second = await h.engine.create({ prompt: "second", callerSessionID: department.sessionID ?? "" })
+    await h.engine.onEvent({ id: "dept-wait", type: "execution.succeeded", sessionID: department.sessionID ?? "", result: "waiting" })
+    h.runtime.continueParent = async (input) => {
+      expect(h.runtime.deliveries.map(row => row.taskID)).toEqual([first.id, second.id])
+      h.runtime.parentContinuations.push(input.message)
+    }
+    await h.engine.cancel(first.id, "root")
+    expect(h.runtime.parentContinuations).toHaveLength(0)
+    await h.engine.cancel(second.id, "root")
+    expect(h.runtime.parentContinuations).toHaveLength(1)
+  })
+
+  it("returns an already accepted native answer without overwriting it on a late reply", async () => {
+    const h = createHarness()
+    const task = await startWorker(h)
+    await h.engine.onEvent({ id: "ask", type: "question.asked", sessionID: task.sessionID ?? "", question: { id: "question", prompt: "Choose" } })
+    await h.engine.answer(task.id, "root", "question", "first")
+    const repeated = await h.engine.answer(task.id, "root", "question", "late")
+    expect(repeated.answer).toBe("first")
+    expect(h.runtime.answers).toEqual([{ questionID: "question", answer: "first" }])
+    await expect(h.engine.answer(task.id, "unrelated", "question", "late")).rejects.toThrow("originating parent")
+  })
+
+  it("upgrades historic admission-only delivered receipts without rerunning completed work", async () => {
+    const h = createHarness()
+    const task = await startWorker(h)
+    await h.engine.onEvent({ id: "complete", type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "done" })
+    const old = (await h.repository.get(task.id))!
+    old.delivery = { status: "delivered", deliveredAt: 3, messageID: `native-delivery-${task.id}`, attempts: 1 }
+    await h.repository.save(old)
+    h.runtime.inspectDelivery = async () => "admitted"
+    h.runtime.deliver = async (input) => { h.runtime.deliveries.push({ taskID: input.taskID, result: input.result }); return { status: "admitted" } }
+    await h.engine.reconcile()
+    expect((await h.repository.get(task.id))?.delivery).toMatchObject({ status: "admitted", receiptVersion: 2, attempts: 2 })
+    expect((await h.repository.get(task.id))?.delivery?.deliveredAt).toBeUndefined()
+    expect(h.runtime.starts).toHaveLength(1)
+    expect(h.runtime.resumes).toHaveLength(0)
+    expect(h.runtime.deliveries).toHaveLength(2)
+  })
+
+  it("keeps admitted receipts on inspection failures and still recovers other parent deliveries", async () => {
+    const h = createHarness()
+    const first = await startWorker(h, "first-root")
+    const second = await startWorker(h, "second-root")
+    h.runtime.deliver = async () => ({ status: "admitted" })
+    for (const task of [first, second]) await h.engine.onEvent({ id: "complete-" + task.id, type: "execution.succeeded", sessionID: task.sessionID ?? "", result: "done" })
+    h.runtime.inspectDelivery = async ({ parentSessionID }) => {
+      if (parentSessionID === "first-root") throw new Error("native transport unavailable")
+      return "delivered"
+    }
+    await h.engine.retryDeliveries()
+    expect((await h.repository.get(first.id))?.delivery).toMatchObject({ status: "admitted", lastError: "Delivery inspection failed: native transport unavailable" })
+    expect((await h.repository.get(second.id))?.delivery?.status).toBe("delivered")
+  })
+
   it("persists only actual session usage with the terminal task outcome", async () => {
     const harness = createHarness()
     const task = await startWorker(harness)
