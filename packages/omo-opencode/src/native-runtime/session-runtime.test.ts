@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import type { FormDetail, SessionInfo, SessionMessageInfo } from "@opencode/client"
 import type { NativeTask, NativeTaskRepository } from "../native-task/types"
+import { taskDetail } from "./task-tool-output"
 import { createNativeSessionRuntime } from "./session-runtime"
 import type { NativeV2Client } from "./v2-service-client"
 
@@ -172,6 +173,22 @@ describe("native V2 session runtime", () => {
     const prompt = h.calls.find((call) => call.name === "prompt")?.input as Record<string, unknown>
     expect(prompt).toMatchObject({ sessionID: "ses_child", text: "execute", delivery: "queue" })
     release?.()
+  })
+
+  it("forwards answers built from exposed long native question identifiers", async () => {
+    const h = harness()
+    const key = "k".repeat(140)
+    const value = "v".repeat(300)
+    const fields = [{ key, type: "string" as const, options: [{ value, label: "Continue" }] }]
+    h.task.question = { id: "form_child", prompt: "Choose", form: { fields } }
+    h.forms.set("ses_child:form_child", { ...makeForm("form_child", "ses_child", "Choose"), fields })
+    const exposed = taskDetail(h.task).questionFields?.[0]
+    expect(exposed?.key).toBe(key)
+    const option = exposed?.options?.[0]
+    expect(typeof option === "object" && option?.value).toBe(value)
+    if (!exposed?.key || typeof option !== "object" || option === null) throw new Error("Missing answer schema")
+    await h.runtime.answer({ sessionID: "ses_child", questionID: "form_child", answer: { [exposed.key]: option.value } })
+    expect(h.calls.find((call) => call.name === "form.reply")?.input).toMatchObject({ answer: { [key]: value } })
   })
 
   it("creates a managed parent form without bypassing the task scheduler through a synthetic wake", async () => {
