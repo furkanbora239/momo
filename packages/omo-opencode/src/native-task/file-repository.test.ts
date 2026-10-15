@@ -36,6 +36,13 @@ describe("file native task repository", () => {
     expect(JSON.parse(await readFile(filePath, "utf8")).version).toBe(1)
   })
 
+  it("retains admitted deliveries for recovery without claiming parent consumption", async () => {
+    const filePath = await setupPath()
+    const record = { ...task(), state: "succeeded" as const, delivery: { status: "admitted" as const, admittedAt: 4, messageID: "msg-result", attempts: 1 } }
+    await createFileNativeTaskRepository(filePath).save(record)
+    expect((await createFileNativeTaskRepository(filePath).get(record.id))?.delivery).toEqual(record.delivery)
+  })
+
   it("fails closed on invalid existing state instead of replacing it with an empty task list", async () => {
     const filePath = await setupPath()
     await writeFile(filePath, "{ broken")

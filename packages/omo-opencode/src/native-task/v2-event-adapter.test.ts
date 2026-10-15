@@ -3,6 +3,10 @@ import type { OpenCodeEvent } from "@opencode/client"
 import { mapV2TaskEvent } from "./v2-event-adapter"
 
 describe("native V2 event adapter", () => {
+  it("maps consumption on a parent session without requiring a child execution", () => {
+    const event: OpenCodeEvent = { id: "delivered", created: 1, type: "session.inbox.delivered", durable: { aggregateID: "root", seq: 42, version: 1 }, data: { sessionID: "root", inboxID: "msg-result" } }
+    expect(mapV2TaskEvent(event)).toEqual({ id: "delivered", type: "delivery.consumed", sessionID: "root", inboxID: "msg-result" })
+  })
   it("maps native aborted failures to an interruption rather than a permanent task failure", () => {
     const event: OpenCodeEvent = { id: "abort", created: 1, type: "session.execution.failed", durable: { aggregateID: "ses", seq: 43, version: 1 }, data: { sessionID: "ses", error: { type: "aborted", message: "Step interrupted" } } }
     expect(mapV2TaskEvent(event)).toMatchObject({ type: "execution.interrupted", sequence: 43 })
