@@ -1,0 +1,138 @@
+{
+  "opencodeVersion": "opencode v2.0.27",
+  "baseline": {
+    "truncation": [
+      {
+        "tool": "execute",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "toolCalls": [],
+          "truncated": true
+        }
+      },
+      {
+        "tool": "read",
+        "status": "error",
+        "error": {
+          "type": "permission.rejected",
+          "message": "Permission denied: external_directory"
+        },
+        "metadata": {}
+      },
+      {
+        "tool": "grep",
+        "status": "error",
+        "error": {
+          "type": "permission.rejected",
+          "message": "Permission denied: external_directory"
+        },
+        "metadata": {}
+      }
+    ]
+  },
+  "fixed": {
+    "truncation": [
+      {
+        "tool": "execute",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "toolCalls": [],
+          "truncated": true
+        }
+      },
+      {
+        "tool": "read",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "truncated": false
+        }
+      },
+      {
+        "tool": "grep",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "matches": 1,
+          "truncated": false
+        }
+      }
+    ],
+    "outside": [
+      {
+        "tool": "read",
+        "status": "error",
+        "error": {
+          "type": "aborted",
+          "message": "The user declined this tool call"
+        },
+        "metadata": {}
+      }
+    ],
+    "approved": [
+      {
+        "tool": "read",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "truncated": false
+        }
+      }
+    ],
+    "shell": [
+      {
+        "tool": "shell",
+        "status": "error",
+        "error": {
+          "type": "unknown",
+          "message": "Native momo-orchestrator role cannot execute shell"
+        },
+        "metadata": {}
+      }
+    ],
+    "edit": [
+      {
+        "tool": "edit",
+        "status": "error",
+        "error": {
+          "type": "unknown",
+          "message": "Native momo-orchestrator role cannot execute edit"
+        },
+        "metadata": {}
+      }
+    ],
+    "custom": [
+      {
+        "tool": "external_operate",
+        "status": "error",
+        "error": {
+          "type": "unknown",
+          "message": "Native momo-orchestrator role cannot execute external_operate"
+        },
+        "metadata": {}
+      }
+    ]
+  },
+  "mutationMarkerCreated": false,
+  "approvedFileChanged": false,
+  "cleanup": {
+    "exitCode": 130,
+    "signal": null,
+    "processGroupGone": true,
+    "realDatabaseCountsBefore": {
+      "session": 249,
+      "session_v2": 304,
+      "session_message": 17652
+    },
+    "realDatabaseCountsAfter": {
+      "session": 249,
+      "session_v2": 304,
+      "session_message": 17652
+    },
+    "realDatabaseCountsUnchanged": true,
+    "disposableRootRemoved": true
+  },
+  "databaseHandlesConfinedToDisposableRoot": true
+}
