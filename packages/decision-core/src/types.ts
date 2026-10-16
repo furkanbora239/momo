@@ -96,6 +96,15 @@ export class DecisionCoreError extends Error {
   }
 }
 
+/** A known rejection before sending a Jev request; preserves identity through the client retry boundary. */
+export class NativeJevAdmissionError extends DecisionCoreError {
+  readonly beforeRequest = true
+  constructor(message: string) {
+    super("jev-unavailable", message)
+    this.name = "NativeJevAdmissionError"
+  }
+}
+
 export interface DecisionTask {
   readonly description: string
   readonly prompt: string
