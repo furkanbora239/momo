@@ -11,11 +11,15 @@ import { OpenCode } from "../../packages/omo-opencode/node_modules/@opencode/cli
 import { run as runNativeCLI } from "../../packages/omo-opencode/src/cli/native-run/runner"
 
 type JsonRecord = Record<string, unknown>
-type JevRequest = { model?: string; state?: unknown; questions?: { candidate?: { criteria?: Record<string, string> }; lane?: { criteria?: Record<string, string> } } }
+type JevRequest = { model?: string; state?: unknown; questions?: Record<string, { criteria?: Record<string, string> }> }
 type JevChoice = { type: "choice"; choice: string; confidence: number; probabilities: Record<string, number> }
 
 const evidencePath = process.env.MOMO_NATIVE_EVIDENCE_DIR ?? path.join(process.cwd(), ".omo/evidence/20261011-native-acceptance")
 const selfTest = process.argv.includes("--self-test")
+const routingOnly = process.env.MOMO_NATIVE_ROUTING_ONLY === "1"
+const modelCount = Number(process.env.MOMO_NATIVE_MODEL_COUNT ?? "1")
+if (!Number.isInteger(modelCount) || modelCount < 1) throw new Error("Model count must be a positive integer")
+const fixtureModels = Array.from({ length: modelCount }, (_, index) => ({ providerID: "momo-qa", id: index === 0 ? "momo-qa-model" : `momo-qa-model-${index}` }))
 
 function statePrompt(request: JevRequest): string {
   let state = request.state
@@ -67,11 +71,25 @@ function candidateChoice(request: JevRequest, preferredRole?: string): string | 
   const criteria = request.questions?.candidate?.criteria ?? {}
   const prompt = statePrompt(request)
   const keys = Object.keys(criteria)
+  if (keys.length > 255) throw new Error("Too many choices. Must have at most 255 choices.")
   const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT") || prompt === "MOMO_DEPT_WORK" || prompt === "MOMO_QUESTION_DEPT" ? "planner" : keys.some((key) => key.startsWith("worker|")) ? "worker" : keys[0]?.split("|")[0])
-  return keys.find((key) => key.startsWith(`${role}|`))
+  return keys.filter((key) => key.startsWith(`${role}|`)).at(-1)
 }
 
 function jevResponse(request: JevRequest, preferredRole?: string): { answers: Record<string, JevChoice>; usage: { input_tokens: number; output_tokens: number } } {
+  if (request.questions?.role || request.questions?.group) {
+    const prompt = statePrompt(request)
+    const role = preferredRole ?? (prompt.includes("DEPARTMENT") || prompt === "MOMO_DEPT_WORK" ? "planner" : "worker")
+    const answers = Object.fromEntries(Object.entries(request.questions).map(([name, question]) => {
+      const criteria = question.criteria ?? {}
+      const keys = Object.keys(criteria)
+      if (keys.length > 255) throw new Error("Too many choices. Must have at most 255 choices.")
+      const selected = name === "role" ? keys.includes(role) ? role : keys[0] : name === "lane" ? role === "planner" ? "department" : "direct" : keys.at(-1)
+      if (!selected) throw new Error(`No ${name} choice`)
+      return [name, { type: "choice" as const, choice: selected, confidence: prompt === "MOMO_SELECTION_WORK" ? 0.2 : 0.99, probabilities: { [selected]: 1 } }]
+    }))
+    return { answers, usage: { input_tokens: 13, output_tokens: 5 } }
+  }
   const prompt = statePrompt(request)
   const availableRole = Object.keys(request.questions?.candidate?.criteria ?? {})[0]?.split("|")[0]
   const role = preferredRole ?? (prompt.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT") || prompt.includes("MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT") || prompt === "MOMO_DEPT_WORK" || prompt === "MOMO_QUESTION_DEPT" ? "planner" : Object.keys(request.questions?.candidate?.criteria ?? {}).some((key) => key.startsWith("worker|")) ? "worker" : availableRole)
@@ -150,7 +168,7 @@ function readRealDatabase(): JsonRecord | undefined {
   if (!realHome) return undefined
   const db = [path.join(realHome, "Library/Application Support/opencode/opencode.db"), path.join(realHome, ".local/share/opencode/opencode.db")].find(existsSync)
   if (!db) throw new Error("Real OpenCode DB is not discoverable for read-only before/after safety verification")
-  const rows = execFileSync("sqlite3", ["-readonly", db, "select 'session',count(*) from session union all select 'session_message',count(*) from session_message;"], { encoding: "utf8" }).trim().split("\n")
+  const rows = execFileSync("sqlite3", ["-readonly", db, "select 'session',count(*) from session union all select 'session_v2',count(*) from session_v2 union all select 'session_message',count(*) from session_message;"], { encoding: "utf8" }).trim().split("\n")
   return { path: db, counts: Object.fromEntries(rows.map((row) => row.split("|"))) }
 }
 
@@ -227,7 +245,7 @@ async function waitForOwnedGroupExit(pid: number, timeoutMs: number): Promise<bo
 async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
   const modelServer = createHttpServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1")
-    if (request.method === "GET" && url.pathname.endsWith("/models")) return sendJson(response, { data: [{ id: "momo-qa-model", object: "model", created: 0, owned_by: "momo-qa" }] })
+    if (request.method === "GET" && url.pathname.endsWith("/models")) return sendJson(response, { data: fixtureModels.map((model) => ({ id: model.id, object: "model", created: 0, owned_by: "momo-qa" })) })
     if (request.method !== "POST") return response.writeHead(404).end()
     const bodyText = await readJson(request)
   const body = bodyText as { model?: string; stream?: boolean; messages?: Array<{ role?: string; content?: unknown }>; tools?: Array<{ function?: { name?: string; parameters?: unknown } }> }
@@ -267,7 +285,7 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     const parallelID = promptText.match(/MOMO_NATIVE_ACCEPTANCE_PARALLEL_(\d+)/)?.[1]
     const childPrompt = isDepartment ? "MOMO_DEPT_WORK" : isDepartmentManager ? "MOMO_DEPT_CHILD" : isParallelRoot ? `MOMO_PARALLEL_WORK_${parallelID}` : isManualCreate ? "MOMO_SELECTION_WORK" : isCLIRoot ? "MOMO_CLI_ASYNC_CHILD" : isQuestionRoot ? "MOMO_QUESTION_DEPT" : isQuestionDepartment ? "MOMO_QUESTION_CHILD" : isEscalationRoot ? "MOMO_ESCALATION_CHILD" : "MOMO_NATIVE_ACCEPTANCE_CHILD_WORK"
     const sharedParallelCode = `return await Promise.all(Array.from({length:5},(_,i)=>tools.momo_task({action:"create",prompt:"MOMO_SHARED_PARENT_WORK_"+i,waitMs:60000})))`
-    const manualSelectionCode = `const task=JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_SELECTION_WORK"})); const candidate=task.candidates[0]; if(!candidate) throw new Error("No offered candidate"); await tools.momo_task({action:"select",taskID:task.id,decisionId:task.decisionId,role:candidate.role,providerID:candidate.model.providerID,modelID:candidate.model.id}); return await tools.momo_task({action:"wait",taskID:task.id,timeoutMs:60000})`
+    const manualSelectionCode = routingOnly ? `return await tools.momo_task({action:"create",prompt:"MOMO_SELECTION_WORK"})` : `const task=JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_SELECTION_WORK"})); const page=JSON.parse(await tools.momo_task({action:"candidates",taskID:task.id})); const candidate=page.candidates[0]; if(!candidate) throw new Error("No offered candidate"); await tools.momo_task({action:"select",taskID:task.id,decisionId:task.decisionId,role:candidate.role,providerID:candidate.model.providerID,modelID:candidate.model.id}); return await tools.momo_task({action:"wait",taskID:task.id,timeoutMs:60000})`
     const questionTool = body.tools?.find((tool) => tool.function?.name === "question")?.function
     const questionArguments = questionTool === undefined ? undefined : exampleFromSchema(questionTool.parameters)
     const questionCall = isQuestionChild && !hasAnyToolReply && last?.role === "user" && questionTool !== undefined
@@ -344,7 +362,7 @@ async function main(): Promise<void> {
     'import { appendFileSync } from "node:fs"',
     `import momo from ${JSON.stringify(pluginEntry)}`,
     'export default { id: "oh-my-openagent", async setup(ctx) {',
-    '  await ctx.provider.transform((editor) => { editor.add({ info: { id: "momo-qa", name: "Momo isolated QA", activation: "enabled", package: "aisdk:@ai-sdk/openai-compatible", settings: { baseURL: process.env.MOMO_QA_MODEL_URL, apiKey: "local-only" } }, models: [{ id: "momo-qa-model", modelID: "momo-qa-model", providerID: "momo-qa", name: "Momo QA", capabilities: { tools: true, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: "active", enabled: true, limit: { context: 8192, output: 2048 } }] }) })',
+    '  await ctx.provider.transform((editor) => { editor.add({ info: { id: "momo-qa", name: "Momo isolated QA", activation: "enabled", package: "aisdk:@ai-sdk/openai-compatible", settings: { baseURL: process.env.MOMO_QA_MODEL_URL, apiKey: "local-only" } }, models: Array.from({ length: Number(process.env.MOMO_QA_MODEL_COUNT) }, (_, index) => { const id = index === 0 ? "momo-qa-model" : `momo-qa-model-${index}`; return { ...{ capabilities: { tools: true, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 }, cost: [{ input: 0, output: 0, cache: { read: 0, write: 0 } }], status: "active", enabled: true, limit: { context: 8192, output: 2048 } }, id, modelID: id, providerID: "momo-qa", name: id } }) }) })',
     '  await ctx.provider.reload()',
     '  const cleanup = await momo.setup(ctx)',
     '  appendFileSync(process.env.MOMO_QA_PERMISSION_LOG, JSON.stringify({ type: "setup" }) + "\\n")',
@@ -358,11 +376,15 @@ async function main(): Promise<void> {
   await writeFile(path.join(xdg.data, "opencode", "auth.json"), JSON.stringify({ "momo-qa": { type: "api", key: "local-only" } }), { mode: 0o600 })
   await mkdir(path.join(root, ".omo"), { recursive: true })
   await mkdir(path.join(qaHome, ".omo"), { recursive: true })
-  await writeFile(path.join(qaHome, ".omo", "model-pool.json"), JSON.stringify({ version: 1, allowed: [{ providerID: "momo-qa", modelID: "momo-qa-model" }], updatedAt: new Date().toISOString() }), { mode: 0o600 })
+  await writeFile(path.join(qaHome, ".omo", "model-pool.json"), JSON.stringify({ version: 1, allowed: fixtureModels.map((model) => ({ providerID: model.providerID, modelID: model.id })), updatedAt: new Date().toISOString() }), { mode: 0o600 })
+  if (routingOnly) {
+    await mkdir(path.join(qaHome, ".omo", "native"), { recursive: true })
+    await writeFile(path.join(qaHome, ".omo", "native", "catalog-knowledge.json"), JSON.stringify({ version: 1, entries: Object.fromEntries(fixtureModels.map((model) => [`${model.providerID}/${model.id}`, { ...model, summary: "Verified isolated fixture model", sources: ["https://fixture.invalid/models"], researchedAt: new Date().toISOString() }])) }), { mode: 0o600 })
+  }
   await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1 }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
   await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugins: [`file:${pluginDir}`], model: "momo-qa/momo-qa-model", agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
   servicePort = await freePort()
-  opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog }), stdio: ["ignore", "pipe", "pipe"] })
+  opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog, MOMO_QA_MODEL_COUNT: String(modelCount) }), stdio: ["ignore", "pipe", "pipe"] })
   opencode.stdout?.on("data", (chunk: Buffer) => { output += chunk.toString() })
   opencode.stderr?.on("data", (chunk: Buffer) => { output += chunk.toString() })
   const authorization = `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}`
@@ -385,6 +407,28 @@ async function main(): Promise<void> {
   stage = "department result aggregation"
   await client.session.prompt({ sessionID: departmentSession.id, text: "Coordinate an acceptance task through one department and combine its worker result: MOMO_NATIVE_ACCEPTANCE_DEPARTMENT" })
   await client.session.wait({ sessionID: departmentSession.id })
+  if (routingOnly) {
+    const readTasks = async (rootSessionID: string) => {
+      const rpc = await client.rpc.call({ rpcID: "momo.native", method: "tasks", input: { rootSessionID }, location: { directory: root } })
+      return (((rpc as { output?: unknown }).output ?? rpc) as { tasks: Array<{ id: string; prompt: string; state: string; role?: string; model?: { id: string }; decisionId?: string; candidates?: unknown[] }> }).tasks
+    }
+    const directTasks = await readTasks(session.id)
+    const departmentTasks = await readTasks(departmentSession.id)
+    if (!directTasks.some((task) => task.role === "worker" && task.state === "succeeded") || !departmentTasks.some((task) => task.role === "planner" && task.state === "succeeded") || !departmentTasks.some((task) => task.role === "worker" && task.state === "succeeded")) throw new Error("Large catalog failed automatic root/department routing")
+    const selection = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+    await client.session.prompt({ sessionID: selection.id, text: "Use momo_task to create a task with prompt MOMO_SELECTION_WORK. Leave it awaiting my selection: MOMO_NATIVE_ACCEPTANCE_SELECT_CREATE" })
+    await client.session.wait({ sessionID: selection.id })
+    const selectionTasks = await readTasks(selection.id)
+    if (!selectionTasks.some((task) => task.prompt === "MOMO_SELECTION_WORK" && task.state === "awaiting_selection" && task.candidates?.length)) throw new Error("Weak staged confidence did not remain caller-selection")
+    const jevRows = (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as JevRequest)
+    const choiceCounts = jevRows.flatMap((row) => Object.values(row.questions ?? {}).map((question) => Object.keys(question.criteria ?? {}).length))
+    const catalogSizes = jevRows.map((row) => { const state = JSON.parse(String(row.state)) as { candidates: Array<{ model: { providerID: string; id: string } }> }; return new Set(state.candidates.map((candidate) => `${candidate.model.providerID}/${candidate.model.id}`)).size })
+    if (catalogSizes.some((count) => count !== modelCount)) throw new Error(`Actual routing catalog differs from requested fixture count: ${JSON.stringify(catalogSizes)}`)
+    if (choiceCounts.some((count) => count > 255)) throw new Error("Oversized question reached real fixture")
+    verifiedCases.push("full eligible catalog automatic root worker, department lead and department child", "weak confidence remains explicit caller-selection", "every actual Jev transport question respects 255-choice boundary")
+    result = { status: "passed", opencodeVersion: version, modelCount, catalogSizes, choiceCounts, liveJevRequests: jevRows.length, directTasks, departmentTasks, selectionTasks, verifiedCases, evidence: "real OpenCode V2 service with built plugin; isolated local model and Jev endpoints" }
+    return
+  }
   stage = "five parallel children under one root session"
   const sharedParallelSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   await client.session.prompt({ sessionID: sharedParallelSession.id, text: "Delegate five independent acceptance tasks concurrently, then combine all five delivered results: MOMO_NATIVE_ACCEPTANCE_SHARED_PARALLEL" })

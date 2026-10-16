@@ -1,0 +1,16 @@
+{
+  "captured_at_utc": "2026-10-13T10:34:15.939176+00:00",
+  "sources": {
+    "tasks.json": {
+      "path": "/home/furkanbora/.omo/native/projects/e07f80037f98633435544300/tasks.json",
+      "bytes": 6004624,
+      "sha256": "b456709c394be268bccccc06827206a31d7c669c4a8313794da2172ff445525e"
+    },
+    "routing-ledger.jsonl": {
+      "path": "/home/furkanbora/.omo/native/projects/e07f80037f98633435544300/routing-ledger.jsonl",
+      "bytes": 102544158,
+      "sha256": "004418c4564946e1000492fe1274d6e8beb0850dd2bee774867430492072f2a8"
+    }
+  },
+  "note": "Live files can change. Only hashes and sizes are preserved; task metadata snapshot is separate."
+}
