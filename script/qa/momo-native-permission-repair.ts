@@ -6,7 +6,7 @@ import { OpenCode } from '../../packages/omo-opencode/node_modules/@opencode/cli
 const worktree = process.cwd()
 const bin = process.env.MOMO_NATIVE_OPENCODE_BIN
 if (!bin || !isAbsolute(bin)) throw new Error('Set MOMO_NATIVE_OPENCODE_BIN to the installed native OpenCode binary absolute path')
-const evidence = join(worktree,'.omo/evidence/20261013-permission-repair',process.env.MOMO_PROBE_BASELINE==='1'?'baseline':'fixed')
+const evidence = join(worktree,'.omo/evidence/20261016-permission-repair',process.env.MOMO_PROBE_BASELINE==='1'?'baseline':'fixed')
 const root = await mkdtemp(join(tmpdir(),'momo-permission-'))
 const project = join(root,'project'), config = join(root,'config/opencode'), data = join(root,'data'), log = join(root,'permission-events.jsonl')
 const env: NodeJS.ProcessEnv = { ...process.env, HOME:join(root,'home'), OPENCODE_TEST_HOME:join(root,'home'), OPENCODE_CONFIG_DIR:config, XDG_DATA_HOME:data, XDG_CONFIG_HOME:join(root,'config'), XDG_STATE_HOME:join(root,'state'), XDG_CACHE_HOME:join(root,'cache'), OPENCODE_DISABLE_AUTOUPDATE:'1', OPENCODE_DISABLE_MODELS_FETCH:'1' }
@@ -136,4 +136,5 @@ try{
  results.cleanup={...(results.cleanup as object),disposableRootRemoved:!await Bun.file(join(root,'config/opencode/opencode.json')).exists()}
  await writeFile(join(evidence,'probe-result.json'),JSON.stringify(results,null,2))
  console.log(JSON.stringify({status:results.status,error:results.error,evidence,root}))
+ if(results.status!=='passed')process.exitCode=1
 }
