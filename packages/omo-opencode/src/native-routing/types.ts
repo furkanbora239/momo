@@ -182,6 +182,9 @@ export interface NativeDecisionRecord {
     readonly source: "initial" | "post-jev-revalidation" | "selection-revalidation"
     readonly candidates: readonly NativeCandidate[]
   }[]
+  /** Provider-reported billing captured independently of semantic answer validity. */
+  readonly jevUsage?: NativeJevAnswer["usage"]
+  readonly jevAttempted?: boolean
   readonly jevAnswer?: NativeJevAnswer
   readonly jevFailure?: { readonly message: string; readonly rawResponse?: unknown }
   readonly probabilities?: Readonly<Record<string, number>>

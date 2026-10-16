@@ -42,6 +42,8 @@ function isDecisionRecord(value: Record<string, unknown>): value is Record<strin
     !Array.isArray(request.allowedRoles) || !request.allowedRoles.every((role) => typeof role === "string") ||
     !Array.isArray(request.candidates) || !request.candidates.every(isCandidate) ||
     !Array.isArray(request.knowledge) || !Array.isArray(request.outcomes) || typeof request.instructions !== "string") return false
+  if (value.jevAttempted !== undefined && typeof value.jevAttempted !== "boolean") return false
+  if (value.jevUsage !== undefined && (!isObject(value.jevUsage) || [value.jevUsage.inputTokens, value.jevUsage.outputTokens, value.jevUsage.costUsd].some((amount) => amount !== undefined && (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0)))) return false
   if (value.selected !== undefined) {
     const selected = value.selected
     if (!isObject(selected) || typeof selected.role !== "string" || !isModelRef(selected.model) ||
