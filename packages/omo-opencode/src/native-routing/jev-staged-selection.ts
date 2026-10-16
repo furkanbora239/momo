@@ -1,3 +1,5 @@
+import { NativeJevUsageError } from "./jev-usage"
+import { hasValidProbabilityMass } from "./probability-mass"
 import type { JevCallResult, JevClient, JevQuestionSet } from "@oh-my-opencode/decision-core"
 import type { NativeCandidate, NativeJevAnswer, NativeJevRequest } from "./types"
 
@@ -29,9 +31,8 @@ function choice(result: JevCallResult, name: string, criteria: Record<string, st
     !Number.isFinite(answer.confidence) || answer.confidence < 0 || answer.confidence > 1 ||
     !answer.probabilities || typeof answer.probabilities !== "object" || Array.isArray(answer.probabilities)) throw new Error(`malformed Jev ${name} response`)
   const entries = Object.entries(answer.probabilities)
-  const total = entries.reduce((sum, [, probability]) => sum + probability, 0)
   if (entries.length === 0 || entries.some(([entry, probability]) => !Object.hasOwn(criteria, entry) || !Number.isFinite(probability) || probability < 0 || probability > 1) ||
-    !Object.hasOwn(answer.probabilities, answer.choice) || Math.abs(total - 1) > 0.01 + Number.EPSILON * entries.length) throw new Error(`malformed Jev ${name} response`)
+    !Object.hasOwn(answer.probabilities, answer.choice) || !hasValidProbabilityMass(entries.map(([, probability]) => probability))) throw new Error(`malformed Jev ${name} response`)
   return answer
 }
 
@@ -39,34 +40,39 @@ function choice(result: JevCallResult, name: string, criteria: Record<string, st
 export async function stagedNativeAnswer(client: JevClient, request: NativeJevRequest): Promise<NativeJevAnswer> {
   const stages: { questionNames: string[]; result: JevCallResult }[] = []
   async function ask(questions: JevQuestionSet, context: Record<string, unknown> = {}) {
-    const result = await client.ask(JSON.stringify({ ...request, selectionStage: context }), questions)
+    const result = await client.ask(JSON.stringify({ decisionId: request.decisionId, input: request.input, allowedRoles: request.allowedRoles, outcomes: request.outcomes, instructions: request.instructions, selectionStage: context }), questions)
     stages.push({ questionNames: Object.keys(questions), result })
     return result
   }
-  const roles = Object.fromEntries([...new Set(request.candidates.map((candidate) => candidate.role))].map((role) => [role, roleDetails[role] ?? role]))
-  const lanes = { direct: "One selected role handles the task directly.", department: "A planner, executor, or reviewer lead coordinates worker children." }
-  const roleResult = await ask({ role: { type: "choice", instructions: "Choose the role whose runtime permissions meet the request.", criteria: roles }, lane: { type: "choice", instructions: "Choose the lane compatible with the chosen role.", criteria: lanes } })
-  const role = choice(roleResult, "role", roles)
-  const lane = choice(roleResult, "lane", lanes)
-  let confidence = Math.min(role.confidence, lane.confidence)
-  let candidates = request.candidates.filter((candidate) => candidate.role === role.choice)
-  while (candidates.length > JEV_CHOICE_LIMIT) {
-    const size = Math.ceil(candidates.length / JEV_CHOICE_LIMIT)
-    const groups = Array.from({ length: Math.ceil(candidates.length / size) }, (_, index) => candidates.slice(index * size, (index + 1) * size))
-    const criteria = Object.fromEntries(groups.map((group, index) => [`group-${index}`, `[${Object.values(candidateCriteria(group)).join(",")}]`]))
-    const result = await ask({ group: { type: "choice", instructions: "Choose the group containing the least costly adequate model. All models in each group are eligible; consider their full facts.", criteria } }, { role: role.choice, candidateCount: candidates.length })
-    const selected = choice(result, "group", criteria)
-    confidence = Math.min(confidence, selected.confidence)
-    candidates = groups[Number(selected.choice.slice("group-".length))]!
-  }
-  const criteria = candidateCriteria(candidates)
-  const result = await ask({ candidate: { type: "choice", instructions: "Choose the least costly model that can meet the request. Unknown price is not free, and unknown ability is not verified.", criteria } }, { role: role.choice, candidateCount: candidates.length })
-  const selected = choice(result, "candidate", criteria)
-  const candidate = candidates.find((item) => key(item) === selected.choice)!
-  return {
-    role: candidate.role, model: candidate.model, confidence: Math.min(confidence, selected.confidence), probabilities: selected.probabilities,
-    lane: lane.choice as "direct" | "department", laneConfidence: lane.confidence,
-    source: { contract: "hierarchical-conditional-v1", probabilityScope: "selected-role-and-group", stages },
-    usage: { inputTokens: stages.reduce((sum, stage) => sum + stage.result.usage.inputTokens, 0), outputTokens: stages.reduce((sum, stage) => sum + stage.result.usage.outputTokens, 0), costUsd: stages.reduce((sum, stage) => sum + stage.result.costUsd, 0) },
+  try {
+    const roles = Object.fromEntries([...new Set(request.candidates.map((candidate) => candidate.role))].map((role) => [role, roleDetails[role] ?? role]))
+    const lanes = { direct: "One selected role handles the task directly.", department: "A planner, executor, or reviewer lead coordinates worker children." }
+    const roleResult = await ask({ role: { type: "choice", instructions: "Choose the role whose runtime permissions meet the request.", criteria: roles }, lane: { type: "choice", instructions: "Choose the lane compatible with the chosen role.", criteria: lanes } })
+    const role = choice(roleResult, "role", roles)
+    const lane = choice(roleResult, "lane", lanes)
+    let confidence = Math.min(role.confidence, lane.confidence)
+    let candidates = request.candidates.filter((candidate) => candidate.role === role.choice)
+    while (candidates.length > JEV_CHOICE_LIMIT) {
+      const size = Math.ceil(candidates.length / JEV_CHOICE_LIMIT)
+      const groups = Array.from({ length: Math.ceil(candidates.length / size) }, (_, index) => candidates.slice(index * size, (index + 1) * size))
+      const criteria = Object.fromEntries(groups.map((group, index) => [`group-${index}`, `[${Object.values(candidateCriteria(group)).join(",")}]`]))
+      const result = await ask({ group: { type: "choice", instructions: "Choose the group containing the least costly adequate model. All models in each group are eligible; consider their full facts.", criteria } }, { role: role.choice, candidateCount: candidates.length })
+      const selected = choice(result, "group", criteria)
+      confidence = Math.min(confidence, selected.confidence)
+      candidates = groups[Number(selected.choice.slice("group-".length))]!
+    }
+    const criteria = candidateCriteria(candidates)
+    const result = await ask({ candidate: { type: "choice", instructions: "Choose the least costly model that can meet the request. Unknown price is not free, and unknown ability is not verified.", criteria } }, { role: role.choice, candidateCount: candidates.length })
+    const selected = choice(result, "candidate", criteria)
+    const candidate = candidates.find((item) => key(item) === selected.choice)!
+    return {
+      role: candidate.role, model: candidate.model, confidence: Math.min(confidence, selected.confidence), probabilities: selected.probabilities,
+      lane: lane.choice as "direct" | "department", laneConfidence: lane.confidence,
+      source: { contract: "hierarchical-conditional-v1", probabilityScope: "selected-role-and-group", stages },
+      usage: { inputTokens: stages.reduce((sum, stage) => sum + stage.result.usage.inputTokens, 0), outputTokens: stages.reduce((sum, stage) => sum + stage.result.usage.outputTokens, 0), costUsd: stages.reduce((sum, stage) => sum + stage.result.costUsd, 0) },
+    }
+  } catch (error) {
+    const usage = stages.length ? { inputTokens: stages.reduce((sum, stage) => sum + stage.result.usage.inputTokens, 0), outputTokens: stages.reduce((sum, stage) => sum + stage.result.usage.outputTokens, 0), costUsd: stages.reduce((sum, stage) => sum + stage.result.costUsd, 0) } : undefined
+    throw new NativeJevUsageError(error, usage)
   }
 }
