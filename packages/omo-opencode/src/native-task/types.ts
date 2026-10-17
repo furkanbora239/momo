@@ -83,7 +83,8 @@ export type NativeTaskQuestion = {
 
 export type NativeTaskToolActivity = { id: string; name: string; startedAt: number }
 export type NativeTaskUsage = { inputTokens: number; outputTokens: number; scope: "session_cumulative" }
-export type NativeTaskDelivery = { status: "pending" | "delivered"; messageID?: string; attemptedAt?: number; deliveredAt?: number; attempts: number; lastError?: string }
+export type NativeTaskDeliveryReceipt = { status: "admitted" | "delivered" }
+export type NativeTaskDelivery = { receiptVersion?: 2; aggregateTaskID?: string; originalMessageID?: string; status: "pending" | "admitted" | "delivered"; admittedAt?: number; messageID?: string; attemptedAt?: number; deliveredAt?: number; attempts: number; lastError?: string }
 
 export type NativeTask = {
   id: string
@@ -125,6 +126,7 @@ export type NativeTask = {
   answer?: unknown
   answerStatus?: "pending" | "sent"
   childrenWakePending?: boolean
+  childrenBatch?: { messageID: string; wakeID: string; childTaskIDs: string[]; message: string; status: "pending" | "admitted" | "delivered"; lastError?: string }
   parentWakeMessage?: string
   parentWakeID?: string
   waitForTaskID?: string
@@ -140,6 +142,7 @@ export type NativeTask = {
 }
 
 export type NativeTaskEvent =
+  | { id: string; type: "delivery.consumed"; sessionID: string; inboxID: string }
   | { id: string; type: "execution.started"; sessionID: string; sequence?: number }
   | { id: string; type: "execution.succeeded"; sessionID: string; sequence?: number; result?: string }
   | { id: string; type: "execution.failed"; sessionID: string; sequence?: number; error: string }
@@ -165,12 +168,15 @@ export type NativeTaskRuntime = {
   inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; usage?: NativeTaskUsage }>
   resume(input: { taskID: string; sessionID: string }): Promise<void>
   interrupt(input: { sessionID: string }): Promise<void>
-  deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void>
+  deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void | NativeTaskDeliveryReceipt>
+  inspectDelivery?(input: { parentSessionID: string; messageID: string }): Promise<"missing" | "admitted" | "delivered">
+  closeQuestion?(task: NativeTask): Promise<void>
   deliveryMessageID?(taskID: string): string
   ask(input: { parentSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   escalateQuestion(input: { rootSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   answer(input: { sessionID: string; questionID: string; answer: unknown }): Promise<void>
-  continueParent(input: { sessionID: string; taskID: string; message: string; wakeID?: string; childTaskIDs?: string[] }): Promise<void>
+  childrenWakeMessageID?(taskID: string, wakeID: string): string
+  continueParent(input: { sessionID: string; taskID: string; message: string; wakeID?: string; childTaskIDs?: string[] }): Promise<void | NativeTaskDeliveryReceipt>
 }
 
 export type NativeTaskEngineOptions = {

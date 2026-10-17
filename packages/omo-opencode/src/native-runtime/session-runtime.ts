@@ -139,6 +139,30 @@ export function createNativeSessionRuntime(input: {
     await (await client()).session.interrupt({ sessionID: args.sessionID })
   }
 
+  async function deliver(args: Parameters<NativeTaskRuntime["deliver"]>[0]): Promise<{ status: "admitted" | "delivered" }> {
+    const task = await input.repository.get(args.taskID)
+    if (task === undefined || task.parentSessionID !== args.parentSessionID) throw new Error("Cannot deliver a result for an unknown native task parent")
+    await ownedSession(args.parentSessionID)
+    const messageID = deliveryMessageID(args.taskID)
+    const api = await client()
+    if (await inspectDelivery({ parentSessionID: args.parentSessionID, messageID }) === "delivered") return { status: "delivered" }
+    if (task.parentSessionID === task.rootSessionID && (await api.session.inbox.list({ sessionID: args.parentSessionID })).some(item => item.id === messageID)) {
+      await admitModelRequest(args.parentSessionID)
+      await api.session.inbox.update({ sessionID: args.parentSessionID, inboxID: messageID, delivery: "steer" })
+    }
+    if (task.parentSessionID === task.rootSessionID) await admitModelRequest(args.parentSessionID)
+    await api.session.synthetic({
+      sessionID: args.parentSessionID,
+      id: messageID,
+      text: args.result,
+      description: `Native task ${args.taskID} result`,
+      metadata: { momoNativeDelivery: { taskID: args.taskID, messageID } },
+      delivery: task.parentSessionID === task.rootSessionID ? "steer" : "queue",
+      resume: task.parentSessionID === task.rootSessionID,
+    })
+    return { status: "admitted" }
+  }
+
   async function inspectDelivery(args: { parentSessionID: string; messageID: string }): Promise<"missing" | "admitted" | "delivered"> {
     await ownedSession(args.parentSessionID)
     const api = await client()
@@ -153,27 +177,8 @@ export function createNativeSessionRuntime(input: {
     }
   }
 
-  async function deliver(args: Parameters<NativeTaskRuntime["deliver"]>[0]): Promise<void> {
-    const task = await input.repository.get(args.taskID)
-    if (task === undefined || task.parentSessionID !== args.parentSessionID) throw new Error("Cannot deliver a result for an unknown native task parent")
-    await ownedSession(args.parentSessionID)
-    const messageID = deliveryMessageID(args.taskID)
-    const api = await client()
-    if (await inspectDelivery({ parentSessionID: args.parentSessionID, messageID }) === "delivered") return
-    if (task.parentSessionID === task.rootSessionID && (await api.session.inbox.list({ sessionID: args.parentSessionID })).some(item => item.id === messageID)) {
-      await admitModelRequest(args.parentSessionID)
-      await api.session.inbox.update({ sessionID: args.parentSessionID, inboxID: messageID, delivery: "steer" })
-    }
-    if (task.parentSessionID === task.rootSessionID) await admitModelRequest(args.parentSessionID)
-    await api.session.synthetic({
-      sessionID: args.parentSessionID,
-      id: messageID,
-      text: args.result,
-      description: `Native task ${args.taskID} result`,
-      metadata: { momoNativeDelivery: { taskID: args.taskID, messageID } },
-      delivery: "queue",
-      resume: task.parentSessionID === task.rootSessionID,
-    })
+  async function closeQuestion(task: NativeTask): Promise<void> {
+    await closeForwardedQuestionForms(await client(), task)
   }
 
   async function ask(args: Parameters<NativeTaskRuntime["ask"]>[0]): Promise<void> {
@@ -190,10 +195,10 @@ export function createNativeSessionRuntime(input: {
     await api.session.synthetic({
       sessionID: args.parentSessionID,
       id: questionNotificationID(args.taskID, args.question.id),
-      text: `A child task is waiting for a decision. Task ID: ${args.taskID}. Question ID: ${args.question.id}. ${args.question.prompt}. Use momo_task answer with this task ID, question ID, and your answer before continuing.`,
+      text: `A child task is waiting for a decision. Task ID: ${args.taskID}. Question ID: ${args.question.id}. ${args.question.prompt}. Fields and options: ${JSON.stringify(args.question.form ?? { options: args.question.options })}. Use momo_task answer with this task ID, question ID, and your answer before continuing.`,
       description: `Native task ${args.taskID} question ${args.question.id}`,
       metadata: { momoNativeQuestionNotification: { taskID: args.taskID, questionID: args.question.id } },
-      delivery: "queue",
+      delivery: "steer",
       resume: true,
     })
     if (!await questionIsPending(args.taskID, args.question.id, false)) await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
@@ -221,17 +226,18 @@ export function createNativeSessionRuntime(input: {
     await closeForwardedQuestionForms(api, task)
   }
 
-  async function continueParent(args: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<void> {
+  async function continueParent(args: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<{ status: "admitted" | "delivered" }> {
     await ownedSession(args.sessionID)
     const messageID = childrenWakeMessageID(args.taskID, args.wakeID ?? args.message)
     const api = await client()
-    if (await inspectDelivery({ parentSessionID: args.sessionID, messageID }) === "delivered") return
+    if (await inspectDelivery({ parentSessionID: args.sessionID, messageID }) === "delivered") return { status: "delivered" }
     const ids = new Set((args.childTaskIDs ?? []).map(deliveryMessageID))
     for (const item of await api.session.inbox.list({ sessionID: args.sessionID })) {
       if (ids.has(item.id)) await api.session.inbox.cancel({ sessionID: args.sessionID, inboxID: item.id })
     }
     await admitModelRequest(args.sessionID)
     await api.session.synthetic({ sessionID: args.sessionID, id: messageID, text: args.message, description: `Native task ${args.taskID} children ready`, metadata: { momoNativeChildrenWake: { taskID: args.taskID, wakeID: args.wakeID ?? args.message, childTaskIDs: args.childTaskIDs ?? [] } }, delivery: "steer", resume: true })
+    return { status: "admitted" }
   }
 
   async function onFormEvent(event: V2Event): Promise<boolean> {
@@ -245,7 +251,7 @@ export function createNativeSessionRuntime(input: {
     if (metadata === undefined || (kind !== "question" && kind !== "escalation")) return false
     if (typeof metadata.momoNativeTaskID !== "string" || typeof metadata.momoNativeQuestionID !== "string") return true
     const task = await input.repository.get(metadata.momoNativeTaskID)
-    if (task === undefined || task.sessionID === undefined || task.question?.id !== metadata.momoNativeQuestionID) return true
+    if (task === undefined || task.sessionID === undefined || task.question?.id !== metadata.momoNativeQuestionID || task.state !== "waiting_question" || task.answer !== undefined) return true
     const expectedParent = kind === "escalation" ? task.rootSessionID : task.parentSessionID
     if (expectedParent !== event.data.sessionID || (kind === "escalation" && task.questionEscalated !== true)) return true
     if (input.onParentAnswer === undefined) throw new Error("Native task answer callback is not wired")
@@ -289,6 +295,9 @@ export function createNativeSessionRuntime(input: {
     interrupt,
     deliver,
     deliveryMessageID,
+    childrenWakeMessageID,
+    inspectDelivery,
+    closeQuestion,
     ask,
     escalateQuestion,
     answer,
@@ -359,6 +368,10 @@ function questionNotificationID(taskID: string, questionID: string): string {
 }
 
 async function closeForwardedQuestionForms(api: NativeV2Client, task: NativeTask): Promise<void> {
+  if (task.question !== undefined) {
+    const inboxID = questionNotificationID(task.id, task.question.id)
+    if ((await api.session.inbox.list({ sessionID: task.parentSessionID })).some((item) => item.id === inboxID)) await api.session.inbox.cancel({ sessionID: task.parentSessionID, inboxID })
+  }
   const expectedIDs = new Set([
     questionFormID("question", task.id, task.question?.id ?? ""),
     questionFormID("escalation", task.id, task.question?.id ?? ""),

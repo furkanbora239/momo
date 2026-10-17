@@ -6,6 +6,8 @@ const lastProgressAt = new Map<string, number>()
 
 export function mapV2TaskEvent(event: OpenCodeEvent): NativeTaskEvent | undefined {
   switch (event.type) {
+    case "session.inbox.delivered":
+      return { id: event.id, type: "delivery.consumed", sessionID: event.data.sessionID, inboxID: event.data.inboxID }
     case "session.execution.started":
       return { id: event.id, type: "execution.started", sessionID: event.data.sessionID, sequence: event.durable.seq }
     case "session.execution.succeeded":

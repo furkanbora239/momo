@@ -9,12 +9,12 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
   const sessions = new Map<string, SessionInfo>()
   const forms = new Map<string, FormDetail>()
   const inbox = new Map<string, { id: string; sessionID: string; delivery: string }>()
-  const deliveredMessages = new Set<string>()
   const calls: Array<{ name: string; input: unknown }> = []
   let promptResponse: Promise<unknown> = Promise.resolve({})
   let beforeFormCreate: (() => Promise<void>) | undefined
   let activeSessions: Record<string, { type: "running" }> = {}
   let contextMessages: SessionMessageInfo[] = []
+  let messageError: Error | undefined
   const task: NativeTask = {
     id: "ntask_9f1bb0c3-2d9f-4b64-9ab5-73e92710fdc1",
     rootTaskID: "ntask_9f1bb0c3-2d9f-4b64-9ab5-73e92710fdc1",
@@ -60,15 +60,12 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
         if (session === undefined) throw new Error("Session not found")
         return session
       },
-      message: {
-        get: async ({ sessionID, messageID }: { sessionID: string; messageID: string }) => {
-          if (!deliveredMessages.has(`${sessionID}:${messageID}`)) {
-            const error = Object.assign(new Error("Message not found"), { status: 404 })
-            throw error
-          }
-          return { id: messageID }
-        },
-      },
+      message: { get: async ({ messageID }: { messageID: string }) => {
+        if (messageError !== undefined) throw messageError
+        const message = contextMessages.find(item => item.id === messageID)
+        if (message === undefined) throw Object.assign(new Error("Message not found"), { status: 404 })
+        return message
+      } },
       inbox: {
         list: async ({ sessionID }: { sessionID: string }) =>
           [...inbox.values()].filter((item) => item.sessionID === sessionID),
@@ -84,8 +81,24 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
       },
       active: async () => activeSessions,
       context: async () => contextMessages,
+      message: { get: async ({ messageID }: { messageID: string }) => {
+        if (messageError !== undefined) throw messageError
+        const message = contextMessages.find(item => item.id === messageID)
+        if (message === undefined) throw Object.assign(new Error("Message not found"), { status: 404 })
+        return message
+      } },
       prompt: (input: unknown) => { calls.push({ name: "prompt", input }); return promptResponse },
-      synthetic: async (input: unknown) => { calls.push({ name: "synthetic", input }); return {} },
+      synthetic: async (input: unknown) => {
+        calls.push({ name: "synthetic", input })
+        const item = input as { id: string; sessionID: string; delivery: string }
+        inbox.set(item.id, item)
+        return {}
+      },
+      inbox: {
+        list: async ({ sessionID }: { sessionID: string }) => [...inbox.values()].filter((item) => item.sessionID === sessionID),
+        cancel: async (input: { sessionID: string; inboxID: string }) => { calls.push({ name: "inbox.cancel", input }); inbox.delete(input.inboxID) },
+        update: async (input: { sessionID: string; inboxID: string; delivery: string }) => { calls.push({ name: "inbox.update", input }); const item = inbox.get(input.inboxID); if (item !== undefined) item.delivery = input.delivery },
+      },
       interrupt: async (input: unknown) => { calls.push({ name: "interrupt", input }); return {} },
       form: {
         list: async ({ sessionID }: { sessionID: string }) => [...forms.values()].filter((form) => form.sessionID === sessionID),
@@ -110,6 +123,7 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
   return {
     task,
     calls,
+    inbox,
     sessions,
     forms,
     repository,
@@ -126,8 +140,8 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
     setBeforeFormCreate: (action: (() => Promise<void>) | undefined) => { beforeFormCreate = action },
     setActive: (value: Record<string, { type: "running" }>) => { activeSessions = value },
     setContext: (value: SessionMessageInfo[]) => { contextMessages = value },
+    setMessageError: (error: Error) => { messageError = error },
     inbox,
-    deliveredMessages,
   }
 }
 
@@ -192,11 +206,11 @@ describe("native V2 session runtime", () => {
     expect((args.metadata as Record<string, unknown>).momoNativeTask).toMatchObject({ taskID: h.task.id, rootSessionID: "ses_root", role: "worker" })
   })
 
-  it("queues idempotent synthetic results without waking the parent and launches task prompts without waiting for generation", async () => {
+  it("admits deterministic root results for steering and launches task prompts without waiting for generation", async () => {
     const h = harness()
     await h.runtime.deliver({ parentSessionID: "ses_root", taskID: h.task.id, result: "done" })
     const result = h.calls.find((call) => call.name === "synthetic")?.input as Record<string, unknown>
-    expect(result).toMatchObject({ sessionID: "ses_root", delivery: "queue", resume: true, text: "done" })
+    expect(result).toMatchObject({ sessionID: "ses_root", delivery: "steer", resume: true, text: "done" })
 
     let release: (() => void) | undefined
     h.setPromptResponse(new Promise<void>((resolve) => { release = resolve }))
@@ -224,6 +238,35 @@ describe("native V2 session runtime", () => {
     expect(h.calls.find((call) => call.name === "form.reply")?.input).toMatchObject({ answer: { [key]: value } })
   })
 
+  it("retracts queued department notifications before one aggregate wake", async () => {
+    const h = harness()
+    h.task.parentTaskID = "department"
+    h.task.rootSessionID = "ses_other_root"
+    h.task.state = "succeeded"
+    await h.runtime.deliver({ parentSessionID: "ses_root", taskID: h.task.id, result: "done" })
+    const result = h.calls.find((call) => call.name === "synthetic")?.input as Record<string, unknown>
+    expect(result).toMatchObject({ delivery: "queue", resume: false })
+    await h.runtime.continueParent({ sessionID: "ses_root", taskID: "department", message: "children ready", wakeID: "same-children", childTaskIDs: [h.task.id] })
+    expect(h.calls.filter((call) => call.name === "inbox.cancel")).toHaveLength(1)
+    expect(h.calls.at(-1)?.input).toMatchObject({ delivery: "steer", resume: true })
+    expect(await h.runtime.inspectDelivery!({ parentSessionID: "ses_root", messageID: h.runtime.childrenWakeMessageID!("department", "same-children") })).toBe("admitted")
+  })
+
+  it("retracts a resolved question notification and ignores a late forwarded answer", async () => {
+    const h = harness()
+    await h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
+    const forwarded = [...h.forms.values()][0]
+    expect(h.inbox.size).toBe(1)
+    h.task.answer = "accepted"
+    h.task.state = "queued"
+    await h.runtime.closeQuestion!(h.task)
+    expect(h.inbox.size).toBe(0)
+    h.forms.set(`ses_root:${forwarded.id}`, forwarded)
+    await h.runtime.onFormEvent({ id: "late", created: 1, type: "form.replied", data: { sessionID: "ses_root", id: forwarded.id, answer: { projectName: "late" } } })
+    expect(h.calls.filter((call) => call.name === "parent.answer")).toHaveLength(0)
+    expect(h.task.answer).toBe("accepted")
+  })
+
   it("creates a managed parent form without bypassing the task scheduler through a synthetic wake", async () => {
     const h = harness()
     h.task.parentTaskID = "department"
@@ -240,7 +283,7 @@ describe("native V2 session runtime", () => {
     const metadata = created.metadata as Record<string, unknown>
     expect(metadata).toMatchObject({ momoNativeFormKind: "question", momoNativeTaskID: h.task.id, momoNativeQuestionID: "form_child" })
     const notification = h.calls.filter((call) => call.name === "synthetic").at(-1)?.input as Record<string, unknown>
-    expect(notification).toMatchObject({ sessionID: "ses_root", resume: true, delivery: "queue", metadata: { momoNativeQuestionNotification: { taskID: h.task.id, questionID: "form_child" } } })
+    expect(notification).toMatchObject({ sessionID: "ses_root", resume: true, delivery: "steer", metadata: { momoNativeQuestionNotification: { taskID: h.task.id, questionID: "form_child" } } })
 
     h.forms.set("ses_child:form_child", makeForm("form_child", "ses_child", "Which project?", { momoNativeFormKind: "question" }))
     h.task.questionEscalated = true
@@ -336,4 +379,16 @@ describe("native V2 session runtime", () => {
     expect(await h.runtime.inspect("ses_child")).toEqual({ state: "succeeded", result: "native result", usage: { inputTokens: 31, outputTokens: 9, scope: "session_cumulative" } })
     expect(await h.runtime.inspect("ses_missing")).toEqual({ state: "missing" })
   })
+})
+
+it("does not replay delivery when a non-404 message lookup contains not-found prose", async () => {
+  const h = harness()
+  h.setMessageError(Object.assign(new Error("upstream message not found in replica"), { status: 503 }))
+  await expect(h.runtime.inspectDelivery!({ parentSessionID: "ses_root", messageID: "msg_result" })).rejects.toThrow("upstream message not found")
+})
+
+it("accepts the native typed missing-message result without matching error prose", async () => {
+  const h = harness()
+  h.setMessageError(Object.assign(new Error("localized provider message"), { _tag: "MessageNotFoundError" }))
+  expect(await h.runtime.inspectDelivery!({ parentSessionID: "ses_root", messageID: "msg_result" })).toBe("missing")
 })
