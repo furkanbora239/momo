@@ -7,6 +7,7 @@ import { z } from "zod"
 // every row from the listed providers within the same tier/need bucket.
 export const CatalogConfigSchema = z
   .object({
+    research_executor: z.object({ providerID: z.string().min(1), modelID: z.string().min(1) }).optional().describe("Explicit executor binding for bounded native catalog maintenance. Omitted leaves maintenance paused."),
     enabled: z.boolean().optional().describe("Enable the built-in catalog MCP (default: true)."),
     providers: z
       .array(z.string())
