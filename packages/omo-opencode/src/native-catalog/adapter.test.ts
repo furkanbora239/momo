@@ -5,6 +5,7 @@ import { join } from "node:path"
 import type { NativeCatalogContext } from "./types"
 import { createNativeCatalogAdapter } from "./adapter"
 import { createNativeCatalogKnowledgeStore } from "./knowledge-store"
+import { createNativeModelPolicyHealth } from "./model-policy-health"
 
 const pool = { version: 1 as const, allowed: [], updatedAt: "test" }
 
@@ -179,4 +180,28 @@ describe("native catalog adapter", () => {
       rmSync(home, { recursive: true, force: true })
     }
   })
+})
+
+it("reports paused maintenance and model-only policy availability until its original expiry", async () => {
+  const root = mkdtempSync(join(tmpdir(), "catalog-policy-"))
+  let time = 1000
+  try {
+    const health = createNativeModelPolicyHealth(join(root, "policy.json"), { now: () => time, ttlMs: 100 })
+    const rejected = { providerID: "live", id: "blocked" }
+    await health.observe(rejected, { message: "Model trains on request data. Privacy settings prohibit it.", taskID: "task", sessionID: "native", failureID: "native-message" })
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider("live", { settings: {} })], models: [model("live", "blocked"), model("live", "healthy")] }),
+      homeDirectory: root, now: () => time, modelPolicyHealth: health,
+      readMaintenance: async () => [{ model: rejected, context: { decisionId: "selected", rootSessionID: "root", parentSessionID: "root", parentRole: "orchestrator" }, status: "paused", reason: "executor_unbound", updatedAt: 1 }],
+      readPool: () => pool, readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }), readHealth: () => ({}),
+    })
+    await adapter.refresh()
+    expect(adapter.snapshot().models.map(m => [m.id, m.available])).toEqual([["blocked", false], ["healthy", true]])
+    expect(adapter.snapshot().connectedProviders).toEqual(["live"])
+    expect(adapter.snapshot().maintenance).toMatchObject({ paused: 1, running: 0, pauseReasons: ["executor_unbound"] })
+    time = 1101
+    await adapter.refresh()
+    expect(adapter.snapshot().models.every(m => m.available)).toBe(true)
+    expect(adapter.snapshot().unavailableModels).toEqual({})
+  } finally { rmSync(root, { recursive: true, force: true }) }
 })
