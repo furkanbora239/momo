@@ -117,10 +117,10 @@ export function createNativeSessionRuntime(input: {
       const result = resultFromMessages(messages)
       if (result.aborted) return { state: "interrupted", ...(usage !== undefined ? { usage } : {}) }
       if (session.outcome === "succeeded") return { state: "succeeded", result: result.text, ...(usage !== undefined ? { usage } : {}) }
-      if (session.outcome === "failed") return { state: "failed", error: result.error, result: result.text, ...(usage !== undefined ? { usage } : {}) }
+      if (session.outcome === "failed") return { state: "failed", error: result.error, failureID: result.failureID, failureModel: result.failureModel, failureAt: result.failureAt, result: result.text, ...(usage !== undefined ? { usage } : {}) }
       if (session.outcome === "interrupted") return { state: "interrupted", ...(usage !== undefined ? { usage } : {}) }
       if (result.completed) {
-        if (result.error !== undefined) return { state: "failed", error: result.error, result: result.text, ...(usage !== undefined ? { usage } : {}) }
+        if (result.error !== undefined) return { state: "failed", error: result.error, failureID: result.failureID, failureModel: result.failureModel, failureAt: result.failureAt, result: result.text, ...(usage !== undefined ? { usage } : {}) }
         return { state: "succeeded", result: result.text, ...(usage !== undefined ? { usage } : {}) }
       }
       return { state: "idle", ...(usage !== undefined ? { usage } : {}) }
@@ -354,12 +354,12 @@ function isAnswerValue(value: unknown): value is string | number | boolean | str
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean" || (Array.isArray(value) && value.every((item) => typeof item === "string"))
 }
 
-function resultFromMessages(messages: Awaited<ReturnType<NativeV2Client["session"]["context"]>>): { completed: boolean; text: string; error?: string; aborted?: boolean } {
+function resultFromMessages(messages: Awaited<ReturnType<NativeV2Client["session"]["context"]>>): { completed: boolean; text: string; error?: string; failureID?: string; failureModel?: NativeTask["model"]; failureAt?: number; aborted?: boolean } {
   const latest = [...messages].reverse().find((message) => message.type === "assistant")
   if (latest?.type !== "assistant" || latest.time.completed === undefined) return { completed: false, text: "" }
   const text = latest.content.filter((part) => part.type === "text").map((part) => part.text).join("")
   const error = latest.error === undefined ? undefined : JSON.stringify(latest.error)
-  return { completed: true, text, ...(error !== undefined ? { error } : {}), ...(latest.error?.type === "aborted" ? { aborted: true } : {}) }
+  return { completed: true, text, ...(error !== undefined ? { error, failureID: latest.id, failureModel: latest.model, failureAt: latest.time.completed } : {}), ...(latest.error?.type === "aborted" ? { aborted: true } : {}) }
 }
 
 function sessionUsage(session: SessionInfo): { inputTokens: number; outputTokens: number; scope: "session_cumulative" } | undefined {
