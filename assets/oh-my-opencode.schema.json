@@ -11371,6 +11371,25 @@
     "catalog": {
       "type": "object",
       "properties": {
+        "research_executor": {
+          "description": "Explicit executor binding for bounded native catalog maintenance. Omitted leaves maintenance paused.",
+          "type": "object",
+          "properties": {
+            "providerID": {
+              "type": "string",
+              "minLength": 1
+            },
+            "modelID": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "providerID",
+            "modelID"
+          ],
+          "additionalProperties": false
+        },
         "enabled": {
           "description": "Enable the built-in catalog MCP (default: true).",
           "type": "boolean"

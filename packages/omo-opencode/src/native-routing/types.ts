@@ -28,6 +28,7 @@ export interface NativeRouteInput {
   readonly parentSessionID: string
   readonly kind: NativeTaskKind
   /** Trusted internal role constraint, intersected with the caller's routing policy. */
+  readonly sourceDecisionID?: string
   readonly requiredRole?: NativeRole
   readonly requiredContextLength?: number
   readonly requiredCapabilities?: readonly string[]

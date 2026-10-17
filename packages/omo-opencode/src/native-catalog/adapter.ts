@@ -65,6 +65,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
 
     const eligibleIDs = new Set(activeProviders.map((provider) => provider.id))
     const facts: NativeCatalogModelFacts[] = []
+    const unavailableModels: Record<string, { reason: string; until: number }> = {}
     const sources: Record<string, readonly string[]> = {}
     const transportModelIDs: Record<string, string> = {}
     const unregisteredLiveModels: Record<string, string[]> = {}
@@ -78,7 +79,9 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
       const publishedPrice = knowledgeStore.readPrice(modelRef)
       const price = publishedPrice ? { source: "provider" as const, verified: true } : resolveNativePriceSource(model, options)
       const fact = nativeModelFacts(model, price.source, price.verified, liveRecord?.contextLength, publishedPrice)
-      facts.push(fact)
+      const policy = await options.modelPolicyHealth?.get(modelRef)
+      if (policy) unavailableModels[`${model.providerID}/${model.id}`] = { reason: policy.reason, until: policy.unavailableUntil }
+      facts.push(policy ? { ...fact, available: false } : fact)
       const key = `${model.providerID}/${model.id}`
       transportModelIDs[key] = model.modelID
       sources[key] = liveRecord === undefined
@@ -86,6 +89,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
         : ["opencode.provider.list", "opencode.model.list", "provider.GET /models"]
     }
     collectUnregisteredLiveModels(activeProviders, models, liveByProvider, unregisteredLiveModels)
+    const maintenance = await options.readMaintenance?.()
     const snapshot: NativeCatalogSnapshot = {
       fetchedAt: new Date(now()).toISOString(),
       connectedProviders: activeProviders.filter((provider) => !liveByProvider.get(provider.id)?.unavailable).map((provider) => provider.id),
@@ -94,6 +98,8 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
       transportModelIDs,
       unregisteredLiveModels,
       unavailableProviders,
+      unavailableModels,
+      ...(maintenance ? { maintenance: { queued: maintenance.filter((item) => item.status === "queued").length, paused: maintenance.filter((item) => item.status === "paused").length, running: maintenance.filter((item) => item.status === "running").length, completed: maintenance.filter((item) => item.status === "completed").length, failed: maintenance.filter((item) => item.status === "failed").length, pauseReasons: [...new Set(maintenance.filter((item) => item.status === "paused").map((item) => item.reason ?? "unknown"))] } } : {}),
     }
     return snapshot
   }

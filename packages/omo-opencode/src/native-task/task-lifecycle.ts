@@ -1,5 +1,7 @@
 import { applyRoute, routeInput } from "./guards"
 import { handleNativeTaskEvent } from "./events"
+import { markNativeExecutionFailurePending } from "./failure-observation"
+import { errorText } from "./lifecycle"
 import type { NativeTask, NativeTaskEngineOptions, NativeTaskEvent } from "./types"
 
 type TaskLifecycleOptions = {
@@ -26,6 +28,28 @@ type TaskLifecycleOptions = {
 }
 
 export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
+  async function observeFailedTask(task: NativeTask): Promise<void> {
+    if (task.state !== "failed" || !task.sessionID || !deps.options.onExecutionFailure) return
+    await deps.withTaskLock(task.id, async () => {
+      const current = await deps.get(task.id)
+      if (current.error === undefined || current.failureObservationError !== undefined) return
+      markNativeExecutionFailurePending(current, current.error)
+      if (current.failureObservationError !== undefined) await deps.save(current)
+    })
+    let observationError: string | undefined
+    try {
+      const inspection = await deps.options.runtime.inspect(task.sessionID)
+      const failure = inspection.state === "failed" ? inspection.error ?? task.error : task.error
+      if (failure !== undefined) await deps.options.onExecutionFailure(task, failure)
+    } catch (error) { observationError = errorText(error) }
+    await deps.withTaskLock(task.id, async () => {
+      const current = await deps.get(task.id)
+      if (current.failureObservationError === observationError) return
+      current.failureObservationError = observationError
+      await deps.save(current)
+    })
+  }
+
   async function reconcile(): Promise<void> {
     for (const entry of await deps.options.repository.list()) await deps.controls.reconcileBatches(entry.id)
     for (const stored of await deps.options.repository.list()) {
@@ -33,12 +57,17 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       if (stored.state === "queued" && stored.routeStatus === "pending") {
         await deps.withTaskLock(stored.id, async () => {
           const current = await deps.get(stored.id)
-          const routed = await deps.options.router.route(routeInput(current))
+          const routed = current.maintenance
+            ? current.model && deps.options.router.bindResearch
+              ? await deps.options.router.bindResearch({ ...routeInput(current), sourceDecisionID: current.sourceDecisionID }, current.model)
+              : { kind: "unavailable" as const, reason: "Maintenance executor assignment missing during recovery" }
+            : await deps.options.router.route(routeInput(current))
           applyRoute(current, routed)
           await deps.save(current)
         })
       }
       const beforeInspect = await deps.get(stored.id)
+      await observeFailedTask(beforeInspect)
       const queuedInPlaceResume = beforeInspect.state === "queued" && beforeInspect.resumeInPlace === true
       const inspectExistingSession = beforeInspect.parentWakeMessage === undefined && (beforeInspect.state === "running" || beforeInspect.state === "waiting_children" || queuedInPlaceResume)
       if (inspectExistingSession && beforeInspect.sessionID !== undefined) {
@@ -69,7 +98,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
         })
       }
       const reconciled = await deps.get(stored.id)
-      if (reconciled.state === "interrupted" && reconciled.sessionID !== undefined) await deps.controls.resume(stored.id, reconciled.parentSessionID)
+      if (reconciled.state === "interrupted" && reconciled.sessionID !== undefined && !reconciled.maintenance) await deps.controls.resume(stored.id, reconciled.parentSessionID)
       if (reconciled.state === "interrupted" && reconciled.sessionID === undefined) {
         await deps.withTaskLock(stored.id, async () => {
           const current = await deps.get(stored.id)
@@ -133,6 +162,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       save: deps.save,
       now: deps.now,
       questionTimeoutMs: deps.options.questionTimeoutMs ?? 120_000,
+      onExecutionFailure: deps.options.onExecutionFailure,
     }))
     const latest = await deps.get(task.id)
     if (effectiveEvent.type === "question.asked") await deps.controls.deliverQuestion(latest)
@@ -151,7 +181,12 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     const activeToolTimeout = deps.options.activeToolTimeoutMs ?? 3_600_000
     const interrupted: string[] = []
     const recoverableTaskIDs = new Set<string>()
+    let retriedFailureObservation = false
     for (const task of await deps.options.repository.list()) {
+      if (task.failureObservationError !== undefined) {
+        await observeFailedTask(task)
+        retriedFailureObservation = true
+      }
       await deps.withTaskLock(task.id, async () => {
         const current = await deps.get(task.id)
         if (current.questionDelivery === "pending" || current.questionEscalationStatus === "pending" || current.childrenWakePending || current.dispatchStatus === "pending" || ((current.state === "succeeded" || current.state === "failed") && current.outcomeStatus !== "recorded")) {
@@ -194,6 +229,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       if (current.childrenWakePending) await deps.retryChildWake(current)
       await deps.withTaskLock(current.id, async () => deps.retryRouterRecords(await deps.get(current.id)))
     }
+    if (retriedFailureObservation) await deps.pump()
     return interrupted
   }
 

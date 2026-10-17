@@ -10,7 +10,7 @@ const taskSchema = z.object({
   id: z.string().min(1), rootTaskID: z.string().min(1), parentTaskID: z.string().optional(),
   rootSessionID: z.string().min(1), parentSessionID: z.string().min(1), sessionID: z.string().optional(),
   kind: z.enum(["task", "consultation"]), parentRole: roleSchema, role: roleSchema.optional(), model: modelSchema.optional(),
-  requiredRole: roleSchema.optional(), sourceDecisionID: z.string().optional(),
+  requiredRole: roleSchema.optional(), sourceDecisionID: z.string().optional(), maintenance: z.literal(true).optional(),
   decisionId: z.string().optional(), candidates: z.array(candidateSchema).optional(),
   usage: z.object({ inputTokens: z.number(), outputTokens: z.number(), scope: z.literal("session_cumulative") }).optional(),
   usageError: z.string().optional(),

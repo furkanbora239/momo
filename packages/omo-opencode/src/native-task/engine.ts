@@ -6,6 +6,7 @@ import type {
   NativeTaskKind,
 } from "./types"
 import { signalTaskChildrenDone } from "./events"
+import { markNativeExecutionFailurePending, observeNativeExecutionFailure } from "./failure-observation"
 import { errorText, isTerminal } from "./lifecycle"
 import { runNativeTask } from "./runner"
 import { createNativeTaskControls } from "./task-controls"
@@ -25,6 +26,8 @@ export type NativeTaskResearchInput = {
   acceptance?: string
   callerSessionID: string
   sourceDecisionID: string
+  taskID?: string
+  executor?: NativeTask["model"]
 }
 
 export type NativeTaskEngine = ReturnType<typeof createNativeTaskEngine>
@@ -53,14 +56,15 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
   }
 
   async function createResearch(input: NativeTaskResearchInput): Promise<NativeTask> {
+    if (!input.executor) throw new Error("Catalog maintenance requires an explicit executor binding")
     const caller = await options.runtime.resolveCaller(input.callerSessionID)
     if (caller.role !== "orchestrator" || caller.rootSessionID !== input.callerSessionID) {
       throw new Error("Catalog research can only be created by the root orchestrator session")
     }
-    return createTask({ ...input, kind: "task" }, "catalog-researcher", input.sourceDecisionID)
+    return createTask({ ...input, kind: "task" }, "catalog-researcher", input.sourceDecisionID, input.executor, input.taskID)
   }
 
-  async function createTask(input: NativeTaskCreateInput, requiredRole?: NativeTask["requiredRole"], sourceDecisionID?: string): Promise<NativeTask> {
+  async function createTask(input: NativeTaskCreateInput, requiredRole?: NativeTask["requiredRole"], sourceDecisionID?: string, executor?: NativeTask["model"], taskID?: string): Promise<NativeTask> {
     const kind = input.kind ?? "task"
     const caller = await options.runtime.resolveCaller(input.callerSessionID)
     const parent = (await options.repository.list()).find((task) => task.sessionID === input.callerSessionID && (task.state === "running" || task.state === "waiting_children" || task.state === "waiting_question"))
@@ -72,7 +76,14 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     if (parent !== undefined && (parent.state === "waiting_question" || parent.state === "waiting_children")) {
       throw new Error("A task can only spawn while its session is actively running")
     }
-    const id = createNativeTaskID()
+    const id = taskID ?? createNativeTaskID()
+    if (taskID) {
+      const existing = await options.repository.get(taskID)
+      if (existing) {
+        if (!existing.maintenance || existing.sourceDecisionID !== sourceDecisionID || existing.rootSessionID !== caller.rootSessionID) throw new Error("Maintenance task ID belongs to another assignment")
+        return existing
+      }
+    }
     const timestamp = now()
     const task: NativeTask = {
       id,
@@ -84,6 +95,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       parentRole,
       ...(requiredRole !== undefined ? { requiredRole } : {}),
       ...(sourceDecisionID !== undefined ? { sourceDecisionID } : {}),
+      ...(executor ? { maintenance: true as const, model: executor } : {}),
       decisionId: id,
       state: "queued",
       prompt: input.prompt,
@@ -100,7 +112,8 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     }
     await withTaskLock(id, async () => {
       await save(task)
-      const routed = await options.router.route({
+      const routeInput = {
+        ...(sourceDecisionID ? { sourceDecisionID } : {}),
         decisionId: id,
         prompt: input.prompt,
         ...(input.scope !== undefined ? { scope: input.scope } : {}),
@@ -110,7 +123,10 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
         rootSessionID: task.rootSessionID,
         parentSessionID: task.parentSessionID,
         kind,
-      })
+      }
+      const routed = executor
+        ? await options.router.bindResearch?.(routeInput, executor) ?? { kind: "unavailable" as const, reason: "Router does not support explicit maintenance binding" }
+        : await options.router.route(routeInput)
       applyRoute(task, routed)
       await save(task)
     })
@@ -140,12 +156,24 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       const tasks = await options.repository.list()
       const active = tasks.filter((task) => task.state === "running").length
       if (active >= maxConcurrent) return
-      const next = tasks.find((task) => task.state === "queued" && hasCapacity(task, tasks, maxConcurrent, options.providerConcurrency, options.modelConcurrency, options.defaultConcurrency ?? 5))
+      let next: NativeTask | undefined
+      for (const task of tasks) {
+        if (task.state !== "queued" || task.routeStatus === "pending" || !hasCapacity(task, tasks, maxConcurrent, options.providerConcurrency, options.modelConcurrency, options.defaultConcurrency ?? 5)) continue
+        if (tasks.some((candidate) => candidate.failureObservationError !== undefined && sameModel(candidate.model, task.model))) continue
+        if (task.maintenance && (tasks.some((candidate) => !candidate.maintenance && ["awaiting_selection", "queued", "running", "waiting_children", "waiting_question"].includes(candidate.state)) || options.canRunMaintenance && !await options.canRunMaintenance(task))) continue
+        next = task
+        break
+      }
       if (next === undefined) return
       if (options.router.revalidateSelected !== undefined && !(await revalidateQueued(next.id))) continue
       await withTaskLock(next.id, async () => {
         const current = await get(next.id)
-        if (current.state !== "queued") return
+        if (current.state !== "queued" || current.routeStatus === "pending") return
+        if (current.maintenance && options.canRunMaintenance && !await options.canRunMaintenance(current)) return
+        const latest = await options.repository.list()
+        if (current.maintenance && latest.some(candidate => !candidate.maintenance && ["awaiting_selection", "queued", "running", "waiting_children", "waiting_question"].includes(candidate.state))) return
+        if (!hasCapacity(current, latest, maxConcurrent, options.providerConcurrency, options.modelConcurrency, options.defaultConcurrency ?? 5)) return
+        if (latest.some(candidate => candidate.failureObservationError !== undefined && sameModel(candidate.model, current.model))) return
         await runNativeTask(current, {
           repository: options.repository,
           runtime: options.runtime,
@@ -173,6 +201,13 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
         await save(task)
         valid = true
       } else {
+        if (task.maintenance) {
+          task.state = "failed"
+          task.error = "Configured maintenance executor is no longer eligible"
+          task.delivery = undefined
+          await save(task)
+          return
+        }
         if (task.sessionID !== undefined) {
           task.state = "interrupted"
           task.error = "The original model assignment is no longer available for this existing session. Resume requires the original assignment."
@@ -257,14 +292,18 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     if (await hasOpenChildren(task)) {
       task.state = "waiting_children"
       task.executionOutcome = result
+      if (result.state === "failed" && result.error !== undefined && options.onExecutionFailure) markNativeExecutionFailurePending(task, result.error)
       await save(task)
+      if (result.state === "failed" && result.error !== undefined) await observeNativeExecutionFailure(task, result.error, { onExecutionFailure: options.onExecutionFailure, save })
       return
     }
     task.state = result.state
     task.result = result.result ?? (result.error ? `Task failed: ${result.error}` : "Task completed without a text result.")
     if (result.error !== undefined) task.error = result.error
     task.delivery = { status: "pending", attempts: 0 }
+    if (result.state === "failed" && result.error !== undefined && options.onExecutionFailure) markNativeExecutionFailurePending(task, result.error)
     await save(task)
+    if (result.state === "failed" && result.error !== undefined) await observeNativeExecutionFailure(task, result.error, { onExecutionFailure: options.onExecutionFailure, save })
     await recordOutcome(task)
   }
 

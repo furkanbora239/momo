@@ -1,0 +1,81 @@
+{
+  "status": "passed",
+  "runtime": "opencode v2.0.28",
+  "baseCommit": "94717a3ffe5f77b06cce1cad0a55a9c2d31132f2",
+  "bundleSHA256": "315575dee908097220543be5bb3dd62dd5716b563e2e4e1f1ddeda024a8480d6",
+  "productionSourcesSHA256": "3d2b773a4425f73f4718615fcb21f0ff2e88066489b0b5818cfa636871ba61ae",
+  "productionSources": {
+    "packages/omo-opencode/src/config/schema/catalog.ts": "1d4e152601e9a3d67228a54415d8a3457f4a0e7d26a341799f45d2dd84cdc304",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "d8bac919c4fc18862e29ed556ee2a6bcf731b2892f03afc44db7354fd4df1b58",
+    "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "693a3b8cc1cfd6f0ecfc8fa8ae92e8f3f8864911ade940b07020d53c6a809286",
+    "packages/omo-opencode/src/native-catalog/research-maintenance.ts": "60c9728a1b584f8595a63d9949d537f91f492a0c242599850e4f9e21434d9e0f",
+    "packages/omo-opencode/src/native-catalog/types.ts": "4bdb683f038aa189db2c6b6ea6178e5bc0eb65fa387bccb5affb85f01db4b32c",
+    "packages/omo-opencode/src/native-routing/router.ts": "0962304c69ced5e44bfa2e1065f9c4f7b1229d4e13e0ee608a649b5c229d21cb",
+    "packages/omo-opencode/src/native-routing/types.ts": "1ac7fb4e85d0b840ab069151db2c7203d98c145e4981675b951e040aed40853d",
+    "packages/omo-opencode/src/native-runtime/task-tools.ts": "2a4d6b9261a3f3e891d069db9537b675702395eda6d8d5baa528c2aa6df6c741",
+    "packages/omo-opencode/src/native-task/engine.ts": "a4aedca805ed0462046611d1ad2634b2db13b8fc40137a8fdf06b905af850725",
+    "packages/omo-opencode/src/native-task/events.ts": "29a7797ab2ea178210c5eeff4e3c12ad00ea33e5f61a1863dba08e977971dd69",
+    "packages/omo-opencode/src/native-task/file-repository.ts": "4f3b740ea3f5b56e9effb6e25cc657b20491f1842fb51f41463ca8d22ec05b9a",
+    "packages/omo-opencode/src/native-task/task-controls.ts": "ba8cf211efe62abd4188d507858714ab02e363bc7897da614103c7252463d8ff",
+    "packages/omo-opencode/src/native-task/task-lifecycle.ts": "157f180f3f04adbd1d6a8ad3db023d7349100582527c7a00fc245b8f2ecd2a96",
+    "packages/omo-opencode/src/native-task/testing.ts": "6aeb75adfd684da5637533853017d1a016315755ab16eb930a48128462e7bd30",
+    "packages/omo-opencode/src/native-task/types.ts": "c8a4da54d7353d4ca5168ea6a2796cd5ddaebc5d90b333fcc6d7ea4edee82600"
+  },
+  "driverSHA256": "f0290aa480edcabd02f06db2c9c86806e5c99473293832e80a8a0a6b53c58f95",
+  "focused": {
+    "passed": 80,
+    "failed": 0,
+    "assertions": 305,
+    "files": 8
+  },
+  "build": "passed",
+  "monorepoTypecheck": "passed before final QA-only fixture changes",
+  "observed": {
+    "eligibleModels": 53,
+    "unboundQueue": 1,
+    "unboundReason": "executor_unbound",
+    "userTasks": 1,
+    "boundMaintenance": 1,
+    "boundState": "succeeded",
+    "rootInbox": 0,
+    "rootForms": 0,
+    "activeRootGuard": {
+      "maintenanceJobs": 1,
+      "active": true
+    },
+    "privacyQuarantinedModels": [
+      "catalog-qa/m1"
+    ],
+    "jevUserRoutes": 3,
+    "restartCompletedNoRerun": true
+  },
+  "cleanup": {
+    "ownedGroups": [
+      225294,
+      225358,
+      225428
+    ],
+    "processGroupGone": true,
+    "disposableRootRemoved": true,
+    "realDatabaseUnchanged": true,
+    "realDatabaseCountsBefore": "session|249\nsession_v2|313\nsession_message|17931",
+    "realDatabaseCountsAfter": "session|249\nsession_v2|313\nsession_message|17931"
+  },
+  "limits": [
+    "Local scripted model/Jev endpoints; no public provider billing or natural-language routing benchmark.",
+    "One-hour policy expiry, replay suppression, interrupted assignment resume, and uncertain launch/no-replay are focused behavioral tests, not a one-hour live wait.",
+    "Independent F01 staged gateway contract integration remains a final composed-tree gate.",
+    "Final QA-only script tsgo and full root suite pending."
+  ],
+  "currentTreeAcceptance": "Historical OpenCode 2.0.28 checkpoint only. Current source requires rebuild/typecheck/full tests and real QA after immutable message/model identity, accepted privacy event-state lag, foreground caller-selection idle guards, and durable failure-inspection retry fixes.",
+  "isCurrentSourceAcceptance": false,
+  "pendingProductionManifestSHA256": "6bb09887b7675da9c84fb39dad67d86bcabf618e389ba34512a03cc8e25e9661",
+  "latestFocusedCheckpoint": {
+    "passed": 88,
+    "failed": 0,
+    "assertions": 388,
+    "files": 9
+  },
+  "verificationScope": "historical checkpoint only; stale for the current source tree",
+  "currentTreeVerified": false
+}

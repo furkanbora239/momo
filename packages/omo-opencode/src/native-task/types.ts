@@ -39,6 +39,7 @@ export type NativeRouteInput = {
   acceptance?: string
   parentRole: NativeTaskRole
   requiredRole?: NativeTaskRole
+  sourceDecisionID?: string
   rootSessionID: string
   parentSessionID: string
   kind: NativeTaskKind
@@ -51,6 +52,7 @@ export type NativeRouteResult =
 
 export type NativeTaskRouter = {
   route(input: NativeRouteInput): Promise<NativeRouteResult>
+  bindResearch?(input: NativeRouteInput, model: NativeModelRef): Promise<NativeRouteResult>
   select(
     decisionId: string,
     model: NativeModelRef,
@@ -98,6 +100,7 @@ export type NativeTask = {
   role?: NativeTaskRole
   requiredRole?: NativeTaskRole
   sourceDecisionID?: string
+  maintenance?: true
   model?: NativeModelRef
   dispatchStatus?: "pending" | "recorded"
   outcomeStatus?: "pending" | "recorded"
@@ -105,6 +108,7 @@ export type NativeTask = {
   startedAt?: number
   dispatchError?: string
   outcomeError?: string
+  failureObservationError?: string
   usage?: NativeTaskUsage
   usageError?: string
   decisionId?: string
@@ -165,7 +169,7 @@ export type NativeTaskRuntime = {
   resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string }>
   createSession(input: { taskID: string; rootSessionID: string; parentSessionID: string; role: NativeTaskRole; model: NativeModelRef }): Promise<{ sessionID: string }>
   start(input: { sessionID: string; prompt: string }): Promise<void>
-  inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; usage?: NativeTaskUsage }>
+  inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; usage?: NativeTaskUsage }>
   resume(input: { taskID: string; sessionID: string }): Promise<void>
   interrupt(input: { sessionID: string }): Promise<void>
   deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void | NativeTaskDeliveryReceipt>
@@ -180,6 +184,8 @@ export type NativeTaskRuntime = {
 }
 
 export type NativeTaskEngineOptions = {
+  canRunMaintenance?: (task: NativeTask) => Promise<boolean>
+  onExecutionFailure?: (task: NativeTask, error: string) => Promise<void>
   repository: NativeTaskRepository
   router: NativeTaskRouter
   runtime: NativeTaskRuntime

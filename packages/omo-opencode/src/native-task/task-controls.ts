@@ -154,6 +154,7 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       let delivery: { parentSessionID: string; taskID: string; result: string } | undefined
       await deps.withTaskLock(taskID, async () => {
         const task = await deps.get(taskID)
+        if (task.maintenance) { task.delivery = undefined; await deps.save(task); return }
         if (task.delivery?.status !== "pending" || task.result === undefined) return
         task.delivery.attempts += 1
         task.delivery.messageID ??= deps.options.runtime.deliveryMessageID?.(task.id)
