@@ -1,7 +1,7 @@
 export { createNativeRouter, type NativeRouter } from "./router"
 export { createJsonlNativeRouterStore } from "./jsonl-store"
 export { createNativeLedgerOutcomeReader } from "./outcome-reader"
-export { createNativeJevAdapter, createNativeJevBackend } from "./jev-adapter"
+export { createNativeJevAdapter, createNativeJevBackend, type NativeJevBackendDeps } from "./jev-adapter"
 export type {
   NativeBreakerRecord,
   NativeCandidate,
@@ -32,3 +32,5 @@ export type {
   NativeRouterStore,
   NativeTaskKind,
 } from "./types"
+
+export { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"

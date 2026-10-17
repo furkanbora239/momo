@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { createNativeJevBackend } from "./jev-adapter"
+import { createNativeJevBackend, NativeJevRequestError } from "./jev-adapter"
 import { createNativeRouter } from "./router"
 import type { NativeCandidate, NativeJevRequest, NativeLedgerRecord } from "./types"
-import type { JevQuestionSet } from "@oh-my-opencode/decision-core"
+import { NativeJevAdmissionError, type JevQuestionSet } from "@oh-my-opencode/decision-core"
 
 function request(models: number, roles = ["planner", "executor", "reviewer", "worker", "explore", "librarian", "research", "catalog-researcher"] as NativeCandidate["role"][]): NativeJevRequest {
   const candidates = roles.flatMap((role) => Array.from({ length: models }, (_, index): NativeCandidate => {
@@ -77,6 +77,94 @@ describe("Jev choice boundary", () => {
     const decision = rows.find((row) => row.type === "decision")
     expect(decision?.type === "decision" ? decision.request.candidates.length : 0).toBe(424)
     expect(result.reason).toContain("confidence")
+  })
+
+  test("second-stage admission denial preserves first-stage input billing without retry", async () => {
+    let guards = 0
+    let http = 0
+    const backend = createNativeJevBackend({ session: "fixture", getApiKey: () => "fixture", maxAttempts: 5, beforeRequest: () => { guards += 1; if (guards > 1) throw new NativeJevAdmissionError("fixture integration became inactive") }, postJson: async () => { http += 1; return { status: 200, body: { answers: { role: { type: "choice", choice: "worker", confidence: 1, probabilities: { worker: 1 } }, lane: { type: "choice", choice: "direct", confidence: 1, probabilities: { direct: 1 } } }, usage: { input_tokens: 13, output_tokens: 5 } } } } })
+    let failure: unknown
+    try { await backend.choose(request(53)) } catch (error) { failure = error }
+    if (!(failure instanceof NativeJevRequestError)) throw new Error("Expected native audit error")
+    expect(failure.notSent).toBe(false)
+    expect(failure.admissionDenied).toBe(true)
+    expect(failure.attempts).toHaveLength(1)
+    expect(failure.usage?.inputTokens).toBe(13)
+    expect(failure.usage?.costUsd).toBe(13 * 0.042 / 1_000_000)
+    expect(guards).toBe(2)
+    expect(http).toBe(1)
+  })
+
+  for (const lost of ["transport", "http"] as const) test(`later ${lost} attempt without receipt keeps total cost unknown`, async () => {
+    let http = 0
+    const backend = createNativeJevBackend({ session: "fixture", getApiKey: () => "fixture", maxAttempts: 1, postJson: async () => {
+      http += 1
+      if (http > 1) {
+        if (lost === "transport") throw new Error("fixture response lost after send")
+        return { status: 400, body: { error: "fixture missing receipt" } }
+      }
+      return { status: 200, body: { answers: { role: { type: "choice", choice: "worker", confidence: 1, probabilities: { worker: 1 } }, lane: { type: "choice", choice: "direct", confidence: 1, probabilities: { direct: 1 } } }, usage: { input_tokens: 13, output_tokens: 5 } } }
+    } })
+    let failure: unknown
+    try { await backend.choose(request(53)) } catch (error) { failure = error }
+    if (!(failure instanceof NativeJevRequestError)) throw new Error("Expected audited error")
+    expect(failure.notSent).toBe(false)
+    expect(failure.attempts).toHaveLength(2)
+    expect(failure.usage?.inputTokens).toBe(13)
+    expect(failure.usage?.outputTokens).toBe(5)
+    expect(failure.usage?.costUsd).toBeUndefined()
+  })
+
+  test("HTTP usage survives decoder failure without accepting malformed selection", async () => {
+    const backend = createNativeJevBackend({ session: "fixture", getApiKey: () => "fixture-key", maxAttempts: 1, postJson: async () => ({ status: 200, body: { answers: { candidate: null }, usage: { input_tokens: 123, output_tokens: 4 } } }) })
+    let failure: unknown
+    try { await backend.choose(request(1, ["worker"])) } catch (error) { failure = error }
+    expect(failure).toBeInstanceOf(NativeJevRequestError)
+    if (!(failure instanceof NativeJevRequestError)) throw new Error("expected decoder failure")
+    expect(failure.usage?.inputTokens).toBe(123)
+    expect(failure.usage?.outputTokens).toBe(4)
+    expect(failure.usage?.costUsd).toBeCloseTo(123 * 0.042 / 1_000_000)
+  })
+
+  test("only reported input tokens determine Jev cost regardless of output size", async () => {
+    const costs: number[] = []
+    for (const outputTokens of [1, 100_000_000]) {
+      const backend = createNativeJevBackend({ session: "fixture", getApiKey: () => "fixture-key", maxAttempts: 1, postJson: async () => ({ status: 200, body: { answers: { candidate: { type: "choice", choice: "worker|fixture/model-0", confidence: 1, probabilities: { "worker|fixture/model-0": 1 } }, lane: { type: "choice", choice: "direct", confidence: 1, probabilities: { direct: 1 } } }, usage: { input_tokens: 123, output_tokens: outputTokens } } }) })
+      const selected = await backend.choose(request(1, ["worker"]))
+      expect(selected.usage?.outputTokens).toBe(outputTokens)
+      expect(selected.usage?.costUsd).toBe(123 * 0.042 / 1_000_000)
+      costs.push(selected.usage!.costUsd!)
+    }
+    expect(costs[0]).toBe(costs[1])
+  })
+
+  test("partial error response usage keeps unreported input and price unknown", async () => {
+    const backend = createNativeJevBackend({ session: "fixture", getApiKey: () => "fixture-key", maxAttempts: 1, postJson: async () => ({ status: 400, body: { error: "fixture", usage: { output_tokens: 4 } } }) })
+    let failure: unknown
+    try { await backend.choose(request(1, ["worker"])) } catch (error) { failure = error }
+    if (!(failure instanceof NativeJevRequestError)) throw new Error("Expected audited failure")
+    expect(failure.usage?.inputTokens).toBeUndefined()
+    expect(failure.usage?.outputTokens).toBe(4)
+    expect(failure.usage?.costUsd).toBeUndefined()
+  })
+
+  test("unknown HTTP usage never becomes an invented zero bill", async () => {
+    const backend = createNativeJevBackend({ session: "fixture", getApiKey: () => "fixture-key", maxAttempts: 1, postJson: async () => ({ status: 200, body: { answers: { candidate: { type: "choice", choice: "worker|fixture/model-0", confidence: 1, probabilities: { "worker|fixture/model-0": 1 } }, lane: { type: "choice", choice: "direct", confidence: 1, probabilities: { direct: 1 } } } } }) })
+    const selected = await backend.choose(request(1, ["worker"]))
+    expect(selected.usage?.costUsd).toBeUndefined()
+    expect(selected.usage?.inputTokens).toBeUndefined()
+    expect(selected.usage?.outputTokens).toBeUndefined()
+  })
+
+  test("retains paid usage when a later stage returns malformed selection", async () => {
+    const { backend, calls } = fixture("worker", 255, undefined, "group")
+    let failure: unknown
+    try { await backend.choose(request(256)) } catch (error) { failure = error }
+    expect(failure).toBeInstanceOf(NativeJevRequestError)
+    if (!(failure instanceof NativeJevRequestError)) throw new Error("expected audited failure")
+    expect(failure.usage?.inputTokens).toBe(200)
+    expect(failure.usage?.costUsd).toBeCloseTo(0.0000084)
+    expect(calls.every((call) => !Object.hasOwn(JSON.parse(call.state), "candidates"))).toBe(true)
   })
 
   for (const stage of ["role", "group"] as const) test(`malformed ${stage} aborts before the next paid stage`, async () => {
