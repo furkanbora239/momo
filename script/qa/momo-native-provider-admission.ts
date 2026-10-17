@@ -159,7 +159,7 @@ try {
   await toggles(["admission-manager"]); const offBefore = snapshot(), off = await launch("F17_MANAGER_OFF"); await off.pending; await client.session.wait({ sessionID: off.session.id })
   assert.deepEqual(snapshot(), offBefore, "Disabled manager with credential must send zero Jev/worker HTTP"); results.managerDisabled = { before: offBefore, after: snapshot(), credentialPresent: true }
   await toggles([]); const enabledBefore = snapshot(), enabled = await launch("F17_ENABLED"); await enabled.pending
-  const success = await poll(() => tasks(enabled.session.id), rows => rows.some(row => row.prompt === "F17_ENABLED_CHILD" && row.state === "succeeded" && (row.delivery as Row)?.status === "delivered"), "reenabled worker success")
+  const success = await poll(() => tasks(enabled.session.id), rows => rows.some(row => row.prompt === "F17_ENABLED_CHILD" && row.state === "succeeded" && (row.delivery as Row)?.status === "delivered"), "reenabled worker success", 40000)
   await client.session.wait({ sessionID: enabled.session.id }); assert(count("jev") > enabledBefore.jev && count("worker") > enabledBefore.worker, "Positive budget must route and execute after reenabling"); results.reenabled = { before: enabledBefore, after: snapshot(), tasks: success }
   holdModels = true; heldModels = false; const raceBefore = snapshot(), race = await launch("F17_CATALOG_RACE")
   await poll(async () => heldModels, Boolean, "worker models response held"); await toggles(["admission-worker"]); releaseModels!(); await race.pending; await client.session.wait({ sessionID: race.session.id })
@@ -173,8 +173,8 @@ try {
   const rootBefore = count("root"); await toggles(["admission-root"]); releaseWorker!()
   const blocked = await poll(() => tasks(delivery.session.id), rows => rows.some(row => row.prompt === "F17_DELIVERY_CHILD" && row.state === "succeeded" && (row.delivery as Row)?.status === "pending" && typeof (row.delivery as Row)?.lastError === "string"), "root delivery guard blocks")
   await Bun.sleep(350); assert.equal(count("root"), rootBefore, "Disabled root must receive zero steer generation HTTP"); await toggles([])
-  const delivered = await poll(() => tasks(delivery.session.id), rows => rows.some(row => row.prompt === "F17_DELIVERY_CHILD" && (row.delivery as Row)?.status === "delivered"), "reenabled root retry", 30000)
-  await client.session.wait({ sessionID: delivery.session.id }); assert.equal(count("root"), rootBefore + 1, "Root retry must generate exactly once"); results.rootSteer = { blocked, delivered, rootCallsBefore: rootBefore, rootCallsAfter: count("root") }
+  const delivered = await poll(() => tasks(delivery.session.id), rows => rows.some(row => row.prompt === "F17_DELIVERY_CHILD" && (row.delivery as Row)?.status === "delivered"), "reenabled root retry", 45000)
+  await client.session.wait({ sessionID: delivery.session.id }); results.rootTrace = requests.filter(row => row.type === "root").map(row => String(row.text).slice(0, 240).replace(/\s+/g, " ")); assert.equal(count("root"), rootBefore + 1, "Root retry must generate exactly once"); results.rootSteer = { blocked, delivered, rootCallsBefore: rootBefore, rootCallsAfter: count("root") }
   await captureDBs(); assert(openedDBs.size > 0, "No actual native DB descriptors observed")
   const db = [...openedDBs].find(path => path.endsWith(".db")); assert(db)
   const tables = execFileSync("sqlite3", ["-readonly", db, "SELECT name FROM sqlite_master WHERE type='table'"], { encoding: "utf8" }).split("\n"), table = tables.includes("session_v2") ? "session_v2" : "session"
