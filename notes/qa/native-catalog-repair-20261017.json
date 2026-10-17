@@ -120,5 +120,20 @@
       "seconds": 1.301
     },
     "scope": "Catalog, routing/accounting, native observation and task dispatch regressions after merging current dev. Full build/typecheck/native/full-suite receipts above bind to the explicitly recorded original tested base; composed CI remains required."
+  },
+  "upstreamTestCleanupRepair": {
+    "upstreamDev": "786e41767f6481db430071a6c8818aee949b4731",
+    "failure": "TS6059 from renamed test-only support module importing root test-support; four stale imports also repaired",
+    "focused": {
+      "passed": 16,
+      "failed": 0,
+      "assertions": 45,
+      "files": 4,
+      "seconds": 0.994
+    },
+    "staticCheck": "Renamed support exists, all four imports resolve and root declaration glob explicitly excludes that exact file. No local tsgo/build was run while another agent owned the heavy token.",
+    "productionSourcesUnchangedFromPRHead": "f35b45e0ea376f7147a5f2abb6918599a2ae50bb",
+    "nativeAcceptanceUnchanged": true,
+    "ci": "remote composed checks required"
   }
 }
