@@ -4,7 +4,7 @@ import { describe, expect, it, spyOn } from "bun:test"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { createEventState } from "./events"
 import { handleSessionError, handleSessionStatus } from "./event-handlers"
-import { createMockContext } from "./event-handler-test-support.test"
+import { createMockContext } from "./event-handler-test-support"
 
 describe("handleSessionStatus", () => {
   it("recognizes idle from session.status event (not just deprecated session.idle)", () => {

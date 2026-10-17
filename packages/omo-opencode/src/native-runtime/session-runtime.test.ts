@@ -5,7 +5,7 @@ import { taskDetail } from "./task-tool-output"
 import { createNativeSessionRuntime } from "./session-runtime"
 import type { NativeV2Client } from "./v2-service-client"
 
-function harness() {
+function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
   const sessions = new Map<string, SessionInfo>()
   const forms = new Map<string, FormDetail>()
   const inbox = new Map<string, { id: string; sessionID: string; delivery: string }>()
@@ -59,6 +59,18 @@ function harness() {
         const session = sessions.get(sessionID)
         if (session === undefined) throw new Error("Session not found")
         return session
+      },
+      message: { get: async ({ messageID }: { messageID: string }) => {
+        if (messageError !== undefined) throw messageError
+        const message = contextMessages.find(item => item.id === messageID)
+        if (message === undefined) throw Object.assign(new Error("Message not found"), { status: 404 })
+        return message
+      } },
+      inbox: {
+        list: async ({ sessionID }: { sessionID: string }) =>
+          [...inbox.values()].filter((item) => item.sessionID === sessionID),
+        update: async (input: unknown) => { calls.push({ name: "inbox.update", input }) },
+        cancel: async (input: unknown) => { calls.push({ name: "inbox.cancel", input }) },
       },
       create: async (input: unknown) => {
         calls.push({ name: "create", input })
@@ -121,6 +133,7 @@ function harness() {
       resolveOwnedRole: (session) => session.agent === "orchestrator" ? "orchestrator" : session.agent === "worker" || session.agent === "momo-worker" ? "worker" : undefined,
       resolveOwnedAgentID: (role) => role === "worker" ? "momo-worker" : "momo-orchestrator",
       verifySessionOwner: async () => undefined,
+      beforeModelRequest,
       onParentAnswer: async (taskID, questionID, answer, replyingSessionID) => { calls.push({ name: "parent.answer", input: { taskID, questionID, answer, replyingSessionID } }) },
     }),
     setPromptResponse: (response: Promise<unknown>) => { promptResponse = response },
@@ -128,6 +141,7 @@ function harness() {
     setActive: (value: Record<string, { type: "running" }>) => { activeSessions = value },
     setContext: (value: SessionMessageInfo[]) => { contextMessages = value },
     setMessageError: (error: Error) => { messageError = error },
+    inbox,
   }
 }
 
@@ -152,6 +166,19 @@ function makeForm(id: string, sessionID: string, title: string, metadata?: Recor
 }
 
 describe("native V2 session runtime", () => {
+  it("rejects unavailable provider admission before any native generation or form reply", async () => {
+    const h = harness(async () => { throw new Error("provider disabled") })
+    const task = await h.repository.get("ntask_9f1bb0c3-2d9f-4b64-9ab5-73e92710fdc1")
+    if (!task) throw new Error("Fixture task missing")
+    h.forms.set("ses_child:form_child", makeForm("form_child", "ses_child", "Question"))
+    await expect(h.runtime.start({ sessionID: "ses_child", prompt: "work" })).rejects.toThrow("provider disabled")
+    await expect(h.runtime.resume({ taskID: task.id, sessionID: "ses_child" })).rejects.toThrow("provider disabled")
+    await expect(h.runtime.continueParent({ sessionID: "ses_child", taskID: task.id, message: "children ready" })).rejects.toThrow("provider disabled")
+    await expect(h.runtime.answer({ sessionID: "ses_child", questionID: "form_child", answer: { projectName: "test" } })).rejects.toThrow("provider disabled")
+    await expect(h.runtime.deliver({ taskID: task.id, parentSessionID: "ses_root", result: "done" })).rejects.toThrow("provider disabled")
+    expect(h.calls.filter((call) => ["prompt", "synthetic", "form.reply"].includes(call.name))).toEqual([])
+  })
+
   it("persists deterministic child identity and rejects an unowned caller", async () => {
     const h = harness()
     const root = await h.runtime.resolveCaller("ses_root")

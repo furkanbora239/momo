@@ -4,7 +4,7 @@ import { describe, expect, it, spyOn } from "bun:test"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { createEventState } from "./events"
 import { handleToolExecute, handleToolResult } from "./event-handlers"
-import { createMockContext, joinWriteCalls } from "./event-handler-test-support.test"
+import { createMockContext, joinWriteCalls } from "./event-handler-test-support"
 
 describe("handleToolExecute and handleToolResult", () => {
   it("prints tool output and resets stream state when a running tool completes", () => {
