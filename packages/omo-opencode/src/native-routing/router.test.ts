@@ -248,6 +248,8 @@ describe("native task routing", () => {
     }))
 
     const first = await router.route(input({ decisionId: "research-1" }))
+    expect(contexts).toHaveLength(0)
+    await router.recordDispatch("research-1", { taskId: "task-1", sessionId: "session-1", role: "worker", model: selected }, "parent-1")
     await researchStarted
     const second = await router.route(input({ decisionId: "research-2" }))
     releaseResearch?.()
@@ -257,6 +259,51 @@ describe("native task routing", () => {
     expect(contexts).toEqual([{
       decisionId: "research-1", rootSessionID: "root-1", parentSessionID: "parent-1", parentRole: "orchestrator",
     }])
+  })
+
+  test("restart repairs a saved dispatched research enqueue gap without fanout or unused selections", async () => {
+    const models = Array.from({ length: 53 }, (_, index) => model(`m${index}`))
+    const store = memoryStore()
+    let release: (() => void) | undefined
+    const stalledEnqueue = new Promise<void>((resolve) => { release = resolve })
+    const original = createNativeRouter(deps({ models, store, knowledge: { get: () => undefined, research: () => stalledEnqueue } }))
+    const selected = await original.route(input({ decisionId: "dispatched" }))
+    if (selected.kind !== "selected") throw new Error("fixture selection failed")
+    await original.recordDispatch("dispatched", { taskId: "task", sessionId: "session", role: "worker", model: selected.model }, "parent-1")
+    await original.route(input({ decisionId: "unused-selection" }))
+    const observed: Array<{ model: NativeModelRef; context: unknown }> = []
+    let jevCalls = 0
+    const restarted = createNativeRouter(deps({ models, store, choose: async () => { jevCalls++; return answer("worker", models[0]!) }, knowledge: {
+      get: () => undefined, research: async (model, context) => { observed.push({ model, context }) },
+    } }))
+    await restarted.recoverResearch(); await restarted.recoverResearch()
+    release?.()
+    expect(observed).toEqual([{ model: { providerID: models[0]!.providerID, id: "m0" }, context: { decisionId: "dispatched", rootSessionID: "root-1", parentSessionID: "parent-1", parentRole: "orchestrator" } }])
+    expect(jevCalls).toBe(0)
+  })
+
+  test("53 unknown snapshot models create no research until actual dispatch; explicit research avoids Jev and revalidates its pool", async () => {
+    const models = Array.from({ length: 53 }, (_, index) => model(`m${index}`))
+    const researched: string[] = []
+    let calls = 0
+    let allowed = true
+    const store = memoryStore()
+    const router = createNativeRouter(deps({ models, store, allowed: () => allowed,
+      choose: async () => { calls++; return answer("worker", models[0]!) },
+      knowledge: { get: () => undefined, research: async (item) => { researched.push(item.id) } },
+    }))
+    await router.route(input({ decisionId: "origin", parentSessionID: "root-1" }))
+    expect(researched).toHaveLength(0)
+    await router.recordDispatch("origin", { taskId: "used", sessionId: "used-session", role: "worker", model: models[0]! }, "root-1")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(researched).toEqual(["m0"])
+    const brief = input({ decisionId: "maintenance", sourceDecisionID: "origin", parentSessionID: "root-1", requiredRole: "catalog-researcher" })
+    expect((await router.bindResearch(brief, models[1]!)).kind).toBe("selected")
+    expect(calls).toBe(1)
+    allowed = false
+    expect((await router.revalidateSelected("maintenance", "root-1")).kind).toBe("unavailable")
+    expect(calls).toBe(1)
+    expect((await router.bindResearch({ ...brief, decisionId: "forged", sourceDecisionID: "missing" }, models[1]!)).kind).toBe("unavailable")
   })
 
   test("returns at most three probability-ranked options when Jev confidence is low", async () => {

@@ -33,7 +33,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
   let openUntil = 0
   let jevReservedSpend = 0
   let jevSpendUnknown = false
-  const researchQueued = new Set<string>()
+  const researchQueued = new Map<string, Promise<void>>()
   const byDecision = new Map<string, NativeDecisionRecord>()
   const inflightRoutes = new Map<string, { input: NativeRouteInput; promise: Promise<NativeRouteResult> }>()
   let mutationQueue = Promise.resolve()
@@ -111,28 +111,37 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     for (const facts of permitted) {
       const knowledge = await deps.knowledge.get(facts)
       const explicitKnowledge = knowledge ?? { model: { providerID: facts.providerID, id: facts.id }, known: false }
-      if ((!knowledge || !knowledge.known) && deps.knowledge.research) queueResearch(facts, {
-        decisionId: input.decisionId ?? "",
-        rootSessionID: input.rootSessionID,
-        parentSessionID: input.parentSessionID,
-        parentRole: input.parentRole,
-      })
       for (const role of roles) candidates.push(candidateFrom(facts, role, explicitKnowledge))
     }
     return candidates
   }
 
-  function queueResearch(model: NativeModelRef, context: NativeResearchContext): void {
+  function queueResearch(model: NativeModelRef, context: NativeResearchContext): Promise<void> {
     const key = refKey(model)
-    if (researchQueued.has(key) || !deps.knowledge.research) return
-    researchQueued.add(key)
-    void Promise.resolve()
+    const pending = researchQueued.get(key)
+    if (pending) return pending
+    if (!deps.knowledge.research) return Promise.resolve()
+    const queued = Promise.resolve()
       .then(() => deps.knowledge.research?.(model, context))
       .catch((error) => {
+        researchQueued.delete(key)
         if (deps.knowledge.researchFailed) deps.knowledge.researchFailed(model, error, context)
         else if (deps.onError) deps.onError(`knowledge research failed for ${key}`, error)
         else console.error(`[native-routing] knowledge research failed for ${key}`, error)
       })
+    researchQueued.set(key, queued)
+    return queued
+  }
+
+  async function recoverResearch(): Promise<void> {
+    await ensureLoaded()
+    for (const record of byDecision.values()) {
+      if (!record.selected?.taskId || !record.selected.sessionId || record.selected.role === "catalog-researcher") continue
+      const model = record.selected.model
+      if ((await deps.knowledge.get(model))?.known) continue
+      const { rootSessionID, parentSessionID, parentRole } = record.request.input
+      await queueResearch(model, { decisionId: record.decisionId, rootSessionID, parentSessionID, parentRole })
+    }
   }
 
   function requestFor(input: NativeRouteInput, decisionId: string, candidates: readonly NativeCandidate[], outcomes: readonly NativeOutcomeFact[]): NativeJevRequest {
@@ -358,6 +367,27 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     })
   }
 
+  async function bindResearch(input: NativeRouteInput, model: NativeModelRef): Promise<NativeRouteResult> {
+    return exclusive(async () => {
+      await ensureLoaded()
+      if (input.requiredRole !== "catalog-researcher" || input.parentRole !== "orchestrator" || input.rootSessionID !== input.parentSessionID || input.kind !== "task") return { kind: "unavailable", reason: "explicit maintenance binding requires root catalog research" }
+      const origin = input.sourceDecisionID ? byDecision.get(input.sourceDecisionID) : undefined
+      if (!origin?.selected?.taskId || origin.request.input.rootSessionID !== input.rootSessionID || origin.selected.role === "catalog-researcher") return { kind: "unavailable", reason: "maintenance requires a dispatched source decision in the same root" }
+      const decisionId = input.decisionId ?? createId()
+      const existing = byDecision.get(decisionId)
+      if (existing) {
+        if (!sameBrief(input, existing.request.input) || !existing.selected || !sameModel(existing.selected.model, model)) throw new Error("maintenance decision already belongs to another binding")
+        return routeResult(existing)
+      }
+      const candidates = await snapshot(input)
+      const candidate = candidates.find((item) => item.role === "catalog-researcher" && sameModel(item.model, model))
+      const request = { ...requestFor(input, decisionId, candidates, await deps.outcomes.list()), instructions: "Explicit caller configuration binds the maintenance executor; no Jev model selection was requested." }
+      if (!candidate) { await saveNew(makeRecord(request, "unavailable", "configured maintenance executor is ineligible")); return { kind: "unavailable", decisionId, reason: "configured maintenance executor is ineligible" } }
+      await saveNew({ ...makeRecord(request, "selected", "explicit catalog.research_executor binding"), selected: { role: "catalog-researcher", model: candidate.model, by: "caller" } })
+      return { kind: "selected", decisionId, role: "catalog-researcher", model: candidate.model }
+    })
+  }
+
   async function recordDispatch(decisionId: string, dispatch: NativeDispatchFact, callerSessionID: string): Promise<void> {
     await exclusive(async () => {
       await ensureLoaded()
@@ -372,6 +402,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       const fresh = await snapshot(record.request.input)
       if (!fresh.some((candidate) => candidate.role === dispatch.role && sameModel(candidate.model, dispatch.model))) throw new Error("selected candidate is no longer available")
       await setRecord({ ...record, selected: { ...record.selected, taskId: dispatch.taskId, sessionId: dispatch.sessionId } })
+      if (dispatch.role !== "catalog-researcher" && !(await deps.knowledge.get(dispatch.model))?.known) void queueResearch(dispatch.model, { decisionId, rootSessionID: record.request.input.rootSessionID, parentSessionID: record.request.input.parentSessionID, parentRole: record.request.input.parentRole })
     })
   }
 
@@ -396,7 +427,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     return deps.store.exportLines()
   }
 
-  return { route, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger }
+  return { route, bindResearch, recoverResearch, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger }
 }
 
 export type NativeRouter = ReturnType<typeof createNativeRouter>
