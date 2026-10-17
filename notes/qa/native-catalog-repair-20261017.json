@@ -135,5 +135,18 @@
     "productionSourcesUnchangedFromPRHead": "f35b45e0ea376f7147a5f2abb6918599a2ae50bb",
     "nativeAcceptanceUnchanged": true,
     "ci": "remote composed checks required"
+  },
+  "upstreamDeletedFixtureRepair": {
+    "failure": "CI full suite could not resolve deleted completion-promise-detector-test-input.test imports in two test consumers",
+    "change": "Restore existing helper as plain test-support/completion-promise-input.ts and update two consumers; no runtime/prompt changes",
+    "focused": {
+      "passed": 12,
+      "failed": 0,
+      "assertions": 12,
+      "files": 2,
+      "seconds": 0.356
+    },
+    "nativeProductionUnchangedFrom": "f35b45e0ea376f7147a5f2abb6918599a2ae50bb",
+    "remoteExactHeadCI": "required"
   }
 }
