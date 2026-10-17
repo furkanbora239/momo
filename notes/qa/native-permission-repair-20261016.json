@@ -1,0 +1,318 @@
+{
+  "date": "2026-10-16",
+  "opencodeVersion": "opencode v2.0.28",
+  "scope": "Production permission-policy.ts and role-policy.ts loaded into isolated native fixture; not a built-plugin full-flow acceptance. Context tools deliberately restored by fixture to exercise execute.before independently.",
+  "sourceHead": "5715d97894e774da2eb1b452a7c2812eca902708",
+  "sourceSha256": {
+    "packages/omo-opencode/src/native-runtime/permission-policy.ts": "4998411fd46da852c6219a93156efe4e8f50b6d62011ffc82b8de4b24315568a",
+    "packages/omo-opencode/src/native-runtime/permission-policy.test.ts": "9eb0ff39543c2f5d4871e5fbb2033d7403c504c816e43bc0327836277995f329",
+    "packages/omo-opencode/src/native-runtime/role-policy.ts": "5129ad229f8d786a7396a30df32c1f885dc598e555e5c05e6b83682196025cf5",
+    "script/qa/momo-native-permission-repair.ts": "64c66bc2ccb7a2f6e893ee5f5f7bf605af80b23ad73775cd34970fb306daee78"
+  },
+  "baselinePolicySha256": "36b2964348f937ec5cd55884c008cfe4d4ac3423010abb1ba39e9d5e3f4a136c",
+  "baseline": {
+    "exitCode": 1,
+    "status": "failed",
+    "driverFailure": "Error: Expected outside read native permission ask",
+    "truncation": [
+      {
+        "tool": "execute",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "toolCalls": [],
+          "truncated": true
+        }
+      },
+      {
+        "tool": "read",
+        "status": "error",
+        "error": {
+          "type": "permission.rejected",
+          "message": "Permission denied: external_directory"
+        },
+        "metadata": {}
+      },
+      {
+        "tool": "grep",
+        "status": "error",
+        "error": {
+          "type": "permission.rejected",
+          "message": "Permission denied: external_directory"
+        },
+        "metadata": {}
+      }
+    ]
+  },
+  "fixed": {
+    "exitCode": 0,
+    "status": "passed",
+    "truncation": [
+      {
+        "tool": "execute",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "toolCalls": [],
+          "truncated": true
+        }
+      },
+      {
+        "tool": "read",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "truncated": false
+        }
+      },
+      {
+        "tool": "grep",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "matches": 1,
+          "truncated": false
+        }
+      }
+    ],
+    "outside": [
+      {
+        "tool": "read",
+        "status": "error",
+        "error": {
+          "type": "aborted",
+          "message": "The user declined this tool call"
+        },
+        "metadata": {}
+      }
+    ],
+    "approved": [
+      {
+        "tool": "read",
+        "status": "completed",
+        "error": null,
+        "metadata": {
+          "truncated": false
+        }
+      }
+    ],
+    "shell": [
+      {
+        "tool": "shell",
+        "status": "error",
+        "error": {
+          "type": "unknown",
+          "message": "Native momo-orchestrator role cannot execute shell"
+        },
+        "metadata": {}
+      }
+    ],
+    "edit": [
+      {
+        "tool": "edit",
+        "status": "error",
+        "error": {
+          "type": "unknown",
+          "message": "Native momo-orchestrator role cannot execute edit"
+        },
+        "metadata": {}
+      }
+    ],
+    "custom": [
+      {
+        "tool": "external_operate",
+        "status": "error",
+        "error": {
+          "type": "unknown",
+          "message": "Native momo-orchestrator role cannot execute external_operate"
+        },
+        "metadata": {}
+      }
+    ],
+    "outsideAskCount": 1,
+    "approvedAskCount": 1,
+    "mutationMarkerCreated": false,
+    "approvedFileChanged": false,
+    "recoveredSentinelViaReadAndGrep": true
+  },
+  "cleanup": {
+    "baseline": {
+      "exitCode": 130,
+      "signal": null,
+      "processGroupGone": true,
+      "realDatabaseCountsBefore": {
+        "session": 249,
+        "session_v2": 314,
+        "session_message": 18016
+      },
+      "realDatabaseCountsAfter": {
+        "session": 249,
+        "session_v2": 314,
+        "session_message": 18016
+      },
+      "realDatabaseCountsUnchanged": true,
+      "disposableRootRemoved": true
+    },
+    "fixed": {
+      "exitCode": 130,
+      "signal": null,
+      "processGroupGone": true,
+      "realDatabaseCountsBefore": {
+        "session": 249,
+        "session_v2": 314,
+        "session_message": 18016
+      },
+      "realDatabaseCountsAfter": {
+        "session": 249,
+        "session_v2": 314,
+        "session_message": 18016
+      },
+      "realDatabaseCountsUnchanged": true,
+      "disposableRootRemoved": true
+    }
+  },
+  "databaseHandlesConfinedToDisposableRoot": true,
+  "rawEvidence": ".omo/evidence/20261016-permission-repair/",
+  "externalDirectoryEffects": {
+    "baseline": [
+      {
+        "phase": "before",
+        "effect": "allow"
+      },
+      {
+        "phase": "after",
+        "effect": "deny"
+      },
+      {
+        "phase": "before",
+        "effect": "allow"
+      },
+      {
+        "phase": "after",
+        "effect": "deny"
+      },
+      {
+        "phase": "before",
+        "effect": "ask"
+      },
+      {
+        "phase": "after",
+        "effect": "deny"
+      }
+    ],
+    "fixed": [
+      {
+        "phase": "before",
+        "effect": "allow"
+      },
+      {
+        "phase": "after",
+        "effect": "allow"
+      },
+      {
+        "phase": "before",
+        "effect": "allow"
+      },
+      {
+        "phase": "after",
+        "effect": "allow"
+      },
+      {
+        "phase": "before",
+        "effect": "ask"
+      },
+      {
+        "phase": "after",
+        "effect": "ask"
+      },
+      {
+        "phase": "before",
+        "effect": "ask"
+      },
+      {
+        "phase": "after",
+        "effect": "ask"
+      }
+    ]
+  },
+  "gatesHead": "4ad91d099",
+  "gates": [
+    {
+      "gate": "focused",
+      "command": [
+        "bun",
+        "test",
+        "packages/omo-opencode/src/native-runtime/permission-policy.test.ts",
+        "packages/omo-opencode/src/native-runtime/role-policy.test.ts"
+      ],
+      "exitCode": 0,
+      "seconds": 0.56
+    },
+    {
+      "gate": "typecheck",
+      "command": [
+        "bun",
+        "run",
+        "typecheck"
+      ],
+      "exitCode": 0,
+      "seconds": 85.78
+    },
+    {
+      "gate": "build",
+      "command": [
+        "bun",
+        "run",
+        "build"
+      ],
+      "exitCode": 0,
+      "seconds": 29.41
+    },
+    {
+      "gate": "full",
+      "command": [
+        "bun",
+        "test"
+      ],
+      "exitCode": 0,
+      "seconds": 257.76
+    }
+  ],
+  "focused": {
+    "passed": 24,
+    "failed": 0,
+    "assertions": 183
+  },
+  "fullSuite": {
+    "passed": 12635,
+    "skipped": 20,
+    "failed": 0,
+    "assertions": 36434,
+    "files": 1555,
+    "secondsReported": 257.64
+  },
+  "builtBundleSha256": "9f3a41d6a222038a9caaf126dbac0c6be35903475422d0d9a843ba315b5243da",
+  "gateEnvironment": {
+    "priority": "nice 19",
+    "cpuAffinity": "0,1",
+    "GOMAXPROCS": "2",
+    "removedEnvironment": [
+      "GOOGLE_API_KEY",
+      "GEMINI_API_KEY",
+      "GOOGLE_GENERATIVE_AI_API_KEY"
+    ],
+    "XDG_DATA_HOME": "task-owned evidence/gate-xdg"
+  },
+  "evidenceSha256": {
+    "baseline/permission-events.jsonl": "fb98e726230acbd7f1f93a4f2f381ecc3b03d0821cfb23a94c43a44ea02fda81",
+    "baseline/service.log": "d80c5ff33ea8bc636c1988a8890c8c765d976f4f9626cce998a0a4a1a6b1d2df",
+    "build.log": "391901a66c69bf5ce0d7eb405a5645e1cf35453ea9ba4cd91e8f8a186ed3e432",
+    "fixed/permission-events.jsonl": "36eb901d55bf3785461e804455f2aa09d5a3d414d99124c00007a8cfc46e755e",
+    "fixed/service.log": "c9a66181d14563c69c2c196c975ece4d477b68e02508e98074403637b960eee0",
+    "focused.log": "ec1fd79c37b8f4576984ddd58b5d30a4825c68117f35bc14010f9b0344502954",
+    "full.log": "a2fa052cd50a80a93cc42fe5da1401c8673cb4529adb9e1151455c35137a643e",
+    "green.log": "158ef6f82dabe8efebbfe5c0f96fbb18db94e2189017982e57b2d1b5d07df9d4",
+    "red.log": "fb88dd8f7b263ecee53b6900aa22664ba0642a5e916429ae05d05571e8ae49c2",
+    "typecheck.log": "f8a9d0a2ed1a37ef97aa4757b24213d32ac621261098cef5ab270ddf4beb4efa"
+  }
+}

@@ -11,7 +11,7 @@ const DEFAULT_MODEL = "jev-1.13"
 const DEFAULT_TIMEOUT_MS = 30_000
 const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [3000, 6000, 12000]
 const DEFAULT_MAX_ATTEMPTS = 5
-const INPUT_PRICE_PER_MILLION = 0.042
+export const JEV_INPUT_PRICE_PER_MILLION = 0.042
 
 const USER_AGENT = "momo-decision-core/1.0 (opencode client)"
 
@@ -130,7 +130,7 @@ function parseSuccess(
   const usageRaw = raw.usage ?? {}
   const inputTokens = usageRaw.input_tokens ?? 0
   const outputTokens = usageRaw.output_tokens ?? 0
-  const costUsd = (inputTokens * INPUT_PRICE_PER_MILLION) / 1_000_000
+  const costUsd = (inputTokens * JEV_INPUT_PRICE_PER_MILLION) / 1_000_000
   return {
     model,
     answers,

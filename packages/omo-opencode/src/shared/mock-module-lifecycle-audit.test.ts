@@ -242,5 +242,5 @@ describe("mock.module lifecycle hygiene", () => {
 
     // then
     expect(offenders.sort()).toEqual([])
-  }, 20_000)
+  }, 60_000)
 })

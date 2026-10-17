@@ -1,5 +1,6 @@
 export {
   DecisionCoreError,
+  NativeJevAdmissionError,
   type ChoiceAnswer,
   type ChoiceQuestion,
   type DecisionCoreErrorCode,
@@ -40,3 +41,5 @@ export {
   type DecisionEngine,
   type DecisionEngineDeps,
 } from "./decision-engine"
+
+export { JEV_INPUT_PRICE_PER_MILLION } from "./jev-client"

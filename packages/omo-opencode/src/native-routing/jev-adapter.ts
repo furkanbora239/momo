@@ -1,4 +1,6 @@
-import { createJevClient, type JevCallResult, type JevClient, type JevClientDeps, type PostJson } from "@oh-my-opencode/decision-core"
+import { usageFromAttempts } from "./jev-http-usage"
+import { NativeJevUsageError, jevUsage } from "./jev-usage"
+import { NativeJevAdmissionError, createJevClient, type JevCallResult, type JevClient, type JevClientDeps, type PostJson } from "@oh-my-opencode/decision-core"
 import { candidateCriteria, JEV_CHOICE_LIMIT, stagedNativeAnswer } from "./jev-staged-selection"
 import type { NativeJev, NativeJevAnswer, NativeJevHttpAttempt, NativeJevRequest } from "./types"
 
@@ -72,17 +74,40 @@ function parseResponseBody(text: string): unknown {
 
 export class NativeJevRequestError extends Error {
   readonly attempts: readonly NativeJevHttpAttempt[]
+  readonly usage: NativeJevAnswer["usage"]
+  readonly notSent: boolean
+  readonly admissionDenied: boolean
 
   constructor(error: unknown, attempts: readonly NativeJevHttpAttempt[]) {
     const message = error instanceof Error ? error.message : String(error)
     super(message, { cause: error })
     this.name = "NativeJevRequestError"
     this.attempts = attempts
+    this.notSent = attempts.length === 0
+    this.admissionDenied = nativeJevFailureAdmission(error)
+    this.usage = usageFromAttempts(attempts) ?? jevUsage(error)
   }
 }
 
 export function nativeJevFailureEvidence(error: unknown): unknown {
-  return error instanceof NativeJevRequestError ? { httpAttempts: error.attempts } : undefined
+  return error instanceof NativeJevRequestError ? { httpAttempts: error.attempts, usage: error.usage, notSent: error.notSent, admissionDenied: error.admissionDenied } : undefined
+}
+
+export function nativeJevFailureNotSent(error: unknown): boolean {
+  if (error instanceof NativeJevRequestError) return error.notSent
+  if (error instanceof NativeJevUsageError) return error.usage === undefined && nativeJevFailureAdmission(error)
+  return error instanceof NativeJevAdmissionError
+}
+
+export function nativeJevFailureAdmission(error: unknown): boolean {
+  if (error instanceof NativeJevAdmissionError) return true
+  if (error instanceof NativeJevRequestError) return error.admissionDenied
+  return error instanceof NativeJevUsageError && nativeJevFailureAdmission(error.cause)
+}
+
+export type NativeJevBackendDeps = JevClientDeps & {
+  /** Called for each HTTP request, including later stages and retries. */
+  readonly beforeRequest?: (request: NativeJevRequest) => Promise<void> | void
 }
 
 function redactedHeaders(headers: Readonly<Record<string, string>>): Record<string, string> {
@@ -92,10 +117,12 @@ function redactedHeaders(headers: Readonly<Record<string, string>>): Record<stri
 }
 
 function createAuditedPostJson(
-  deps: JevClientDeps,
+  deps: NativeJevBackendDeps,
   attempts: NativeJevHttpAttempt[],
+  request: NativeJevRequest,
 ): PostJson {
   return async (url, headers, body) => {
+    await deps.beforeRequest?.(request)
     const entry: { url: string; headers: Readonly<Record<string, string>>; requestBody: unknown; status?: number; responseBody?: unknown; error?: string } = {
       url,
       headers: redactedHeaders(headers),
@@ -128,18 +155,18 @@ function createAuditedPostJson(
   }
 }
 
-export function createNativeJevBackend(deps: JevClientDeps): NativeJev {
+export function createNativeJevBackend(deps: NativeJevBackendDeps): NativeJev {
   return {
     async choose(request) {
       const attempts: NativeJevHttpAttempt[] = []
       const client = createJevClient({
         ...deps,
         session: request.input.rootSessionID,
-        postJson: createAuditedPostJson(deps, attempts),
+        postJson: createAuditedPostJson(deps, attempts, request),
       })
       try {
         const answer = await nativeAnswer(client, request)
-        return { ...answer, source: { result: answer.source, httpAttempts: attempts } }
+        return { ...answer, usage: usageFromAttempts(attempts) ?? answer.usage, source: { result: answer.source, httpAttempts: attempts } }
       } catch (error) {
         throw new NativeJevRequestError(error, attempts)
       }
