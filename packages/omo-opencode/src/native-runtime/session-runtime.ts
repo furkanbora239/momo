@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
-import type { FormFields, SessionInfo, V2Event } from "@opencode/client"
+import { isMessageNotFoundError, type FormFields, type SessionInfo, type V2Event } from "@opencode/client"
 import type { NativeTask, NativeTaskEvent, NativeTaskQuestion, NativeTaskRepository, NativeTaskRole, NativeTaskRuntime } from "../native-task/types"
-import { deliveryMessageID } from "./delivery-message-id"
+import { childrenWakeMessageID, deliveryMessageID } from "./delivery-message-id"
 import { discoverNativeV2Client, type NativeV2Client } from "./v2-service-client"
 
 type NativeSessionMetadata = {
@@ -23,6 +23,7 @@ export function createNativeSessionRuntime(input: {
   resolveOwnedRole: (session: SessionInfo) => NativeTaskRole | undefined
   resolveOwnedAgentID: (role: NativeTaskRole) => string | undefined
   verifySessionOwner: (session: SessionInfo) => Promise<void>
+  beforeModelRequest?: (session: SessionInfo) => Promise<void>
   onParentAnswer?: (taskID: string, questionID: string, answer: unknown, replyingSessionID: string) => Promise<void>
   onEvent?: (event: NativeTaskEvent) => Promise<void>
 }): NativeSessionRuntime {
@@ -92,15 +93,18 @@ export function createNativeSessionRuntime(input: {
     await ownedSession(args.sessionID)
     const task = await findTaskBySession(input.repository, args.sessionID)
     const messageID = stableID("msg", `start:${task.id}`, 26)
-    launchPrompt(await client(), args.sessionID, args.prompt, messageID, onLaunchError)
+    const api = await client()
+    await admitModelRequest(args.sessionID)
+    launchPrompt(api, args.sessionID, args.prompt, messageID, onLaunchError)
   }
 
   async function resume(args: Parameters<NativeTaskRuntime["resume"]>[0]): Promise<void> {
     const task = await input.repository.get(args.taskID)
     if (task === undefined || task.sessionID !== args.sessionID) throw new Error("Cannot resume an unknown native task session")
-    await ownedSession(args.sessionID)
     const messageID = stableID("msg", `resume:${task.id}:${task.attempts}`, 26)
-    launchPrompt(await client(), args.sessionID, `Resume the existing task from its current session state. Continue the same work and report the result.`, messageID, onLaunchError)
+    const api = await client()
+    await admitModelRequest(args.sessionID)
+    launchPrompt(api, args.sessionID, `Resume the existing task from its current session state. Continue the same work and report the result.`, messageID, onLaunchError)
   }
 
   async function inspect(sessionID: string): Promise<Awaited<ReturnType<NativeTaskRuntime["inspect"]>>> {
@@ -135,12 +139,33 @@ export function createNativeSessionRuntime(input: {
     await (await client()).session.interrupt({ sessionID: args.sessionID })
   }
 
+  async function inspectDelivery(args: { parentSessionID: string; messageID: string }): Promise<"missing" | "admitted" | "delivered"> {
+    await ownedSession(args.parentSessionID)
+    const api = await client()
+    if ((await api.session.inbox.list({ sessionID: args.parentSessionID })).some((message) => message.id === args.messageID)) return "admitted"
+    try {
+      const message = await api.session.message.get({ sessionID: args.parentSessionID, messageID: args.messageID })
+      return message.id === args.messageID ? "delivered" : "missing"
+    } catch (error) {
+      const response = asRecord(error)
+      if (isMessageNotFoundError(error) || response?.status === 404 || response?.statusCode === 404) return "missing"
+      throw error
+    }
+  }
+
   async function deliver(args: Parameters<NativeTaskRuntime["deliver"]>[0]): Promise<void> {
     const task = await input.repository.get(args.taskID)
     if (task === undefined || task.parentSessionID !== args.parentSessionID) throw new Error("Cannot deliver a result for an unknown native task parent")
     await ownedSession(args.parentSessionID)
     const messageID = deliveryMessageID(args.taskID)
-    await (await client()).session.synthetic({
+    const api = await client()
+    if (await inspectDelivery({ parentSessionID: args.parentSessionID, messageID }) === "delivered") return
+    if (task.parentSessionID === task.rootSessionID && (await api.session.inbox.list({ sessionID: args.parentSessionID })).some(item => item.id === messageID)) {
+      await admitModelRequest(args.parentSessionID)
+      await api.session.inbox.update({ sessionID: args.parentSessionID, inboxID: messageID, delivery: "steer" })
+    }
+    if (task.parentSessionID === task.rootSessionID) await admitModelRequest(args.parentSessionID)
+    await api.session.synthetic({
       sessionID: args.parentSessionID,
       id: messageID,
       text: args.result,
@@ -161,6 +186,7 @@ export function createNativeSessionRuntime(input: {
       return
     }
     if ((await requiredTask(args.taskID)).parentTaskID !== undefined) return
+    await admitModelRequest(args.parentSessionID)
     await api.session.synthetic({
       sessionID: args.parentSessionID,
       id: questionNotificationID(args.taskID, args.question.id),
@@ -185,6 +211,7 @@ export function createNativeSessionRuntime(input: {
     const api = await client()
     await ownedSession(args.sessionID)
     const form = await api.session.form.get({ sessionID: args.sessionID, formID: args.questionID })
+    await admitModelRequest(args.sessionID)
     await api.session.form.reply({
       sessionID: args.sessionID,
       formID: args.questionID,
@@ -196,8 +223,15 @@ export function createNativeSessionRuntime(input: {
 
   async function continueParent(args: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<void> {
     await ownedSession(args.sessionID)
-    const messageID = stableID("msg", `children-wake:${args.taskID}:${args.wakeID ?? args.message}`, 26)
-    launchPrompt(await client(), args.sessionID, args.message, messageID, onLaunchError)
+    const messageID = childrenWakeMessageID(args.taskID, args.wakeID ?? args.message)
+    const api = await client()
+    if (await inspectDelivery({ parentSessionID: args.sessionID, messageID }) === "delivered") return
+    const ids = new Set((args.childTaskIDs ?? []).map(deliveryMessageID))
+    for (const item of await api.session.inbox.list({ sessionID: args.sessionID })) {
+      if (ids.has(item.id)) await api.session.inbox.cancel({ sessionID: args.sessionID, inboxID: item.id })
+    }
+    await admitModelRequest(args.sessionID)
+    await api.session.synthetic({ sessionID: args.sessionID, id: messageID, text: args.message, description: `Native task ${args.taskID} children ready`, metadata: { momoNativeChildrenWake: { taskID: args.taskID, wakeID: args.wakeID ?? args.message, childTaskIDs: args.childTaskIDs ?? [] } }, delivery: "steer", resume: true })
   }
 
   async function onFormEvent(event: V2Event): Promise<boolean> {
@@ -223,6 +257,11 @@ export function createNativeSessionRuntime(input: {
     const session = await (await client()).session.get({ sessionID })
     await input.verifySessionOwner(session)
     return session
+  }
+
+  async function admitModelRequest(sessionID: string): Promise<void> {
+    const session = await ownedSession(sessionID)
+    await input.beforeModelRequest?.(session)
   }
 
   async function questionIsPending(taskID: string, questionID: string, escalated: boolean): Promise<boolean> {

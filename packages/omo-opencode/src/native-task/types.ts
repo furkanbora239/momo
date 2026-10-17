@@ -170,7 +170,7 @@ export type NativeTaskRuntime = {
   ask(input: { parentSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   escalateQuestion(input: { rootSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   answer(input: { sessionID: string; questionID: string; answer: unknown }): Promise<void>
-  continueParent(input: { sessionID: string; taskID: string; message: string; wakeID?: string }): Promise<void>
+  continueParent(input: { sessionID: string; taskID: string; message: string; wakeID?: string; childTaskIDs?: string[] }): Promise<void>
 }
 
 export type NativeTaskEngineOptions = {

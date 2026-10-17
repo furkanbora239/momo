@@ -36,6 +36,32 @@ function model(providerID: string, id: string, extras: Record<string, unknown> =
 }
 
 describe("native catalog adapter", () => {
+  it("rechecks provider toggles after a shared live refresh completes", async () => {
+    let disabled: string[] = []
+    let release: (() => void) | undefined
+    let started: (() => void) | undefined
+    const ready = new Promise<void>((resolve) => { started = resolve })
+    const blocked = new Promise<void>((resolve) => { release = resolve })
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider("live")], models: [model("live", "x")] }),
+      readPool: () => pool,
+      readToggles: () => ({ version: 1, disabled, updatedAt: "test" }),
+      readHealth: () => ({}),
+      fetchImpl: async () => { started?.(); await blocked; return new Response(JSON.stringify({ data: [{ id: "x" }] })) },
+    })
+    const original = adapter.refresh()
+    await ready
+    disabled = ["live"]
+    const joined = adapter.catalog.listAvailable()
+    release?.()
+    const [snapshot, models] = await Promise.all([original, joined])
+    expect(snapshot.models).toEqual([])
+    expect(models).toEqual([])
+    expect(snapshot.connectedProviders).toEqual([])
+    expect(snapshot.sources).toEqual({})
+    expect(snapshot.unavailableProviders.live.reason).toBe("disabled by provider toggle")
+  })
+
   it("uses actual V2 provider/model records and resolved integration credentials for live reconciliation", async () => {
     const adapter = createNativeCatalogAdapter({
       context: contextFixture({
