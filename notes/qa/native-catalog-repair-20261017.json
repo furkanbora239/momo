@@ -1,0 +1,112 @@
+{
+  "baseCommit": "a0f732d8927b46e1b32e70912e690fab193a1743",
+  "productionSources": {
+    "packages/omo-opencode/src/config/schema/catalog.ts": "1d4e152601e9a3d67228a54415d8a3457f4a0e7d26a341799f45d2dd84cdc304",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "d8bac919c4fc18862e29ed556ee2a6bcf731b2892f03afc44db7354fd4df1b58",
+    "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "a1d84c504641df02e07a2749224cc8a053a6068ae58d9b532b32077c1242edd2",
+    "packages/omo-opencode/src/native-catalog/research-maintenance.ts": "60c9728a1b584f8595a63d9949d537f91f492a0c242599850e4f9e21434d9e0f",
+    "packages/omo-opencode/src/native-catalog/types.ts": "4bdb683f038aa189db2c6b6ea6178e5bc0eb65fa387bccb5affb85f01db4b32c",
+    "packages/omo-opencode/src/native-routing/router.ts": "8f4eaf20b7419920b684486a9487d110260d846d921372ab27a9a3b451148813",
+    "packages/omo-opencode/src/native-routing/types.ts": "1ac7fb4e85d0b840ab069151db2c7203d98c145e4981675b951e040aed40853d",
+    "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "a5fe44eaee54b7e6d7ed7300c509423dd20a8bfb9487d9d35686a12f47bae420",
+    "packages/omo-opencode/src/native-runtime/session-runtime.ts": "747ccbb7e545d99a6e7adf8d5fceb01300d59baac7861722bfc85f06d1d25b90",
+    "packages/omo-opencode/src/native-runtime/task-tools.ts": "05c8fe987b60d5851fbc6da8f2aa9458d9cab428a91ab4009c32f6667757dced",
+    "packages/omo-opencode/src/native-task/engine.ts": "481fecfa7a091496000b4a8b7dae93b0ef1ccd26e7b5645dbb3d5cbaba277c0c",
+    "packages/omo-opencode/src/native-task/events.ts": "d931b6130c24a7edbeebc28b117245b15be163454392fb1e6ad2c05d77e2cbdb",
+    "packages/omo-opencode/src/native-task/failure-observation.ts": "8f680f6c7739067cffc770acd8f3baa7b15ebd0c9f81254e4e5ecefb8c413698",
+    "packages/omo-opencode/src/native-task/file-repository.ts": "4f3b740ea3f5b56e9effb6e25cc657b20491f1842fb51f41463ca8d22ec05b9a",
+    "packages/omo-opencode/src/native-task/task-controls.ts": "ba8cf211efe62abd4188d507858714ab02e363bc7897da614103c7252463d8ff",
+    "packages/omo-opencode/src/native-task/task-lifecycle.ts": "52654f6780f08261c6689f2a5d3c448b9ed10ad45c08c47d8e52f66decc83978",
+    "packages/omo-opencode/src/native-task/testing.ts": "6aeb75adfd684da5637533853017d1a016315755ab16eb930a48128462e7bd30",
+    "packages/omo-opencode/src/native-task/types.ts": "212a4ef3847f9402f3937d32718069261b081f2437b3092b908af9a64ced32f3"
+  },
+  "productionSourcesSHA256": "94bf14c9bbc042577353bd8a811b3ed8ce2dca94591ad491ddf729b5895660b6",
+  "bundleSHA256": "716c7efb04ce6f41d4781fc47e10eed6024edbdae69b8cd7e15b3b271d4ef82e",
+  "driverSHA256": "caccd18bc2e0561a36412b567511a3d7c17dc8054ac8addf12bca20e35cc47a7",
+  "status": "passed",
+  "verifiedAt": "2026-10-17T08:44:37.859782+00:00",
+  "runtime": "opencode v2.0.28",
+  "scope": "Source-bound local acceptance on tested base a0f732d8927b46e1b32e70912e690fab193a1743; accounting/current-dev composition is a later, separately labeled check.",
+  "build": "passed",
+  "monorepoTypecheck": "passed",
+  "focused": {
+    "passed": 83,
+    "failed": 0,
+    "assertions": 325,
+    "files": 12
+  },
+  "fullSuite": {
+    "status": "passed",
+    "passed": 12644,
+    "skipped": 29,
+    "failed": 0,
+    "assertions": 36554,
+    "files": 1559,
+    "seconds": 272.02,
+    "exitCode": 0,
+    "ownedRootRemoved": true
+  },
+  "native": {
+    "status": "passed",
+    "eligibleModels": 53,
+    "unboundMaintenance": {
+      "count": 1,
+      "reason": "executor_unbound"
+    },
+    "boundMaintenance": {
+      "count": 1,
+      "state": "succeeded",
+      "rootInbox": 0,
+      "rootForms": 0
+    },
+    "durableDispatchedEnqueueRecovery": "queue removed after durable dispatched task, repaired on restart",
+    "activeRootGuard": {
+      "ordinaryTaskState": "succeeded",
+      "maintenanceJobs": 1,
+      "active": true
+    },
+    "completedMaintenanceNoRestartRerun": true,
+    "privacyQueuedExecutionGuard": {
+      "queuedAssignments": 1,
+      "modelExecutions": 1,
+      "secondTaskState": "awaiting_selection",
+      "sampledGuardPolls": 5,
+      "eventualPolicyTimeoutMs": 45000
+    },
+    "otherModelContinued": true,
+    "policyReplayExpiryUnchanged": true,
+    "quarantinedModels": [
+      "catalog-qa/m1"
+    ]
+  },
+  "cleanup": {
+    "openedDatabases": [
+      "/tmp/momo-catalog-repair-SG141C/data/opencode/opencode.db"
+    ],
+    "ownedProcessGroups": [
+      20840,
+      21078,
+      21302,
+      21387
+    ],
+    "processGroupGone": true,
+    "realDatabaseCountsBefore": "session|249\nsession_v2|317\nsession_message|18061",
+    "realDatabaseCountsAfter": "session|249\nsession_v2|317\nsession_message|18061",
+    "realDatabaseUnchanged": true,
+    "disposableRootRemoved": true
+  },
+  "regressions": {
+    "F18": "Held-route regression reproduced RED before pending-route exclusion and fresh dispatch admission; actual native model-cap guard passed after fix.",
+    "F02": "Held revalidation regression reproduced RED before fresh maintenance admission; root-busy and ordinary awaiting-selection transitions pass after fix.",
+    "F08": "Concurrent failure observation regression reproduced RED before the privacy pending marker joined the terminal persistence transition; queued native same-model generation is prevented after fix."
+  },
+  "limits": [
+    "Only local scripted model/Jev endpoints were used; no public provider billing or natural-language model judgment benchmark.",
+    "One-hour expiry and replay suppression are behavioral tests, not a one-hour native wait.",
+    "The exact maintenance revalidation interleaving is a focused behavioral test; native QA proves active-root maintenance suppression on the final built plugin.",
+    "F18 is a proven capacity bypass; its role in the original Anchor crash is unproven.",
+    "Final dev composition must preserve accounting and admission changes and receive separate focused checks."
+  ],
+  "rawEvidence": ".omo/evidence/20261016-catalog-repair/",
+  "historicalAcceptance": "notes/qa/native-catalog-repair-20261014.json is explicitly stale and is not current-source proof."
+}
