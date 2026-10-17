@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { proveNativeRoutingAccounting } from "./native-routing-accounting-proof"
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { existsSync, realpathSync } from "node:fs"
 import { spawn, execFileSync } from "node:child_process"
@@ -16,7 +17,10 @@ type JevChoice = { type: "choice"; choice: string; confidence: number; probabili
 
 const evidencePath = process.env.MOMO_NATIVE_EVIDENCE_DIR ?? path.join(process.cwd(), ".omo/evidence/20261011-native-acceptance")
 const selfTest = process.argv.includes("--self-test")
-const routingOnly = process.env.MOMO_NATIVE_ROUTING_ONLY === "1"
+const accountingOnly = process.env.MOMO_NATIVE_ACCOUNTING_ONLY === "1"
+const routingOnly = process.env.MOMO_NATIVE_ROUTING_ONLY === "1" || accountingOnly
+const probabilityMass = Number(process.env.MOMO_NATIVE_PROBABILITY_MASS ?? "1")
+if (!Number.isFinite(probabilityMass) || probabilityMass < 0 || probabilityMass > 1) throw new Error("Probability mass must be finite and between zero and one")
 const modelCount = Number(process.env.MOMO_NATIVE_MODEL_COUNT ?? "1")
 if (!Number.isInteger(modelCount) || modelCount < 1) throw new Error("Model count must be a positive integer")
 const fixtureModels = Array.from({ length: modelCount }, (_, index) => ({ providerID: "momo-qa", id: index === 0 ? "momo-qa-model" : `momo-qa-model-${index}` }))
@@ -86,7 +90,7 @@ function jevResponse(request: JevRequest, preferredRole?: string): { answers: Re
       if (keys.length > 255) throw new Error("Too many choices. Must have at most 255 choices.")
       const selected = name === "role" ? keys.includes(role) ? role : keys[0] : name === "lane" ? role === "planner" ? "department" : "direct" : keys.at(-1)
       if (!selected) throw new Error(`No ${name} choice`)
-      return [name, { type: "choice" as const, choice: selected, confidence: prompt === "MOMO_SELECTION_WORK" ? 0.2 : 0.99, probabilities: { [selected]: 1 } }]
+      return [name, { type: "choice" as const, choice: selected, confidence: prompt === "MOMO_SELECTION_WORK" ? 0.2 : 0.99, probabilities: { [selected]: probabilityMass } }]
     }))
     return { answers, usage: { input_tokens: 13, output_tokens: 5 } }
   }
@@ -101,7 +105,7 @@ function jevResponse(request: JevRequest, preferredRole?: string): { answers: Re
   const candidateKeys = Object.keys(request.questions?.candidate?.criteria ?? {})
   const candidateProbabilities = confidence < 0.5
     ? Object.fromEntries(candidateKeys.map((key) => [key, 1 / candidateKeys.length]))
-    : { [candidate]: 1 }
+    : { [candidate]: probabilityMass }
   return {
     answers: {
       candidate: { type: "choice", choice: candidate, confidence, probabilities: candidateProbabilities },
@@ -265,6 +269,8 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     const lastUserIndex = body.messages?.map((message) => message.role).lastIndexOf("user") ?? -1
     const hasToolReply = body.messages?.slice(lastUserIndex + 1).some((message) => message.role === "tool") === true
     const hasAnyToolReply = body.messages?.some((message) => message.role === "tool") === true
+    const isAccountingRoot = promptText.includes("MOMO_NATIVE_ACCOUNTING_") && !hasAnyToolReply && canUseCodeMode
+    const accountingCode = promptText.includes("MOMO_NATIVE_ACCOUNTING_FIRST") ? `const first=JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_PAID_MALFORMED"}));if(first.state!=="awaiting_selection")throw new Error("malformed response dispatched");const second=JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_BUDGET_AFTER_FAILURE"}));if(second.state!=="awaiting_selection")throw new Error("budget dispatched");return {accountingProof:"MOMO_ACCOUNTING_TOOL_PROOF",first:first.id,second:second.id}` : `const task=JSON.parse(await tools.momo_task({action:"create",prompt:"MOMO_BUDGET_AFTER_RESTART"}));if(task.state!=="awaiting_selection")throw new Error("restart budget dispatched");return {accountingProof:"MOMO_ACCOUNTING_TOOL_PROOF",task:task.id}`
     const isDepartmentRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT")
     const isDepartmentManager = promptText.includes("MOMO_DEPT_WORK") && !hasAnyToolReply
     const isParallelRoot = /MOMO_NATIVE_ACCEPTANCE_PARALLEL_\d+/.test(promptText)
@@ -279,7 +285,7 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     const isQuestionChild = promptText.includes("MOMO_QUESTION_CHILD") || promptText.includes("MOMO_ESCALATION_CHILD")
     const questionNotification = conversationText.includes("A child task is waiting for a decision.")
     const createConsult = last?.role === "user" && !hasToolReply && isConsultRoot && canUseCodeMode
-    const createTask = isManualCreate || (last?.role === "user" && !hasAnyToolReply && (promptText.includes("MOMO_NATIVE_ACCEPTANCE_CHILD") || isDepartmentRoot || isDepartmentManager || isParallelRoot || isSharedParallelRoot || isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot) && canUseCodeMode)
+    const createTask = isAccountingRoot || isManualCreate || (last?.role === "user" && !hasAnyToolReply && (promptText.includes("MOMO_NATIVE_ACCEPTANCE_CHILD") || isDepartmentRoot || isDepartmentManager || isParallelRoot || isSharedParallelRoot || isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot) && canUseCodeMode)
     if (promptText.includes("MOMO_NATIVE_ACCEPTANCE_SELECT_CREATE")) fixtureDecisions.push({ lastRole: last?.role, promptText, hasToolReply, canUseCodeMode, isManualCreate, createTask })
     const isDepartment = promptText.includes("MOMO_NATIVE_ACCEPTANCE_DEPARTMENT")
     const parallelID = promptText.match(/MOMO_NATIVE_ACCEPTANCE_PARALLEL_(\d+)/)?.[1]
@@ -301,7 +307,7 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
       : createConsult
       ? { tool_calls: [{ index: 0, id: "call_native_consult_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: 'return await tools.momo_consult({action:"start",prompt:"MOMO_CONSULT_WORK",waitMs:60000})' }) } }] }
       : createTask
-        ? { tool_calls: [{ index: 0, id: "call_native_task_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: isManualCreate ? manualSelectionCode : isSharedParallelRoot ? sharedParallelCode : `return await tools.momo_task({action:"create",prompt:"${childPrompt}"${isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot ? "" : ",waitMs:60000"}})` }) } }] }
+        ? { tool_calls: [{ index: 0, id: "call_native_task_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: isAccountingRoot ? accountingCode : isManualCreate ? manualSelectionCode : isSharedParallelRoot ? sharedParallelCode : `return await tools.momo_task({action:"create",prompt:"${childPrompt}"${isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot ? "" : ",waitMs:60000"}})` }) } }] }
       : { content: text })
     if (body.stream) {
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" })
@@ -321,7 +327,15 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     if (request.method !== "POST" || !url.pathname.endsWith("/systemone")) return response.writeHead(404).end()
     const body = await readJson(request) as JevRequest
     await appendFile(jevLog, `${JSON.stringify(body)}\n`, { mode: 0o600 })
-    try { sendJson(response, jevResponse(body)) } catch (error) { response.writeHead(422, { "content-type": "application/json" }).end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) })) }
+    try {
+      const result = jevResponse(body)
+      if (accountingOnly && statePrompt(body) === "MOMO_PAID_MALFORMED" && result.answers.candidate) {
+        result.answers.candidate.choice = "outside-eligible-set"
+        result.answers.candidate.probabilities = { "outside-eligible-set": 1 }
+        result.usage.input_tokens = 100
+      }
+      sendJson(response, result)
+    } catch (error) { response.writeHead(422, { "content-type": "application/json" }).end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) })) }
   })
   servers = [modelServer, jevServer]
   const listen = async (server: ReturnType<typeof createHttpServer>): Promise<number> => await new Promise((resolve, reject) => {
@@ -381,7 +395,7 @@ async function main(): Promise<void> {
     await mkdir(path.join(qaHome, ".omo", "native"), { recursive: true })
     await writeFile(path.join(qaHome, ".omo", "native", "catalog-knowledge.json"), JSON.stringify({ version: 1, entries: Object.fromEntries(fixtureModels.map((model) => [`${model.providerID}/${model.id}`, { ...model, summary: "Verified isolated fixture model", sources: ["https://fixture.invalid/models"], researchedAt: new Date().toISOString() }])) }), { mode: 0o600 })
   }
-  await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1 }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1, ...(accountingOnly ? { budget: { monthly_cap_usd: 0.000001 } } : {}) }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
   await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugins: [`file:${pluginDir}`], model: "momo-qa/momo-qa-model", agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
   servicePort = await freePort()
   opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog, MOMO_QA_MODEL_COUNT: String(modelCount) }), stdio: ["ignore", "pipe", "pipe"] })
@@ -399,6 +413,22 @@ async function main(): Promise<void> {
   }
   const version = execFileSync(opencodeBinary, ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim()
   if (!/\bv?2\./i.test(version)) throw new Error(`Expected supported OpenCode V2 service, got ${version}`)
+  if (accountingOnly) {
+    stage = "native paid malformed billing and restart"
+    const accounting = await proveNativeRoutingAccounting({ client, directory: root, modelLog, jevLog, restart: async () => {
+      const prior = opencode
+      if (!prior?.pid) throw new Error("Missing owned server")
+      signalOwnedGroup(prior.pid, "SIGTERM")
+      if (!await waitForOwnedGroupExit(prior.pid, 5000)) { signalOwnedGroup(prior.pid, "SIGKILL"); if (!await waitForOwnedGroupExit(prior.pid, 3000)) throw new Error("Prior owned service failed cleanup") }
+      opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog, MOMO_QA_MODEL_COUNT: String(modelCount) }), stdio: ["ignore", "pipe", "pipe"] })
+      opencode.stdout?.on("data", (chunk: Buffer) => { output += chunk.toString() })
+      opencode.stderr?.on("data", (chunk: Buffer) => { output += chunk.toString() })
+      await waitReady(client, root)
+    } })
+    verifiedCases.push(...accounting.cases)
+    result = { status: "passed", opencodeVersion: version, modelCount, accounting, verifiedCases }
+    return
+  }
   const session = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   stage = "direct task completion"
   await client.session.prompt({ sessionID: session.id, text: "Run a native task for the acceptance request, then report its final status: MOMO_NATIVE_ACCEPTANCE_CHILD" })
@@ -422,11 +452,18 @@ async function main(): Promise<void> {
     if (!selectionTasks.some((task) => task.prompt === "MOMO_SELECTION_WORK" && task.state === "awaiting_selection" && task.candidates?.length)) throw new Error("Weak staged confidence did not remain caller-selection")
     const jevRows = (await readFile(jevLog, "utf8")).trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as JevRequest)
     const choiceCounts = jevRows.flatMap((row) => Object.values(row.questions ?? {}).map((question) => Object.keys(question.criteria ?? {}).length))
-    const catalogSizes = jevRows.map((row) => { const state = JSON.parse(String(row.state)) as { candidates: Array<{ model: { providerID: string; id: string } }> }; return new Set(state.candidates.map((candidate) => `${candidate.model.providerID}/${candidate.model.id}`)).size })
+    const firstModelStageByDecision = new Map<string, JevRequest>()
+    for (const row of jevRows) if ((row.questions?.candidate || row.questions?.group) && !firstModelStageByDecision.has(stateDecision(row) ?? "")) firstModelStageByDecision.set(stateDecision(row) ?? "", row)
+    const catalogSizes = [...firstModelStageByDecision.values()].map((row) => {
+      const criteria = row.questions?.group?.criteria ?? row.questions?.candidate?.criteria ?? {}
+      const facts = Object.values(criteria).flatMap((value) => { const parsed: unknown = JSON.parse(value); return Array.isArray(parsed) ? parsed : [parsed] }) as { model: { providerID: string; id: string } }[]
+      return new Set(facts.map((candidate) => `${candidate.model.providerID}/${candidate.model.id}`)).size
+    })
+    if (!catalogSizes.length) throw new Error("No actual candidate facts were delivered to Jev")
     if (catalogSizes.some((count) => count !== modelCount)) throw new Error(`Actual routing catalog differs from requested fixture count: ${JSON.stringify(catalogSizes)}`)
     if (choiceCounts.some((count) => count > 255)) throw new Error("Oversized question reached real fixture")
     verifiedCases.push("full eligible catalog automatic root worker, department lead and department child", "weak confidence remains explicit caller-selection", "every actual Jev transport question respects 255-choice boundary")
-    result = { status: "passed", opencodeVersion: version, modelCount, catalogSizes, choiceCounts, liveJevRequests: jevRows.length, directTasks, departmentTasks, selectionTasks, verifiedCases, evidence: "real OpenCode V2 service with built plugin; isolated local model and Jev endpoints" }
+    result = { status: "passed", opencodeVersion: version, modelCount, probabilityMass, catalogSizes, choiceCounts, stagedStateBytes: jevRows.map(row => Buffer.byteLength(String(row.state))), liveJevRequests: jevRows.length, directTasks, departmentTasks, selectionTasks, verifiedCases, evidence: "real OpenCode V2 service with built plugin; isolated local model and Jev endpoints" }
     return
   }
   stage = "five parallel children under one root session"

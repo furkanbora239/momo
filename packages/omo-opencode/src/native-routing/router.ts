@@ -1,3 +1,4 @@
+import { jevUsage, legacyJevBilling } from "./jev-usage"
 import { randomUUID } from "node:crypto"
 import type {
   NativeCandidate,
@@ -5,7 +6,6 @@ import type {
   NativeDecisionRecord,
   NativeJevAnswer,
   NativeJevRequest,
-  NativeLedgerRecord,
   NativeModelFacts,
   NativeModelRef,
   NativeOutcomeFact,
@@ -17,7 +17,7 @@ import type {
 } from "./types"
 import { candidateFrom, rankUncertainCandidates, refKey, sameModel } from "./candidate-ranking"
 import { isJevAnswer } from "./jev-answer-validation"
-import { nativeJevFailureEvidence } from "./jev-adapter"
+import { nativeJevFailureAdmission, nativeJevFailureEvidence, nativeJevFailureNotSent } from "./jev-adapter"
 import { allowedRoles, validateInput } from "./role-policy"
 
 export function createNativeRouter(deps: NativeRouterDeps) {
@@ -27,7 +27,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
   const breakerCooldownMs = config.breakerCooldownMs ?? 600_000
   const now = config.now ?? Date.now
   const createId = config.createId ?? randomUUID
-  let records: NativeLedgerRecord[] | undefined
+  let loaded = false
   let loadPromise: Promise<void> | undefined
   let consecutiveFailures = 0
   let openUntil = 0
@@ -56,11 +56,10 @@ export function createNativeRouter(deps: NativeRouterDeps) {
   }
 
   function ensureLoaded(): Promise<void> {
-    if (records) return Promise.resolve()
+    if (loaded) return Promise.resolve()
     if (!loadPromise) {
-      loadPromise = deps.store.load().then((loaded) => {
-        records = [...loaded]
-        for (const record of records) {
+      loadPromise = deps.store.load().then((loadedRecords) => {
+        for (const record of loadedRecords) {
           if (record.type === "decision") byDecision.set(record.decisionId, record)
           else {
             consecutiveFailures = record.consecutiveFailures
@@ -72,9 +71,12 @@ export function createNativeRouter(deps: NativeRouterDeps) {
         monthStart.setUTCHours(0, 0, 0, 0)
         for (const record of byDecision.values()) {
           if (record.createdAt < monthStart.toISOString()) continue
-          if (record.jevAnswer && record.jevAnswer.usage?.costUsd === undefined) jevSpendUnknown = true
-          jevReservedSpend += record.jevAnswer?.usage?.costUsd ?? 0
+          const legacy = legacyJevBilling(record.jevFailure?.rawResponse)
+          const usage = record.jevUsage ?? record.jevAnswer?.usage ?? legacy.usage
+          if ((record.jevAttempted || record.jevAnswer || legacy.attempted) && usage?.costUsd === undefined) jevSpendUnknown = true
+          jevReservedSpend += usage?.costUsd ?? 0
         }
+        loaded = true
       }).catch((error) => {
         loadPromise = undefined
         throw error
@@ -86,7 +88,6 @@ export function createNativeRouter(deps: NativeRouterDeps) {
   async function persistBreaker(): Promise<void> {
     const breaker = { version: 1 as const, type: "breaker" as const, consecutiveFailures, openUntil }
     await deps.store.append(breaker)
-    records?.push(breaker)
   }
 
   async function snapshot(input: NativeRouteInput): Promise<NativeCandidate[]> {
@@ -159,6 +160,8 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       request,
       candidateSnapshots: [{ capturedAt, source: "initial", candidates: request.candidates }],
       jevAnswer: answer,
+      jevAttempted: answer ? true : undefined,
+      jevUsage: answer?.usage,
       probabilities,
       status,
       reason,
@@ -167,13 +170,11 @@ export function createNativeRouter(deps: NativeRouterDeps) {
 
   async function saveNew(record: NativeDecisionRecord): Promise<void> {
     await deps.store.append(record)
-    records?.push(record)
     byDecision.set(record.decisionId, record)
   }
 
   async function setRecord(record: NativeDecisionRecord): Promise<void> {
     await deps.store.append(record)
-    records?.push(record)
     byDecision.set(record.decisionId, record)
   }
 
@@ -241,24 +242,36 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       if (config.monthlyBudgetUsd !== undefined && jevReservedSpend >= config.monthlyBudgetUsd) return { failure: new Error("jev monthly budget cap reached") }
       if (now() < openUntil) return { failure: new Error("jev circuit breaker is open") }
       let rawResponse: unknown
+      let billing: NativeJevAnswer["usage"]
+      let billed = false
+      const account = (usage: NativeJevAnswer["usage"]) => {
+        billing = usage
+        if (usage?.costUsd === undefined) jevSpendUnknown = true
+        else jevReservedSpend += usage.costUsd
+        billed = true
+      }
+      await setRecord({ ...pending, jevAttempted: true, reason: "Jev request is pending; billing awaits the provider receipt" })
       try {
         rawResponse = await deps.jev.choose(request)
+        account(jevUsage(rawResponse))
         if (!isJevAnswer(rawResponse, candidates)) throw new Error("malformed Jev response")
-        if (rawResponse.usage?.costUsd === undefined) jevSpendUnknown = true
-        else jevReservedSpend += rawResponse.usage.costUsd
         consecutiveFailures = 0
         openUntil = 0
         await persistBreaker()
-        await setRecord({ ...pending, jevAnswer: rawResponse, reason: "Jev response captured; validating current availability" })
+        await setRecord({ ...pending, jevAttempted: true, jevUsage: billing, jevAnswer: rawResponse, reason: "Jev response captured; validating current availability" })
         return { answer: rawResponse }
       } catch (failure) {
-        consecutiveFailures += 1
-        if (consecutiveFailures >= breakerLimit) openUntil = now() + breakerCooldownMs
-        await persistBreaker()
+        const notSent = nativeJevFailureNotSent(failure)
+        if (!billed && !notSent) account(jevUsage(failure))
+        if (!notSent && !nativeJevFailureAdmission(failure)) {
+          consecutiveFailures += 1
+          if (consecutiveFailures >= breakerLimit) openUntil = now() + breakerCooldownMs
+          await persistBreaker()
+        }
         const message = failure instanceof Error ? failure.message : String(failure)
         const reason = message === "jev monthly budget cap reached" || message === "jev circuit breaker is open" || message.startsWith("jev monthly spend is unknown") ? message : `jev unavailable: ${message}`
         rawResponse = nativeJevFailureEvidence(failure) ?? rawResponse
-        await setRecord({ ...pending, reason, choiceCandidates: candidates, jevFailure: { message: reason, rawResponse } })
+        await setRecord({ ...pending, jevAttempted: !notSent, jevUsage: billing, reason, choiceCandidates: candidates, jevFailure: { message: reason, rawResponse } })
         return { failure, rawResponse }
       }
     })

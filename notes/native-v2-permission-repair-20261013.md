@@ -22,3 +22,16 @@ The Linux driver uses a disposable project, test home, XDG roots, a local contro
 - Cleanup: all service database handles confined to the disposable root, owned process group gone, disposable root removed. Real `session`, `session_v2` and `session_message` counts match before and after. Large contexts and temporary paths are excluded from this tracked receipt.
 
 Focused tests passed 24/24. The affected adapter and native QA drivers pass tsgo. Full-workspace gates are recorded separately by the coordinating task before integration.
+
+
+## Fresh recovery verification, 2026-10-16
+
+After host reboot removed the earlier temporary logs, this slice was rerun on integration HEAD `5715d9789` (including native task API PR #39). The fresh [source-bound receipt](qa/native-permission-repair-20261016.json) records actual OpenCode 2.0.28 and policy SHA-256 `4998411fd46da852c6219a93156efe4e8f50b6d62011ffc82b8de4b24315568a`; the test SHA-256 is `9eb0ff39543c2f5d4871e5fbb2033d7403c504c816e43bc0327836277995f329`.
+
+RED temporarily loaded the old `origin/dev` policy source. Both real truncated-output artifact recovery calls, read and grep, failed with `permission.rejected: external_directory`; the permission hook changed native allow to deny. The baseline driver exited 1 when its later outside read received no native ask. Its truncation tool states independently establish the intended reproduction. The approved policy source was restored and its exact hash checked before GREEN.
+
+GREEN loaded the fixed production permission and role policy sources in the isolated fixture. Native allow remained allow for the output artifact; read and grep recovered the sentinel. Native ask remained ask for arbitrary outside reads: reject aborted the read, and a separate once grant completed it. Shell, edit and unknown custom execution remained denied, with no marker or approved-file mutation. The fixture deliberately restores filtered tools to independently exercise execute.before. This is source-loaded policy acceptance, not a full built-plugin flow claim.
+
+Both native runs proved disposable database handle confinement, unchanged real DB counts, process-group exit and disposable-root removal. Raw logs now persist under `.omo/evidence/20261016-permission-repair/` and are copied to the original checkout. The driver saves to that durable evidence directory and returns a nonzero exit on failed probes.
+
+Fresh gates on driver commit `4ad91d099`: focused 24 passed / 183 assertions; full workspace typecheck and build passed; full Bun suite 12,635 passed / 20 skipped / 0 failed, 36,434 assertions across 1,555 files (257.64 seconds). Gates ran sequentially at nice 19, CPU affinity 0,1 and GOMAXPROCS=2, with inherited Google/Gemini keys removed and a task-owned XDG data directory. The receipt includes command exits, source and bundle hashes, and log hashes. No production source changed during recovery.
