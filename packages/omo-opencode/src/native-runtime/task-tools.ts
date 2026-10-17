@@ -1,4 +1,6 @@
 import { z } from "zod"
+import { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
+import { createNativeModelAdmission } from "./model-admission"
 import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { createNativeTaskEngine } from "../native-task"
@@ -112,6 +114,13 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     onError: (message, error) => console.warn(message, error),
   })
   await catalog.refresh()
+  const admission = createNativeModelAdmission({
+    context: ctx,
+    homeDirectory: homeRoot(),
+    catalog,
+    managerProviderID: managerConfig.jev.provider_id,
+    reject: (message) => { throw new NativeJevAdmissionError(message) },
+  })
   const disposeSearchFallbacks = await registerNativeSearchFallbacks(ctx, { cwd: ctx.location.directory, homeDirectory: homeRoot() })
   const unregisterCatalog = registerNativeCatalog(ctx.location.directory, catalog)
   const unregisterAdvisorPool = registerNativeAdvisorPool(ctx.location.directory, {
@@ -124,7 +133,12 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   const router = createNativeRouter({
     jev: createNativeJevBackend({
       session: "momo-native-routing",
-      getApiKey: () => nativeApiKey(ctx, managerConfig.jev.provider_id),
+      getApiKey: async () => {
+        await admission.assertManagerProvider()
+        try { return await nativeApiKey(ctx, managerConfig.jev.provider_id) }
+        catch (error) { throw new NativeJevAdmissionError(error instanceof Error ? error.message : String(error)) }
+      },
+      beforeRequest: admission.beforeRoutingRequest,
       baseUrl: managerConfig.jev.base_url,
       model: managerConfig.jev.model,
       maxAttempts: managerConfig.jev.max_attempts,
@@ -146,6 +160,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   const sessionRuntime = createNativeSessionRuntime({
     client,
     repository,
+    beforeModelRequest: admission.beforeModelRequest,
     resolveOwnedRole: (session) => session.agent !== undefined && activeOwnedIDs.has(session.agent) ? roleByAgentID.get(session.agent) : undefined,
     resolveOwnedAgentID: (role) => activeOwnedIDs.has(`momo-${role}`) ? `momo-${role}` : undefined,
     verifySessionOwner: async (session) => {

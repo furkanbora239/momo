@@ -1,4 +1,6 @@
 export { createNativeCatalogAdapter } from "./adapter"
+export { connectedNativeProviders } from "./provider-admission"
+export { createNativeControlStores } from "./native-control-stores"
 export type { NativeCatalogAdapter } from "./adapter"
 export type { NativeCatalogAdapterOptions, NativeCatalogContext, NativeCatalogModelFacts, NativeCatalogSnapshot } from "./types"
 export { createNativeCatalogKnowledgeStore } from "./knowledge-store"

@@ -12,6 +12,8 @@ type TaskLifecycleOptions = {
   pump: () => Promise<void>
   controls: {
     deliver(taskID: string): Promise<NativeTask>
+    reconcileDelivery(taskID: string): Promise<void>
+    reconcileBatches(taskID: string): Promise<void>
     deliverQuestion(task: NativeTask): Promise<void>
     resume(taskID: string, callerSessionID: string): Promise<NativeTask>
   }
@@ -25,6 +27,7 @@ type TaskLifecycleOptions = {
 
 export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
   async function reconcile(): Promise<void> {
+    for (const entry of await deps.options.repository.list()) await deps.controls.reconcileBatches(entry.id)
     for (const stored of await deps.options.repository.list()) {
       if (stored.parentTaskID !== undefined) await deps.linkToParent(stored)
       if (stored.state === "queued" && stored.routeStatus === "pending") {
@@ -37,7 +40,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       }
       const beforeInspect = await deps.get(stored.id)
       const queuedInPlaceResume = beforeInspect.state === "queued" && beforeInspect.resumeInPlace === true
-      const inspectExistingSession = beforeInspect.state === "running" || beforeInspect.state === "waiting_children" || queuedInPlaceResume
+      const inspectExistingSession = beforeInspect.parentWakeMessage === undefined && (beforeInspect.state === "running" || beforeInspect.state === "waiting_children" || queuedInPlaceResume)
       if (inspectExistingSession && beforeInspect.sessionID !== undefined) {
         await deps.withTaskLock(stored.id, async () => {
           const current = await deps.get(stored.id)
@@ -88,6 +91,9 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       }
       if (latest.questionDelivery === "pending" && latest.question !== undefined) await deps.controls.deliverQuestion(latest)
       if (latest.questionEscalationStatus === "pending" && latest.question !== undefined) await deliverEscalation(latest)
+      await deps.controls.reconcileDelivery(latest.id)
+      latest = await deps.get(latest.id)
+      if (latest.question !== undefined && latest.state !== "waiting_question" && latest.answerStatus !== "pending") await deps.options.runtime.closeQuestion?.(latest)
       if (latest.delivery?.status === "pending") await deps.controls.deliver(latest.id)
       if (latest.childrenWakePending) await deps.retryChildWake(latest)
       await deps.withTaskLock(latest.id, async () => deps.retryRouterRecords(await deps.get(latest.id)))
@@ -96,6 +102,24 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
   }
 
   async function onEvent(event: NativeTaskEvent): Promise<void> {
+    if (event.type === "delivery.consumed") {
+      const records = await deps.options.repository.list()
+      for (const parent of records.filter(entry => entry.sessionID === event.sessionID && entry.childrenBatch?.messageID === event.inboxID)) await deps.withTaskLock(parent.id, async () => {
+        const current = await deps.get(parent.id)
+        if (current.childrenBatch?.messageID !== event.inboxID) return
+        current.childrenBatch.status = "delivered"
+        await deps.save(current)
+      })
+      for (const delivered of records.filter(entry => entry.parentSessionID === event.sessionID && entry.delivery?.messageID === event.inboxID)) await deps.withTaskLock(delivered.id, async () => {
+        const current = await deps.get(delivered.id)
+        if (current.delivery === undefined || current.delivery.status === "delivered") return
+        current.delivery.status = "delivered"
+        current.delivery.receiptVersion = 2
+        current.delivery.deliveredAt = deps.now()
+        await deps.save(current)
+      })
+      return
+    }
     const task = (await deps.options.repository.list()).find((candidate) => candidate.sessionID === event.sessionID)
     if (task === undefined) return
     let effectiveEvent = event
@@ -112,12 +136,13 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     }))
     const latest = await deps.get(task.id)
     if (effectiveEvent.type === "question.asked") await deps.controls.deliverQuestion(latest)
+    if (effectiveEvent.type === "execution.succeeded" || effectiveEvent.type === "execution.failed") await deps.withTaskLock(latest.id, async () => deps.recordOutcome(await deps.get(latest.id)))
+    if (latest.delivery?.status === "pending") await deps.controls.deliver(latest.id)
+    if (latest.question !== undefined && latest.state !== "waiting_question" && latest.answerStatus !== "pending") await deps.options.runtime.closeQuestion?.(latest)
     if (effectiveEvent.type === "execution.succeeded" || effectiveEvent.type === "execution.failed") {
-      await deps.recordOutcome(latest)
       if (latest.parentTaskID !== undefined) await deps.retryChildWake(await deps.get(latest.parentTaskID))
     }
     if (effectiveEvent.type === "children.waiting") await deps.retryChildWake(latest)
-    if (latest.delivery?.status === "pending") await deps.controls.deliver(latest.id)
     await deps.pump()
   }
 
