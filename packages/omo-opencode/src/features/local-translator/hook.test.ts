@@ -771,8 +771,16 @@ describe("local-translator hook", () => {
     })
 
     it("#given trigger 'command' and /caveman when translator not ready #when transform runs #then /caveman is stripped and clean prompt is passed through", async () => {
-      const savedEnv = process.env["GOOGLE_API_KEY"]
-      delete process.env["GOOGLE_API_KEY"]
+      const savedEnv = {
+        GOOGLE_API_KEY: process.env["GOOGLE_API_KEY"],
+        GEMINI_API_KEY: process.env["GEMINI_API_KEY"],
+        GOOGLE_GENERATIVE_AI_API_KEY: process.env["GOOGLE_GENERATIVE_AI_API_KEY"],
+      }
+      for (const key of ["GOOGLE_API_KEY", "GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"]) {
+        delete process.env[key]
+      }
+      const savedXdg = process.env["XDG_DATA_HOME"]
+      process.env["XDG_DATA_HOME"] = mkdtempSync(join(tmpdir(), "lt-no-auth-"))
       try {
         const hook = createLocalTranslatorHook({
           enabled: true,
@@ -791,7 +799,12 @@ describe("local-translator hook", () => {
           "bu uzun prompt gecis yapmali ve calismalidir",
         )
       } finally {
-        if (savedEnv) process.env["GOOGLE_API_KEY"] = savedEnv
+        for (const [key, value] of Object.entries(savedEnv)) {
+          if (typeof value === "string") process.env[key] = value
+          else delete process.env[key]
+        }
+        if (savedXdg) process.env["XDG_DATA_HOME"] = savedXdg
+        else delete process.env["XDG_DATA_HOME"]
       }
     })
 

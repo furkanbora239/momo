@@ -168,7 +168,10 @@ selection on top of this.
 - No `as any`, `@ts-ignore`, `@ts-expect-error`, no empty `catch {}`, no emojis, no
   em-dashes or AI filler ("simply", "obviously").
 - **Never assert authored prompt wording** in tests (prompt/prose contract tests are
-  forbidden) — test routing/parsing/behavior instead.
+  forbidden) — test routing/parsing/behavior instead. Structural assertions that
+  verify which tools, skills, or sections are wired into a prompt (e.g.
+  `toContain("task_create")`, `toContain("<momo_core_behavior>")`) are legitimate
+  behavior tests and are allowed.
 
 ## Verification
 

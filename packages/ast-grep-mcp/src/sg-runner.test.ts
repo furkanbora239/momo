@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import os from "node:os";
 import { join } from "node:path";
 import {
   MAX_JSON_RECORD_BYTES,
@@ -86,21 +87,24 @@ function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 4_000): 
 function waitForFile(directory: string, filename: string, timeoutMs = 2_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const path = join(directory, filename);
-    const watcher = watch(directory, () => {
-      if (!existsSync(path)) return;
-      clearTimeout(timeout);
-      watcher.close();
-      resolve();
-    });
-    const timeout = setTimeout(() => {
-      watcher.close();
-      reject(new Error(`Timed out waiting for ${filename}`));
-    }, timeoutMs);
+    const deadline = Date.now() + timeoutMs;
+    const poll = () => {
+      if (existsSync(path)) {
+        resolve();
+        return;
+      }
+      if (Date.now() > deadline) {
+        reject(new Error(`Timed out waiting for ${filename}`));
+        return;
+      }
+      setTimeout(poll, 10);
+    };
+    poll();
   });
 }
 
 async function runControlledExitOne(directory: string, executable: string, fixture: string, mode: string, name: string) {
-  const running = spawnSgRunner({ sgPath: executable, args: [fixture, mode], workdir: directory });
+  const running = spawnSgRunner({ sgPath: executable, args: [fixture, mode], workdir: os.tmpdir() });
   const outcome = running.then(
     (value) => ({ status: "resolved" as const, value }),
     (error: unknown) => ({ status: "rejected" as const, error }),
@@ -115,7 +119,7 @@ afterEach(() => {
 describe("bounded sg NDJSON runner", () => {
   it("#given complete chunked NDJSON #when sg exits #then every record is parsed", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "complete"], workdir: directory, maxMatches: 10 });
+    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "complete"], workdir: os.tmpdir(), maxMatches: 10 });
 
     expect(result.records.map((record) => record.text)).toEqual(["m2", "m1", "m3"]);
     expect(result).toMatchObject({ truncated: false, reason: null, salvagedRecords: 0, atLeastMatches: 3 });
@@ -123,7 +127,7 @@ describe("bounded sg NDJSON runner", () => {
 
   it("#given a partial final line #when sg exits #then complete records are salvaged", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "truncated"], workdir: directory, maxMatches: 10 });
+    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "truncated"], workdir: os.tmpdir(), maxMatches: 10 });
 
     expect(result.records).toHaveLength(1);
     expect(result).toMatchObject({ truncated: true, reason: "sg_output_truncated", salvagedRecords: 1 });
@@ -131,16 +135,16 @@ describe("bounded sg NDJSON runner", () => {
 
   it("#given oversized, malformed-only, invalid UTF-8, and empty streams #when read #then failures are classified", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "oversized"], workdir: directory })).rejects.toMatchObject({ code: "OUTPUT_TOO_LARGE" });
-    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "malformed"], workdir: directory })).rejects.toMatchObject({ code: "OUTPUT_PARSE_FAILED" });
-    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "invalid-utf8"], workdir: directory })).rejects.toMatchObject({ code: "ENCODING_ERROR" });
-    expect((await spawnSgRunner({ sgPath: executable, args: [fixture], workdir: directory })).records).toEqual([]);
+    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "oversized"], workdir: os.tmpdir() })).rejects.toMatchObject({ code: "OUTPUT_TOO_LARGE" });
+    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "malformed"], workdir: os.tmpdir() })).rejects.toMatchObject({ code: "OUTPUT_PARSE_FAILED" });
+    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "invalid-utf8"], workdir: os.tmpdir() })).rejects.toMatchObject({ code: "ENCODING_ERROR" });
+    expect((await spawnSgRunner({ sgPath: executable, args: [fixture], workdir: os.tmpdir() })).records).toEqual([]);
   });
 
   it("#given sg exit 2 #when no internal termination was requested #then the call rejects as SG_FAILED", async () => {
     const { directory, executable, fixture } = fixtureRunner();
 
-    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "exit-2"], workdir: directory })).rejects.toMatchObject({
+    await expect(spawnSgRunner({ sgPath: executable, args: [fixture, "exit-2"], workdir: os.tmpdir() })).rejects.toMatchObject({
       code: "SG_FAILED",
       stderr: "invalid language",
       durationMs: expect.any(Number),
@@ -149,7 +153,7 @@ describe("bounded sg NDJSON runner", () => {
 
   it("#given sg run exit 1 #when no matches were found #then the empty result remains successful", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "exit-1"], workdir: directory });
+    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "exit-1"], workdir: os.tmpdir() });
 
     expect(result).toMatchObject({ records: [], exitCode: 1, truncated: false });
   });
@@ -184,14 +188,14 @@ describe("bounded sg NDJSON runner", () => {
 
   it("#given sg run exit 1 with a warning only #when stdout is empty #then it remains a valid no-match", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "exit-1-warning"], workdir: directory });
+    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "exit-1-warning"], workdir: os.tmpdir() });
 
     expect(result).toMatchObject({ records: [], exitCode: 1, stderr: "WARNING: no matches in ignored files" });
   });
 
   it("#given more than maxMatches #when the extra record arrives #then sg is terminated with an honest lower bound", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "many"], workdir: directory, maxMatches: 2 });
+    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "many"], workdir: os.tmpdir(), maxMatches: 2 });
 
     expect(result.records).toHaveLength(2);
     expect(result).toMatchObject({ truncated: true, reason: "match_limit", atLeastMatches: 3 });
@@ -201,7 +205,7 @@ describe("bounded sg NDJSON runner", () => {
     const { directory, executable, fixture } = fixtureRunner();
     const marker = join(directory, "payload-cap-child");
     const ready = waitForFile(directory, "payload-cap-child.ready");
-    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "payload-cap", marker], workdir: directory, maxMatches: 500 });
+    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "payload-cap", marker], workdir: os.tmpdir(), maxMatches: 500 });
     await ready;
 
     const result = await withTimeout(running, "payload-capped child exit");
@@ -219,14 +223,14 @@ describe("bounded sg NDJSON runner", () => {
 
   it("#given excessive stderr #when sg exits #then stderr is capped by UTF-8 bytes", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "stderr"], workdir: directory });
+    const result = await spawnSgRunner({ sgPath: executable, args: [fixture, "stderr"], workdir: os.tmpdir() });
     expect(Buffer.byteLength(result.stderr)).toBe(MAX_STDERR_BYTES);
   });
 
   it("#given invalid UTF-8 and a split multibyte boundary #when stderr is decoded #then returned UTF-8 stays within the byte cap", async () => {
     const { directory, executable, fixture } = fixtureRunner();
-    const invalid = await spawnSgRunner({ sgPath: executable, args: [fixture, "stderr-invalid"], workdir: directory });
-    const boundary = await spawnSgRunner({ sgPath: executable, args: [fixture, "stderr-boundary"], workdir: directory });
+    const invalid = await spawnSgRunner({ sgPath: executable, args: [fixture, "stderr-invalid"], workdir: os.tmpdir() });
+    const boundary = await spawnSgRunner({ sgPath: executable, args: [fixture, "stderr-boundary"], workdir: os.tmpdir() });
 
     expect(Buffer.byteLength(invalid.stderr)).toBeLessThanOrEqual(MAX_STDERR_BYTES);
     expect(boundary.stderr).toBe("a".repeat(MAX_STDERR_BYTES - 1));
@@ -239,7 +243,7 @@ describe("bounded sg NDJSON runner", () => {
     const ready = waitForFile(directory, "child.ready");
     const terminated = waitForFile(directory, "child.term");
     const controller = new AbortController();
-    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: directory, signal: controller.signal, timeoutMs: 5_000 });
+    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: os.tmpdir(), signal: controller.signal, timeoutMs: 5_000 });
     const outcome = running.then(
       (value) => ({ status: "resolved" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
@@ -259,7 +263,7 @@ describe("bounded sg NDJSON runner", () => {
     const marker = join(directory, "windows-abort-child");
     const ready = waitForFile(directory, "windows-abort-child.ready");
     const controller = new AbortController();
-    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: directory, signal: controller.signal, timeoutMs: 5_000 });
+    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: os.tmpdir(), signal: controller.signal, timeoutMs: 5_000 });
     const outcome = running.then(
       (value) => ({ status: "resolved" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
@@ -278,7 +282,7 @@ describe("bounded sg NDJSON runner", () => {
     const marker = join(directory, "timeout-child");
     const ready = waitForFile(directory, "timeout-child.ready");
     const terminated = waitForFile(directory, "timeout-child.term");
-    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: directory, timeoutMs: 500 });
+    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: os.tmpdir(), timeoutMs: 500 });
     const outcome = running.then(
       (value) => ({ status: "resolved" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
@@ -295,7 +299,7 @@ describe("bounded sg NDJSON runner", () => {
     const { directory, executable, fixture } = fixtureRunner();
     const marker = join(directory, "windows-timeout-child");
     const ready = waitForFile(directory, "windows-timeout-child.ready");
-    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: directory, timeoutMs: 1_000 });
+    const running = spawnSgRunner({ sgPath: executable, args: [fixture, "hang", marker], workdir: os.tmpdir(), timeoutMs: 1_000 });
     const outcome = running.then(
       (value) => ({ status: "resolved" as const, value }),
       (error: unknown) => ({ status: "rejected" as const, error }),
