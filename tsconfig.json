@@ -17,5 +17,5 @@
     "types": ["bun-types"]
   },
   "include": ["packages/omo-opencode/src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "script"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "script", "packages/omo-opencode/src/cli/run/event-handler-test-support.ts"]
 }

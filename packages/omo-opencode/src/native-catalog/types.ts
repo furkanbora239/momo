@@ -8,6 +8,8 @@ import type { NativeCatalogKnowledgeStore } from "./knowledge-store"
 export type NativeCatalogContext = Pick<Plugin.Context, "provider" | "model" | "integration">
 
 export interface NativeCatalogSnapshot {
+  readonly maintenance?: { readonly queued: number; readonly paused: number; readonly running: number; readonly completed: number; readonly failed: number; readonly pauseReasons: readonly string[] }
+  readonly unavailableModels?: Readonly<Record<string, { readonly reason: string; readonly until: number }>>
   readonly fetchedAt: string
   readonly connectedProviders: readonly string[]
   readonly models: readonly NativeCatalogModelFacts[]
@@ -30,6 +32,8 @@ export interface NativeCatalogModelFacts extends NativeModelRef {
 }
 
 export interface NativeCatalogAdapterOptions {
+  readonly readMaintenance?: () => Promise<import("./research-maintenance").NativeResearchMaintenanceEntry[]>
+  readonly modelPolicyHealth?: import("./model-policy-health").NativeModelPolicyHealth
   readonly context: NativeCatalogContext
   /** Home root for native data. `.omo` and managed cache paths are resolved beneath it. */
   readonly homeDirectory?: string

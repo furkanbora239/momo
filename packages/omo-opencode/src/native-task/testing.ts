@@ -33,6 +33,7 @@ export class FakeNativeTaskRouter implements NativeTaskRouter {
     model,
   })
   readonly routeInputs: NativeRouteInput[] = []
+  bindResearch?: NativeTaskRouter["bindResearch"]
   revalidateSelected?: NativeTaskRouter["revalidateSelected"]
   async route(input: NativeRouteInput): Promise<NativeRouteResult> {
     this.routeInputs.push(input)

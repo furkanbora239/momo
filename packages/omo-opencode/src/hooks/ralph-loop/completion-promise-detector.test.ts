@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, test } from "bun:test"
 import { detectCompletionInSessionMessages } from "./completion-promise-detector"
-import { createPluginInput } from "./completion-promise-detector-test-input.test"
+import { createPluginInput } from "../../../../../test-support/completion-promise-input"
 
 describe("detectCompletionInSessionMessages", () => {
   describe("#given session with prior DONE and new messages", () => {

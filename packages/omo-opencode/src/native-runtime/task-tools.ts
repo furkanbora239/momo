@@ -1,4 +1,7 @@
 import { z } from "zod"
+import { createNativeResearchMaintenance } from "../native-catalog/research-maintenance"
+import { createNativeModelPolicyHealth } from "../native-catalog/model-policy-health"
+import { createNativeModelPolicyObserver } from "./model-policy-observer"
 import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { createNativeTaskEngine } from "../native-task"
@@ -94,21 +97,34 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   })
   const knowledgeStore = createNativeCatalogKnowledgeStore(`${homeRoot()}/.omo/native/catalog-knowledge.json`)
   const advisorPool = getAdvisorPoolConfig(ctx.location.directory)
+  const modelPolicyHealth = createNativeModelPolicyHealth(`${dataRoot}/model-policy-health.json`)
+  const binding = appConfig.catalog?.research_executor
+  const maintenance = createNativeResearchMaintenance(`${dataRoot}/catalog-maintenance.json`, {
+    executor: binding ? { providerID: binding.providerID, id: binding.modelID } : undefined,
+    isEligible: async (model) => (await catalog.catalog.listAvailable()).some((item) => item.available && item.toolCall !== false && item.providerID === model.providerID && item.id === model.id) && await catalog.pool.isAllowed(model),
+    isBusy: async () => {
+      const tasks = await repository.list()
+      if (tasks.some((task) => !task.maintenance && ["awaiting_selection", "running", "queued", "waiting_children", "waiting_question"].includes(task.state))) return true
+      const active = await client.session.active()
+      return tasks.some((task) => active[task.rootSessionID] !== undefined)
+    },
+    resume: async (taskID, context) => { if (engine) await engine.resume(taskID, context.rootSessionID) },
+    inspect: async (taskID) => (await repository.get(taskID))?.state,
+    hasKnowledge: async (model) => knowledgeStore.read(model)?.known === true,
+    create: async ({ model, context, executor, taskID }) => {
+      if (!engine) throw new Error("Native task engine is not ready for maintenance")
+      return engine.createResearch({ taskID, executor, callerSessionID: context.rootSessionID, sourceDecisionID: context.decisionId, prompt: `Research published capabilities, limits, and input/output prices for ${model.providerID}/${model.id}. Cite official documentation and persist verified facts with momo_catalog_enrich. Leave missing facts unknown.`, scope: `Origin decision ${context.decisionId}. Exact model ${model.providerID}/${model.id}. Headless maintenance: do not request caller choices or questions.`, })
+    },
+  })
   const catalog = createNativeCatalogAdapter({
     context: ctx,
+    modelPolicyHealth,
+    readMaintenance: () => maintenance.list(),
     homeDirectory: homeRoot(),
     advisorModels: advisorPool.read(),
     routerStore,
     knowledgeStore,
-    researchModel: async (model, research) => {
-      if (engine === undefined || research.decisionId.length === 0) return
-      await engine.createResearch({
-        prompt: `Research published capabilities, limits, and input/output prices for ${model.providerID}/${model.id}. Save pricing only when official documentation states both USD prices per million tokens; include that exact source URL in sources and price.source. Leave price omitted when either rate or currency is not explicit.`,
-        scope: `Origin decision ${research.decisionId}. Identify this exact provider/model alias, cite public official documentation URLs, and do not run coding tasks.`,
-        callerSessionID: research.rootSessionID,
-        sourceDecisionID: research.decisionId,
-      })
-    },
+    researchModel: (model, research) => maintenance.enqueue(model, research),
     onError: (message, error) => console.warn(message, error),
   })
   await catalog.refresh()
@@ -166,6 +182,8 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     repository,
     router,
     runtime: sessionRuntime,
+    onExecutionFailure: createNativeModelPolicyObserver(sessionRuntime, modelPolicyHealth),
+    canRunMaintenance: async (task) => (await client.session.active())[task.rootSessionID] === undefined,
     defaultConcurrency: config?.defaultConcurrency ?? 5,
     providerConcurrency: config?.providerConcurrency,
     modelConcurrency: config?.modelConcurrency,
@@ -264,13 +282,18 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
         const wasHandled = isFormEvent ? await sessionRuntime.onFormEvent(event) : false
         if (wasHandled) return
         const mapped = mapV2TaskEvent(event)
-        if (mapped) await nativeEngine.onEvent(mapped)
+        if (mapped) {
+          await nativeEngine.onEvent(mapped)
+          if (["execution.succeeded", "execution.failed", "execution.interrupted"].includes(mapped.type)) await maintenance.pump()
+        }
       }).catch((error: unknown) => console.warn("momo native event handling failed", error))
     }
   })()
   await nativeEngine.reconcile()
+  await router.recoverResearch()
+  await maintenance.pump()
   const watchdog = setInterval(() => {
-      void Promise.all([nativeEngine.checkWatchdogs(), nativeEngine.retryDeliveries()]).catch((error: unknown) => console.warn("momo native task recovery failed", error))
+      void Promise.all([nativeEngine.checkWatchdogs(), nativeEngine.retryDeliveries(), maintenance.pump()]).catch((error: unknown) => console.warn("momo native task recovery failed", error))
   }, 30_000)
   return {
     engine: nativeEngine,

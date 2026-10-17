@@ -270,6 +270,20 @@ describe("native V2 session runtime", () => {
     expect(await h.runtime.inspect("ses_child")).toEqual({ state: "interrupted" })
   })
 
+  it("inspects the immutable assistant failure identity, originating model and completion time", async () => {
+    const h = harness()
+    const session = h.sessions.get("ses_child")!
+    h.sessions.set("ses_child", { ...session, outcome: "failed" })
+    const error = { type: "aborted" as const, message: "Step interrupted" }
+    h.setContext([{
+      id: "assistant-old", type: "assistant", agent: "momo-worker", model: { providerID: "momo-qa", id: "old-model" },
+      time: { created: 1, completed: 1000 }, content: [],
+      error: { ...error, type: "api" as const, message: "Model trains on request data. Privacy settings prohibit it." },
+    }])
+    const inspected = await h.runtime.inspect("ses_child")
+    expect(inspected).toMatchObject({ state: "failed", failureID: "assistant-old", failureModel: { providerID: "momo-qa", id: "old-model" }, failureAt: 1000 })
+  })
+
   it("inspects native active state and completed assistant context instead of idle events", async () => {
     const h = harness()
     h.setActive({ ses_child: { type: "running" } })

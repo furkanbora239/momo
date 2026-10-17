@@ -4,7 +4,7 @@ import { describe, expect, it } from "bun:test"
 import { unsafeTestValue } from "../../../../../test-support/unsafe-test-value"
 import { createEventState } from "./events"
 import { handleTuiToast } from "./event-handlers"
-import { createMockContext } from "./event-handler-test-support.test"
+import { createMockContext } from "./event-handler-test-support"
 
 describe("handleTuiToast", () => {
   it("marks main session as error when toast variant is error", () => {

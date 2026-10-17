@@ -1,4 +1,5 @@
 import { isTerminal } from "./lifecycle"
+import { markNativeExecutionFailurePending, observeNativeExecutionFailure } from "./failure-observation"
 import type { NativeTask, NativeTaskEvent, NativeTaskRepository, NativeTaskRuntime } from "./types"
 
 const EVENT_HISTORY_LIMIT = 128
@@ -11,6 +12,7 @@ export async function handleNativeTaskEvent(
     save: (task: NativeTask) => Promise<NativeTask>
     now: () => number
     questionTimeoutMs: number
+    onExecutionFailure?: (task: NativeTask, error: string) => Promise<void>
   },
 ): Promise<void> {
   const task = (await deps.repository.list()).find((candidate) => candidate.sessionID === event.sessionID)
@@ -66,6 +68,15 @@ export async function handleNativeTaskEvent(
       task.progress = event.message
       break
     case "question.asked":
+      if (task.maintenance) {
+        task.state = "failed"
+        task.error = "Headless catalog maintenance cannot request caller selection or questions"
+        task.question = undefined
+        task.delivery = undefined
+        await deps.save(task)
+        await deps.runtime.interrupt({ sessionID: event.sessionID })
+        return
+      }
       task.state = "waiting_question"
       task.question = event.question
       task.questionDelivery = "pending"
@@ -88,7 +99,9 @@ export async function handleNativeTaskEvent(
       task.state = "waiting_children"
       break
   }
+  if (event.type === "execution.failed" && deps.onExecutionFailure) markNativeExecutionFailurePending(task, event.error)
   await deps.save(task)
+  if (event.type === "execution.failed") await observeNativeExecutionFailure(task, event.error, deps)
 
 }
 

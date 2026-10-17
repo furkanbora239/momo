@@ -8,6 +8,7 @@
     "./momo-native-delivery-proof.ts",
     "./momo-native-acceptance.ts",
     "./momo-native-permission-repair.ts",
-    "./momo-native-api-acceptance.ts"
+    "./momo-native-api-acceptance.ts",
+    "./momo-native-catalog-repair.ts"
   ]
 }
