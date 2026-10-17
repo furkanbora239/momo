@@ -1,0 +1,128 @@
+{
+  "base": "a0f732d8927b46e1b32e70912e690fab193a1743",
+  "frozenSourceUnchanged": true,
+  "sourceFileCount": 21,
+  "gates": {
+    "build": 0,
+    "typecheck": 0,
+    "native-routing-focused": 0,
+    "native-accounting": 0,
+    "native-probability-099": 0,
+    "full-suite-clean": 0
+  },
+  "focused": {
+    "passed": 66,
+    "assertions": 281
+  },
+  "fullSuite": {
+    "passed": 12650,
+    "skipped": 20,
+    "failed": 0,
+    "assertions": 36990,
+    "files": 1556,
+    "seconds": 269.33
+  },
+  "firstFullAttempt": {
+    "exit": 1,
+    "passed": 12649,
+    "skipped": 20,
+    "failed": 1,
+    "cause": "Transient sandbox /tmp/.git project marker; existing markerless-workspace test. See environment-marker.md and full-suite.log."
+  },
+  "ownedFullTemporaryRootRemoved": true,
+  "ownedLiveProcesses": [],
+  "nativeProofs": {
+    "native-accounting": {
+      "status": "passed",
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true,
+        "databaseBefore": {
+          "counts": {
+            "session": "249",
+            "session_v2": "314",
+            "session_message": "18016"
+          }
+        },
+        "databaseAfter": {
+          "counts": {
+            "session": "249",
+            "session_v2": "314",
+            "session_message": "18016"
+          }
+        }
+      }
+    },
+    "native-probability-099": {
+      "status": "passed",
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true,
+        "databaseBefore": {
+          "counts": {
+            "session": "249",
+            "session_v2": "314",
+            "session_message": "18016"
+          }
+        },
+        "databaseAfter": {
+          "counts": {
+            "session": "249",
+            "session_v2": "314",
+            "session_message": "18016"
+          }
+        }
+      }
+    }
+  },
+  "source": {
+    "packages/decision-core/src/index.ts": "ee569b06b8076e93f56b9bfcd60dd413276c56008b423c529f25d45888d25fc8",
+    "packages/decision-core/src/jev-client.ts": "bdb33d6f20caa4a149cb160962bdc122c7c6eba8595d1d7a6e0bba8805e9ff28",
+    "packages/decision-core/src/types.ts": "927e708998cb61ca9c089f32913d76eacc67d0166e64ed508b21b1a656d6cef6",
+    "packages/omo-opencode/src/native-routing/index.ts": "63b4bc69f92b5e65966715e4db030909f9d1efb75d13ce3d2736b2a6e5843d5f",
+    "packages/omo-opencode/src/native-routing/jev-adapter.ts": "19b17a13254de31c210e6c656521bf2b77d5d5bdcb85f60e4252b85a8dddd480",
+    "packages/omo-opencode/src/native-routing/jev-answer-validation.ts": "e8ace768b2431d4622837552c50dc32dc9ea6b5d73e770aa3d8c2d1c51b74fff",
+    "packages/omo-opencode/src/native-routing/jev-http-usage.ts": "9c8a06c7de8180e9791d0f128377ba0ce832408bde092ebe5fa6176fbbf0f64f",
+    "packages/omo-opencode/src/native-routing/jev-staged-selection.test.ts": "05cf84b47ed443f9757d78af0959878973812042f9acfb0b92951a3d0cf32417",
+    "packages/omo-opencode/src/native-routing/jev-staged-selection.ts": "492bcfa1deaa2c7cbc5f04a8d64a259948a5ed7945385fc093dfb9371e6c3482",
+    "packages/omo-opencode/src/native-routing/jev-usage.ts": "e4540c76e4acf6403d0973d958e1ba36136a33cf43273b6c2e735d93be35a5d8",
+    "packages/omo-opencode/src/native-routing/jsonl-store.test.ts": "0d7aff6551e3f95cd04d56f01e752986c636a9f87f55f6f8a80521d86e51ace5",
+    "packages/omo-opencode/src/native-routing/jsonl-store.ts": "05a3b01c1fff3d6f53e9c186635fbd9fa5218b3ea5926dec05271739f89eec12",
+    "packages/omo-opencode/src/native-routing/ledger-content.ts": "7821a6232601fa0d2b2446fba928c31163ba12719a1a2b93bcaf55dea9bd273f",
+    "packages/omo-opencode/src/native-routing/ledger-validation.ts": "2606fbff9908f6c99b550de705fb17516271b2440c2ccdf0d5f9f89961e4664e",
+    "packages/omo-opencode/src/native-routing/probability-mass.test.ts": "ec01f981a96a26f0c98cf8b2923eb005f9d77b0620198e6b611b85da6a8a5c72",
+    "packages/omo-opencode/src/native-routing/probability-mass.ts": "ccc3c736f58b1465b50263fc792deb3c934e41f29f7903990dbfc77afc071b17",
+    "packages/omo-opencode/src/native-routing/router.test.ts": "0e672031f41fa689c6fef66921e9222e08e4e2d3f38eb3f892b9311066ba02c9",
+    "packages/omo-opencode/src/native-routing/router.ts": "88c48a5799a67b48acc9bb0009b75fe5fc2b10688635c9bafc19c0fb0dbb3609",
+    "packages/omo-opencode/src/native-routing/types.ts": "8d12989e15cb0cbcbbbebb45d28620e240f6eb3c128cb7f9d0126f24468b31df",
+    "script/qa/momo-native-acceptance.ts": "3ec653695c4446673c3bec79f967ac5e07b023c36ffcc45b374368f433d7cd3d",
+    "script/qa/native-routing-accounting-proof.ts": "ede8f88f3613411885be9c294db3656ac33b10a910cd0107d23bacca654f4d0e"
+  },
+  "plugin": {
+    "path": "dist/index.js",
+    "sha256": "175845fb1ab05cbdea88afae2cbab9076ee363045cd78eea801e142497523e72"
+  },
+  "nativeBinary": {
+    "version": "2.0.28",
+    "sha256": "20d305d0140bfe04df7264a4ecb014402b74b6ac0a0f6456ee07ef3325fb4a85"
+  },
+  "composedValidation": {
+    "base": "38343b00e04fdf1a9b14235702214b5a23747b0a",
+    "headBeforeReceipt": "866603d73",
+    "sourceHashesUnchanged": true,
+    "focused": {
+      "passed": 67,
+      "failed": 0,
+      "assertions": 334,
+      "files": 5
+    },
+    "scope": "Build, typecheck, full-suite and actual native proofs used a0f732d89 plus these exact 21 source files. After merging dev permission fix #40, composed focused tests passed. CI verifies the composed PR tree."
+  },
+  "artifacts": {
+    "localEvidenceDirectory": ".omo/evidence/20261016-routing-accounting",
+    "nativeProofDriver": "script/qa/momo-native-acceptance.ts",
+    "rawLogsPublished": false
+  }
+}
