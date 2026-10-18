@@ -242,6 +242,7 @@ export interface NativeRouterConfig {
 }
 
 export interface NativeRouterDeps {
+  readonly accountant?: import("./jev-accountant").NativeJevAccountant
   readonly jev: NativeJev
   readonly catalog: NativeCatalog
   readonly pool: NativePool
