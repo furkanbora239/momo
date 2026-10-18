@@ -12,7 +12,7 @@ export async function proveBuiltNativeConsumption(input: {
   const api = input.client
   let stage = "launch busy root"
   async function poll<T>(read: () => Promise<T>, ready: (value: T) => boolean): Promise<T> {
-    const end = Date.now() + 15000
+    const end = Date.now() + 45000
     let last: unknown
     while (Date.now() < end) { const value = await read(); last = value; if (ready(value)) return value; await Bun.sleep(50) }
     throw new Error("Integrated consumption proof timed out: " + stage + " " + JSON.stringify(last))

@@ -57,9 +57,19 @@ async function hashes(stage: "before" | "after") {
     return [path, createHash("sha256").update(content).digest("hex")]
   })))
 }
+let scenarioSignal: AbortSignal | undefined
+async function withDeadline<T>(operation: (signal: AbortSignal) => Promise<T>, timeoutMs: number): Promise<T> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([operation(controller.signal), new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => { const error = new Error("Provider admission QA scenario deadline exceeded"); controller.abort(error); reject(error) }, timeoutMs)
+    })])
+  } finally { if (timer) clearTimeout(timer); controller.abort(new Error("Provider admission QA scenario closed")) }
+}
 async function poll<T>(read: () => Promise<T>, ready: (value: T) => boolean, stage: string, timeout = 20000): Promise<T> {
   const end = Date.now() + timeout
-  while (Date.now() < end) { const value = await read(); if (ready(value)) return value; await Bun.sleep(50) }
+  while (Date.now() < end) { scenarioSignal?.throwIfAborted(); const value = await read(); scenarioSignal?.throwIfAborted(); if (ready(value)) return value; await Bun.sleep(50) }
   throw new Error("Timed out: " + stage)
 }
 if (process.argv.includes("--self-test")) {
@@ -72,7 +82,13 @@ if (process.argv.includes("--self-test")) {
   assert(Object.keys(env).every(key => !/TOKEN|SECRET|PASSWORD|API_KEY/.test(key)))
   for (const key of ["HOME", "OPENCODE_TEST_HOME", "TMPDIR", "TMP", "TEMP", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "OPENCODE_CONFIG_DIR"]) assert(env[key]?.startsWith("/isolated/"))
   new Bun.Transpiler({ loader: "js" }).transformSync(pluginFixture("http://127.0.0.1:1234", "/isolated"))
-  console.log("provider admission fixture self-test passed; no native process started"); process.exit(0)
+  let aborted = false, cleaned = false
+  await assert.rejects(async () => {
+    try { await withDeadline(async signal => { signal.addEventListener("abort", () => { aborted = true }, { once: true }); return await new Promise<never>(() => undefined) }, 10) }
+    finally { cleaned = true }
+  }, /deadline exceeded/)
+  assert(aborted && cleaned, "A non-resolving SDK operation must time out and reach cleanup")
+  console.log("provider admission fixture and deadline self-tests passed; no native process started"); process.exit(0)
 }
 const bin = process.env.MOMO_NATIVE_OPENCODE_BIN
 assert(bin && isAbsolute(bin) && existsSync(bin), "Set MOMO_NATIVE_OPENCODE_BIN to an existing absolute native binary, not a wrapper")
@@ -109,7 +125,7 @@ const server = createServer(async (request, response) => {
     }
     assert(request.method === "POST" && path.endsWith("/chat/completions"), "Unexpected mock endpoint " + path)
     const text = JSON.stringify(body.messages), worker = provider === "admission-worker"
-    requests.push({ type: worker ? "worker" : "root", text })
+    requests.push({ type: worker ? "worker" : "root", text, generation: body.tools?.some(tool => tool.function?.name === "execute") === true })
     if (worker && holdWorker) { holdWorker = false; heldWorker = true; await new Promise<void>(resolve => { releaseWorker = resolve }) }
     const marker = text.match(/F17_(?:MANAGER_OFF|ENABLED|CATALOG_RACE|ALLOCATION_RACE|DELIVERY)/)?.[0]
     const call = !worker && marker && !body.messages?.some(message => message.role === "tool") && body.tools?.some(tool => tool.function?.name === "execute")
@@ -131,6 +147,8 @@ async function captureDBs() {
   }
 }
 try {
+  await withDeadline(async signal => {
+  scenarioSignal = signal
   for (const directory of [project, plugin, config, home, join(home, ".omo"), join(project, ".omo"), env.TMPDIR!]) await mkdir(directory, { recursive: true })
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve)); const modelAddress = server.address(); assert(modelAddress && typeof modelAddress !== "string")
   const pluginSource = pluginFixture(`http://127.0.0.1:${modelAddress.port}`, root)
@@ -141,7 +159,8 @@ try {
   await writeFile(join(config, "opencode.json"), JSON.stringify({ plugins: [`file:${plugin}`], model: "admission-root/root", agent: "momo-orchestrator" }))
   await writeFile(join(config, "service.json"), JSON.stringify({ password: "local-qa" })); results.hashesBefore = await hashes("before")
   const reserve = createServer(); await new Promise<void>(resolve => reserve.listen(0, "127.0.0.1", resolve)); const address = reserve.address(); assert(address && typeof address !== "string"); const port = address.port; await new Promise<void>(resolve => reserve.close(() => resolve()))
-  const client = OpenCode.make({ baseUrl: `http://127.0.0.1:${port}`, headers: { authorization: "Basic " + Buffer.from("opencode:local-qa").toString("base64") } })
+  const client = OpenCode.make({ fetch: Object.assign((url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+    fetch(url, { ...init, signal: AbortSignal.any([signal, ...(init?.signal ? [init.signal] : [])]) }), { preconnect: fetch.preconnect }), baseUrl: `http://127.0.0.1:${port}`, headers: { authorization: "Basic " + Buffer.from("opencode:local-qa").toString("base64") } })
   proc = spawn(bin, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(port)], { cwd: project, env, detached: true, stdio: ["ignore", "pipe", "pipe"] }); assert(proc.pid); ownedGroups.push(proc.pid)
   proc.stdout?.on("data", chunk => { output += chunk }); proc.stderr?.on("data", chunk => { output += chunk })
   await poll(async () => { try { return (await client.plugin.list({ location: { directory: project } })).data.some(row => row.id === "oh-my-openagent" && row.state.status === "active") } catch (error) { return false } }, Boolean, "built plugin activation")
@@ -153,7 +172,7 @@ try {
   }
   async function launch(marker: string) {
     const session = await client.session.create({ location: { directory: project }, agent: "momo-orchestrator", model: { providerID: "admission-root", id: "root" } }); rootIDs.push(session.id)
-    const pending = client.session.prompt({ sessionID: session.id, text: marker }); return { session, pending }
+    const pending = client.session.prompt({ sessionID: session.id, text: marker }); void pending.catch(() => undefined); return { session, pending }
   }
   const snapshot = () => ({ jev: count("jev"), worker: count("worker") })
   await toggles(["admission-manager"]); const offBefore = snapshot(), off = await launch("F17_MANAGER_OFF"); await off.pending; await client.session.wait({ sessionID: off.session.id })
@@ -170,16 +189,18 @@ try {
   assert.equal(count("worker"), allocationBefore, "Native start boundary must block worker LLM HTTP"); results.allocationRace = { hook: JSON.parse(await readFile(join(root, "allocation-fired.json"), "utf8")), workerCallsBefore: allocationBefore, workerCallsAfter: count("worker"), tasks: failed }
   await rm(join(root, "arm-after-allocation")); await toggles([]); holdWorker = true
   const delivery = await launch("F17_DELIVERY"); await poll(async () => heldWorker, Boolean, "delivery worker held"); await delivery.pending; await client.session.wait({ sessionID: delivery.session.id })
-  const rootBefore = count("root"); await toggles(["admission-root"]); releaseWorker!()
+  const deliveryCalls = () => requests.filter(row => row.type === "root" && row.generation === true && JSON.parse(String(row.text)).some((message: { role: string; content: unknown }) => message.role === "user" && message.content === "F17_DELIVERY")).length
+  const rootBefore = deliveryCalls(), allRootBefore = count("root"); await toggles(["admission-root"]); releaseWorker!()
   const blocked = await poll(() => tasks(delivery.session.id), rows => rows.some(row => row.prompt === "F17_DELIVERY_CHILD" && row.state === "succeeded" && (row.delivery as Row)?.status === "pending" && typeof (row.delivery as Row)?.lastError === "string"), "root delivery guard blocks")
-  await Bun.sleep(350); assert.equal(count("root"), rootBefore, "Disabled root must receive zero steer generation HTTP"); await toggles([])
+  await Bun.sleep(350); assert.equal(count("root"), allRootBefore, "Disabled root must receive zero steer generation HTTP"); await toggles([])
   const delivered = await poll(() => tasks(delivery.session.id), rows => rows.some(row => row.prompt === "F17_DELIVERY_CHILD" && (row.delivery as Row)?.status === "delivered"), "reenabled root retry", 45000)
-  await client.session.wait({ sessionID: delivery.session.id }); results.rootTrace = requests.filter(row => row.type === "root").map(row => String(row.text).slice(0, 240).replace(/\s+/g, " ")); assert.equal(count("root"), rootBefore + 1, "Root retry must generate exactly once"); results.rootSteer = { blocked, delivered, rootCallsBefore: rootBefore, rootCallsAfter: count("root") }
+  await client.session.wait({ sessionID: delivery.session.id }); results.rootTrace = requests.filter(row => row.type === "root").map(row => String(row.text).slice(0, 240).replace(/\s+/g, " ")); assert.equal(deliveryCalls(), rootBefore + 1, "Root retry must generate exactly once for its own session"); results.rootSteer = { blocked, delivered, rootCallsBefore: rootBefore, rootCallsAfter: deliveryCalls(), allRootCallsBefore: allRootBefore, allRootCallsAfter: count("root"), attribution: "F17_DELIVERY user marker and native generation tool" }
   await captureDBs(); assert(openedDBs.size > 0, "No actual native DB descriptors observed")
   const db = [...openedDBs].find(path => path.endsWith(".db")); assert(db)
   const tables = execFileSync("sqlite3", ["-readonly", db, "SELECT name FROM sqlite_master WHERE type='table'"], { encoding: "utf8" }).split("\n"), table = tables.includes("session_v2") ? "session_v2" : "session"
   results.isolatedSessionLookup = rootIDs.map(id => { assert(/^[A-Za-z0-9_-]+$/.test(id)); const count = Number(execFileSync("sqlite3", ["-readonly", db, `SELECT count(*) FROM ${table} WHERE id='${id}'`], { encoding: "utf8" }).trim()); assert.equal(count, 1); return { id, table, count } })
   assert.equal(mockError, undefined); results.hashesAfter = await hashes("after"); assert.deepEqual(results.hashesAfter, results.hashesBefore, "Source/bundle changed during probe"); results.status = "passed"
+  }, 180_000)
 } catch (error) { results.status = "failed"; results.error = String(error) } finally {
   releaseModels?.(); releaseWorker?.()
   try { if (proc?.pid) { process.kill(-proc.pid, "SIGTERM"); await Promise.race([new Promise(resolve => proc!.once("exit", resolve)), Bun.sleep(3000)]); if (proc.exitCode === null && proc.signalCode === null) { process.kill(-proc.pid, "SIGKILL"); await new Promise(resolve => proc!.once("exit", resolve)) } } }

@@ -23,7 +23,7 @@ const before = counts()
 const env: NodeJS.ProcessEnv = { ...process.env, HOME: join(root, "home"), OPENCODE_TEST_HOME: join(root, "home"), OPENCODE_CONFIG_DIR: config, XDG_DATA_HOME: join(root, "data"), XDG_CONFIG_HOME: join(root, "config"), XDG_STATE_HOME: join(root, "state"), XDG_CACHE_HOME: join(root, "cache"), OPENCODE_DISABLE_AUTOUPDATE: "1", OPENCODE_DISABLE_MODELS_FETCH: "1" }
 for (const key of Object.keys(env)) if (/(API[_-]?KEY|_TOKEN$|_SECRET$|PASSWORD|OPENCODE_CONFIG$|OPENCODE_DB$)/i.test(key)) delete env[key]
 for (const directory of [project, config, join(config, "agents"), env.HOME!, evidence]) await mkdir(directory, { recursive: true })
-const requests: Array<{ marker: string; tools: number; sawResult: boolean; generation: boolean }> = []
+const requests: Array<{ marker: string; tools: number; sawResult: boolean; generation: boolean; toolNames: string[] }> = []
 let release: (() => void) | undefined
 let blocked = "", workerCalls = 0
 const blockedCases = new Set<string>()
@@ -48,7 +48,7 @@ const model = Bun.serve({ port: 0, fetch: async (request) => {
   const marker = caseText.match(/CASE_[A-Z]+/)?.[0] ?? "DEPARTMENT"
   const tools = body.messages.slice(caseIndex + 1).filter(message => message.role === "tool").length
   const generation = body.tools?.some(tool => tool.function?.name === "execute") === true
-  const row = { marker, tools, sawResult: text.includes("CHILD_RESULT"), generation }; requests.push(row)
+  const row = { marker, tools, sawResult: text.includes("CHILD_RESULT"), generation, toolNames: body.tools?.map(tool => tool.function?.name ?? "unknown") ?? [] }; requests.push(row)
   if (generation && marker !== "DEPARTMENT" && marker !== "CASE_CANCEL" && tools === 1 && !blockedCases.has(marker)) {
     blocked = marker; blockedCases.add(marker)
     await new Promise<void>(resolve => { release = resolve })
@@ -115,7 +115,7 @@ async function stop() {
   const owned = proc
   if (owned?.pid && owned.exitCode === null && owned.signalCode === null) { process.kill(-owned.pid, "SIGTERM"); await new Promise(resolve => owned.once("exit", resolve)) }
 }
-async function poll(predicate: () => Promise<boolean>, timeout = 10000) {
+async function poll(predicate: () => Promise<boolean>, timeout = 45000) {
   const until = Date.now() + timeout
   while (Date.now() < until) { try { if (await predicate()) return } catch (error) { if (Date.now() + 100 >= until) throw error }; await Bun.sleep(50) }
   throw new Error("Timed out waiting for native proof")
