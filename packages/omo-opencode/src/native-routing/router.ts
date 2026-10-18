@@ -61,7 +61,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       loadPromise = deps.store.load().then((loadedRecords) => {
         for (const record of loadedRecords) {
           if (record.type === "decision") byDecision.set(record.decisionId, record)
-          else {
+          else if (record.type === "breaker") {
             consecutiveFailures = record.consecutiveFailures
             openUntil = record.openUntil
           }

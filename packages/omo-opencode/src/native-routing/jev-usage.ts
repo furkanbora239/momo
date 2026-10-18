@@ -24,7 +24,7 @@ export class NativeJevUsageError extends Error {
 }
 
 /** Recover billing only from the known native answer or audited HTTP schema, never error prose. */
-export function legacyJevBilling(value: unknown): { attempted: boolean; usage?: NativeJevUsage } {
+export function legacyJevBilling(value: unknown): { attempted: boolean; usage?: NativeJevUsage; audited?: true } {
   const object = (item: unknown): item is Record<string, unknown> => item !== null && typeof item === "object" && !Array.isArray(item)
   if (!object(value)) return { attempted: false }
   const source = object(value.source) ? value.source : value
@@ -32,7 +32,7 @@ export function legacyJevBilling(value: unknown): { attempted: boolean; usage?: 
   if (Array.isArray(attempts) && attempts.length && attempts.every((attempt): attempt is NativeJevHttpAttempt => {
     if (!object(attempt) || typeof attempt.url !== "string" || !/^https?:\/\//.test(attempt.url) || !object(attempt.headers) || !Object.values(attempt.headers).every((header) => typeof header === "string") || !object(attempt.requestBody) || typeof attempt.requestBody.model !== "string" || typeof attempt.requestBody.state !== "string" || !object(attempt.requestBody.questions)) return false
     return (attempt.status === undefined || Number.isInteger(attempt.status) && Number(attempt.status) >= 100 && Number(attempt.status) <= 599) && (attempt.error === undefined || typeof attempt.error === "string") && (attempt.status !== undefined || attempt.error !== undefined)
-  })) return { attempted: true, usage: usageFromAttempts(attempts) }
+  })) return { attempted: true, usage: usageFromAttempts(attempts), audited: true }
   if (typeof value.role === "string" && object(value.model) && typeof value.model.providerID === "string" && typeof value.model.id === "string" && object(value.probabilities) && Object.hasOwn(value, "confidence")) return { attempted: true, usage: jevUsage(value) }
   return { attempted: false }
 }

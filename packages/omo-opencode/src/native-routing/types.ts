@@ -141,7 +141,25 @@ export interface NativeJevAnswer {
 }
 
 export interface NativeJev {
-  choose(request: NativeJevRequest): Promise<NativeJevAnswer>
+  /** Catalog warmup runs before the routing paid-call queue is acquired. */
+  prepare?(request: NativeJevRequest): Promise<void> | void
+  choose(request: NativeJevRequest, audit?: NativeJevCallAudit): Promise<NativeJevAnswer>
+}
+
+export interface NativeJevCallAudit {
+  beforeRequest(): Promise<void> | void
+  recordAttempt(attempt: NativeJevHttpAttempt): Promise<void> | void
+}
+
+export interface NativeJevCallRecord {
+  readonly version: 1
+  readonly type: "jev_call"
+  readonly callId: string
+  readonly purpose: "routing" | "classification"
+  readonly inputDigest: string
+  readonly createdAt: string
+  readonly status: "pending" | "complete" | "not_sent"
+  readonly usage?: NativeJevAnswer["usage"]
 }
 
 export interface NativeJevHttpAttempt {
@@ -185,6 +203,7 @@ export interface NativeDecisionRecord {
   }[]
   /** Provider-reported billing captured independently of semantic answer validity. */
   readonly jevUsage?: NativeJevAnswer["usage"]
+  readonly jevCallId?: string
   readonly jevAttempted?: boolean
   readonly jevAnswer?: NativeJevAnswer
   readonly jevFailure?: { readonly message: string; readonly rawResponse?: unknown }
@@ -203,7 +222,7 @@ export interface NativeBreakerRecord {
   readonly openUntil: number
 }
 
-export type NativeLedgerRecord = NativeDecisionRecord | NativeBreakerRecord
+export type NativeLedgerRecord = NativeDecisionRecord | NativeBreakerRecord | NativeJevCallRecord
 
 export interface NativeRouterStore {
   load(): Promise<readonly NativeLedgerRecord[]>
