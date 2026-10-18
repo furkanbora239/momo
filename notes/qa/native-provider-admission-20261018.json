@@ -1,0 +1,255 @@
+{
+  "status": "passed",
+  "nativeVersion": "2.0.32",
+  "gateSourceHeadBeforeFinalCommits": "772ebfd4ca87d62c8e149f0b8c4bff72b6697569",
+  "productionHashes": {
+    "packages/decision-core/src/decision-engine.ts": "6059f6f361943024af0a304b815831fb459193ba1ac5c30fa13c02a3bca5bf14",
+    "packages/decision-core/src/index.ts": "ee569b06b8076e93f56b9bfcd60dd413276c56008b423c529f25d45888d25fc8",
+    "packages/decision-core/src/jev-client.ts": "bdb33d6f20caa4a149cb160962bdc122c7c6eba8595d1d7a6e0bba8805e9ff28",
+    "packages/decision-core/src/schema.ts": "3ecf79351b03c460d11451760c132134e0c8084063966080f5c79125d19a32ba",
+    "packages/decision-core/src/types.ts": "927e708998cb61ca9c089f32913d76eacc67d0166e64ed508b21b1a656d6cef6",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "5a42474a4c19fa8ace5f7c9e8984272502a1ac254396279522d02d4bc08fb0f1",
+    "packages/omo-opencode/src/native-catalog/index.ts": "aba8a1f6f7222a2fb58480b33073fd123f3787f22da806c8e0075940c02d2e8c",
+    "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.ts": "920f8c72781232ab58880c772dddc2c48b4fd7abfc0d0c4c58cddfbbc3f3d8dc",
+    "packages/omo-opencode/src/native-catalog/knowledge-facts.ts": "3c4ed46d23f76be9974aaef2721411822b7cbe909099e078aff300c3f59ae4c8",
+    "packages/omo-opencode/src/native-catalog/knowledge-store.ts": "67ff5922eabcd6baa75994488ccfa84f40a2c265a4a2340534a9f1b55c07b054",
+    "packages/omo-opencode/src/native-catalog/live-models.ts": "097923804340d59f964d2ec4b3f79f13451e535b1f8a6accd4f3fb70efcefb21",
+    "packages/omo-opencode/src/native-catalog/model-facts.ts": "5af29cac93082be25ffe56f53c045500080aebda2a4ed26be5404c7d344f92c9",
+    "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "a1d84c504641df02e07a2749224cc8a053a6068ae58d9b532b32077c1242edd2",
+    "packages/omo-opencode/src/native-catalog/native-control-stores.ts": "e53edff414af65791953949d33a65d0a6d4cbdd8c8387c26f7452337f4d349f7",
+    "packages/omo-opencode/src/native-catalog/paths.ts": "cc3f06ab05b8eccec2de56a378d5f5ed83271da07b8b68850341a44a72ab97c6",
+    "packages/omo-opencode/src/native-catalog/provider-admission.ts": "ed0ce5984ebc0c72f7a4ef028e7cdb3b477d70c4ca307d460b0840a7597c04c9",
+    "packages/omo-opencode/src/native-catalog/research-maintenance.ts": "60c9728a1b584f8595a63d9949d537f91f492a0c242599850e4f9e21434d9e0f",
+    "packages/omo-opencode/src/native-catalog/types.ts": "4bdb683f038aa189db2c6b6ea6178e5bc0eb65fa387bccb5affb85f01db4b32c",
+    "packages/omo-opencode/src/native-routing/candidate-ranking.ts": "541b476ef26e0818eb91845ba7350baab67612e79afd347676abc272da572e5f",
+    "packages/omo-opencode/src/native-routing/index.ts": "63b4bc69f92b5e65966715e4db030909f9d1efb75d13ce3d2736b2a6e5843d5f",
+    "packages/omo-opencode/src/native-routing/jev-adapter.ts": "19b17a13254de31c210e6c656521bf2b77d5d5bdcb85f60e4252b85a8dddd480",
+    "packages/omo-opencode/src/native-routing/jev-answer-validation.ts": "e8ace768b2431d4622837552c50dc32dc9ea6b5d73e770aa3d8c2d1c51b74fff",
+    "packages/omo-opencode/src/native-routing/jev-http-usage.ts": "9c8a06c7de8180e9791d0f128377ba0ce832408bde092ebe5fa6176fbbf0f64f",
+    "packages/omo-opencode/src/native-routing/jev-staged-selection.ts": "492bcfa1deaa2c7cbc5f04a8d64a259948a5ed7945385fc093dfb9371e6c3482",
+    "packages/omo-opencode/src/native-routing/jev-usage.ts": "e4540c76e4acf6403d0973d958e1ba36136a33cf43273b6c2e735d93be35a5d8",
+    "packages/omo-opencode/src/native-routing/jsonl-store.ts": "05a3b01c1fff3d6f53e9c186635fbd9fa5218b3ea5926dec05271739f89eec12",
+    "packages/omo-opencode/src/native-routing/ledger-content.ts": "7821a6232601fa0d2b2446fba928c31163ba12719a1a2b93bcaf55dea9bd273f",
+    "packages/omo-opencode/src/native-routing/ledger-validation.ts": "2606fbff9908f6c99b550de705fb17516271b2440c2ccdf0d5f9f89961e4664e",
+    "packages/omo-opencode/src/native-routing/outcome-reader.ts": "868dd95f0603b90270faeed0b8f983e2ad232a12a0cf42d1b21c40d750c658a3",
+    "packages/omo-opencode/src/native-routing/probability-mass.ts": "ccc3c736f58b1465b50263fc792deb3c934e41f29f7903990dbfc77afc071b17",
+    "packages/omo-opencode/src/native-routing/role-policy.ts": "f6d94a5ec74fe452ad1e2dc8fd293fac549546319bf1d7a0b6c01839cc318294",
+    "packages/omo-opencode/src/native-routing/router.ts": "8f320bb1cfa5e912b570d7d0a74b429526cf926d1cc3235f286ea0297c4e4683",
+    "packages/omo-opencode/src/native-routing/types.ts": "5f66a474734b57841f4ceaa5ca10798a5fdfc88275db8e623b8cced7f14ca40b",
+    "packages/omo-opencode/src/native-runtime/advisor-pool-config.ts": "309aa268a3f7e031617b62ac46e1f006389616f8438267aeb0d8fd0a41c78589",
+    "packages/omo-opencode/src/native-runtime/agents/owned-agents.ts": "8050696abfe01325ddb1f8aed32606c9eb74da2f702a36bf4bdf4224ada8c536",
+    "packages/omo-opencode/src/native-runtime/catalog-registry.ts": "2589145d1e5ea8ff61dd079f199227aefadc7f17e513f72d91b7dd8d8b9a7f77",
+    "packages/omo-opencode/src/native-runtime/delivery-message-id.ts": "d308ab9874dbbc3374be1e48c7c594b3dc41728b3a84bb83dc0dbf9e5471acf6",
+    "packages/omo-opencode/src/native-runtime/model-admission.ts": "725da0b98b60f1496d3b678b0bdfd1c04f9b258181b7fddaf9451e32cf2307f4",
+    "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "a5fe44eaee54b7e6d7ed7300c509423dd20a8bfb9487d9d35686a12f47bae420",
+    "packages/omo-opencode/src/native-runtime/native-config.ts": "f31ccf9637b451de5230351caf7b98d1e42f471473d585a9862d5df67cb6ef86",
+    "packages/omo-opencode/src/native-runtime/permission-policy.ts": "4998411fd46da852c6219a93156efe4e8f50b6d62011ffc82b8de4b24315568a",
+    "packages/omo-opencode/src/native-runtime/role-policy.ts": "5129ad229f8d786a7396a30df32c1f885dc598e555e5c05e6b83682196025cf5",
+    "packages/omo-opencode/src/native-runtime/session-runtime.ts": "5bb5a472e4d4ebd5eb5d5bab423502ec8e30f9bfe93d3f14a1a22e03df04a18c",
+    "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "a1cc1f588ac178fdc8f6d56000b62f1dacbd541de92eb5f447653e5c258d5e16",
+    "packages/omo-opencode/src/native-runtime/task-tools.ts": "767ab88fc8ae37d33effd3b6de7cc066fe058a6c1735c13e76187e69ec3687d7",
+    "packages/omo-opencode/src/native-runtime/tui/catalog-controls.ts": "8e6a535c9804a20a82cb16f8eb92ca7c1b6dc3e09197ea1a5bb66640338fb3db",
+    "packages/omo-opencode/src/native-runtime/tui/control-stores.ts": "b76430c186d41d60e6279e603516febb276ede3535ef32bddf0a2cee76d6c0de",
+    "packages/omo-opencode/src/native-runtime/user-data-paths.ts": "57b4fb2408c60e50af100f35fe0f82dceb138b87bee2b2f701a608e7ef980c82",
+    "packages/omo-opencode/src/native-runtime/v2-service-client.ts": "d54f98f14d9fbf4893db61892511c812843e0287c7940543a7ed83810e1126db",
+    "packages/omo-opencode/src/native-task/child-batch-delivery.ts": "f0f8c925f0a8af5589058c1f9c5bcb2c27cd7aeb9c02e6b109a5b668429deafe",
+    "packages/omo-opencode/src/native-task/engine.test-support.ts": "45db3e5da6a69b7224701a85432e52a1c27c2d9dbbbf1bb87c5f665370517592",
+    "packages/omo-opencode/src/native-task/engine.ts": "481fecfa7a091496000b4a8b7dae93b0ef1ccd26e7b5645dbb3d5cbaba277c0c",
+    "packages/omo-opencode/src/native-task/events.ts": "d931b6130c24a7edbeebc28b117245b15be163454392fb1e6ad2c05d77e2cbdb",
+    "packages/omo-opencode/src/native-task/failure-observation.ts": "8f680f6c7739067cffc770acd8f3baa7b15ebd0c9f81254e4e5ecefb8c413698",
+    "packages/omo-opencode/src/native-task/file-repository.ts": "98251336ed6a597ec389fb1aa781f47e80040f3065c13575206e8bdded1f2a62",
+    "packages/omo-opencode/src/native-task/guards.ts": "5b20599cb80d537448f02473135b9b80fdb01140abe43ed2056287da1eaf4aab",
+    "packages/omo-opencode/src/native-task/id.ts": "6fc07ea8eaa7ee594b57d73e569e73c64fa344ac9e94cd2e146cf14a3cd1319b",
+    "packages/omo-opencode/src/native-task/index.ts": "5eafc75765a8422e148cd21ff29d30f47ab27c67a5de82413482a95803258a32",
+    "packages/omo-opencode/src/native-task/lifecycle.ts": "98673150308ca60029d59b953082f8003a4857478e38d913a71e3d4cb2559d12",
+    "packages/omo-opencode/src/native-task/policy.ts": "4253304916b45ab1dc1e770ce6eab05b7c3a393eecf1491b4cd1e61dd522ebfa",
+    "packages/omo-opencode/src/native-task/runner.ts": "398429fc204afe12e6fe881ce50e1b3e51c0596a6804be46a1576bf95967468d",
+    "packages/omo-opencode/src/native-task/task-controls.ts": "807bda478028397fc9b8cedaf7d79af650203a19d5b6041d35d16af7d9a84930",
+    "packages/omo-opencode/src/native-task/task-lifecycle.ts": "23cd5389b815960ef591c6cf18d7ff69affac7682829f958817a6e34df0b69da",
+    "packages/omo-opencode/src/native-task/testing.ts": "d6aafb02d8a01536ac2021f4647be25f2d29903599b9447353907d655c840ed4",
+    "packages/omo-opencode/src/native-task/types.ts": "e89498e1ae595b8c1fe4f989378a1f648e34cd71f5b98e9ad0ebc38ac012e16d",
+    "packages/omo-opencode/src/native-task/v2-event-adapter.ts": "5a9387a4632e3199c5d4ee82d3d07fcafbfadd3f3ca64614403524904aab4c94"
+  },
+  "bundleSHA256": "04d115a9d71caf9b14b30cd74d7f1ba3bf1f46ca0d9e185df25c64c3d8ad3061",
+  "build": {
+    "name": "build",
+    "exitCode": 0,
+    "seconds": 31.06
+  },
+  "typecheck": {
+    "name": "typecheck",
+    "exitCode": 0,
+    "seconds": 85.04
+  },
+  "fullSuite": {
+    "passed": 12714,
+    "skipped": 20,
+    "failed": 0,
+    "assertions": 37129,
+    "tests": 12734,
+    "files": 1561,
+    "duration": "274.33s"
+  },
+  "fullSuiteNote": "Full suite passed before QA-only consumer diagnostic/time-bound port; production and bundle stayed unchanged, and QA tsgo passed after the port.",
+  "providerScenarios": {
+    "disabledManagerWithCredentialSendsZeroHTTP": true,
+    "reenabledRoutesAndExecutes": true,
+    "disabledDuringModelsAwaitSendsZeroHTTP": true,
+    "disabledAfterAllocationSendsZeroWorkerHTTP": true,
+    "rootDeliveryRetryGenerations": 1,
+    "rootRetryAttribution": {
+      "deliveryBefore": 2,
+      "deliveryAfter": 3,
+      "globalBefore": 16,
+      "globalAfter": 18,
+      "excludedExtraRequest": "Delayed F17_ALLOCATION_RACE completion from another root, preserved in raw request trace."
+    }
+  },
+  "consumerScenarios": {
+    "builtPlugin": {
+      "status": "passed",
+      "runtime": "built-plugin",
+      "busyRoot": {
+        "taskID": "ntask_1aa3f50a-1009-4385-8cee-4a7c22ca6942",
+        "admissionObserved": true,
+        "receipt": {
+          "receiptVersion": 2,
+          "status": "delivered",
+          "admittedAt": 1792324413488,
+          "attempts": 1,
+          "messageID": "msg_c95986afb05c9c97e1e6deb689",
+          "attemptedAt": 1792324413433,
+          "deliveredAt": 1792324413586
+        },
+        "contextOccurrences": 1,
+        "pendingInbox": 0
+      },
+      "nativeQuestion": {
+        "taskID": "ntask_94749ca0-f89c-4456-b66e-49033b3a4585",
+        "persistedAnswer": {
+          "q0": "approved"
+        },
+        "sameChildSession": true,
+        "pendingInbox": 0
+      },
+      "department": {
+        "parentTaskID": "ntask_e4abf750-9c49-4357-941e-73a4ae46b3b8",
+        "children": 2,
+        "nativeAggregationGenerations": 1,
+        "aggregateMessageID": "msg_87cb24b7a31eda3a9c9ae067a0",
+        "receipts": [
+          {
+            "receiptVersion": 2,
+            "status": "delivered",
+            "admittedAt": 1792324416618,
+            "attempts": 1,
+            "messageID": "msg_87cb24b7a31eda3a9c9ae067a0",
+            "attemptedAt": 1792324416564,
+            "aggregateTaskID": "ntask_e4abf750-9c49-4357-941e-73a4ae46b3b8",
+            "originalMessageID": "msg_2971051bdb66f97ed7f29b60c7",
+            "deliveredAt": 1792324416940
+          },
+          {
+            "receiptVersion": 2,
+            "status": "delivered",
+            "admittedAt": 1792324416643,
+            "attempts": 1,
+            "messageID": "msg_87cb24b7a31eda3a9c9ae067a0",
+            "attemptedAt": 1792324416621,
+            "aggregateTaskID": "ntask_e4abf750-9c49-4357-941e-73a4ae46b3b8",
+            "originalMessageID": "msg_34236903b03d6f78332404ba30",
+            "deliveredAt": 1792324417027
+          }
+        ],
+        "pendingInbox": 0,
+        "originalChildResultsPreserved": true
+      },
+      "legacyRestart": {
+        "taskID": "ntask_5e99ff93-30ec-47eb-aafe-873e1c26650b",
+        "sameChildSession": true,
+        "attempts": 1,
+        "workerCallsUnchanged": true,
+        "receipt": {
+          "receiptVersion": 2,
+          "status": "delivered",
+          "admittedAt": 1792324420390,
+          "attempts": 2,
+          "messageID": "msg_ae1424e08cf806cfdd0e49af20",
+          "attemptedAt": 1792324420320,
+          "deliveredAt": 1792324420772
+        },
+        "pendingInbox": 0
+      }
+    },
+    "contractStatus": "passed",
+    "sourceAndBundleUnchanged": true
+  },
+  "isolation": {
+    "provider": {
+      "realDatabaseCountsBefore": {
+        "session": 249,
+        "session_v2": 321,
+        "session_message": 19188
+      },
+      "realDatabaseCountsAfter": {
+        "session": 249,
+        "session_v2": 321,
+        "session_message": 19188
+      },
+      "unchanged": true,
+      "ownedGroups": [
+        12291
+      ],
+      "ownedProcessGroupGone": true,
+      "openedDBs": [
+        "/tmp/momo-provider-admission-9LLxum/data/opencode/opencode.db",
+        "/tmp/momo-provider-admission-9LLxum/data/opencode/opencode.db-wal",
+        "/tmp/momo-provider-admission-9LLxum/data/opencode/opencode.db-shm"
+      ]
+    },
+    "consumerIntegrated": {
+      "realDatabaseCountsBefore": {
+        "session": 249,
+        "session_v2": 321,
+        "session_message": 19188
+      },
+      "realDatabaseCountsAfter": {
+        "session": 249,
+        "session_v2": 321,
+        "session_message": 19188
+      },
+      "unchanged": true,
+      "ownedGroups": [
+        23220,
+        23264
+      ],
+      "ownedProcessGroupGone": true
+    },
+    "consumerContract": {
+      "realDatabaseCountsBefore": {
+        "session": 249,
+        "session_v2": 321,
+        "session_message": 19188
+      },
+      "realDatabaseCountsAfter": {
+        "session": 249,
+        "session_v2": 321,
+        "session_message": 19188
+      },
+      "unchanged": true,
+      "ownedGroups": [
+        23309,
+        23326
+      ],
+      "ownedProcessGroupGone": true
+    },
+    "allDisposableRootsRemoved": true
+  },
+  "remainingNativeCoverage": [
+    "department aggregation provider boundary",
+    "native forwarded form reply provider boundary",
+    "native resume boundary"
+  ],
+  "cubic": "PENDING exact-head review after push",
+  "rawEvidence": ".omo/evidence/20261017-provider-f19; .omo/evidence/20261016-provider-admission; .omo/evidence/20261013-consumption-repair"
+}

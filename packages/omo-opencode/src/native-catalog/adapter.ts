@@ -11,6 +11,7 @@ import { nativeModelFacts, resolveNativePriceSource } from "./model-facts"
 import { hasVerifiedKnowledgeSource } from "./knowledge-facts"
 import { createNativeCatalogKnowledgeStore } from "./knowledge-store"
 import { resolveNativeCatalogHealthDirectory, resolveNativeOmoDirectory } from "./paths"
+import { connectedNativeProviders } from "./provider-admission"
 import type { NativeCatalogAdapterOptions, NativeCatalogModelFacts, NativeCatalogSnapshot } from "./types"
 
 export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions) {
@@ -25,6 +26,8 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
   }
   let advisorModels = new Set((options.advisorModels ?? []).map((model) => `${model.providerID}/${model.id}`))
   let refreshPromise: Promise<NativeCatalogSnapshot> | undefined
+  let refreshGeneration = 0
+  let pendingGeneration = 0
 
   async function refreshSnapshot(): Promise<NativeCatalogSnapshot> {
     const [providerResponse, modelResponse] = await Promise.all([options.context.provider.list(), options.context.model.list()])
@@ -87,7 +90,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
     }
     collectUnregisteredLiveModels(activeProviders, models, liveByProvider, unregisteredLiveModels)
     const maintenance = await options.readMaintenance?.()
-    snapshotValue = {
+    const snapshot: NativeCatalogSnapshot = {
       fetchedAt: new Date(now()).toISOString(),
       connectedProviders: activeProviders.filter((provider) => !liveByProvider.get(provider.id)?.unavailable).map((provider) => provider.id),
       models: facts,
@@ -98,7 +101,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
       unavailableModels,
       ...(maintenance ? { maintenance: { queued: maintenance.filter((item) => item.status === "queued").length, paused: maintenance.filter((item) => item.status === "paused").length, running: maintenance.filter((item) => item.status === "running").length, completed: maintenance.filter((item) => item.status === "completed").length, failed: maintenance.filter((item) => item.status === "failed").length, pauseReasons: [...new Set(maintenance.filter((item) => item.status === "paused").map((item) => item.reason ?? "unknown"))] } } : {}),
     }
-    return snapshotValue
+    return snapshot
   }
 
   function collectUnregisteredLiveModels(
@@ -117,22 +120,46 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
   }
 
   async function refresh(): Promise<NativeCatalogSnapshot> {
-    if (refreshPromise) return refreshPromise
-    refreshPromise = refreshSnapshot()
-    try {
-      return await refreshPromise
-    } finally {
-      refreshPromise = undefined
+    if (!refreshPromise) {
+      pendingGeneration = ++refreshGeneration
+      refreshPromise = refreshSnapshot()
     }
+    const generation = pendingGeneration
+    const pending = refreshPromise
+    let snapshot: NativeCatalogSnapshot
+    try {
+      snapshot = await pending
+    } finally {
+      if (refreshPromise === pending) refreshPromise = undefined
+    }
+    const current = await connectedNativeProviders({
+      context: options.context,
+      toggles: () => options.readToggles?.() ?? controlStores.readProviderToggles(),
+      health: () => options.readHealth?.() ?? healthStore.readProviderHealth(),
+      now,
+    })
+    const allowed = new Set(current.providers.map((provider) => provider.id))
+    const filterKeys = <T>(records: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(records).filter(([key]) => allowed.has(key.split("/")[0])))
+    const visible: NativeCatalogSnapshot = {
+      ...snapshot,
+      connectedProviders: snapshot.connectedProviders.filter((id) => allowed.has(id)),
+      models: snapshot.models.filter((model) => allowed.has(model.providerID)),
+      sources: filterKeys(snapshot.sources),
+      transportModelIDs: filterKeys(snapshot.transportModelIDs),
+      unregisteredLiveModels: filterKeys(snapshot.unregisteredLiveModels),
+      unavailableProviders: { ...snapshot.unavailableProviders, ...current.unavailable },
+    }
+    if (generation === refreshGeneration) snapshotValue = visible
+    return visible
   }
 
   const catalog: NativeCatalog = { listAvailable: async () => (await refresh()).models }
-  const pool: NativePool = {
+  const pool = {
     isAllowed(model) { return isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id) },
     isConsultationAllowed(model) {
       return advisorModels.size > 0 && advisorModels.has(`${model.providerID}/${model.id}`) && isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id)
     },
-  }
+  } satisfies NativePool
   const knowledge: NativeKnowledge = {
     get(model) {
       const fromOption = options.readKnowledge?.(model)

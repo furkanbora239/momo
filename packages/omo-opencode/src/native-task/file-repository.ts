@@ -22,8 +22,9 @@ const taskSchema = z.object({
   questionDelivery: z.enum(["pending", "sent"]).optional(), questionDeadlineAt: z.number().optional(), questionEscalated: z.boolean().optional(),
   answer: z.unknown().optional(), answerStatus: z.enum(["pending", "sent"]).optional(), childrenWakePending: z.boolean().optional(), parentWakeID: z.string().optional(), waitForTaskID: z.string().optional(), resumeInPlace: z.boolean().optional(),
   executionOutcome: z.object({ state: z.enum(["succeeded", "failed"]), result: z.string().optional(), error: z.string().optional() }).optional(),
+  childrenBatch: z.object({ messageID: z.string(), wakeID: z.string(), childTaskIDs: z.array(z.string()), message: z.string(), status: z.enum(["pending", "admitted", "delivered"]), lastError: z.string().optional() }).optional(),
   childTaskIDs: z.array(z.string()), result: z.string().optional(), error: z.string().optional(),
-  delivery: z.object({ status: z.enum(["pending", "delivered"]), messageID: z.string().optional(), attemptedAt: z.number().optional(), deliveredAt: z.number().optional(), attempts: z.number().int().nonnegative(), lastError: z.string().optional() }).optional(),
+  delivery: z.object({ receiptVersion: z.literal(2).optional(), aggregateTaskID: z.string().optional(), originalMessageID: z.string().optional(), status: z.enum(["pending", "admitted", "delivered"]), admittedAt: z.number().optional(), messageID: z.string().optional(), attemptedAt: z.number().optional(), deliveredAt: z.number().optional(), attempts: z.number().int().nonnegative(), lastError: z.string().optional() }).optional(),
   lastExecutionSequence: z.number().int().nonnegative().optional(),
   processedEventIDs: z.array(z.string()), lastActivityAt: z.number(),
 }).passthrough()

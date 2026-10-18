@@ -7,8 +7,11 @@
     "./momo-native-delivery-faults.ts",
     "./momo-native-delivery-proof.ts",
     "./momo-native-acceptance.ts",
-    "./momo-native-permission-repair.ts",
     "./momo-native-api-acceptance.ts",
+    "./momo-native-permission-repair.ts",
+    "./momo-native-consumption-repair.ts",
+    "./momo-native-consumption-integration.ts",
+    "./momo-native-provider-admission.ts",
     "./momo-native-catalog-repair.ts"
   ]
 }

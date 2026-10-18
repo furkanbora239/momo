@@ -1,6 +1,7 @@
 import { errorText, isTerminal } from "./lifecycle"
+import { createNativeChildBatchDelivery } from "./child-batch-delivery"
 import { applyRoute } from "./guards"
-import type { NativeModelRef, NativeTask, NativeTaskEngineOptions, NativeTaskRole } from "./types"
+import type { NativeModelRef, NativeTask, NativeTaskEngineOptions, NativeTaskRole, NativeTaskDeliveryReceipt } from "./types"
 
 type TaskControlsOptions = {
   options: NativeTaskEngineOptions
@@ -19,6 +20,7 @@ type TaskControlsOptions = {
 }
 
 export function createNativeTaskControls(deps: TaskControlsOptions) {
+  const batches = createNativeChildBatchDelivery(deps)
   const deliveriesInFlight = new Set<string>()
   const questionsInFlight = new Set<string>()
 
@@ -82,9 +84,9 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
   async function answer(taskID: string, callerSessionID: string, questionID: string, value: unknown): Promise<NativeTask> {
     await deps.withTaskLock(taskID, async () => {
       const task = await deps.get(taskID)
-      if (task.state !== "waiting_question" || task.question?.id !== questionID) throw new Error("Task is not waiting for that question")
       if (task.parentSessionID !== callerSessionID && !(task.questionEscalated && task.rootSessionID === callerSessionID)) throw new Error("Question must be answered from the originating parent or escalated root session")
-      if (task.answer !== undefined) throw new Error("Question already has an answer")
+      if (task.question?.id === questionID && task.answer !== undefined) return
+      if (task.state !== "waiting_question" || task.question?.id !== questionID) throw new Error("Task is not waiting for that question")
       if (task.sessionID === undefined) throw new Error("Question task has no child session")
       task.answer = value
       task.answerStatus = "pending"
@@ -95,6 +97,7 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       task.state = "queued"
       await deps.save(task)
     })
+    await deps.options.runtime.closeQuestion?.(await deps.get(taskID))
     await deps.pump()
     return deps.get(taskID)
   }
@@ -120,8 +123,9 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
     if (wasAlreadyTerminal) return snapshot
     if (sessionID !== undefined) await deps.options.runtime.interrupt({ sessionID })
     for (const childID of childTaskIDs) await cancelInternal(childID)
-    if (snapshot.parentTaskID !== undefined) await deps.retryChildWake(await deps.get(snapshot.parentTaskID))
+    await deps.options.runtime.closeQuestion?.(snapshot)
     await deliver(taskID)
+    if (snapshot.parentTaskID !== undefined) await deps.retryChildWake(await deps.get(snapshot.parentTaskID))
     return deps.get(taskID)
   }
 
@@ -160,11 +164,12 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       })
       if (delivery === undefined) return deps.get(taskID)
       let failure: string | undefined
-      try { await deps.options.runtime.deliver(delivery) } catch (error) { failure = errorText(error) }
+      let receipt: void | NativeTaskDeliveryReceipt = undefined
+      try { receipt = await deps.options.runtime.deliver(delivery) } catch (error) { failure = errorText(error) }
       await deps.withTaskLock(taskID, async () => {
         const task = await deps.get(taskID)
         if (task.delivery?.status !== "pending" || task.result !== delivery?.result) return
-        if (failure === undefined) task.delivery = { status: "delivered", attempts: task.delivery.attempts, messageID: task.delivery.messageID, attemptedAt: task.delivery.attemptedAt, deliveredAt: deps.now() }
+        if (failure === undefined) task.delivery = { receiptVersion: 2, status: receipt?.status ?? "delivered", admittedAt: deps.now(), attempts: task.delivery.attempts, messageID: task.delivery.messageID, attemptedAt: task.delivery.attemptedAt, ...(receipt?.status === "admitted" ? {} : { deliveredAt: deps.now() }) }
         else task.delivery.lastError = failure
         await deps.save(task)
       })
@@ -222,11 +227,17 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       return
     }
     if (task.parentWakeMessage !== undefined) {
-      await deps.options.runtime.continueParent({ sessionID: task.sessionID, taskID: task.id, message: task.parentWakeMessage, wakeID: task.parentWakeID })
+      const childTaskIDs = await batches.prepare(task)
+      const receipt = await deps.options.runtime.continueParent({ sessionID: task.sessionID, taskID: task.id, message: task.parentWakeMessage, wakeID: task.parentWakeID, childTaskIDs })
+      if (childTaskIDs !== undefined && task.childrenBatch !== undefined) task.childrenBatch.status = receipt?.status ?? "admitted"
       task.parentWakeMessage = undefined
       task.parentWakeID = undefined
       task.childrenWakePending = false
       await deps.save(task)
+      if (receipt?.status === "delivered") {
+        const inspection = await deps.options.runtime.inspect(task.sessionID)
+        if (inspection.state === "succeeded" || inspection.state === "failed") await deps.finishFromInspection(task, { state: inspection.state, result: inspection.result, error: inspection.error })
+      }
       return
     }
     await deps.options.runtime.resume({ taskID: task.id, sessionID: task.sessionID })
@@ -262,11 +273,41 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
     return finish(task)
   }
 
-  async function retryDeliveries(): Promise<void> {
-    for (const task of await deps.options.repository.list()) if (task.delivery?.status === "pending") await deliver(task.id)
+  async function reconcileDelivery(taskID: string): Promise<void> {
+    const stored = await deps.get(taskID)
+    const legacy = stored.delivery?.status === "delivered" && stored.delivery.receiptVersion !== 2
+    if ((stored.delivery?.status !== "admitted" && !legacy) || stored.delivery?.messageID === undefined || deps.options.runtime.inspectDelivery === undefined) return
+    let status: "missing" | "admitted" | "delivered"
+    try { status = await deps.options.runtime.inspectDelivery({ parentSessionID: stored.parentSessionID, messageID: stored.delivery.messageID }) }
+    catch (error) {
+      await deps.withTaskLock(stored.id, async () => {
+        const current = await deps.get(stored.id)
+        if (current.delivery !== undefined) { current.delivery.lastError = `Delivery inspection failed: ${errorText(error)}`; await deps.save(current) }
+      })
+      return
+    }
+    await deps.withTaskLock(stored.id, async () => {
+      const current = await deps.get(stored.id)
+      if (current.delivery === undefined || (current.delivery.status !== "admitted" && !(current.delivery.status === "delivered" && current.delivery.receiptVersion !== 2))) return
+      current.delivery.receiptVersion = 2
+      if (status === "delivered") { current.delivery.status = "delivered"; current.delivery.deliveredAt = deps.now() }
+      else if (status !== "missing" || current.delivery.aggregateTaskID === undefined) {
+        current.delivery.status = status === "missing" || (legacy && current.parentSessionID === current.rootSessionID) ? "pending" : "admitted"
+        current.delivery.deliveredAt = undefined
+      }
+      await deps.save(current)
+    })
   }
 
-  return { select, resume, answer, cancel, deliver, deliverQuestion, resumeExecution, status, wait, retryDeliveries }
+  async function retryDeliveries(): Promise<void> {
+    for (const stored of await deps.options.repository.list()) {
+      await batches.reconcile(stored.id)
+      await reconcileDelivery(stored.id)
+      if ((await deps.get(stored.id)).delivery?.status === "pending") await deliver(stored.id)
+    }
+  }
+
+  return { select, resume, answer, cancel, deliver, reconcileDelivery, reconcileBatches: batches.reconcile, deliverQuestion, resumeExecution, status, wait, retryDeliveries }
 }
 
 function authorizeTask(task: NativeTask, callerSessionID: string, allowRoot = true): void {

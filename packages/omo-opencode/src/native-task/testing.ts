@@ -3,6 +3,7 @@ import type {
   NativeRouteInput,
   NativeRouteResult,
   NativeTask,
+  NativeTaskDeliveryReceipt,
   NativeTaskRepository,
   NativeTaskRole,
   NativeTaskRouter,
@@ -56,6 +57,7 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
   readonly answers: Array<{ questionID: string; answer: unknown }> = []
   readonly parentContinuations: string[] = []
   startError?: Error
+  inspectDelivery?: NativeTaskRuntime["inspectDelivery"]
   deliverAction?: () => Promise<void>
   answerAction?: () => Promise<void>
   escalationAction?: () => Promise<void>
@@ -78,7 +80,7 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
   async inspect(): Promise<Awaited<ReturnType<NativeTaskRuntime["inspect"]>>> { return { state: "idle" } }
   async resume(input: Parameters<NativeTaskRuntime["resume"]>[0]): Promise<void> { this.resumes.push(input) }
   async interrupt(input: Parameters<NativeTaskRuntime["interrupt"]>[0]): Promise<void> { this.interrupts.push(input.sessionID) }
-  async deliver(input: Parameters<NativeTaskRuntime["deliver"]>[0]): Promise<void> {
+  async deliver(input: Parameters<NativeTaskRuntime["deliver"]>[0]): Promise<void | NativeTaskDeliveryReceipt> {
     this.deliveries.push({ taskID: input.taskID, result: input.result })
     await this.deliverAction?.()
   }
@@ -96,5 +98,6 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
     this.answers.push({ questionID: input.questionID, answer: input.answer })
     await this.answerAction?.()
   }
-  async continueParent(input: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<void> { this.parentContinuations.push(input.message) }
+  childrenWakeMessageID(taskID: string, wakeID: string): string { return `batch-${taskID}-${wakeID}` }
+  async continueParent(input: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<void | NativeTaskDeliveryReceipt> { this.parentContinuations.push(input.message) }
 }
