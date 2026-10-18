@@ -28,11 +28,18 @@ export async function connectedNativeProviders(input: {
     provider,
     connected: !provider.integrationID || await input.context.integration.connection.active(provider.integrationID) !== undefined,
   })))
-  // Read local controls after the asynchronous native connection lookups.
+  // The native API returns snapshots. A provider may be disabled, removed or
+  // rebound while its earlier integration lookup is waiting.
+  const latest = (await input.context.provider.list()).data
+  const observed = new Map(connectionStates.map(state => [state.provider.id, state]))
+  // Read local controls after all asynchronous native lookups.
   const toggles = input.toggles(), health = input.health(), now = input.now()
   const unavailable: Record<string, { reason: string; until?: number; statusCode?: number }> = {}
-  const providers = connectionStates.flatMap(({ provider, connected }) => {
-    const reason = nativeProviderBlockReason(provider, toggles, health, now) ?? (!connected ? "no active OpenCode integration connection" : undefined)
+  const providers = latest.flatMap((provider) => {
+    const previous = observed.get(provider.id)
+    const bindingChanged = !previous || previous.provider.integrationID !== provider.integrationID
+    const reason = nativeProviderBlockReason(provider, toggles, health, now) ??
+      (bindingChanged ? "provider integration changed during admission" : !previous.connected ? "no active OpenCode integration connection" : undefined)
     if (reason !== undefined) {
       const blocked = health[provider.id.trim().toLowerCase()]
       const healthBlocked = provider.activation !== "disabled" && !isProviderDisabled(toggles, provider.id) && blocked && now < blocked.unavailableUntil
