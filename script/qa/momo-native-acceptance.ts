@@ -17,6 +17,8 @@ type JevChoice = { type: "choice"; choice: string; confidence: number; probabili
 
 const evidencePath = process.env.MOMO_NATIVE_EVIDENCE_DIR ?? path.join(process.cwd(), ".omo/evidence/20261011-native-acceptance")
 const selfTest = process.argv.includes("--self-test")
+const coreAccounting = process.env.MOMO_NATIVE_CORE_ACCOUNTING
+if (coreAccounting && !["paid", "unknown", "no-send"].includes(coreAccounting)) throw new Error("Unknown shared accounting fixture scenario")
 const accountingOnly = process.env.MOMO_NATIVE_ACCOUNTING_ONLY === "1"
 const routingOnly = process.env.MOMO_NATIVE_ROUTING_ONLY === "1" || accountingOnly
 const probabilityMass = Number(process.env.MOMO_NATIVE_PROBABILITY_MASS ?? "1")
@@ -158,13 +160,14 @@ let childQuestionCalls = 0
 let parentQuestionAnswers = 0
 const fixtureDecisions: JsonRecord[] = []
 let serviceDatabasePaths: string[] = []
+const serviceDatabaseChecks: Array<{ pid: number; paths: string[] }> = []
 const verifiedCases: string[] = []
 
 function isolatedEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !/(?:API[_-]?KEY|_KEY$|_TOKEN$|_SECRET$|PASSWORD)/i.test(key)))
   delete env.OPENCODE_DB
   delete env.OPENCODE_CONFIG
-  return { ...env, OPENCODE_TEST_HOME: qaHome, OPENCODE_CONFIG_DIR: configDir, XDG_DATA_HOME: xdg.data, XDG_CONFIG_HOME: xdg.config, XDG_STATE_HOME: xdg.state, XDG_CACHE_HOME: xdg.cache, OPENCODE_DISABLE_AUTOUPDATE: "1", OPENCODE_DISABLE_MODELS_FETCH: "1", NO_COLOR: "1", ...extra }
+  return { ...env, HOME: qaHome, USERPROFILE: qaHome, OPENCODE_TEST_HOME: qaHome, OPENCODE_CONFIG_DIR: configDir, XDG_DATA_HOME: xdg.data, XDG_CONFIG_HOME: xdg.config, XDG_STATE_HOME: xdg.state, XDG_CACHE_HOME: xdg.cache, OPENCODE_DISABLE_AUTOUPDATE: "1", OPENCODE_DISABLE_MODELS_FETCH: "1", NO_COLOR: "1", ...extra }
 }
 
 function readRealDatabase(): JsonRecord | undefined {
@@ -333,6 +336,7 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
         result.answers.candidate.choice = "outside-eligible-set"
         result.answers.candidate.probabilities = { "outside-eligible-set": 1 }
         result.usage.input_tokens = 100
+        if (coreAccounting === "unknown") { sendJson(response, { answers: result.answers }); return }
       }
       sendJson(response, result)
     } catch (error) { response.writeHead(422, { "content-type": "application/json" }).end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) })) }
@@ -395,14 +399,19 @@ async function main(): Promise<void> {
     await mkdir(path.join(qaHome, ".omo", "native"), { recursive: true })
     await writeFile(path.join(qaHome, ".omo", "native", "catalog-knowledge.json"), JSON.stringify({ version: 1, entries: Object.fromEntries(fixtureModels.map((model) => [`${model.providerID}/${model.id}`, { ...model, summary: "Verified isolated fixture model", sources: ["https://fixture.invalid/models"], researchedAt: new Date().toISOString() }])) }), { mode: 0o600 })
   }
-  await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1, ...(accountingOnly ? { budget: { monthly_cap_usd: 0.000001 } } : {}) }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: coreAccounting === "no-send" ? "momo-qa-unbound-manager" : "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1, ...(accountingOnly ? { budget: { monthly_cap_usd: 0.000001 } } : {}) }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
   await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugins: [`file:${pluginDir}`], model: "momo-qa/momo-qa-model", agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
   servicePort = await freePort()
   opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog, MOMO_QA_MODEL_COUNT: String(modelCount) }), stdio: ["ignore", "pipe", "pipe"] })
   opencode.stdout?.on("data", (chunk: Buffer) => { output += chunk.toString() })
   opencode.stderr?.on("data", (chunk: Buffer) => { output += chunk.toString() })
   const authorization = `Basic ${Buffer.from(`opencode:${servicePassword}`).toString("base64")}`
-  const client = OpenCode.make({ baseUrl: `http://127.0.0.1:${servicePort}`, headers: { authorization } })
+  const sdkDeadline = AbortSignal.timeout(180_000)
+  const client = OpenCode.make({
+    fetch: Object.assign((url: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
+      fetch(url, { ...init, signal: AbortSignal.any([sdkDeadline, ...(init?.signal ? [init.signal] : [])]) }), { preconnect: fetch.preconnect }),
+    baseUrl: `http://127.0.0.1:${servicePort}`, headers: { authorization },
+  })
   stage = "plugin activation"
   await waitReady(client, root)
   if (opencode.pid === undefined) throw new Error("Isolated OpenCode service has no process ID")
@@ -411,11 +420,12 @@ async function main(): Promise<void> {
   if (serviceDatabasePaths.length === 0 || serviceDatabasePaths.some((databasePath) => !databasePath.startsWith(`${canonicalRoot}${path.sep}`))) {
     throw new Error(`Isolated OpenCode service database path is outside its disposable QA root: ${JSON.stringify(serviceDatabasePaths)}`)
   }
+  serviceDatabaseChecks.push({ pid: opencode.pid, paths: serviceDatabasePaths })
   const version = execFileSync(opencodeBinary, ["--version"], { cwd: root, env: isolatedEnv(), encoding: "utf8" }).trim()
   if (!/\bv?2\./i.test(version)) throw new Error(`Expected supported OpenCode V2 service, got ${version}`)
   if (accountingOnly) {
     stage = "native paid malformed billing and restart"
-    const accounting = await proveNativeRoutingAccounting({ client, directory: root, modelLog, jevLog, restart: async () => {
+    const accounting = await proveNativeRoutingAccounting({ client, directory: root, modelLog, jevLog, canonical: Boolean(coreAccounting), scenario: coreAccounting as "paid" | "unknown" | "no-send" | undefined, restart: async () => {
       const prior = opencode
       if (!prior?.pid) throw new Error("Missing owned server")
       signalOwnedGroup(prior.pid, "SIGTERM")
@@ -424,9 +434,13 @@ async function main(): Promise<void> {
       opencode.stdout?.on("data", (chunk: Buffer) => { output += chunk.toString() })
       opencode.stderr?.on("data", (chunk: Buffer) => { output += chunk.toString() })
       await waitReady(client, root)
+      if (opencode.pid === undefined) throw new Error("Restarted owned service has no process ID")
+      const restartedPaths = ownedServiceDatabasePaths(opencode.pid)
+      if (!restartedPaths.length || restartedPaths.some(databasePath => !databasePath.startsWith(`${canonicalRoot}${path.sep}`))) throw new Error("Restarted service opened a database outside its disposable root")
+      serviceDatabaseChecks.push({ pid: opencode.pid, paths: restartedPaths })
     } })
     verifiedCases.push(...accounting.cases)
-    result = { status: "passed", opencodeVersion: version, modelCount, accounting, verifiedCases }
+    result = { status: "passed", opencodeVersion: version, pluginEntry, disposableRoot: root, serviceDatabasePaths, serviceDatabaseChecks, modelCount, accounting, verifiedCases }
     return
   }
   const session = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
