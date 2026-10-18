@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test"
 import type { FormDetail, SessionInfo, SessionMessageInfo } from "@opencode/client"
 import type { NativeTask, NativeTaskRepository } from "../native-task/types"
 import { taskDetail } from "./task-tool-output"
+import { deliveryMessageID } from "./delivery-message-id"
 import { createNativeSessionRuntime } from "./session-runtime"
 import type { NativeV2Client } from "./v2-service-client"
 
@@ -11,6 +12,7 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
   const inbox = new Map<string, { id: string; sessionID: string; delivery: string }>()
   const calls: Array<{ name: string; input: unknown }> = []
   let promptResponse: Promise<unknown> = Promise.resolve({})
+  let afterInboxUpdate: (() => Promise<void>) | undefined
   let beforeFormCreate: (() => Promise<void>) | undefined
   let activeSessions: Record<string, { type: "running" }> = {}
   let contextMessages: SessionMessageInfo[] = []
@@ -60,18 +62,6 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
         if (session === undefined) throw new Error("Session not found")
         return session
       },
-      message: { get: async ({ messageID }: { messageID: string }) => {
-        if (messageError !== undefined) throw messageError
-        const message = contextMessages.find(item => item.id === messageID)
-        if (message === undefined) throw Object.assign(new Error("Message not found"), { status: 404 })
-        return message
-      } },
-      inbox: {
-        list: async ({ sessionID }: { sessionID: string }) =>
-          [...inbox.values()].filter((item) => item.sessionID === sessionID),
-        update: async (input: unknown) => { calls.push({ name: "inbox.update", input }) },
-        cancel: async (input: unknown) => { calls.push({ name: "inbox.cancel", input }) },
-      },
       create: async (input: unknown) => {
         calls.push({ name: "create", input })
         const params = input as Record<string, unknown>
@@ -97,7 +87,7 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
       inbox: {
         list: async ({ sessionID }: { sessionID: string }) => [...inbox.values()].filter((item) => item.sessionID === sessionID),
         cancel: async (input: { sessionID: string; inboxID: string }) => { calls.push({ name: "inbox.cancel", input }); inbox.delete(input.inboxID) },
-        update: async (input: { sessionID: string; inboxID: string; delivery: string }) => { calls.push({ name: "inbox.update", input }); const item = inbox.get(input.inboxID); if (item !== undefined) item.delivery = input.delivery },
+        update: async (input: { sessionID: string; inboxID: string; delivery: string }) => { calls.push({ name: "inbox.update", input }); const item = inbox.get(input.inboxID); if (item !== undefined) item.delivery = input.delivery; await afterInboxUpdate?.() },
       },
       interrupt: async (input: unknown) => { calls.push({ name: "interrupt", input }); return {} },
       form: {
@@ -136,12 +126,12 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
       beforeModelRequest,
       onParentAnswer: async (taskID, questionID, answer, replyingSessionID) => { calls.push({ name: "parent.answer", input: { taskID, questionID, answer, replyingSessionID } }) },
     }),
+    setAfterInboxUpdate: (action: (() => Promise<void>) | undefined) => { afterInboxUpdate = action },
     setPromptResponse: (response: Promise<unknown>) => { promptResponse = response },
     setBeforeFormCreate: (action: (() => Promise<void>) | undefined) => { beforeFormCreate = action },
     setActive: (value: Record<string, { type: "running" }>) => { activeSessions = value },
     setContext: (value: SessionMessageInfo[]) => { contextMessages = value },
     setMessageError: (error: Error) => { messageError = error },
-    inbox,
   }
 }
 
@@ -220,6 +210,49 @@ describe("native V2 session runtime", () => {
     const prompt = h.calls.find((call) => call.name === "prompt")?.input as Record<string, unknown>
     expect(prompt).toMatchObject({ sessionID: "ses_child", text: "execute", delivery: "queue" })
     release?.()
+  })
+
+  it("retries a queued root result with one steer operation and preserves its identity", async () => {
+    let admissions = 0
+    const h = harness(async () => { admissions += 1 })
+    const messageID = deliveryMessageID(h.task.id)
+    h.inbox.set(messageID, { id: messageID, sessionID: "ses_root", delivery: "queue" })
+
+    expect(await h.runtime.deliver({ parentSessionID: "ses_root", taskID: h.task.id, result: "done" })).toEqual({ status: "admitted" })
+
+    expect(h.calls.filter(call => ["inbox.update", "synthetic"].includes(call.name))).toEqual([
+      { name: "inbox.update", input: { sessionID: "ses_root", inboxID: messageID, delivery: "steer" } },
+    ])
+    expect(admissions).toBe(1)
+    expect(h.inbox.get(messageID)?.delivery).toBe("steer")
+  })
+
+  it("does not wake again after a consumed steer loses its response", async () => {
+    let admissions = 0
+    const h = harness(async () => { admissions += 1 })
+    const messageID = deliveryMessageID(h.task.id)
+    const args = { parentSessionID: "ses_root", taskID: h.task.id, result: "done" }
+    h.inbox.set(messageID, { id: messageID, sessionID: "ses_root", delivery: "queue" })
+    h.setAfterInboxUpdate(async () => {
+      h.inbox.delete(messageID)
+      h.setContext([{ id: messageID, type: "assistant", agent: "orchestrator", model: h.task.model!, time: { created: 1, completed: 2 }, content: [] }])
+      throw Object.assign(new Error("response lost after acceptance"), { status: 503 })
+    })
+
+    await expect(h.runtime.deliver(args)).rejects.toThrow("response lost after acceptance")
+    expect(await h.runtime.deliver(args)).toEqual({ status: "delivered" })
+    expect(admissions).toBe(1)
+    expect(h.calls.filter(call => ["inbox.update", "synthetic"].includes(call.name))).toHaveLength(1)
+  })
+
+  it("blocks a queued root steer when fresh model admission fails", async () => {
+    const h = harness(async () => { throw new Error("provider disabled") })
+    const messageID = deliveryMessageID(h.task.id)
+    h.inbox.set(messageID, { id: messageID, sessionID: "ses_root", delivery: "queue" })
+
+    await expect(h.runtime.deliver({ parentSessionID: "ses_root", taskID: h.task.id, result: "done" })).rejects.toThrow("provider disabled")
+    expect(h.calls.filter(call => ["inbox.update", "synthetic"].includes(call.name))).toEqual([])
+    expect(h.inbox.get(messageID)?.delivery).toBe("queue")
   })
 
   it("forwards answers built from exposed long native question identifiers", async () => {

@@ -149,6 +149,7 @@ export function createNativeSessionRuntime(input: {
     if (task.parentSessionID === task.rootSessionID && (await api.session.inbox.list({ sessionID: args.parentSessionID })).some(item => item.id === messageID)) {
       await admitModelRequest(args.parentSessionID)
       await api.session.inbox.update({ sessionID: args.parentSessionID, inboxID: messageID, delivery: "steer" })
+      return { status: "admitted" }
     }
     if (task.parentSessionID === task.rootSessionID) await admitModelRequest(args.parentSessionID)
     await api.session.synthetic({

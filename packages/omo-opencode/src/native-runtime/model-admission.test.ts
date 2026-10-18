@@ -71,14 +71,14 @@ describe("native model admission", () => {
 
   it("rechecks advisor revocation during the last native manager lookup", async () => {
     const h = fixture(); let calls = 0
-    h.setOnList(() => { if (++calls === 3) h.catalog.setAdvisorModels([]) })
+    h.setOnList(() => { if (++calls === 5) h.catalog.setAdvisorModels([]) })
     const candidate = { ...h.request.candidates[0], role: "advisor" as const }
     await expect(h.admission.beforeRoutingRequest({ ...h.request, candidates: [candidate] })).rejects.toThrow("eligibility changed")
   })
 
   it("rechecks native activation after catalog admission and before generation", async () => {
     const h = fixture(); let calls = 0
-    h.setOnList(() => { if (++calls === 3) h.providers[1].activation = "disabled" })
+    h.setOnList(() => { if (++calls === 5) h.providers[1].activation = "disabled" })
     await expect(h.admission.beforeModelRequest(h.session(true))).rejects.toThrow("provider is no longer available")
   })
 
