@@ -34,6 +34,9 @@ export function nativeModelFacts(
   return {
     providerID: model.providerID,
     id: model.id,
+    ...(model.name?.trim() ? { displayName: model.name.trim().slice(0, 160) } : {}),
+    ...(model.family?.trim() ? { family: model.family.trim().slice(0, 160) } : {}),
+    ...(model.canonical?.trim() ? { canonical: model.canonical.trim().slice(0, 256) } : {}),
     available: model.enabled && model.status !== "deprecated",
     priceSource: cost.input !== undefined || cost.output !== undefined ? priceSource : "unknown",
     priceCurrency: cost.input !== undefined || cost.output !== undefined ? "USD" : "unknown",
@@ -42,6 +45,8 @@ export function nativeModelFacts(
     ...(cost.output === undefined ? {} : { outputPricePerMillion: cost.output }),
     ...(contextLength === undefined ? {} : { contextLength }),
     toolCall: model.capabilities.tools,
+    inputModalities: [...new Set(model.capabilities.input)].sort(),
+    outputModalities: [...new Set(model.capabilities.output)].sort(),
     ...(capabilities.length === 0 ? {} : { capabilities }),
   }
 }

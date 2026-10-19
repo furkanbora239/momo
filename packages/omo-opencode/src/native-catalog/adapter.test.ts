@@ -82,7 +82,7 @@ describe("native catalog adapter", () => {
     await adapter.refresh()
     const models = await adapter.catalog.listAvailable()
     expect(models.map((item) => `${item.providerID}/${item.id}`)).toEqual(["live/native-alias"])
-    expect(models[0]).toMatchObject({ inputPricePerMillion: 0.2, outputPricePerMillion: 1.1, contextLength: 64000, toolCall: true })
+    expect(models[0]).toMatchObject({ inputPricePerMillion: 0.2, outputPricePerMillion: 1.1, contextLength: 64000, toolCall: true, inputModalities: ["text"], outputModalities: ["text"] })
     expect(adapter.snapshot().sources["live/native-alias"]).toEqual(["opencode.provider.list", "opencode.model.list", "provider.GET /models"])
     expect(adapter.snapshot().transportModelIDs["live/native-alias"]).toBe("transport-name")
     expect(adapter.snapshot().unregisteredLiveModels.live).toEqual(["live-only"])
@@ -230,4 +230,38 @@ it("reports paused maintenance and model-only policy availability until its orig
     expect(adapter.snapshot().models.every(m => m.available)).toBe(true)
     expect(adapter.snapshot().unavailableModels).toEqual({})
   } finally { rmSync(root, { recursive: true, force: true }) }
+})
+
+describe("published free model admission", () => {
+  it("admits only source-verified public rows without integration credentials or a live authenticated discovery request", async () => {
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({
+        providers: [provider("opencode", { integrationID: "missing", settings: { baseURL: "https://opencode.ai/zen/v1" } })],
+        models: [model("opencode", "free"), model("opencode", "paid"), model("opencode", "unknown")],
+      }),
+      readPool: () => pool,
+      readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }),
+      readHealth: () => ({}),
+      readPublishedModels: async () => new Map([
+        ["opencode/free", { source: "https://models.dev/api.json", description: "Coding model", inputPricePerMillion: 0, outputPricePerMillion: 0 }],
+        ["opencode/paid", { source: "https://models.dev/api.json", inputPricePerMillion: 1, outputPricePerMillion: 2 }],
+      ]),
+      fetchImpl: async () => { throw new Error("public discovery must not resolve or send expired credentials") },
+    })
+    const snapshot = await adapter.refresh()
+    expect(snapshot.connectedProviders).toEqual(["opencode"])
+    expect(snapshot.models).toHaveLength(1)
+    expect(snapshot.models[0]).toMatchObject({ id: "free", inputPricePerMillion: 0, outputPricePerMillion: 0, priceOrigin: "https://models.dev/api.json", published: { description: "Coding model" } })
+  })
+
+  it("keeps public free models disabled when their provider toggle is off", async () => {
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider("opencode", { integrationID: "missing", settings: {} })], models: [model("opencode", "free")] }),
+      readPool: () => pool,
+      readToggles: () => ({ version: 1, disabled: ["opencode"], updatedAt: "test" }),
+      readHealth: () => ({}),
+      readPublishedModels: async () => new Map([["opencode/free", { source: "https://models.dev/api.json", inputPricePerMillion: 0, outputPricePerMillion: 0 }]]),
+    })
+    expect((await adapter.refresh()).models).toEqual([])
+  })
 })

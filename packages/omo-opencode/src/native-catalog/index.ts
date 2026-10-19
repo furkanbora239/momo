@@ -12,3 +12,6 @@ export type { JobClassificationBatch } from "./job-classification-codec"
 export { createJobClassificationStore } from "./job-classification-store"
 export type { JobClassDefinitions, JobClassificationInput, JobClassificationProfile, JobClassificationResult, JobClassificationUsageReceipt } from "./job-classification-types"
 export { captureJobClassificationUsage } from "./job-classification-usage"
+
+export { createNativePublishedModelReader } from "./published-models"
+export type { NativePublishedModel } from "./published-models"

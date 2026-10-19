@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode/plugin"
-import type { NativeKnowledgeFact, NativeModelRef, NativeOutcomeFact, NativeResearchContext, NativeRouterStore } from "../native-routing/types"
+import type { NativeKnowledgeFact, NativeModelFacts, NativeModelRef, NativeOutcomeFact, NativeResearchContext, NativeRouterStore } from "../native-routing/types"
 import type { ModelPool } from "../shared/model-pool"
 import type { ProviderToggles } from "../shared/provider-toggles"
 import type { ProviderHealthSnapshot } from "../shared/provider-health"
@@ -19,19 +19,12 @@ export interface NativeCatalogSnapshot {
   readonly unavailableProviders: Readonly<Record<string, { readonly reason: string; readonly until?: number; readonly statusCode?: number }>>
 }
 
-export interface NativeCatalogModelFacts extends NativeModelRef {
-  readonly available: boolean
-  readonly priceSource?: "models.dev" | "opencode.model.list" | "provider" | "configuration" | "unknown"
-  readonly priceCurrency?: "USD" | "unknown"
-  readonly priceOrigin?: string
-  readonly inputPricePerMillion?: number
-  readonly outputPricePerMillion?: number
-  readonly contextLength?: number
-  readonly toolCall?: boolean
-  readonly capabilities?: readonly string[]
+export interface NativeCatalogModelFacts extends NativeModelFacts {
+  readonly published?: import("./published-models").NativePublishedModel
 }
 
 export interface NativeCatalogAdapterOptions {
+  readonly readPublishedModels?: (models: readonly import("@opencode/client").ModelInfo[], providers: readonly import("@opencode/client").ProviderInfo[]) => Promise<ReadonlyMap<string, import("./published-models").NativePublishedModel>>
   readonly readMaintenance?: () => Promise<import("./research-maintenance").NativeResearchMaintenanceEntry[]>
   readonly modelPolicyHealth?: import("./model-policy-health").NativeModelPolicyHealth
   readonly context: NativeCatalogContext
