@@ -238,5 +238,68 @@
       "seconds": 239.74,
       "artifact": ".omo/evidence/20261020-shared-model-catalog/full-suite-publish.log"
     }
+  },
+  "realJevCatalog": {
+    "receipt": {
+      "status": "passed",
+      "rootModel": "controlled local delegation fixture",
+      "workerModel": "mimo-v2.6-flash-free",
+      "jevModel": "jev-1.13-free",
+      "bundleSHA256": "67aa2b2bde2fd1ff0ec682e53cb76deee33853b1796459881db9d074935c881e",
+      "credentialsCopied": false,
+      "publishedMetadataFromVerifiedFile": true,
+      "nativeProviderSource": "builtin OpenCode registry",
+      "version": "2.0.32",
+      "requestedCandidates": [
+        "mimo-v2.6-flash-free",
+        "nemotron-3.5-lightning-free",
+        "longcat-2.5-preview-free"
+      ],
+      "registeredCandidates": [
+        "mimo-v2.6-flash-free",
+        "nemotron-3.5-lightning-free",
+        "longcat-2.5-preview-free"
+      ],
+      "removedCandidates": [],
+      "catalogOnly": true,
+      "rootCalls": 0,
+      "cleanup": {
+        "before": "session|249\nsession_v2|322\nsession_message|19966",
+        "after": "session|249\nsession_v2|322\nsession_message|19966",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          52228
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-UBRc7b/data/opencode/opencode.db",
+          "/tmp/momo-job-class-UBRc7b/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-UBRc7b/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      }
+    },
+    "classifier": {
+      "queued": 0,
+      "inflight": 0,
+      "failed": 0,
+      "paused": 0,
+      "batches": 1,
+      "completedProfiles": 3,
+      "staleProfiles": 0,
+      "lastReceiptID": "classification:9dad6d2c-5820-41d2-be14-4b38aeba7a17",
+      "running": false,
+      "backgroundRunning": true
+    },
+    "discovery": {
+      "scanned": 3,
+      "known": 3,
+      "unknown": 0,
+      "enqueued": 0,
+      "contextUnavailable": false
+    },
+    "scope": "Real public Jev classification of three bundled cards; no root generation or worker execution, verified fresh metadata preseeded from TLS-verified official file."
   }
 }
