@@ -1,7 +1,13 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-10-19
+**Last Updated:** 2026-10-20
 **Version / Branch:** `dev`
+
+## Shared repository model research (2026-10-20)
+
+Model cards are versioned in `packages/omo-opencode/assets/model-catalog.json` and embedded in the plugin/CLI. Source-backed local research can override bundled cards; exact aliases/canonical identities support reuse at new endpoints without moving endpoint prices or runtime outcome claims. Installed copies never write shipped cards. `catalog export` produces a validated contribution document for a PR; `catalog validate` validates card registries. Initial cards cover MiMo V2.6 Flash, Nemotron 3.5 Lightning and LongCat 2.5 Preview, with published-claim and hosted-checkpoint limitations.
+
+Automatic discovery considers only unknown currently eligible models. Known cards have no research TTL. One idle maintenance assignment runs at a time; absent an explicit research binding, only a current verified free tool-capable executor may be selected. No free executor pauses discovery, with no paid fallback. Unknown models wait for research before automatic classification; `catalog.auto_research: false` retains metadata-only classification. Interrupted legacy jobs without a recorded executor are quarantined rather than replayed or blocking new jobs. Shutdown drains startup/periodic discovery before tools are disposed. Real native acceptance and publication gates are recorded with this delivery; parallel projects still do not have a distributed exactly-once research guarantee.
 
 ## Public Jev and source-backed catalog readiness (2026-10-19)
 
