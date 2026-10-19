@@ -13187,8 +13187,13 @@
         "catalog": {
           "type": "object",
           "properties": {
+            "auto_research": {
+              "default": true,
+              "description": "Research previously unknown eligible models once while idle, using an explicit executor or a verified free tool-capable model. Bundled cards skip research.",
+              "type": "boolean"
+            },
             "research_executor": {
-              "description": "Explicit executor binding for bounded native catalog maintenance. Omitted leaves maintenance paused.",
+              "description": "Explicit executor binding for bounded native catalog maintenance. Omitted selects an eligible verified free tool-capable model; no paid fallback.",
               "type": "object",
               "properties": {
                 "providerID": {
@@ -13273,6 +13278,7 @@
             }
           },
           "required": [
+            "auto_research",
             "prefer_providers"
           ],
           "additionalProperties": false
@@ -30066,8 +30072,13 @@
               "catalog": {
                 "type": "object",
                 "properties": {
+                  "auto_research": {
+                    "default": true,
+                    "description": "Research previously unknown eligible models once while idle, using an explicit executor or a verified free tool-capable model. Bundled cards skip research.",
+                    "type": "boolean"
+                  },
                   "research_executor": {
-                    "description": "Explicit executor binding for bounded native catalog maintenance. Omitted leaves maintenance paused.",
+                    "description": "Explicit executor binding for bounded native catalog maintenance. Omitted selects an eligible verified free tool-capable model; no paid fallback.",
                     "type": "object",
                     "properties": {
                       "providerID": {
@@ -30152,6 +30163,7 @@
                   }
                 },
                 "required": [
+                  "auto_research",
                   "prefer_providers"
                 ],
                 "additionalProperties": false

@@ -1,3 +1,5 @@
+import { createCatalogMaintenanceRunner } from "./catalog-maintenance-runner"
+import { createNativeCatalogResearchContext } from "./catalog-research-context"
 import { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
 import { nativeJevApiKey } from "./jev-credentials"
 import { createCatalogJobRouting } from "./catalog-job-routing"
@@ -10,7 +12,7 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { createNativeTaskEngine } from "../native-task"
 import type { NativeTaskEngine, NativeTaskRole } from "../native-task"
-import { createNativeCatalogAdapter, createNativeCatalogKnowledgeStore, createNativePublishedModelReader, registerNativeCatalogKnowledgeTool } from "../native-catalog"
+import { createNativeCatalogAdapter, createNativeCatalogKnowledgeStore, createNativeResearchDiscovery, isAutomaticResearchExecutor, hasUsableModelKnowledge, createNativePublishedModelReader, registerNativeCatalogKnowledgeTool } from "../native-catalog"
 import { createNativeRouter, createJsonlNativeRouterStore } from "../native-routing"
 import { createFileNativeTaskRepository } from "../native-task"
 import { createNativeSessionRuntime } from "./session-runtime"
@@ -85,22 +87,38 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   const knowledgeStore = createNativeCatalogKnowledgeStore(`${homeRoot()}/.omo/native/catalog-knowledge.json`)
   const advisorPool = getAdvisorPoolConfig(ctx.location.directory)
   const modelPolicyHealth = createNativeModelPolicyHealth(`${dataRoot}/model-policy-health.json`)
+  const autoResearch = appConfig.catalog?.auto_research !== false
   const binding = appConfig.catalog?.research_executor
+  async function researchExecutor() {
+    if (maintenanceRunner.stopping()) return undefined
+    if (binding) return { providerID: binding.providerID, id: binding.modelID }
+    if (!autoResearch) return undefined
+    const models = await catalog.catalog.listAvailable()
+    for (const model of [...models].sort((a, b) => `${a.providerID}/${a.id}`.localeCompare(`${b.providerID}/${b.id}`))) {
+      if (isAutomaticResearchExecutor(model) && await catalog.pool.isAllowed(model)) return { providerID: model.providerID, id: model.id }
+    }
+    return undefined
+  }
   const maintenance = createNativeResearchMaintenance(`${dataRoot}/catalog-maintenance.json`, {
     executor: binding ? { providerID: binding.providerID, id: binding.modelID } : undefined,
-    isEligible: async (model) => (await catalog.catalog.listAvailable()).some((item) => item.available && item.toolCall !== false && item.providerID === model.providerID && item.id === model.id) && await catalog.pool.isAllowed(model),
+    getExecutor: binding ? undefined : researchExecutor,
+    isTargetEligible: async (model) => (await catalog.catalog.listAvailable()).some(item => item.available && item.providerID === model.providerID && item.id === model.id) && await catalog.pool.isAllowed(model),
+    isEligible: async (model) => (await catalog.catalog.listAvailable()).some((item) => item.available && item.toolCall !== false && item.providerID === model.providerID && item.id === model.id && (binding !== undefined || autoResearch && isAutomaticResearchExecutor(item))) && await catalog.pool.isAllowed(model),
     isBusy: async () => {
+      if (maintenanceRunner.stopping()) return true
       const tasks = await repository.list()
       if (tasks.some((task) => !task.maintenance && ["awaiting_selection", "running", "queued", "waiting_children", "waiting_question"].includes(task.state))) return true
-      const active = await client.session.active()
-      return tasks.some((task) => active[task.rootSessionID] !== undefined)
+      return researchContext.isBusy()
     },
     resume: async (taskID, context) => { if (engine) await engine.resume(taskID, context.rootSessionID) },
     inspect: async (taskID) => (await repository.get(taskID))?.state,
-    hasKnowledge: async (model) => knowledgeStore.read(model)?.known === true,
+    hasKnowledge: async (model) => hasUsableModelKnowledge(await catalog.knowledge.get(model)),
     create: async ({ model, context, executor, taskID }) => {
       if (!engine) throw new Error("Native task engine is not ready for maintenance")
-      return engine.createResearch({ taskID, executor, callerSessionID: context.rootSessionID, sourceDecisionID: context.decisionId, prompt: `Research published capabilities, limits, and input/output prices for ${model.providerID}/${model.id}. Cite official documentation and persist verified facts with momo_catalog_enrich. Leave missing facts unknown.`, scope: `Origin decision ${context.decisionId}. Exact model ${model.providerID}/${model.id}. Headless maintenance: do not request caller choices or questions.`, })
+      const snapshot = catalog.snapshot(), key = `${model.providerID}/${model.id}`
+      const facts = snapshot.models.find(item => item.providerID === model.providerID && item.id === model.id)
+      const identity = { transportModelID: snapshot.transportModelIDs[key], canonical: facts?.canonical, name: facts?.displayName, family: facts?.family, description: facts?.published?.description }
+      return engine.createResearch({ taskID, executor, callerSessionID: context.rootSessionID, sourceDecisionID: context.decisionId, prompt: `Research the exact model ${model.providerID}/${model.id} from official model cards and documentation. Save a concise summary, strengths and limitations with source URLs using momo_catalog_enrich. Cover coding, research, planning, analysis, writing and image understanding only when documented. Distinguish model capabilities from this endpoint's prices or availability; never infer a free price from another provider. Leave unsupported claims unknown. Current model identity facts: ${JSON.stringify(identity)}.`, scope: `Origin decision ${context.decisionId}. Exact model ${model.providerID}/${model.id}. Headless maintenance: do not request caller choices or questions.`, })
     },
   })
   const catalog = createNativeCatalogAdapter({
@@ -134,7 +152,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     },
   })
   const jobRouting = createCatalogJobRouting({ directory: ctx.location.directory, catalog, routerStore, managerConfig,
-    classes: appConfig.catalog?.job_classes, revision: admission.revision,
+    classes: appConfig.catalog?.job_classes, waitForKnowledge: autoResearch, revision: admission.revision,
     beforeRoutingRequest: admission.beforeRoutingRequest, beforeClassificationRequest: admission.beforeClassificationRequest,
     async getApiKey() {
       await admission.assertManagerProvider()
@@ -144,6 +162,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     onError: error => console.warn("momo catalog classification failed", error),
   })
   const router = createNativeRouter({
+    authorizeCatalogResearch: async input => autoResearch && !maintenanceRunner.stopping() && input.sourceDecisionID === `catalog-discovery:${input.rootSessionID}` && await researchContext.owns(input.rootSessionID),
     jev: jobRouting.jev,
     accountant: jobRouting.accountant,
     ...catalog,
@@ -159,6 +178,22 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   })
   const config = loadNativeRuntimeConfig(ctx.location.directory).background_task
   const client = await discoverNativeV2Client()
+  const researchContext = createNativeCatalogResearchContext({ directory: ctx.location.directory, identity: `${dataRoot}/catalog-discovery`, sessions: client.session })
+  let discoveryStatus: Awaited<ReturnType<ReturnType<typeof createNativeResearchDiscovery>["discover"]>> | undefined
+  const discovery = createNativeResearchDiscovery({
+    listModels: () => catalog.catalog.listAvailable(),
+    isAllowed: model => catalog.pool.isAllowed(model),
+    knowledge: model => catalog.knowledge.get(model),
+    enqueue: async (model, context) => { if (!maintenanceRunner.stopping()) await maintenance.enqueue(model, context) },
+    context: async () => {
+      const executor = await researchExecutor()
+      return executor && !maintenanceRunner.stopping() ? researchContext.context() : undefined
+    },
+  })
+  const maintenanceRunner = createCatalogMaintenanceRunner({
+    discover: async () => { if (autoResearch) discoveryStatus = await discovery.discover() },
+    pump: () => maintenance.pump(),
+  })
   let engine: NativeTaskEngine | undefined
   const sessionRuntime = createNativeSessionRuntime({
     client,
@@ -185,7 +220,12 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     router,
     runtime: sessionRuntime,
     onExecutionFailure: createNativeModelPolicyObserver(sessionRuntime, modelPolicyHealth),
-    canRunMaintenance: async (task) => (await client.session.active())[task.rootSessionID] === undefined,
+    canRunMaintenance: async (task) => {
+      if (maintenanceRunner.stopping() || await researchContext.isBusy()) return false
+      if (!autoResearch && task.sourceDecisionID?.startsWith("catalog-discovery:")) return false
+      if (binding) return (await client.session.active())[task.rootSessionID] === undefined
+      return autoResearch && (await catalog.catalog.listAvailable()).some(model => isAutomaticResearchExecutor(model) && model.providerID === task.model?.providerID && model.id === task.model.id)
+    },
     defaultConcurrency: config?.defaultConcurrency ?? 5,
     providerConcurrency: config?.providerConcurrency,
     modelConcurrency: config?.modelConcurrency,
@@ -267,7 +307,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     exportDecisions: async () => ({ lines: [...await router.exportLedger()] }),
     catalogSnapshot: async () => {
       const snapshot = await catalog.refresh()
-      return { snapshot: jsonSafe({ ...snapshot, classifier: jobRouting.classifier.status() }), providerIDs: await catalog.listProviderIDs() }
+      return { snapshot: jsonSafe({ ...snapshot, discovery: discoveryStatus, classifier: jobRouting.classifier.status() }), providerIDs: await catalog.listProviderIDs() }
     },
   })
   const disposeKnowledgeTool = await registerNativeCatalogKnowledgeTool(ctx, knowledgeStore, (agentID) => agentID === "momo-catalog-researcher" && activeOwnedIDs.has(agentID))
@@ -293,16 +333,17 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   })()
   await nativeEngine.reconcile()
   await router.recoverResearch()
-  await maintenance.pump()
+  void maintenanceRunner.run().catch(error => console.warn("momo catalog discovery failed", error))
   jobRouting.classifier.start()
   const watchdog = setInterval(() => {
-      void Promise.all([nativeEngine.checkWatchdogs(), nativeEngine.retryDeliveries(), maintenance.pump()]).catch((error: unknown) => console.warn("momo native task recovery failed", error))
+      void Promise.all([nativeEngine.checkWatchdogs(), nativeEngine.retryDeliveries(), maintenanceRunner.run()]).catch((error: unknown) => console.warn("momo native task recovery failed", error))
   }, 30_000)
   return {
     engine: nativeEngine,
     dispose: async () => {
       disposed = true
       clearInterval(watchdog)
+      await maintenanceRunner.stop()
       await jobRouting.classifier.stop()
       await iterator.return?.()
       await eventLoop

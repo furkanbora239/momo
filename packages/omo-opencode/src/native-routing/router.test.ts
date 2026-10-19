@@ -942,3 +942,23 @@ test("given preparation reports semantic pending work, caller selection remains 
   const result = await router.route(input()); expect(result.kind).toBe("awaiting_selection"); expect(routes).toBe(0)
   expect((await store.load()).filter(row => row.type === "breaker" || row.type === "jev_call")).toEqual([])
 })
+
+
+test("only runtime-authorized discovery roots bind startup research without a fabricated source dispatch", async () => {
+  const selected = model("researcher"), store = memoryStore()
+  let calls = 0, allowed = true, authorized = true
+  const base = deps({ models: [selected], store, allowed: () => allowed, choose: async () => { calls++; return answer("worker", selected) } })
+  const brief = input({ decisionId: "discovery", sourceDecisionID: "catalog-discovery:root-1", parentSessionID: "root-1", requiredRole: "catalog-researcher" })
+  expect((await createNativeRouter(base).bindResearch(brief, selected)).kind).toBe("unavailable")
+  const router = createNativeRouter({ ...base, authorizeCatalogResearch: async request => authorized && request.rootSessionID === "root-1" && request.sourceDecisionID === "catalog-discovery:root-1" })
+  expect((await router.bindResearch({ ...brief, sourceDecisionID: "forged" }, selected)).kind).toBe("unavailable")
+  expect((await router.bindResearch(brief, selected)).kind).toBe("selected")
+  expect(calls).toBe(0)
+  const rows = await store.load()
+  const decision = rows.find((row): row is NativeDecisionRecord => row.type === "decision")
+  expect(decision?.selected?.by).toBe("runtime")
+  authorized = false
+  expect((await router.bindResearch({ ...brief, decisionId: "disabled-discovery" }, selected)).kind).toBe("unavailable")
+  allowed = false
+  expect((await router.revalidateSelected("discovery", "root-1")).kind).toBe("unavailable")
+})
