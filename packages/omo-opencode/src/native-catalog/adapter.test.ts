@@ -37,6 +37,23 @@ function model(providerID: string, id: string, extras: Record<string, unknown> =
 }
 
 describe("native catalog adapter", () => {
+  it("uses shared knowledge for an exact transport identity and retains usable local overrides", async () => {
+    let local = undefined as { model: { providerID: string; id: string }; known: boolean; summary: string; source: string } | undefined
+    const ref = { providerID: "new-provider", id: "my-worker" }
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider(ref.providerID, { settings: {} })], models: [model(ref.providerID, ref.id, { modelID: "mimo-v2.6-flash-free" })] }),
+      readPool: () => pool, readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }), readHealth: () => ({}),
+      readKnowledge: () => local,
+    })
+    await adapter.refresh()
+    expect(await adapter.knowledge.get(ref)).toMatchObject({ known: true, model: ref })
+    local = { model: ref, known: true, summary: "operator evidence", source: "https://local.test/model" }
+    expect(await adapter.knowledge.get(ref)).toEqual(local)
+    local = { ...local, source: "" }
+    expect((await adapter.knowledge.get(ref)).source).toContain("huggingface.co")
+    expect(adapter.snapshot().models[0].inputPricePerMillion).toBe(0.2)
+  })
+
   it("rechecks provider toggles after a shared live refresh completes", async () => {
     let disabled: string[] = []
     let release: (() => void) | undefined

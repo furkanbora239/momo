@@ -8,7 +8,8 @@ import { createProviderHealthStore } from "../shared/provider-health"
 import { createNativeControlStores } from "./native-control-stores"
 import { fetchNativeLiveModels, type NativeLiveModel, type NativeLiveModelsResult } from "./live-models"
 import { nativeModelFacts, resolveNativePriceSource } from "./model-facts"
-import { hasVerifiedKnowledgeSource } from "./knowledge-facts"
+import { hasUsableModelKnowledge, hasVerifiedKnowledgeSource } from "./knowledge-facts"
+import { readBundledModelKnowledge } from "./model-cards"
 import { createNativeCatalogKnowledgeStore } from "./knowledge-store"
 import { resolveNativeCatalogHealthDirectory, resolveNativeOmoDirectory } from "./paths"
 import { isOfficialPublicProvider } from "./public-provider"
@@ -186,14 +187,17 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
   } satisfies NativePool
   const knowledge: NativeKnowledge = {
     get(model) {
-      const fromOption = options.readKnowledge?.(model)
-      if (fromOption) return hasVerifiedKnowledgeSource(fromOption) ? fromOption : { ...fromOption, known: false }
+      let local = options.readKnowledge?.(model)
       try {
-        return knowledgeStore.read(model) ?? { model, known: false }
+        local ??= knowledgeStore.read(model)
       } catch (error) {
         options.onError?.(`native catalog knowledge read failed for ${model.providerID}/${model.id}`, error)
-        return { model, known: false }
       }
+      if (local && hasUsableModelKnowledge(local)) return local
+      const key = `${model.providerID}/${model.id}`
+      const current = snapshotValue.models.find((item) => item.providerID === model.providerID && item.id === model.id)
+      return readBundledModelKnowledge(model, { canonical: current?.canonical, transportID: snapshotValue.transportModelIDs[key] })
+        ?? (local ? hasVerifiedKnowledgeSource(local) ? local : { ...local, known: false } : { model, known: false })
     },
     research: options.researchModel,
     researchFailed(model, error) { options.onError?.(`model knowledge research failed for ${model.providerID}/${model.id}`, error) },
