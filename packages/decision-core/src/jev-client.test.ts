@@ -215,3 +215,12 @@ describe("createJevClient", () => {
     expect(effort.legend?.[2]).toBe("3 - moderate")
   })
 })
+
+ it("omits Authorization for an explicit anonymous transport", async () => {
+   let headers: Record<string, string> = {}
+   const client = createJevClient({ session: "free", model: "jev-1.13-free", getApiKey: () => undefined,
+     postJson: async (_url, sentHeaders) => { headers = sentHeaders; return okResponse({}) } })
+   const result = await client.ask("state", { q: { type: "noul", instructions: "x" } })
+   expect(headers.Authorization).toBeUndefined()
+   expect(result.costUsd).toBe(0)
+ })

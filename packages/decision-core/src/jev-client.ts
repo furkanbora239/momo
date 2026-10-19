@@ -1,3 +1,4 @@
+import { jevInputPricePerMillion } from "./jev-pricing"
 import {
   DecisionCoreError,
   type JevAnswers,
@@ -11,7 +12,7 @@ const DEFAULT_MODEL = "jev-1.13"
 const DEFAULT_TIMEOUT_MS = 30_000
 const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [3000, 6000, 12000]
 const DEFAULT_MAX_ATTEMPTS = 5
-export const JEV_INPUT_PRICE_PER_MILLION = 0.042
+export { JEV_INPUT_PRICE_PER_MILLION } from "./jev-pricing"
 
 const USER_AGENT = "momo-decision-core/1.0 (opencode client)"
 
@@ -115,6 +116,7 @@ function mapAnswer(value: RawAnswer): JevCallResult["answers"][string] {
 
 function parseSuccess(
   model: string,
+  endpoint: string,
   body: unknown,
   latencyMs: number,
 ): JevCallResult {
@@ -130,7 +132,7 @@ function parseSuccess(
   const usageRaw = raw.usage ?? {}
   const inputTokens = usageRaw.input_tokens ?? 0
   const outputTokens = usageRaw.output_tokens ?? 0
-  const costUsd = (inputTokens * JEV_INPUT_PRICE_PER_MILLION) / 1_000_000
+  const costUsd = (inputTokens * jevInputPricePerMillion(model, endpoint)) / 1_000_000
   return {
     model,
     answers,
@@ -144,7 +146,7 @@ export interface JevClientDeps {
   readonly baseUrl?: string
   readonly model?: string
   readonly session: string
-  readonly getApiKey: () => Promise<string> | string
+  readonly getApiKey: () => Promise<string | undefined> | string | undefined
   readonly postJson?: PostJson
   readonly timeoutMs?: number
   readonly retryDelaysMs?: readonly number[]
@@ -205,8 +207,9 @@ export function createJevClient(deps: JevClientDeps): JevClient {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
+        const apiKey = await deps.getApiKey()
         const headers: Record<string, string> = {
-          Authorization: `Bearer ${await deps.getApiKey()}`,
+          ...(apiKey === undefined ? {} : { Authorization: `Bearer ${apiKey}` }),
           "Content-Type": "application/json",
           "User-Agent": USER_AGENT,
           "x-opencode-session": deps.session,
@@ -219,7 +222,7 @@ export function createJevClient(deps: JevClientDeps): JevClient {
         const latencyMs = Date.now() - startedAt
 
         if (status === 200) {
-          return parseSuccess(model, body, latencyMs)
+          return parseSuccess(model, baseUrl, body, latencyMs)
         }
 
         lastStatus = status
