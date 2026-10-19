@@ -1,7 +1,15 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-10-13
+**Last Updated:** 2026-10-19
 **Version / Branch:** `dev`
+
+## Native v2 live-test repairs and cached job classes (2026-10-19)
+
+The first native live-test repairs are delivered through PRs #38-44: bounded Jev choices, compact task inspection, durable consumption and form delivery, provider admission, single root steering wake, paid/unknown/no-send accounting, model privacy/capacity checks and shared classification/routing budget ownership. F13 file-scope coordination and F14 repeated briefing remain deferred without an established conflicting edit or duplicate injection.
+
+The composed job-class feature now classifies catalog facts in small bounded batches and reuses immutable profiles across restarts and projects. Each task selects class, then native role, then an eligible model. Roles remain separate from job types; provider controls and source fingerprints are rechecked before transport. Unchanged profiles send no additional classification requests. Paid malformed and missing-input usage block capped routing and classification across restart. Simultaneous separate processes with an empty shared cache may still each classify before publication.
+
+Generated schema, build, complete monorepo typecheck, fresh full suite and isolated native OpenCode 2.0.32 scenarios passed on the recorded composed source. Exact-head CI and bounded review remain publication gates. See [the repair status](notes/native-v2-live-test-repair-status-20261018.md) and [source-bound receipt](notes/qa/native-job-classification-20261017.json) for counts, native observations, source hashes and coverage limits. Main promotion and npm publishing are separate.
 
 ## OpenCode v2 native migration (2026-10-12)
 
