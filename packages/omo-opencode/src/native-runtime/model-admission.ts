@@ -1,3 +1,4 @@
+import type { JobClassificationBatch } from "../native-catalog/job-classification-codec"
 import type { SessionInfo } from "@opencode/client"
 import { connectedNativeProviders, createNativeControlStores, resolveNativeCatalogHealthDirectory, type NativeCatalogAdapter, type NativeCatalogContext } from "../native-catalog"
 import type { NativeJevRequest } from "../native-routing"
@@ -53,5 +54,23 @@ export function createNativeModelAdmission(input: {
     if (session.parentID !== undefined && !isModelAllowed(controls.readPool(), model.providerID, model.id)) input.reject("Native child model left the allowed pool before execution")
   }
 
-  return { assertManagerProvider, beforeRoutingRequest, beforeModelRequest }
+  async function beforeClassificationRequest(batch: JobClassificationBatch): Promise<void> {
+    const available = await input.catalog.catalog.listAvailable()
+    const providers = await assertManagerProvider()
+    const pool = controls.readPool()
+    for (const { input: entry } of batch.entries) {
+      const model = entry.model
+      if (!providers.has(model.providerID) || !available.some(row => row.available && row.providerID === model.providerID && row.id === model.id)
+        || !isModelAllowed(pool, model.providerID, model.id) || !input.catalog.pool.isAllowed(model)) input.reject("Classification model eligibility changed before the Jev request")
+    }
+  }
+
+  function revision(): string {
+    const snapshot = input.catalog.snapshot()
+    return JSON.stringify({ pool: controls.readPool(), toggles: controls.readProviderToggles(), health: health.readProviderHealth(),
+      providers: snapshot.connectedProviders, unavailable: snapshot.unavailableProviders,
+      models: snapshot.models.map(model => [model.providerID, model.id, model.available]) })
+  }
+
+  return { assertManagerProvider, beforeRoutingRequest, beforeClassificationRequest, beforeModelRequest, revision }
 }
