@@ -21,5 +21,16 @@
     "problem": "Retained subagent TUI tests left refresh timers active across cases and interfered with a later mocked fs test.",
     "change": "Dispose each test facade in afterEach before removing its fixture paths.",
     "focusedResult": "7 pass, 0 fail across the two affected test files; no product code changed."
+  },
+  "localValidation": {
+    "scope": "Composed native readiness worktree; standalone client branch is separately checked by PR CI.",
+    "monorepoTypecheck": "passed",
+    "scriptTypecheck": "passed",
+    "fullSuite": {
+      "pass": 12865,
+      "skip": 20,
+      "fail": 0
+    },
+    "fullDistributionBuild": "passed"
   }
 }
