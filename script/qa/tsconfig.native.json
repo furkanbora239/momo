@@ -16,6 +16,7 @@
     "./momo-native-job-classification.ts",
     "./momo-native-job-classification-billing.ts",
     "./momo-native-job-classification-fixture.ts",
-    "./momo-native-job-classification-harness.ts"
+    "./momo-native-job-classification-harness.ts",
+    "./momo-native-free-jev.ts"
   ]
 }

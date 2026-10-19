@@ -27,7 +27,7 @@ export function assertRouting(requests: JevRequest[], modelIDs: string[], taskCo
     const [job, role, model] = requests.slice(index, index + 3)
     assert(job && role && model)
     assert.deepEqual(Object.keys(job.questions), ["jobClass"])
-    assert.deepEqual(Object.keys(role.questions).sort(), ["lane", "role"])
+    assert.deepEqual(Object.keys(role.questions).sort(), ["role"])
     for (const body of [job, role]) for (const id of modelIDs) assert(!JSON.stringify(body).includes(id), "Early routing stage leaked model identity")
     assert.deepEqual(Object.keys(model.questions), ["candidate"])
     const jobClass = (JSON.parse(model.state) as { jobClass: string }).jobClass

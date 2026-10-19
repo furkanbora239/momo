@@ -15,7 +15,7 @@ if(process.argv.includes("--self-test")) {
   const env=isolatedEnv("/isolated");assert(Object.keys(env).every(key=>!/TOKEN|SECRET|PASSWORD|API_KEY/.test(key)))
   new Bun.Transpiler({loader:"js"}).transformSync(fixture("/built/index.js","http://127.0.0.1:1234","/isolated/models.json"))
   const stage=(state:Row,questions:JevRequest["questions"]):JevRequest=>({state:JSON.stringify(state),questions})
-  const stages=[stage({brief:{prompt:"CODE"}},{jobClass:{criteria:{coding:"code"}}}),stage({jobClass:"coding",roles:[{role:"worker"}]},{role:{criteria:{worker:"worker"}},lane:{criteria:{direct:"direct"}}}),stage({jobClass:"coding"},{candidate:{criteria:{"worker|class-workers/coding-a":"{}"}}})]
+  const stages=[stage({brief:{prompt:"CODE"}},{jobClass:{criteria:{coding:"code"}}}),stage({jobClass:"coding",roles:[{role:"worker"}]},{role:{criteria:{worker:"worker"}}}),stage({jobClass:"coding"},{candidate:{criteria:{"worker|class-workers/coding-a":"{}"}}})]
   assertRouting([...stages,...stages],["coding-a","research-a"])
   assert.throws(()=>assertRouting([...stages,{...stages[0]!,state:'{"models":["coding-a"]}'},...stages.slice(1)],["coding-a"]),/leaked/)
   console.log("job classification fixture self-test passed; no native process started");process.exit(0)
