@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "models": [
+    {
+      "canonical": "xiaomi/mimo-v2.6-flash",
+      "aliases": [
+        "mimo-v2.6-flash",
+        "mimo-v2.6-flash-free"
+      ],
+      "summary": "Xiaomi's MiMo-V2.6 Flash is an efficiency-oriented model for coding and general agent workflows. The official Flash-RL card describes joint training for code, general agents and visual tasks.",
+      "strengths": [
+        "Repository code tasks and tool-driven agent work are documented training and evaluation targets.",
+        "The published architecture accepts text, image, video and audio with a long context window."
+      ],
+      "limitations": [
+        "Published capabilities describe the model family; each serving provider may expose fewer modalities or a smaller context window.",
+        "The cited evaluation is developer-reported and does not establish reliability for every research, planning or writing task.",
+        "Xiaomi retained the Flash API identifier after replacing checkpoints with the MOPD update; the hosted checkpoint is not assumed identical to the cited Flash-RL weights."
+      ],
+      "sources": [
+        "https://huggingface.co/XiaomiMiMo/MiMo-V2.6-Flash-RL",
+        "https://opencode.ai/v2/docs/console/models/",
+        "https://mimo.xiaomi.com/blog/mimo-v2-6-tool-call-repetition"
+      ],
+      "researchedAt": "2026-10-20T00:00:00Z"
+    },
+    {
+      "canonical": "nvidia/nemotron-3.5-lightning",
+      "aliases": [
+        "nemotron-3.5-lightning",
+        "nemotron-3.5-lightning-free"
+      ],
+      "summary": "NVIDIA Nemotron 3.5 Lightning is a compact hybrid reasoning and chat model for specialized agents. NVIDIA publishes coding, tool-use, instruction-following and long-context evaluations.",
+      "strengths": [
+        "Text reasoning, coding and tool-use are documented capabilities.",
+        "Thinking can be enabled or disabled through the supported chat template."
+      ],
+      "limitations": [
+        "Published results depend on the serving precision, inference settings and evaluation harness; hosted variants are not assumed identical to BF16 reference weights.",
+        "The model's training cutoff limits unaided knowledge of later events; current factual research needs external sources."
+      ],
+      "sources": [
+        "https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "https://opencode.ai/v2/docs/console/models/"
+      ],
+      "researchedAt": "2026-10-19T00:00:00Z"
+    },
+    {
+      "canonical": "meituan/longcat-2.5-preview",
+      "aliases": [
+        "longcat-2.5-preview",
+        "longcat-2.5-preview-free",
+        "LongCat-2.5-Preview"
+      ],
+      "summary": "Meituan's LongCat 2.5 Preview is presented as a multimodal model for coding and productivity, with native tool calls and multi-step reasoning.",
+      "strengths": [
+        "The developer identifies code generation, code understanding and automated programming as intended strengths.",
+        "The developer documents long-context agent tasks and compatibility with coding-agent clients."
+      ],
+      "limitations": [
+        "This is a preview model; the cited product documentation does not establish independent benchmark performance or reliability across all job classes.",
+        "Multimodal input and maximum context depend on the actual serving provider's exposed capabilities."
+      ],
+      "sources": [
+        "https://longcat.ai/",
+        "https://opencode.ai/v2/docs/console/models/",
+        "https://longcat.ai/platform/docs/ChangeLog.html",
+        "https://longcat.ai/platform/docs/"
+      ],
+      "researchedAt": "2026-10-19T00:00:00Z"
+    }
+  ]
+}
