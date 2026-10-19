@@ -263,6 +263,8 @@ export interface NativeRouterConfig {
 }
 
 export interface NativeRouterDeps {
+  /** Runtime-only proof of an owned discovery root; never accepted from tool arguments. */
+  readonly authorizeCatalogResearch?: (input: NativeRouteInput) => Promise<boolean>
   readonly accountant?: import("./jev-accountant").NativeJevAccountant
   readonly jev: NativeJev
   readonly catalog: NativeCatalog

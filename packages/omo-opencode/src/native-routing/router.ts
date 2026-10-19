@@ -376,7 +376,9 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       await ensureLoaded()
       if (input.requiredRole !== "catalog-researcher" || input.parentRole !== "orchestrator" || input.rootSessionID !== input.parentSessionID || input.kind !== "task") return { kind: "unavailable", reason: "explicit maintenance binding requires root catalog research" }
       const origin = input.sourceDecisionID ? byDecision.get(input.sourceDecisionID) : undefined
-      if (!origin?.selected?.taskId || origin.request.input.rootSessionID !== input.rootSessionID || origin.selected.role === "catalog-researcher") return { kind: "unavailable", reason: "maintenance requires a dispatched source decision in the same root" }
+      const fromDispatch = Boolean(origin?.selected?.taskId && origin.request.input.rootSessionID === input.rootSessionID && origin.selected.role !== "catalog-researcher")
+      const fromDiscovery = !fromDispatch && await deps.authorizeCatalogResearch?.(input) === true
+      if (!fromDispatch && !fromDiscovery) return { kind: "unavailable", reason: "maintenance requires a dispatched source decision in the same root or a verified catalog discovery root" }
       const decisionId = input.decisionId ?? createId()
       const existing = byDecision.get(decisionId)
       if (existing) {
@@ -385,9 +387,9 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       }
       const candidates = await snapshot(input)
       const candidate = candidates.find((item) => item.role === "catalog-researcher" && sameModel(item.model, model))
-      const request = { ...requestFor(input, decisionId, candidates, await deps.outcomes.list()), instructions: "Explicit caller configuration binds the maintenance executor; no Jev model selection was requested." }
+      const request = { ...requestFor(input, decisionId, candidates, await deps.outcomes.list()), instructions: "Current catalog maintenance policy binds the executor; no Jev model selection was requested." }
       if (!candidate) { await saveNew(makeRecord(request, "unavailable", "configured maintenance executor is ineligible")); return { kind: "unavailable", decisionId, reason: "configured maintenance executor is ineligible" } }
-      await saveNew({ ...makeRecord(request, "selected", "explicit catalog.research_executor binding"), selected: { role: "catalog-researcher", model: candidate.model, by: "caller" } })
+      await saveNew({ ...makeRecord(request, "selected", fromDiscovery ? "verified catalog discovery binding" : "explicit catalog.research_executor binding"), selected: { role: "catalog-researcher", model: candidate.model, by: fromDiscovery ? "runtime" : "caller" } })
       return { kind: "selected", decisionId, role: "catalog-researcher", model: candidate.model }
     })
   }
