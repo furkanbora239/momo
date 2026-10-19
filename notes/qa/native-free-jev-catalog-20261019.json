@@ -202,8 +202,8 @@
     "script/qa/momo-native-job-classification.ts": "7ae6598904d8ecda2fa58c196a3803f72b89b45cf3d823c4d61b9fefbf1caf48"
   },
   "verification": {
-    "typecheck": "passed before final builtin package alias; publication rerun recorded separately",
-    "scriptTypecheck": "passed; final diagnostic-only addition checked again before publication",
+    "typecheck": "passed on final product and QA sources",
+    "scriptTypecheck": "passed including isolated message diagnostics",
     "fullSuite": {
       "passed": 12865,
       "skipped": 20,
@@ -221,6 +221,11 @@
       "mergeCommit": "a939b357ab3622741a7538a76ca208f5eeac122c",
       "ci": "passed on 286af6c5f34bce199be56f6dd72af0dd83bafe0f",
       "cubic": "SKIPPED: no bot review within 600 seconds; no quota exhaustion independently established"
+    },
+    "nativePR": {
+      "number": 47,
+      "ci": "pending exact-head GitHub gate",
+      "cubic": "pending bounded review gate"
     }
   },
   "limits": [
