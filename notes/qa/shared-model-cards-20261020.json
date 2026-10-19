@@ -1,0 +1,72 @@
+{
+  "kind": "shared-model-card-source-and-cli-acceptance",
+  "status": "passed-composed-native-and-cli",
+  "nativeBundleSHA256": "7f62f28b670bdeff371d56768000af3832e6228568c50b6f0bc3b836dbf18e66",
+  "cli": {
+    "status": "passed",
+    "compiledEntry": "dist/cli-node/index.js",
+    "entrySHA256": "443b7a906ec71d3d3464f3a0f8bbfdf169f019869dc567f88f73dadaa74db616",
+    "validatesBundledCards": 3,
+    "exportedCards": 1,
+    "providerPriceExcluded": true,
+    "overwriteWithoutForce": "rejected",
+    "credentialsCopied": false
+  },
+  "cards": [
+    "xiaomi/mimo-v2.6-flash",
+    "nvidia/nemotron-3.5-lightning",
+    "meituan/longcat-2.5-preview"
+  ],
+  "sourceHashes": {
+    "packages/omo-opencode/assets/model-catalog.json": "5444685a0bc12c0dee1525def27ff4b847a3b19bc8df0d08166206f883a311d6",
+    "packages/omo-opencode/src/native-catalog/model-cards.ts": "7539c404e905c6446e352647f80dec1dfd21fbac29efa95ce086310b5548b32d",
+    "packages/omo-opencode/src/native-catalog/model-card-export.ts": "1d2516d7bb13e7133c67ed50af78163302c1f68e6dfdb53b492e19fee2d7ea3d",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "b10fd3a658f084396021d17c2eae485b96acac4c4f890d53c548e0317d2d7e72",
+    "packages/omo-opencode/src/native-catalog/knowledge-store.ts": "ee7752b46a3b3ea05c9c57eedf38d68f47f99d96f22594b6ad9cee799f2ad53e",
+    "packages/omo-opencode/src/cli/catalog-command.ts": "f0de575d25659ca1c527288f2c94be11ee96876ce84807afb31a787d6ba8e58b"
+  },
+  "nativeObserved": {
+    "version": "2.0.32",
+    "knownCardReusedAtNewEndpoint": true,
+    "restartRepeatedResearch": false,
+    "realProviderProof": false,
+    "proof": "Real OpenCode with controlled providers and Jev; composed with the dependent automatic-research feature. Not a standalone foundation bundle acceptance or capability benchmark.",
+    "cleanup": {
+      "before": "session|249\nsession_v2|322\nsession_message|19966",
+      "after": "session|249\nsession_v2|322\nsession_message|19966",
+      "unchanged": true,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        25925,
+        26408,
+        26447
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-2T8tdp/data/opencode/opencode.db",
+        "/tmp/momo-job-class-2T8tdp/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-2T8tdp/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  },
+  "limits": [
+    "Published model claims are not measured task outcomes. Hosted checkpoint and modality restrictions remain explicit.",
+    "Shared cards are delivered with momo updates; runtime research writes local cache and requires explicit export/review/PR to share.",
+    "Canonical identity is reviewed explicitly; fixed Flash-RL weights are not treated as a hosted Flash checkpoint alias."
+  ],
+  "verification": {
+    "fullSuite": {
+      "passed": 12894,
+      "skipped": 20,
+      "failed": 0,
+      "assertions": 40078,
+      "files": 1584,
+      "seconds": 238.76,
+      "scope": "composed worktree with dependent startup-research implementation; standalone publication verified by exact-head CI"
+    },
+    "typecheck": "passed; exact-head CI will verify each publication branch",
+    "build": "passed"
+  }
+}
