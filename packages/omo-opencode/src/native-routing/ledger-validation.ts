@@ -42,6 +42,7 @@ function isDecisionRecord(value: Record<string, unknown>): value is Record<strin
     !Array.isArray(request.allowedRoles) || !request.allowedRoles.every((role) => typeof role === "string") ||
     !Array.isArray(request.candidates) || !request.candidates.every(isCandidate) ||
     !Array.isArray(request.knowledge) || !Array.isArray(request.outcomes) || typeof request.instructions !== "string") return false
+  if (value.jevCallId !== undefined && (typeof value.jevCallId !== "string" || !value.jevCallId.length)) return false
   if (value.jevAttempted !== undefined && typeof value.jevAttempted !== "boolean") return false
   if (value.jevUsage !== undefined && (!isObject(value.jevUsage) || [value.jevUsage.inputTokens, value.jevUsage.outputTokens, value.jevUsage.costUsd].some((amount) => amount !== undefined && (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0)))) return false
   if (value.selected !== undefined) {
@@ -74,6 +75,14 @@ function isDecisionRecord(value: Record<string, unknown>): value is Record<strin
 
 export function parseNativeLedgerRecord(value: unknown): NativeLedgerRecord | undefined {
   if (!isObject(value) || value.version !== 1) return undefined
+  if (value.type === "jev_call") {
+    const usage = value.usage
+    return typeof value.callId === "string" && value.callId.length > 0 &&
+      (value.purpose === "routing" || value.purpose === "classification") && typeof value.inputDigest === "string" && /^[a-f0-9]{64}$/.test(value.inputDigest) &&
+      typeof value.createdAt === "string" && Number.isFinite(Date.parse(value.createdAt)) && ["pending", "complete", "not_sent"].includes(String(value.status)) &&
+      (usage === undefined || isObject(usage) && [usage.inputTokens, usage.outputTokens, usage.costUsd].every(amount => amount === undefined || typeof amount === "number" && Number.isFinite(amount) && amount >= 0)) &&
+      (value.status !== "not_sent" || usage === undefined) ? value as unknown as NativeLedgerRecord : undefined
+  }
   if (value.type === "decision") return isDecisionRecord(value) ? value : undefined
   if (value.type === "breaker" && Number.isInteger(value.consecutiveFailures) &&
     Number(value.consecutiveFailures) >= 0 && Number.isFinite(value.openUntil) && Number(value.openUntil) >= 0) {

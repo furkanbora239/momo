@@ -6,6 +6,7 @@ import { createJsonlNativeRouterStore } from "./jsonl-store"
 import { createNativeJevAdapter } from "./jev-adapter"
 import { createNativeJevBackend, nativeJevFailureEvidence } from "./jev-adapter"
 import { createNativeRouter } from "./router"
+import { createNativeJevAccountant } from "./jev-accountant"
 import { NativeJevAdmissionError, type JevCallResult, type JevClient, type JevQuestionSet } from "@oh-my-opencode/decision-core"
 import type {
   NativeDecisionRecord,
@@ -62,7 +63,7 @@ function answer(role: string, selected: NativeModelRef, confidence = 0.95, proba
 
 function deps(options: {
   models?: NativeModelFacts[]
-  choose?: (request: Parameters<NonNullable<NativeRouterDeps["jev"]>["choose"]>[0]) => Promise<NativeJevAnswer>
+  choose?: NativeRouterDeps["jev"]["choose"]
   store?: NativeRouterStore
   allowed?: (model: NativeModelRef) => boolean
   advisorModels?: readonly NativeModelRef[]
@@ -480,12 +481,12 @@ describe("native task routing", () => {
   test("billed malformed answers exhaust budgets after restart without replay", async () => {
     const store = memoryStore()
     let calls = 0
-    const base = deps({ store, choose: async () => { calls += 1; return { ...answer("worker", model("free"), Number.NaN), usage: { inputTokens: 20, outputTokens: 2, costUsd: 0.5 } } } })
-    const first = createNativeRouter({ ...base, config: { monthlyBudgetUsd: 0.5 } })
+    const base = deps({ store, choose: async (_request, audit) => { calls += 1; await audit?.beforeRequest(); await audit?.recordAttempt({ url: "http://fixture", headers: {}, requestBody: {}, status: 200, responseBody: { usage: { input_tokens: 100, output_tokens: 2 } } }); return { ...answer("worker", model("free"), Number.NaN), usage: { costUsd: 999 } } } })
+    const first = createNativeRouter({ ...base, config: { monthlyBudgetUsd: 100 * 0.042 / 1_000_000 } })
     expect((await first.route(input({ decisionId: "paid-malformed" }))).kind).toBe("awaiting_selection")
     const saved = (await store.load()).filter((row) => row.type === "decision").at(-1)
-    expect(saved?.type === "decision" ? saved.jevUsage?.costUsd : undefined).toBe(0.5)
-    const recovered = createNativeRouter({ ...base, config: { monthlyBudgetUsd: 0.5 } })
+    expect(saved?.type === "decision" ? saved.jevUsage?.costUsd : undefined).toBe(100 * 0.042 / 1_000_000)
+    const recovered = createNativeRouter({ ...base, config: { monthlyBudgetUsd: 100 * 0.042 / 1_000_000 } })
     const next = await recovered.route(input({ decisionId: "next-paid" }))
     expect(next.kind === "awaiting_selection" ? next.reason : "").toBe("jev monthly budget cap reached")
     expect(calls).toBe(1)
@@ -495,7 +496,7 @@ describe("native task routing", () => {
     const rows = memoryStore([{ version: 1, type: "breaker", consecutiveFailures: 2, openUntil: 0 }])
     let failed = false
     const store: NativeRouterStore = { ...rows, append: async record => {
-      if (!failed && record.type === "decision" && record.jevAttempted === true) { failed = true; throw new Error("fixture intent disk failure") }
+      if (!failed && record.type === "jev_call" && record.status === "pending") { failed = true; throw new Error("fixture intent disk failure") }
       await rows.append(record)
     } }
     let calls = 0
@@ -515,12 +516,12 @@ describe("native task routing", () => {
     const entered = new Promise<void>(resolve => { started = resolve })
     let release!: (value: NativeJevAnswer) => void
     const reply = new Promise<NativeJevAnswer>(resolve => { release = resolve })
-    const base = deps({ store, choose: async () => { calls += 1; started(); return reply } })
+    const base = deps({ store, choose: async (_request, audit) => { calls += 1; await audit?.beforeRequest(); started(); const result = await reply; await audit?.recordAttempt({ url: "http://fixture", headers: {}, requestBody: {}, status: 200, responseBody: { usage: { input_tokens: 100, output_tokens: 2 } } }); return result } })
     const first = createNativeRouter({ ...base, config: { monthlyBudgetUsd: 1 } })
     const running = first.route(input({ decisionId: "paid-inflight" }))
     await entered
     const persisted = (await store.load()).filter((row): row is NativeDecisionRecord => row.type === "decision").at(-1)!
-    expect(persisted.jevAttempted).toBe(true)
+    expect((await store.load()).some(row => row.type === "jev_call" && row.callId === persisted.jevCallId && row.status === "pending")).toBe(true)
     expect(persisted.jevUsage).toBeUndefined()
     const recovered = createNativeRouter({ ...base, config: { monthlyBudgetUsd: 1 } })
     const paused = await recovered.route(input({ decisionId: "after-interruption" }))
@@ -581,7 +582,7 @@ describe("native task routing", () => {
     const httpAttempt = { url: "https://fixture.invalid/systemone", headers: { Authorization: "[redacted]" }, requestBody: { model: "jev", state: "{}", questions: {} }, status: 200, responseBody: { answers: {}, usage: { input_tokens: 123, output_tokens: 4 } } }
     for (const rawResponse of [{ ...answer("worker", model("free"), 2), usage: { costUsd: 0.5 } }, { httpAttempts: [httpAttempt] }]) {
       let calls = 0
-      const old = { ...saved, jevAttempted: undefined, jevUsage: undefined, jevAnswer: undefined, jevFailure: { message: "malformed Jev response", rawResponse } }
+      const old = { ...saved, jevCallId: undefined, jevAttempted: undefined, jevUsage: undefined, jevAnswer: undefined, jevFailure: { message: "malformed Jev response", rawResponse } }
       const store = memoryStore([old])
       const result = await createNativeRouter({ ...deps({ store, choose: async () => { calls += 1; return answer("worker", model("free")) } }), config: { monthlyBudgetUsd: 0.000001 } }).route(input({ decisionId: "after-historical" }))
       expect(result.kind === "awaiting_selection" ? result.reason : "").toBe("jev monthly budget cap reached")
@@ -594,7 +595,7 @@ describe("native task routing", () => {
     const initial = memoryStore()
     await createNativeRouter({ ...deps({ store: initial }), config: { monthlyBudgetUsd: 0 } }).route(input({ decisionId: "historical" }))
     const saved = (await initial.load()).find((row): row is NativeDecisionRecord => row.type === "decision")!
-    const old = { ...saved, jevAttempted: undefined, jevUsage: undefined, jevAnswer: undefined, jevFailure: { message: "network failure", rawResponse: { httpAttempts: [{ url: "https://fixture.invalid/systemone", headers: {}, requestBody: { model: "jev", state: "{}", questions: {} }, error: "network failure" }] } } }
+    const old = { ...saved, jevCallId: undefined, jevAttempted: undefined, jevUsage: undefined, jevAnswer: undefined, jevFailure: { message: "network failure", rawResponse: { httpAttempts: [{ url: "https://fixture.invalid/systemone", headers: {}, requestBody: { model: "jev", state: "{}", questions: {} }, error: "network failure" }] } } }
     let calls = 0
     const choose = async () => { calls += 1; return { ...answer("worker", model("free")), usage: { costUsd: 0 } } }
     const paused = await createNativeRouter({ ...deps({ store: memoryStore([old]), choose }), config: { monthlyBudgetUsd: 1 } }).route(input({ decisionId: "unknown-old" }))
@@ -611,7 +612,7 @@ describe("native task routing", () => {
     const base = deps({ store, choose: async () => { calls += 1; return answer("worker", model("free"), Number.NaN) } })
     await createNativeRouter({ ...base, config: { monthlyBudgetUsd: 1 } }).route(input({ decisionId: "unknown-billing" }))
     const next = await createNativeRouter({ ...base, config: { monthlyBudgetUsd: 1 } }).route(input({ decisionId: "next-unknown" }))
-    expect(next.kind === "awaiting_selection" ? next.reason : "").toContain("monthly spend is unknown")
+    expect(next.kind === "awaiting_selection" ? next.reason : "").toBe("jev monthly spend is unknown; Jev paused for budget safety")
     expect(calls).toBe(1)
   })
 
@@ -917,4 +918,27 @@ describe("native task routing", () => {
     circular.loop = circular
     await expect(store.append(circular)).rejects.toThrow("not JSON serializable")
   })
+})
+
+test("given catalog preparation shares the last budget unit, it completes before routing acquires the accountant queue", async () => {
+  const store = memoryStore(), accountant = createNativeJevAccountant({ store, monthlyBudgetUsd: 100 * 0.042 / 1_000_000 })
+  let prepared = 0, routes = 0
+  const base = deps({ store }), router = createNativeRouter({ ...base, accountant, jev: {
+    async prepare() {
+      await accountant.run({ callId: "classification-warmup", purpose: "classification", inputDigest: "a".repeat(64) }, async audit => {
+        await audit.beforeRequest(); prepared++
+        await audit.recordAttempt({ url: "http://fixture", headers: {}, requestBody: {}, status: 200, responseBody: { usage: { input_tokens: 100 } } })
+      })
+    },
+    async choose() { routes++; return answer("worker", model("free")) },
+  } })
+  const result = await router.route(input())
+  expect(result.kind === "awaiting_selection" ? result.reason : "").toBe("jev monthly budget cap reached")
+  expect(prepared).toBe(1); expect(routes).toBe(0); expect((await store.load()).filter(row => row.type === "breaker")).toEqual([])
+})
+test("given preparation reports semantic pending work, caller selection remains available without opening the provider breaker", async () => {
+  const store = memoryStore(), base = deps({ store }); let routes = 0
+  const router = createNativeRouter({ ...base, jev: { prepare: () => { throw new Error("class profiles pending") }, choose: async () => { routes++; return answer("worker", model("free")) } } })
+  const result = await router.route(input()); expect(result.kind).toBe("awaiting_selection"); expect(routes).toBe(0)
+  expect((await store.load()).filter(row => row.type === "breaker" || row.type === "jev_call")).toEqual([])
 })

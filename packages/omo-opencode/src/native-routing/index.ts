@@ -34,3 +34,6 @@ export type {
 } from "./types"
 
 export { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
+
+export { createNativeJevAccountant } from "./jev-accountant"
+export type { NativeJevAccountant } from "./jev-accountant"

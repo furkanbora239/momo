@@ -1,0 +1,174 @@
+{
+  "status": "passed",
+  "sourceBase": "e6c286bb1bec5dc4adbf19dbfa33254e937f2ac6",
+  "mergedEquivalentDevBase": "2ee7c0b0d2e57e1e831be0680e0177c5e69032f9",
+  "baseTreesEqual": true,
+  "currentSourceAcceptance": true,
+  "classificationEnabled": false,
+  "scope": "Durable Jev paid-call accounting for current routing; optional shared accountant for future classification",
+  "sourceHashes": {
+    "packages/omo-opencode/src/native-routing/index.ts": "83f3f642275af281f1aecbb6ad1a81050a67cd53901e19e19712b0d90c66673f",
+    "packages/omo-opencode/src/native-routing/jev-adapter.ts": "3fed4c6f0331970f5f575fa7627b6e35a3172307fab40bf4233d088aad8e6e7c",
+    "packages/omo-opencode/src/native-routing/jev-usage.ts": "7e2df39740d9d29dbdc13fe49f9e02ab9940e30737a706f831cc1ea16f28e023",
+    "packages/omo-opencode/src/native-routing/jsonl-store.ts": "d4d50914f96bb8e4dbacdab95a70a194483b4fb69844a0c5d4920ca7167d3e28",
+    "packages/omo-opencode/src/native-routing/ledger-validation.ts": "38b2d785771911a396245c12d7aa255e68fe16b79b91b7b10d5a0bf1f3bff146",
+    "packages/omo-opencode/src/native-routing/router.ts": "77c07bc3a7bfd3fa9d0c7308a05d2f9e1f13a067fa7ee0be3bc1d77c64e58c56",
+    "packages/omo-opencode/src/native-routing/types.ts": "bd16788f5b8fb6c577b9732e237cc4055e16456a21614aef8b4a383b707c27a5",
+    "packages/omo-opencode/src/native-routing/router.test.ts": "8245168781e45098d979c5e9fda4842cd34da72499e47a27d378eefb900ba0a3",
+    "packages/omo-opencode/src/native-routing/jev-accountant.ts": "c5cccf82d3f7bd3655fb879f3684361e52f59829b5afe7e367220d15572dba0a",
+    "packages/omo-opencode/src/native-routing/jev-accountant.test.ts": "f880cb1a0314ede4eee8270daa31b785a5447e806898e04e37e89c97fdd88c5a",
+    "packages/omo-opencode/src/native-routing/jev-transport-audit.test.ts": "75ed5baf31167fd42f2110dc5326f425e8aed73b3f488c2cc007f78606ba8c39",
+    "script/qa/momo-native-acceptance.ts": "b4beac493afbed70e91712ef4e3d8432166e74c562318b350bb8782aaba3610d",
+    "script/qa/native-routing-accounting-proof.ts": "17caf0b8e62789a62d889c55962614b0610bccc8e7bd9e495c49c75cd0537e76"
+  },
+  "sourceUnchangedDuringGates": true,
+  "bundleSHA256": "05f36772356accc6c1881039f4a8f1f692c69652f87d8fe2128d176316987cee",
+  "nativeBinarySHA256": "489b51816a77809e841310e80c88e834c28c19ad1639e12ba8a19f08b47ab607",
+  "focused": {
+    "passed": 67,
+    "failed": 0,
+    "assertions": 224
+  },
+  "gates": {
+    "native-version": "passed",
+    "build": "passed",
+    "typecheck": "passed",
+    "native-paid": "passed",
+    "native-unknown": "passed",
+    "native-no-send": "passed",
+    "full-suite": "passed"
+  },
+  "fullSuite": {
+    "passed": 12739,
+    "skipped": 20,
+    "failed": 0,
+    "assertions": 37406,
+    "files": 1563,
+    "seconds": 260.46
+  },
+  "nativeProofs": {
+    "paid": {
+      "status": "passed",
+      "nativeVersion": "opencode v2.0.32",
+      "jevBeforeRestart": 1,
+      "jevAfterRestart": 1,
+      "distinctCanonicalCalls": 1,
+      "canonicalStatuses": [
+        "complete"
+      ],
+      "sourceUsage": {
+        "inputTokens": 100,
+        "outputTokens": 5,
+        "costUsd": 4.2000000000000004e-06
+      },
+      "actualDatabaseDescriptorChecks": 2,
+      "allDatabasePathsInsideDisposableRoot": true,
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true
+      },
+      "databaseCountsBefore": {
+        "session": "249",
+        "session_v2": "321",
+        "session_message": "19188"
+      },
+      "databaseCountsAfter": {
+        "session": "249",
+        "session_v2": "321",
+        "session_message": "19188"
+      }
+    },
+    "unknown": {
+      "status": "passed",
+      "nativeVersion": "opencode v2.0.32",
+      "jevBeforeRestart": 1,
+      "jevAfterRestart": 1,
+      "distinctCanonicalCalls": 1,
+      "canonicalStatuses": [
+        "complete"
+      ],
+      "sourceUsage": {},
+      "actualDatabaseDescriptorChecks": 2,
+      "allDatabasePathsInsideDisposableRoot": true,
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true
+      },
+      "databaseCountsBefore": {
+        "session": "249",
+        "session_v2": "321",
+        "session_message": "19188"
+      },
+      "databaseCountsAfter": {
+        "session": "249",
+        "session_v2": "321",
+        "session_message": "19188"
+      }
+    },
+    "no-send": {
+      "status": "passed",
+      "nativeVersion": "opencode v2.0.32",
+      "jevBeforeRestart": 0,
+      "jevAfterRestart": 0,
+      "distinctCanonicalCalls": 3,
+      "canonicalStatuses": [
+        "not_sent",
+        "not_sent",
+        "not_sent"
+      ],
+      "sourceUsage": null,
+      "actualDatabaseDescriptorChecks": 2,
+      "allDatabasePathsInsideDisposableRoot": true,
+      "cleanup": {
+        "sandboxRemoved": true,
+        "ownedProcessGroupGone": true,
+        "realDatabaseUnchanged": true
+      },
+      "databaseCountsBefore": {
+        "session": "249",
+        "session_v2": "321",
+        "session_message": "19188"
+      },
+      "databaseCountsAfter": {
+        "session": "249",
+        "session_v2": "321",
+        "session_message": "19188"
+      }
+    }
+  },
+  "cleanup": {
+    "ownedProcessGroupsGone": true,
+    "remainingOwnedTMPProcesses": [],
+    "temporaryRootRemoved": true
+  },
+  "earlierAttempts": [
+    {
+      "receipt": "gates",
+      "status": "failed",
+      "cause": "Runner initially expected a bare version; installed exact version has official opencode prefix. No build launched."
+    },
+    {
+      "receipt": "gates-v2",
+      "status": "failed",
+      "cause": "Missing existing local third-party Senpi dependency links during complete monorepo typecheck."
+    },
+    {
+      "receipt": "gates-v3",
+      "status": "failed",
+      "cause": "Missing existing local third-party Pi dependency links. Declaration-based dependency preflight resolved them without source/lock changes."
+    },
+    {
+      "receipt": "gates-v4",
+      "status": "failed",
+      "cause": "Native unknown-spend test exposed an outer router failure branch changing the typed budget reason. Focused regression RED, one-line fix, focused GREEN; all source-bound gates repeated afterward."
+    }
+  ],
+  "limitations": [
+    "One runtime owner per accounting store; cross-process locking is outside this change.",
+    "A call is billed in the UTC month of its persisted intent.",
+    "Native acceptance uses local mock providers; no production Jev request or performance claim."
+  ],
+  "clockPolicy": "Gate durations are monotonic; host wall-clock labels are three hours ahead of GitHub HTTP Date. Publication/review windows use GitHub HTTP Date."
+}

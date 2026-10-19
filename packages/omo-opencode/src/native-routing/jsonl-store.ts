@@ -51,7 +51,7 @@ export function createJsonlNativeRouterStore(path: string, options: NativeJsonlR
     }
   }
 
-  const key = (record: NativeLedgerRecord): string => record.type === "decision" ? `decision:${record.decisionId}` : "breaker"
+  const key = (record: NativeLedgerRecord): string => record.type === "decision" ? `decision:${record.decisionId}` : record.type === "jev_call" ? `jev_call:${record.callId}` : "breaker"
   async function ensureLoaded(): Promise<void> {
     const currentStamp = await stamp()
     if (content && latest && loadedStamp === currentStamp) return

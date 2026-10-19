@@ -1,4 +1,5 @@
-import { jevUsage, legacyJevBilling } from "./jev-usage"
+import { createHash } from "node:crypto"
+import { createNativeJevAccountant, NativeJevAccountingPersistenceError } from "./jev-accountant"
 import { randomUUID } from "node:crypto"
 import type {
   NativeCandidate,
@@ -31,8 +32,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
   let loadPromise: Promise<void> | undefined
   let consecutiveFailures = 0
   let openUntil = 0
-  let jevReservedSpend = 0
-  let jevSpendUnknown = false
+  const accountant = deps.accountant ?? createNativeJevAccountant({ store: deps.store, monthlyBudgetUsd: config.monthlyBudgetUsd, now })
   const researchQueued = new Map<string, Promise<void>>()
   const byDecision = new Map<string, NativeDecisionRecord>()
   const inflightRoutes = new Map<string, { input: NativeRouteInput; promise: Promise<NativeRouteResult> }>()
@@ -61,20 +61,10 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       loadPromise = deps.store.load().then((loadedRecords) => {
         for (const record of loadedRecords) {
           if (record.type === "decision") byDecision.set(record.decisionId, record)
-          else {
+          else if (record.type === "breaker") {
             consecutiveFailures = record.consecutiveFailures
             openUntil = record.openUntil
           }
-        }
-        const monthStart = new Date(now())
-        monthStart.setUTCDate(1)
-        monthStart.setUTCHours(0, 0, 0, 0)
-        for (const record of byDecision.values()) {
-          if (record.createdAt < monthStart.toISOString()) continue
-          const legacy = legacyJevBilling(record.jevFailure?.rawResponse)
-          const usage = record.jevUsage ?? record.jevAnswer?.usage ?? legacy.usage
-          if ((record.jevAttempted || record.jevAnswer || legacy.attempted) && usage?.costUsd === undefined) jevSpendUnknown = true
-          jevReservedSpend += usage?.costUsd ?? 0
         }
         loaded = true
       }).catch((error) => {
@@ -165,12 +155,13 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       version: 1,
       type: "decision",
       decisionId: request.decisionId,
+      jevCallId: `routing:${request.decisionId}`,
       createdAt: capturedAt,
       request,
       candidateSnapshots: [{ capturedAt, source: "initial", candidates: request.candidates }],
       jevAnswer: answer,
       jevAttempted: answer ? true : undefined,
-      jevUsage: answer?.usage,
+      jevUsage: accountant.receipt(`routing:${request.decisionId}`)?.usage,
       probabilities,
       status,
       reason,
@@ -244,25 +235,23 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       return { kind: "unavailable", decisionId, reason }
     }
     const request = requestFor(input, decisionId, candidates, await deps.outcomes.list())
-    const pending = { ...makeRecord(request, "awaiting_selection", "Jev decision is pending or was interrupted"), choiceCandidates: candidates }
+    const pending = { ...makeRecord(request, "awaiting_selection", "Jev decision is pending or was interrupted"), jevCallId: `routing:${decisionId}`, choiceCandidates: candidates }
     await saveNew(pending)
+    try { await deps.jev.prepare?.(request) }
+    catch (error) {
+      if (error instanceof NativeJevAccountingPersistenceError) throw error
+      const reason = `jev catalog preparation unavailable: ${error instanceof Error ? error.message : String(error)}`
+      await setRecord({ ...pending, reason, jevFailure: { message: reason } })
+      return { kind: "awaiting_selection", decisionId, reason, candidates }
+    }
     const jevResult = await serialJev(async (): Promise<{ answer?: NativeJevAnswer; rawResponse?: unknown; failure?: unknown }> => {
-      if (config.monthlyBudgetUsd !== undefined && jevSpendUnknown) return { failure: new Error("jev monthly spend is unknown; Jev paused for budget safety") }
-      if (config.monthlyBudgetUsd !== undefined && jevReservedSpend >= config.monthlyBudgetUsd) return { failure: new Error("jev monthly budget cap reached") }
       if (now() < openUntil) return { failure: new Error("jev circuit breaker is open") }
       let rawResponse: unknown
       let billing: NativeJevAnswer["usage"]
-      let billed = false
-      const account = (usage: NativeJevAnswer["usage"]) => {
-        billing = usage
-        if (usage?.costUsd === undefined) jevSpendUnknown = true
-        else jevReservedSpend += usage.costUsd
-        billed = true
-      }
-      await setRecord({ ...pending, jevAttempted: true, reason: "Jev request is pending; billing awaits the provider receipt" })
       try {
-        rawResponse = await deps.jev.choose(request)
-        account(jevUsage(rawResponse))
+        const audited = await accountant.run({ callId: `routing:${decisionId}`, purpose: "routing", inputDigest: createHash("sha256").update(JSON.stringify(request)).digest("hex") }, audit => deps.jev.choose(request, audit))
+        rawResponse = audited.value
+        billing = audited.receipt.usage
         if (!isJevAnswer(rawResponse, candidates)) throw new Error("malformed Jev response")
         consecutiveFailures = 0
         openUntil = 0
@@ -270,8 +259,10 @@ export function createNativeRouter(deps: NativeRouterDeps) {
         await setRecord({ ...pending, jevAttempted: true, jevUsage: billing, jevAnswer: rawResponse, reason: "Jev response captured; validating current availability" })
         return { answer: rawResponse }
       } catch (failure) {
-        const notSent = nativeJevFailureNotSent(failure)
-        if (!billed && !notSent) account(jevUsage(failure))
+        if (failure instanceof NativeJevAccountingPersistenceError) throw failure
+        const receipt = accountant.receipt(`routing:${decisionId}`)
+        billing = receipt?.usage
+        const notSent = receipt?.status === "not_sent" || !receipt && nativeJevFailureNotSent(failure)
         if (!notSent && !nativeJevFailureAdmission(failure)) {
           consecutiveFailures += 1
           if (consecutiveFailures >= breakerLimit) openUntil = now() + breakerCooldownMs
@@ -286,7 +277,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     })
     if (!jevResult.answer) {
       const message = jevResult.failure instanceof Error ? jevResult.failure.message : String(jevResult.failure)
-      const reason = message === "jev monthly budget cap reached" || message === "jev circuit breaker is open" ? message : `jev unavailable: ${message}`
+      const reason = message === "jev monthly budget cap reached" || message === "jev circuit breaker is open" || message.startsWith("jev monthly spend is unknown") ? message : `jev unavailable: ${message}`
       const record = byDecision.get(decisionId) ?? pending
       if (record.reason !== reason) await setRecord({ ...record, reason, choiceCandidates: candidates, jevFailure: { message: reason, rawResponse: jevResult.rawResponse } })
       return { kind: "awaiting_selection", decisionId, reason, candidates }
@@ -440,7 +431,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     return deps.store.exportLines()
   }
 
-  return { route, bindResearch, recoverResearch, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger }
+  return { route, bindResearch, recoverResearch, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger, accountant }
 }
 
 export type NativeRouter = ReturnType<typeof createNativeRouter>

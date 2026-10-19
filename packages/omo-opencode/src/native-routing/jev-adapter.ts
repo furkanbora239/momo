@@ -2,7 +2,7 @@ import { usageFromAttempts } from "./jev-http-usage"
 import { NativeJevUsageError, jevUsage } from "./jev-usage"
 import { NativeJevAdmissionError, createJevClient, type JevCallResult, type JevClient, type JevClientDeps, type PostJson } from "@oh-my-opencode/decision-core"
 import { candidateCriteria, JEV_CHOICE_LIMIT, stagedNativeAnswer } from "./jev-staged-selection"
-import type { NativeJev, NativeJevAnswer, NativeJevHttpAttempt, NativeJevRequest } from "./types"
+import type { NativeJev, NativeJevAnswer, NativeJevHttpAttempt, NativeJevRequest, NativeJevCallAudit } from "./types"
 
 const candidateKey = (role: string, providerID: string, id: string): string => `${role}|${providerID}/${id}`
 
@@ -119,57 +119,69 @@ function redactedHeaders(headers: Readonly<Record<string, string>>): Record<stri
 function createAuditedPostJson(
   deps: NativeJevBackendDeps,
   attempts: NativeJevHttpAttempt[],
-  request: NativeJevRequest,
+  beforeRequest: (() => Promise<void> | void) | undefined,
+  audit?: NativeJevCallAudit,
 ): PostJson {
   return async (url, headers, body) => {
-    await deps.beforeRequest?.(request)
+    await beforeRequest?.()
+    await audit?.beforeRequest()
     const entry: { url: string; headers: Readonly<Record<string, string>>; requestBody: unknown; status?: number; responseBody?: unknown; error?: string } = {
       url,
       headers: redactedHeaders(headers),
       requestBody: body,
     }
+    let result: Awaited<ReturnType<PostJson>>
     try {
-      const result = deps.postJson
+      result = deps.postJson
         ? await deps.postJson(url, headers, body)
         : await (async () => {
           const response = deps.fetchNow
             ? await deps.fetchNow()
             : await fetch(url, {
-              method: "POST",
-              headers,
-              body: JSON.stringify(body),
+              method: "POST", headers, body: JSON.stringify(body),
               signal: AbortSignal.timeout(deps.timeoutMs ?? 30_000),
             })
           return { status: response.status, body: parseResponseBody(await response.text()) }
         })()
-      const responseBody = result.body
-      entry.status = result.status
-      entry.responseBody = responseBody
-      attempts.push(entry)
-      return result
     } catch (error) {
       entry.error = error instanceof Error ? error.message : String(error)
       attempts.push(entry)
+      await audit?.recordAttempt(entry)
       throw error
     }
+    entry.status = result.status
+    entry.responseBody = result.body
+    attempts.push(entry)
+    // Storage failure after a paid response must not be caught as a second HTTP attempt.
+    await audit?.recordAttempt(entry)
+    return result
+  }
+}
+
+/** Shared transport for routing and catalog classification. The audit owner persists
+ * provider usage before any semantic decoder receives a response. */
+export async function executeAuditedNativeJev<T>(
+  deps: JevClientDeps,
+  operation: (client: JevClient) => Promise<T>,
+  options: { readonly audit?: NativeJevCallAudit; readonly beforeRequest?: () => Promise<void> | void } = {},
+): Promise<{ readonly value: T; readonly usage: NativeJevAnswer["usage"]; readonly attempts: readonly NativeJevHttpAttempt[] }> {
+  const attempts: NativeJevHttpAttempt[] = []
+  const client = createJevClient({ ...deps, postJson: createAuditedPostJson(deps, attempts, options.beforeRequest, options.audit) })
+  try {
+    const value = await operation(client)
+    return { value, usage: usageFromAttempts(attempts), attempts }
+  } catch (error) {
+    throw new NativeJevRequestError(error, attempts)
   }
 }
 
 export function createNativeJevBackend(deps: NativeJevBackendDeps): NativeJev {
   return {
-    async choose(request) {
-      const attempts: NativeJevHttpAttempt[] = []
-      const client = createJevClient({
-        ...deps,
-        session: request.input.rootSessionID,
-        postJson: createAuditedPostJson(deps, attempts, request),
-      })
-      try {
-        const answer = await nativeAnswer(client, request)
-        return { ...answer, usage: usageFromAttempts(attempts) ?? answer.usage, source: { result: answer.source, httpAttempts: attempts } }
-      } catch (error) {
-        throw new NativeJevRequestError(error, attempts)
-      }
+    async choose(request, audit) {
+      const execution = await executeAuditedNativeJev({ ...deps, session: request.input.rootSessionID },
+        (client) => nativeAnswer(client, request), { audit, beforeRequest: () => deps.beforeRequest?.(request) })
+      return { ...execution.value, usage: execution.usage,
+        source: { result: execution.value.source, httpAttempts: execution.attempts } }
     },
   }
 }
