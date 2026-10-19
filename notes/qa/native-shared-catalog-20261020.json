@@ -217,7 +217,8 @@
     "Native proof uses controlled HTTP fixtures; official sources for shipped cards were separately reviewed.",
     "Separate processes/projects have no distributed exactly-once research guarantee.",
     "No free executor pauses automatic research; paid executor requires explicit configuration.",
-    "Class recommendations remain subject to confidence threshold; source enrichment does not guarantee all job classes are usable."
+    "Class recommendations remain subject to confidence threshold; source enrichment does not guarantee all job classes are usable.",
+    "Native restart observation is two seconds; periodic scheduling and queue deduplication are also covered by unit tests, not a full 30-second post-restart soak."
   ],
   "validation": {
     "typecheck": "passed: bun run typecheck (typecheck-publish.log)",
@@ -226,6 +227,16 @@
       "passed": 16,
       "assertions": 55
     },
-    "nativeArtifact": ".omo/evidence/20261020-shared-model-catalog/native-publish/receipt.json"
+    "nativeArtifact": ".omo/evidence/20261020-shared-model-catalog/native-publish/receipt.json",
+    "fullSuite": {
+      "command": "bun test --bail",
+      "pass": 12895,
+      "skip": 20,
+      "fail": 0,
+      "assertions": 39799,
+      "files": 1584,
+      "seconds": 239.74,
+      "artifact": ".omo/evidence/20261020-shared-model-catalog/full-suite-publish.log"
+    }
   }
 }
