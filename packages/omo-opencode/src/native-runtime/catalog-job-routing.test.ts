@@ -14,6 +14,7 @@ function fixture(cap = 1) {
   const directory = mkdtempSync(join(tmpdir(), "momo-job-assembly-")); cleanups.push(() => rmSync(directory, { recursive: true, force: true }))
   const requests: { state: string; questions: JevQuestionSet }[] = [], rows: NativeLedgerRecord[] = []
   let models: NativeCatalogModelFacts[] = [{ providerID: "fixture", id: "one", available: true, toolCall: true, contextLength: 32000 }]
+  let researchedSummary: string | undefined
   let revision = "1", active = true, classifierGuards = 0, routingGuards = 0, advisorChecks = 0
   let classificationAdmission: (() => void) | undefined
   const server = Bun.serve({ port: 0, hostname: "127.0.0.1", async fetch(request) {
@@ -29,16 +30,16 @@ function fixture(cap = 1) {
   const catalog = {
     catalog: { listAvailable: async () => models },
     pool: { isAllowed: (model: { id: string }) => model.id !== "excluded", isConsultationAllowed: () => { advisorChecks++; return false } },
-    knowledge: { get: (model: { providerID: string; id: string }) => ({ model, known: false }) },
+    knowledge: { get: (model: { providerID: string; id: string }) => ({ model, known: researchedSummary !== undefined, ...(researchedSummary ? { summary: researchedSummary, source: "https://example.test/model" } : {}) }) },
     snapshot: (): NativeCatalogSnapshot => ({ fetchedAt: "", connectedProviders: ["fixture"], models, sources: {}, transportModelIDs: {}, unregisteredLiveModels: {}, unavailableProviders: {} }),
   }
-  const make = () => createCatalogJobRouting({ directory, dataRoot: directory, profileCacheDirectory: join(directory, "shared"), catalog, routerStore: store,
+  const make = (waitForKnowledge = false) => createCatalogJobRouting({ waitForKnowledge, directory, dataRoot: directory, profileCacheDirectory: join(directory, "shared"), catalog, routerStore: store,
     managerConfig: ManagerConfigSchema.parse({ jev: { base_url: server.url.href, max_attempts: 1, budget: { monthly_cap_usd: cap } } }),
     getApiKey: () => "fixture", revision: () => revision,
     beforeClassificationRequest: () => { classifierGuards++; const callback = classificationAdmission; classificationAdmission = undefined; callback?.(); if (!active) throw new NativeJevAdmissionError("fixture provider disabled") },
     beforeRoutingRequest: () => { routingGuards++; if (!active) throw new NativeJevAdmissionError("fixture provider disabled") },
   })
-  return { make, duringClassificationAdmission: (callback: () => void) => { classificationAdmission = callback }, models: (next: NativeCatalogModelFacts[]) => { models = next; revision += "x" }, active: (value: boolean) => { active = value; revision += "x" }, requests, rows,
+  return { make, research: (summary: string) => { researchedSummary = summary }, duringClassificationAdmission: (callback: () => void) => { classificationAdmission = callback }, models: (next: NativeCatalogModelFacts[]) => { models = next; revision += "x" }, active: (value: boolean) => { active = value; revision += "x" }, requests, rows,
     counts: () => ({ classifierGuards, routingGuards, advisorChecks }), catalog, store }
 }
 
@@ -87,4 +88,21 @@ test("given source facts change during asynchronous admission, stale classificat
   expect(f.requests).toHaveLength(1)
   const state = JSON.parse(f.requests[0]!.state) as { models: { evidence: { facts: { contextLength?: number } }[] }[] }
   expect(state.models[0]!.evidence[0]!.facts.contextLength).toBe(64000)
+})
+
+
+test("automatic research withholds unknown models and old sparse profiles until sourced knowledge arrives", async () => {
+  const f = fixture(), model = { providerID: "fixture", id: "one" }
+  await f.make().classifier.prepare()
+  expect(f.requests).toHaveLength(1)
+  const waiting = f.make(true)
+  await waiting.classifier.prepare()
+  expect(f.requests).toHaveLength(1)
+  expect(waiting.classifier.memberships(model)).toBeUndefined()
+  f.research("Official documentation describes coding and research strengths.")
+  await waiting.classifier.prepare()
+  expect(f.requests).toHaveLength(2)
+  expect(waiting.classifier.memberships(model)).toHaveLength(6)
+  const input = JSON.parse(f.requests[1]!.state) as { models: { evidence: { facts: { summary?: string } }[] }[] }
+  expect(input.models[0]!.evidence.some(row => row.facts.summary?.includes("coding"))).toBe(true)
 })

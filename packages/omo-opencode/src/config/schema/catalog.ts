@@ -8,7 +8,8 @@ import { JobClassesSchema } from "../../native-catalog/job-class-definitions"
 // every row from the listed providers within the same tier/need bucket.
 export const CatalogConfigSchema = z
   .object({
-    research_executor: z.object({ providerID: z.string().min(1), modelID: z.string().min(1) }).optional().describe("Explicit executor binding for bounded native catalog maintenance. Omitted leaves maintenance paused."),
+    auto_research: z.boolean().default(true).describe("Research previously unknown eligible models once while idle, using an explicit executor or a verified free tool-capable model. Bundled cards skip research."),
+    research_executor: z.object({ providerID: z.string().min(1), modelID: z.string().min(1) }).optional().describe("Explicit executor binding for bounded native catalog maintenance. Omitted selects an eligible verified free tool-capable model; no paid fallback."),
     job_classes: JobClassesSchema.optional().describe("Catalog job types classified once per source-fact version; native execution roles are selected separately."),
     enabled: z.boolean().optional().describe("Enable the built-in catalog MCP (default: true)."),
     providers: z

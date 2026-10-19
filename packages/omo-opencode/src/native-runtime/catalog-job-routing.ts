@@ -5,6 +5,7 @@ import type { ManagerConfig } from "../config/schema/decision-engine"
 import type { NativeCatalogAdapter } from "../native-catalog/adapter"
 import { createJobClassDefinitions } from "../native-catalog/job-class-definitions"
 import { jobClassificationFingerprint } from "../native-catalog/job-classification-identity"
+import { hasUsableModelKnowledge } from "../native-catalog"
 import { jobClassificationInput } from "../native-catalog/job-classification-input"
 import type { JobClassificationBatch } from "../native-catalog/job-classification-codec"
 import type { JobClassificationInput } from "../native-catalog/job-classification-types"
@@ -21,6 +22,7 @@ export interface CatalogJobRoutingOptions {
   readonly catalog: Pick<NativeCatalogAdapter, "catalog" | "pool" | "knowledge" | "snapshot">
   readonly routerStore: NativeRouterStore
   readonly managerConfig: ManagerConfig
+  readonly waitForKnowledge?: boolean
   readonly classes?: unknown
   readonly getApiKey: JevClientDeps["getApiKey"]
   readonly beforeRoutingRequest: (request: NativeJevRequest) => Promise<void> | void
@@ -40,7 +42,9 @@ export function createCatalogJobRouting(options: CatalogJobRoutingOptions) {
     const models = await catalog.catalog.listAvailable(), inputs: JobClassificationInput[] = []
     for (const model of models) {
       if (!model.available || !await catalog.pool.isAllowed(model)) continue
-      inputs.push(jobClassificationInput(model, await catalog.knowledge.get(model)))
+      const knowledge = await catalog.knowledge.get(model)
+      if (options.waitForKnowledge && !hasUsableModelKnowledge(knowledge)) continue
+      inputs.push(jobClassificationInput(model, knowledge))
     }
     return inputs
   }
@@ -50,7 +54,7 @@ export function createCatalogJobRouting(options: CatalogJobRoutingOptions) {
     const knowledge = catalog.knowledge.get(model)
     // The concrete native adapter reads knowledge synchronously. An unexpected
     // asynchronous implementation cannot provide a trusted synchronous cache view.
-    if (knowledge instanceof Promise) return undefined
+    if (knowledge instanceof Promise || options.waitForKnowledge && !hasUsableModelKnowledge(knowledge)) return undefined
     return jobClassificationInput(facts, knowledge)
   }
   async function isEligible(input: JobClassificationInput): Promise<boolean> {
