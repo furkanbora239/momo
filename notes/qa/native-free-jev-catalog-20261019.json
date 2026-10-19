@@ -229,10 +229,77 @@
     }
   },
   "limits": [
-    "Confident live memberships cover coding and visual only; research/planning/analysis/writing remain unknown.",
-    "Final builtin worker success used one pool candidate; three-model builtin cold classification and earlier four-candidate worker selection are separate evidence.",
+    "Confident live memberships cover coding and visual only; research/planning/analysis/writing remain unknown or below the 0.75 admission threshold.",
+    "Final builtin worker success used one pool candidate; three-model builtin selection also passed with a controlled root and a real selected Nemotron worker. Earlier four-candidate worker selection is separate evidence.",
     "Native SDK registry was seeded from a TLS-verified official models.dev download less than 24 hours old. Published metadata cache was not seeded: native production reader fetched it cold.",
     "QA copied no credentials and opened only isolated database descriptors. Real session counts stayed unchanged; message counts changed during concurrent activity, so whole-database immutability is not claimed.",
     "This proves coding delegation, not universal capabilities, provider reliability, or globally optimal cost. User provider/catalog/config files were not modified. Main promotion and publishing are separate."
-  ]
+  ],
+  "builtinThreeCandidateWorkerAcceptance": {
+    "status": "passed",
+    "rootModel": "controlled local delegation fixture",
+    "workerModel": "mimo-v2.6-flash-free",
+    "jevModel": "jev-1.13-free",
+    "bundleSHA256": "233978ffae683b9a501ea0ef4e41247c80ba463468576171c8a48c6f15792992",
+    "credentialsCopied": false,
+    "publishedMetadataFromVerifiedFile": true,
+    "nativeProviderSource": "builtin OpenCode registry",
+    "version": "2.0.32",
+    "requestedCandidates": [
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+      "longcat-2.5-preview-free"
+    ],
+    "registeredCandidates": [
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+      "longcat-2.5-preview-free"
+    ],
+    "removedCandidates": [],
+    "selectedWorker": {
+      "providerID": "opencode",
+      "id": "nemotron-3.5-lightning-free"
+    },
+    "fixedSource": "export function add(a: number, b: number) { return a + b }\n",
+    "workerTest": "bun test v1.3.14 (0d9b296a)\n\narithmetic.test.ts:\n(pass) adds [0.25ms]\n\n 1 pass\n 0 fail\n 1 expect() calls\nRan 1 test across 1 file. [89.00ms]\n",
+    "jevCalls": [
+      {
+        "purpose": "classification",
+        "usage": {
+          "inputTokens": 2534,
+          "outputTokens": 789,
+          "costUsd": 0
+        }
+      },
+      {
+        "purpose": "routing",
+        "usage": {
+          "inputTokens": 2353,
+          "outputTokens": 243,
+          "costUsd": 0
+        }
+      }
+    ],
+    "restartReclassified": false,
+    "publishedCachePersisted": true,
+    "rootCalls": 4,
+    "cleanup": {
+      "before": "session|249\nsession_v2|322\nsession_message|19855",
+      "after": "session|249\nsession_v2|322\nsession_message|19857",
+      "unchanged": false,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        363978,
+        364791
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-KDsviU/data/opencode/opencode.db",
+        "/tmp/momo-job-class-KDsviU/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-KDsviU/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  }
 }
