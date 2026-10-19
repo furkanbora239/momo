@@ -28,7 +28,7 @@ hashes rather than inheriting either newer acceptance claim.
 
 ## Accepted cached job-class feature, 2026-10-19
 
-Feature PR: **ready for publication; exact-head CI and bounded review pending**. The runtime classifies models
+Feature PR: [#45](https://github.com/furkanbora239/momo/pull/45), published to `dev`; exact-head CI and bounded review pending. The runtime classifies models
 in small bounded catalog batches, caches validated profiles across projects, and
 routes each task through class, role and then eligible model. Class selection receives
 all configured definitions and no model rows or model counts. Roles remain separate
