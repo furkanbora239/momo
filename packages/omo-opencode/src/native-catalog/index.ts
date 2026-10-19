@@ -15,3 +15,9 @@ export { captureJobClassificationUsage } from "./job-classification-usage"
 
 export { createNativePublishedModelReader } from "./published-models"
 export type { NativePublishedModel } from "./published-models"
+
+export { ModelCardSchema, ModelCatalogSchema, SharedModelCatalogSchema, parseModelCatalog, readBundledModelKnowledge } from "./model-cards"
+export type { ModelCard, ModelCatalog } from "./model-cards"
+export { createModelCardContribution, validateModelCardContributionFile, exportModelCardContributionFile } from "./model-card-export"
+
+export { hasUsableModelKnowledge } from "./knowledge-facts"
