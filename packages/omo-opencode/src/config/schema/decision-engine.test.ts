@@ -14,7 +14,7 @@ describe("ManagerConfigSchema", () => {
 
       // then
       expect(result.decision_engine).toBe("jev")
-      expect(result.jev.model).toBe("jev-1.13")
+      expect(result.jev.model).toBe("jev-1.13-free")
       expect(result.jev.base_url).toBe("https://opencode.ai/zen/v1")
       expect(result.jev.confidence_threshold).toBe(0.75)
       expect(result.jev.max_attempts).toBe(5)

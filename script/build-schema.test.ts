@@ -21,3 +21,16 @@ describe("build-schema-document", () => {
     expect(properties.skills).toBeDefined()
   })
 })
+
+test("generated Jev configuration retains authentication and model defaults", () => {
+  const schema = createOhMyOpenCodeJsonSchema()
+  const properties = isRecord(schema.properties) ? schema.properties : {}
+  const manager = isRecord(properties.manager) ? properties.manager : {}
+  const managerProperties = isRecord(manager.properties) ? manager.properties : {}
+  const jev = isRecord(managerProperties.jev) ? managerProperties.jev : {}
+  const fields = isRecord(jev.properties) ? jev.properties : {}
+  expect(jev.type).toBe("object")
+  expect(fields.provider_id).toBeDefined()
+  expect(fields.model).toMatchObject({ default: "jev-1.13-free", type: "string" })
+  expect(fields.authentication).toMatchObject({ default: "none", enum: ["provider", "none"] })
+})

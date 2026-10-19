@@ -11,13 +11,19 @@ export function createNativeModelAdmission(input: {
   homeDirectory: string
   catalog: NativeCatalogAdapter
   managerProviderID: string
+  managerPublicModelID?: string
   reject: (message: string) => never
 }) {
   const controls = createNativeControlStores(input.homeDirectory)
   const health = createProviderHealthStore(() => resolveNativeCatalogHealthDirectory(input.homeDirectory))
 
+  function publicModels() {
+    const models = input.catalog.snapshot().models.filter(model => model.inputPricePerMillion === 0 && model.outputPricePerMillion === 0 && model.priceSource !== "unknown")
+    return input.managerPublicModelID ? [...models, { providerID: input.managerProviderID, id: input.managerPublicModelID }] : models
+  }
+
   async function assertManagerProvider(): Promise<ReadonlySet<string>> {
-    const current = await connectedNativeProviders({ context: input.context, toggles: controls.readProviderToggles, health: health.readProviderHealth, now: Date.now })
+    const current = await connectedNativeProviders({ context: input.context, toggles: controls.readProviderToggles, health: health.readProviderHealth, now: Date.now, publicModels: publicModels() })
     if (!current.providers.some((provider) => provider.id === input.managerProviderID)) {
       input.reject(`Jev provider ${input.managerProviderID} is unavailable: ${current.unavailable[input.managerProviderID]?.reason ?? "not registered"}`)
     }
@@ -43,7 +49,7 @@ export function createNativeModelAdmission(input: {
     if (!session.model) input.reject("Native session has no model assignment")
     const model = { providerID: session.model.providerID, id: session.model.id }
     const current = await input.catalog.catalog.listAvailable()
-    const providers = await connectedNativeProviders({ context: input.context, toggles: controls.readProviderToggles, health: health.readProviderHealth, now: Date.now })
+    const providers = await connectedNativeProviders({ context: input.context, toggles: controls.readProviderToggles, health: health.readProviderHealth, now: Date.now, publicModels: publicModels() })
     if (!current.some((item) => item.available && item.providerID === model.providerID && item.id === model.id)) input.reject("Native session model is no longer available")
     // The root model is the user's /models selection; the pool governs children.
     if (session.parentID !== undefined && (!input.catalog.pool.isAllowed(model)

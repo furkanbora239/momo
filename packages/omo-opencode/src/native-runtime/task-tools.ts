@@ -1,4 +1,5 @@
 import { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
+import { nativeJevApiKey } from "./jev-credentials"
 import { createCatalogJobRouting } from "./catalog-job-routing"
 import { createNativeModelAdmission } from "./model-admission"
 import { z } from "zod"
@@ -9,7 +10,7 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode/plugin"
 import { createNativeTaskEngine } from "../native-task"
 import type { NativeTaskEngine, NativeTaskRole } from "../native-task"
-import { createNativeCatalogAdapter, createNativeCatalogKnowledgeStore, registerNativeCatalogKnowledgeTool } from "../native-catalog"
+import { createNativeCatalogAdapter, createNativeCatalogKnowledgeStore, createNativePublishedModelReader, registerNativeCatalogKnowledgeTool } from "../native-catalog"
 import { createNativeRouter, createJsonlNativeRouterStore } from "../native-routing"
 import { createFileNativeTaskRepository } from "../native-task"
 import { createNativeSessionRuntime } from "./session-runtime"
@@ -72,23 +73,6 @@ function modelReference(session: Pick<SessionInfo, "model">): string {
   return session.model === undefined ? "" : `${session.model.providerID}/${session.model.id}`
 }
 
-async function nativeApiKey(ctx: Plugin.Context, providerID: string): Promise<string> {
-  const providers = await ctx.provider.list()
-  const provider = providers.data.find((item) => item.id === providerID)
-  if (!provider) throw new Error(`OpenCode provider ${providerID} is not registered`)
-  const integrationID = provider.integrationID
-  if (!integrationID) {
-    const configuredKey = provider.settings?.apiKey
-    if (typeof configuredKey === "string" && configuredKey.length > 0) return configuredKey
-    throw new Error(`OpenCode provider ${providerID} has no native integration connection or configured API key`)
-  }
-  const connection = await ctx.integration.connection.active(integrationID)
-  if (!connection) throw new Error(`OpenCode provider ${providerID} is not connected`)
-  const credential = await ctx.integration.connection.resolve(connection)
-  if (!credential) throw new Error(`OpenCode provider ${providerID} has no active credential`)
-  if (credential.type === "key") return credential.key
-  return credential.access
-}
 
 export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: ReadonlySet<string>): Promise<{ engine: NativeTaskEngine; dispose: () => Promise<void> }> {
   const dataRoot = projectNativeRoot(ctx.location.directory)
@@ -127,6 +111,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     advisorModels: advisorPool.read(),
     routerStore,
     knowledgeStore,
+    readPublishedModels: createNativePublishedModelReader({ cachePath: join(homeRoot(), ".omo/native/published-models.json") }),
     researchModel: (model, research) => maintenance.enqueue(model, research),
     onError: (message, error) => console.warn(message, error),
   })
@@ -136,6 +121,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     homeDirectory: homeRoot(),
     catalog,
     managerProviderID: managerConfig.jev.provider_id,
+    managerPublicModelID: managerConfig.jev.authentication === "none" ? managerConfig.jev.model : undefined,
     reject: (message) => { throw new NativeJevAdmissionError(message) },
   })
   const disposeSearchFallbacks = await registerNativeSearchFallbacks(ctx, { cwd: ctx.location.directory, homeDirectory: homeRoot() })
@@ -152,7 +138,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     beforeRoutingRequest: admission.beforeRoutingRequest, beforeClassificationRequest: admission.beforeClassificationRequest,
     async getApiKey() {
       await admission.assertManagerProvider()
-      try { return await nativeApiKey(ctx, managerConfig.jev.provider_id) }
+      try { return await nativeJevApiKey(ctx, managerConfig.jev) }
       catch (error) { throw new NativeJevAdmissionError(error instanceof Error ? error.message : String(error)) }
     },
     onError: error => console.warn("momo catalog classification failed", error),

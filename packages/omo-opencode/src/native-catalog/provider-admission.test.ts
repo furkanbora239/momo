@@ -21,3 +21,16 @@ test("given integration binding changes during lookup, admission cannot borrow a
   const result = await pending; expect(result.providers).toEqual([]); expect(result.unavailable.manager?.reason).toContain("integration changed")
   expect((await f.read()).providers.map(provider => provider.id)).toEqual(["manager"])
 })
+
+test("anonymous public admission keeps provider controls and rejects custom endpoints", async () => {
+  let disabled: string[] = []
+  let endpoint = "https://opencode.ai/zen/v1"
+  const context = { provider: { list: async () => ({ data: [{ id: "opencode", activation: "enabled", integrationID: "zen", settings: { baseURL: endpoint } }] }) },
+    integration: { connection: { active: async () => undefined } } } as unknown as NativeCatalogContext
+  const read = () => connectedNativeProviders({ context, toggles: () => ({ version: 1, disabled, updatedAt: "test" }), health: () => ({}), now: Date.now, publicModels: [{ providerID: "opencode", id: "free-model" }] })
+  expect((await read()).publicOnlyProviders).toEqual(["opencode"])
+  disabled = ["opencode"]
+  expect((await read()).providers).toEqual([])
+  disabled = []; endpoint = "https://example.com/v1"
+  expect((await read()).providers).toEqual([])
+})
