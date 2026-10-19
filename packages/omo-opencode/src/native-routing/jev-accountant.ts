@@ -2,14 +2,15 @@
 import { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
 import { nativeJevFailureNotSent } from "./jev-adapter"
 import { usageFromAttempts } from "./jev-http-usage"
+import { isFreeNativeJevBinding, isNativeJevBillingBinding, sameNativeJevBinding } from "./jev-billing-binding"
 import { legacyJevBilling } from "./jev-usage"
-import type { NativeJevCallAudit, NativeJevCallRecord, NativeJevHttpAttempt, NativeRouterStore } from "./types"
+import type { NativeJevBillingBinding, NativeJevCallAudit, NativeJevCallRecord, NativeJevHttpAttempt, NativeRouterStore } from "./types"
 
 export class NativeJevAccountingPersistenceError extends Error {
   constructor(error: unknown) { super(error instanceof Error ? error.message : String(error), { cause: error }); this.name = "NativeJevAccountingPersistenceError" }
 }
 
-export type NativeJevCallIdentity = Pick<NativeJevCallRecord, "callId" | "purpose" | "inputDigest">
+export type NativeJevCallIdentity = Pick<NativeJevCallRecord, "callId" | "purpose" | "inputDigest" | "billingBinding">
 export function createNativeJevAccountant(options: { readonly store: NativeRouterStore; readonly monthlyBudgetUsd?: number; readonly now?: () => number }) {
   const now = options.now ?? Date.now
   let queue = Promise.resolve(), poisoned: NativeJevAccountingPersistenceError | undefined
@@ -23,8 +24,9 @@ export function createNativeJevAccountant(options: { readonly store: NativeRoute
     legacy = [...decisions.values()].filter(row => !row.jevCallId || !calls.has(row.jevCallId))
     loaded = true
   }
-  function check(own?: NativeJevCallRecord): void {
+  function check(own?: NativeJevCallRecord, binding?: NativeJevBillingBinding): void {
     if (poisoned) throw new NativeJevAdmissionError("jev accounting persistence is uncertain")
+    if (isFreeNativeJevBinding(binding)) return
     const month = new Date(now()).toISOString().slice(0, 7)
     let spend = 0, unknown = false
     for (const record of calls.values()) {
@@ -54,15 +56,21 @@ export function createNativeJevAccountant(options: { readonly store: NativeRoute
     const operation = async () => {
       await load()
       if (!identity.callId || !/^[a-f0-9]{64}$/.test(identity.inputDigest)) throw new Error("invalid Jev call identity")
+      if (identity.billingBinding !== undefined && !isNativeJevBillingBinding(identity.billingBinding)) throw new Error("invalid Jev billing binding")
       const existing = calls.get(identity.callId)
       if (existing) throw new NativeJevAdmissionError(existing.inputDigest !== identity.inputDigest || existing.purpose !== identity.purpose ? "jev call identity conflicts with durable input" : "jev call already recorded; automatic replay refused")
-      check()
+      check(undefined, identity.billingBinding)
       let receipt: NativeJevCallRecord = { version: 1, type: "jev_call", ...identity, createdAt: new Date(now()).toISOString(), status: "pending" }
       await persist(receipt)
       const attempts: NativeJevHttpAttempt[] = []
       let requests = 0
       const audit: NativeJevCallAudit = {
-        async beforeRequest() { check(receipt); requests++ },
+        async beforeRequest(binding) {
+          if (identity.billingBinding && (!binding || !sameNativeJevBinding(identity.billingBinding, binding))) {
+            throw new NativeJevAdmissionError("Jev HTTP billing binding differs from the admitted model or endpoint")
+          }
+          check(receipt, identity.billingBinding); requests++
+        },
         async recordAttempt(attempt) {
           attempts.push(structuredClone(attempt))
           receipt = { ...receipt, usage: usageFromAttempts(attempts) }

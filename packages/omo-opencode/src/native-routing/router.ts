@@ -249,7 +249,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       let rawResponse: unknown
       let billing: NativeJevAnswer["usage"]
       try {
-        const audited = await accountant.run({ callId: `routing:${decisionId}`, purpose: "routing", inputDigest: createHash("sha256").update(JSON.stringify(request)).digest("hex") }, audit => deps.jev.choose(request, audit))
+        const audited = await accountant.run({ callId: `routing:${decisionId}`, purpose: "routing", billingBinding: deps.jev.billingBinding, inputDigest: createHash("sha256").update(JSON.stringify(request)).digest("hex") }, audit => deps.jev.choose(request, audit))
         rawResponse = audited.value
         billing = audited.receipt.usage
         if (!isJevAnswer(rawResponse, candidates)) throw new Error("malformed Jev response")

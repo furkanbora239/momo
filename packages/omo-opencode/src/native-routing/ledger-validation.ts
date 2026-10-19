@@ -1,3 +1,4 @@
+import { isNativeJevBillingBinding } from "./jev-billing-binding"
 import type {
   NativeCandidate,
   NativeDecisionRecord,
@@ -77,7 +78,7 @@ export function parseNativeLedgerRecord(value: unknown): NativeLedgerRecord | un
   if (!isObject(value) || value.version !== 1) return undefined
   if (value.type === "jev_call") {
     const usage = value.usage
-    return typeof value.callId === "string" && value.callId.length > 0 &&
+    return (value.billingBinding === undefined || isNativeJevBillingBinding(value.billingBinding)) && typeof value.callId === "string" && value.callId.length > 0 &&
       (value.purpose === "routing" || value.purpose === "classification") && typeof value.inputDigest === "string" && /^[a-f0-9]{64}$/.test(value.inputDigest) &&
       typeof value.createdAt === "string" && Number.isFinite(Date.parse(value.createdAt)) && ["pending", "complete", "not_sent"].includes(String(value.status)) &&
       (usage === undefined || isObject(usage) && [usage.inputTokens, usage.outputTokens, usage.costUsd].every(amount => amount === undefined || typeof amount === "number" && Number.isFinite(amount) && amount >= 0)) &&

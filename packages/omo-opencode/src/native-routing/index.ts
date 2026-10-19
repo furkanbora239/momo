@@ -10,6 +10,7 @@ export type {
   NativeDispatchFact,
   NativeJev,
   NativeJevAnswer,
+  NativeJevBillingBinding,
   NativeJevHttpAttempt,
   NativeJevRequest,
   NativeKnowledge,
