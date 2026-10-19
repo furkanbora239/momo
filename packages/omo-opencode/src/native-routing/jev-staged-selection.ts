@@ -6,7 +6,7 @@ import type { NativeCandidate, NativeJevAnswer, NativeJevRequest } from "./types
 export const JEV_CHOICE_LIMIT = 255
 
 const key = (candidate: NativeCandidate): string => `${candidate.role}|${candidate.model.providerID}/${candidate.model.id}`
-const roleDetails: Readonly<Record<string, string>> = {
+export const nativeRoleDescriptions: Readonly<Record<string, string>> = {
   planner: "Readonly department lead: plans and delegates worker children; no shell or edits.",
   executor: "Readonly department lead: coordinates implementation through worker children; no shell or edits.",
   reviewer: "Readonly department lead: coordinates review through worker children; no shell or edits.",
@@ -25,7 +25,7 @@ export function candidateCriteria(candidates: readonly NativeCandidate[]): Recor
   }))
 }
 
-function choice(result: JevCallResult, name: string, criteria: Record<string, string>) {
+export function validatedJevChoice(result: JevCallResult, name: string, criteria: Record<string, string>) {
   const answer = result.answers[name]
   if (!answer || answer.type !== "choice" || !Object.hasOwn(criteria, answer.choice) ||
     !Number.isFinite(answer.confidence) || answer.confidence < 0 || answer.confidence > 1 ||
@@ -45,11 +45,11 @@ export async function stagedNativeAnswer(client: JevClient, request: NativeJevRe
     return result
   }
   try {
-    const roles = Object.fromEntries([...new Set(request.candidates.map((candidate) => candidate.role))].map((role) => [role, roleDetails[role] ?? role]))
+    const roles = Object.fromEntries([...new Set(request.candidates.map((candidate) => candidate.role))].map((role) => [role, nativeRoleDescriptions[role] ?? role]))
     const lanes = { direct: "One selected role handles the task directly.", department: "A planner, executor, or reviewer lead coordinates worker children." }
     const roleResult = await ask({ role: { type: "choice", instructions: "Choose the role whose runtime permissions meet the request.", criteria: roles }, lane: { type: "choice", instructions: "Choose the lane compatible with the chosen role.", criteria: lanes } })
-    const role = choice(roleResult, "role", roles)
-    const lane = choice(roleResult, "lane", lanes)
+    const role = validatedJevChoice(roleResult, "role", roles)
+    const lane = validatedJevChoice(roleResult, "lane", lanes)
     let confidence = Math.min(role.confidence, lane.confidence)
     let candidates = request.candidates.filter((candidate) => candidate.role === role.choice)
     while (candidates.length > JEV_CHOICE_LIMIT) {
@@ -57,13 +57,13 @@ export async function stagedNativeAnswer(client: JevClient, request: NativeJevRe
       const groups = Array.from({ length: Math.ceil(candidates.length / size) }, (_, index) => candidates.slice(index * size, (index + 1) * size))
       const criteria = Object.fromEntries(groups.map((group, index) => [`group-${index}`, `[${Object.values(candidateCriteria(group)).join(",")}]`]))
       const result = await ask({ group: { type: "choice", instructions: "Choose the group containing the least costly adequate model. All models in each group are eligible; consider their full facts.", criteria } }, { role: role.choice, candidateCount: candidates.length })
-      const selected = choice(result, "group", criteria)
+      const selected = validatedJevChoice(result, "group", criteria)
       confidence = Math.min(confidence, selected.confidence)
       candidates = groups[Number(selected.choice.slice("group-".length))]!
     }
     const criteria = candidateCriteria(candidates)
     const result = await ask({ candidate: { type: "choice", instructions: "Choose the least costly model that can meet the request. Unknown price is not free, and unknown ability is not verified.", criteria } }, { role: role.choice, candidateCount: candidates.length })
-    const selected = choice(result, "candidate", criteria)
+    const selected = validatedJevChoice(result, "candidate", criteria)
     const candidate = candidates.find((item) => key(item) === selected.choice)!
     return {
       role: candidate.role, model: candidate.model, confidence: Math.min(confidence, selected.confidence), probabilities: selected.probabilities,
