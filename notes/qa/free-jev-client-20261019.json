@@ -1,0 +1,18 @@
+{
+  "kind": "real-public-free-jev-client",
+  "model": "jev-1.13-free",
+  "usage": {
+    "inputTokens": 314,
+    "outputTokens": 31
+  },
+  "estimatedCostUsd": 0,
+  "requestEndpoint": "https://opencode.ai/zen/v1/systemone",
+  "authorizationSent": false,
+  "paidFallback": false,
+  "sourceHashes": {
+    "packages/decision-core/src/jev-client.ts": "79781ae3f331f2f749e6318961dd7519c07c529d2f2199c89b9e527457392edd",
+    "packages/decision-core/src/jev-pricing.ts": "4b00f633c380fe5b300f5f353b2e2145c8ef8feb588eea140990188d6440e7dc",
+    "packages/decision-core/src/index.ts": "a5e5dd9895d586838cb7abc19d64fcb1f78f4ce20090a77948ba68c549349979"
+  },
+  "coverageLimit": "Direct production core client with real upstream response; native adapter acceptance is delivered separately."
+}
