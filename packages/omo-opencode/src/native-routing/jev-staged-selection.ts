@@ -21,7 +21,16 @@ export const nativeRoleDescriptions: Readonly<Record<string, string>> = {
 export function candidateCriteria(candidates: readonly NativeCandidate[]): Record<string, string> {
   return Object.fromEntries(candidates.map((candidate) => {
     const { facts, model, knowledge } = candidate
-    return [key(candidate), JSON.stringify({ role: candidate.role, model, pricesPerMillion: { input: facts.inputPricePerMillion ?? "unknown", output: facts.outputPricePerMillion ?? "unknown" }, priceCurrency: facts.priceCurrency ?? "unknown", priceOrigin: facts.priceOrigin ?? facts.priceSource ?? "unknown", contextLength: facts.contextLength ?? "unknown", toolCall: facts.toolCall ?? "unknown", capabilities: facts.capabilities ?? "unknown", knowledge: knowledge.known ? knowledge : "unknown" })]
+    const published = facts.published
+    const boundedText = (value: string | undefined, limit: number) => value?.trim().slice(0, limit)
+    const publishedMetadata = published?.source === "https://models.dev/api.json" ? {
+      source: published.source,
+      ...(boundedText(published.name, 160) ? { name: boundedText(published.name, 160) } : {}),
+      ...(boundedText(published.description, 1600) ? { description: boundedText(published.description, 1600) } : {}),
+      ...(boundedText(published.family, 160) ? { family: boundedText(published.family, 160) } : {}),
+      ...(typeof published.reasoning === "boolean" ? { reasoning: published.reasoning } : {}),
+    } : undefined
+    return [key(candidate), JSON.stringify({ displayName: boundedText(facts.displayName, 160), family: boundedText(facts.family, 160), canonical: boundedText(facts.canonical, 256), published: publishedMetadata, role: candidate.role, model, pricesPerMillion: { input: facts.inputPricePerMillion ?? "unknown", output: facts.outputPricePerMillion ?? "unknown" }, priceCurrency: facts.priceCurrency ?? "unknown", priceOrigin: facts.priceOrigin ?? facts.priceSource ?? "unknown", contextLength: facts.contextLength ?? "unknown", toolCall: facts.toolCall ?? "unknown", capabilities: facts.capabilities ?? "unknown", inputModalities: facts.inputModalities ?? "unknown", outputModalities: facts.outputModalities ?? "unknown", knowledge: knowledge.known ? knowledge : "unknown" })]
   }))
 }
 

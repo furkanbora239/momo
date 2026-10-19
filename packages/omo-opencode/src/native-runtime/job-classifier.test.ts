@@ -8,7 +8,7 @@ import type { NativeLedgerRecord, NativeRouterStore } from "../native-routing/ty
 import type { JobClassificationInput } from "../native-catalog/job-classification-types"
 const dirs: string[] = []
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }) })
-function fixture(budget = 1) {
+function fixture(budget = 1, model = "jev-1.13") {
   const directory = mkdtempSync(join(tmpdir(), "momo-job-factory-")); dirs.push(directory)
   const rows: NativeLedgerRecord[] = [], batches: string[][] = []
   const ledger: NativeRouterStore = { load: async () => rows, append: async row => { rows.push(structuredClone(row)) }, exportLines: async () => rows.map(row => JSON.stringify(row)) }
@@ -19,7 +19,7 @@ function fixture(budget = 1) {
     definitions: () => ({ version: "v1", classifierVersion: "v1", classes: [{ id: "coding", description: "Code" }] }),
     getInputs: async () => inputs, currentInput: model => inputs.find(input => input.model.id === model.id), isEligible: () => true, revision: () => revision,
     assertBatchEligible: async () => undefined,
-    jev: { session: "fixture", getApiKey: () => "fixture", maxAttempts: 1, postJson: async (_url, _headers, body) => {
+    jev: { model, session: "fixture", getApiKey: () => "fixture", maxAttempts: 1, postJson: async (_url, _headers, body) => {
       const state = JSON.parse(body.state) as { models: { model: { id: string } }[] }
       batches.push(state.models.map(row => row.model.id))
       await hold
@@ -76,4 +76,20 @@ test("given a second project, unchanged shared profiles reuse classification wit
   f.inputs([{ model: { providerID: "fixture", id: "one" }, evidence: [{ source: "sdk", facts: { tools: false } }] }])
   await other.prepare(); expect(f.batches).toHaveLength(2)
   expect(otherRows.filter(row => row.type === "jev_call" && row.status === "complete")).toHaveLength(1)
+})
+
+
+test("given explicit free Jev, classification persists zero-cost receipts and reuses profiles after restart", async () => {
+  const f = fixture(0.00000001, "jev-1.13-free"), classifier = f.make()
+  await classifier.prepare()
+  expect(classifier.status().completedProfiles).toBe(1)
+  expect(classifier.status().failed).toBe(0)
+  expect(f.rows.findLast(row => row.type === "jev_call")).toMatchObject({ status: "complete", usage: { inputTokens: 100, costUsd: 0 } })
+  const restarted = f.make(); await restarted.prepare()
+  expect(f.batches).toHaveLength(1)
+  expect(restarted.memberships({ providerID: "fixture", id: "one" })?.[0]?.suitability).toBe("suitable")
+  f.inputs([{ model: { providerID: "fixture", id: "two" }, evidence: [{ source: "sdk", facts: { tools: true } }] }])
+  await restarted.prepare()
+  expect(f.batches).toHaveLength(2)
+  expect(restarted.status().failed).toBe(0)
 })

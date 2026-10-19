@@ -173,3 +173,21 @@ describe("Jev choice boundary", () => {
     expect(calls).toHaveLength(stage === "role" ? 1 : 2)
   })
 })
+
+test("final model criteria retain bounded published model evidence without duplicating source prices", async () => {
+  const { candidateCriteria } = await import("./jev-staged-selection")
+  const candidate = request(1, ["worker"]).candidates[0]!
+  const enriched: NativeCandidate = { ...candidate, facts: {
+    ...candidate.facts,
+    displayName: "SDK display name", family: "SDK family", canonical: "provider/canonical", inputModalities: ["text", "image"], outputModalities: ["text"],
+    published: { source: "https://models.dev/api.json", name: "Published name", description: "d".repeat(2000), family: "Published family", reasoning: true },
+  } }
+  const criteria = JSON.parse(Object.values(candidateCriteria([enriched]))[0]!)
+  expect(criteria).toMatchObject({ displayName: "SDK display name", family: "SDK family", canonical: "provider/canonical", published: { source: "https://models.dev/api.json", name: "Published name", family: "Published family", reasoning: true }, pricesPerMillion: { input: 0, output: "unknown" } })
+  expect(criteria.inputModalities).toEqual(["text", "image"])
+  expect(criteria.outputModalities).toEqual(["text"])
+  expect(criteria.published.description).toHaveLength(1600)
+  expect(Object.keys(criteria.published).sort()).toEqual(["description", "family", "name", "reasoning", "source"])
+  const untrusted = { ...enriched, facts: { ...enriched.facts, published: { source: "unverified", description: "unsupported" } } }
+  expect(JSON.parse(Object.values(candidateCriteria([untrusted]))[0]!).published).toBeUndefined()
+})

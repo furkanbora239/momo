@@ -1,3 +1,4 @@
+import { nativeJevBillingBinding } from "../native-routing/jev-billing-binding"
 // MODIFIED: momo catalog recommendations share routing's durable Jev accountant.
 import { createHash } from "node:crypto"
 import { join } from "node:path"
@@ -11,9 +12,9 @@ import { executeAuditedNativeJev, nativeJevFailureNotSent } from "../native-rout
 import type { NativeJevAccountant } from "../native-routing/jev-accountant"
 import type { NativeJevCallRecord, NativeModelRef } from "../native-routing/types"
 
-function classificationReceipt(record: NativeJevCallRecord): JobClassificationUsageReceipt {
+function classificationReceipt(record: NativeJevCallRecord, billedModel: string, billedEndpoint: string | undefined): JobClassificationUsageReceipt {
   const usage = record.usage
-  const common = { source: "audited-http" as const, receiptID: record.callId,
+  const common = { source: "audited-http" as const, receiptID: record.callId, billedModel, ...(billedEndpoint === undefined ? {} : { billedEndpoint }),
     ...(Number.isSafeInteger(usage?.outputTokens) && usage!.outputTokens! >= 0 ? { outputTokens: usage!.outputTokens } : {}) }
   return Number.isSafeInteger(usage?.inputTokens) && usage!.inputTokens! >= 0 && usage?.costUsd !== undefined
     ? { ...common, status: "known", inputTokens: usage.inputTokens!, costUsd: usage.costUsd }
@@ -40,12 +41,12 @@ export function createNativeJobClassifier(options: {
     currentDefinitions: options.definitions, getInputs: options.getInputs, isEligible: options.isEligible, currentRevision: options.revision,
     async executeAudited({ batch, intentID }) {
       try {
-        const { value, receipt } = await options.accountant.run({ callId: `classification:${intentID}`, purpose: "classification",
+        const { value, receipt } = await options.accountant.run({ callId: `classification:${intentID}`, purpose: "classification", billingBinding: nativeJevBillingBinding(options.jev),
           inputDigest: createHash("sha256").update(JSON.stringify({ state: batch.state, questions: batch.questions })).digest("hex") },
         (audit) => executeAuditedNativeJev(options.jev, (client) => client.ask(batch.state, batch.questions), {
           audit, beforeRequest: () => options.assertBatchEligible(batch),
         }))
-        return { result: value.value, receipt: classificationReceipt(receipt) }
+        return { result: value.value, receipt: classificationReceipt(receipt, value.value.model, value.attempts[0]?.url) }
       } catch (error) {
         if (nativeJevFailureNotSent(error)) throw new JobClassificationNoSendError(error instanceof Error ? error.message : String(error))
         throw error
