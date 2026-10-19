@@ -98,15 +98,15 @@ export async function selectJobClassModel(client: JevClient, request: NativeJevR
       permissions: nativeRoleDescriptions[role] ?? role,
       eligibleModelCount: classCandidates.filter((candidate) => candidate.role === role).length }))
     const roles = Object.fromEntries(roleRows.map((row) => [row.role, row.permissions]))
-    const lanes = { direct: "Selected role handles work directly.", department: "Planner, executor or reviewer coordinates worker children." }
     const roleResult = await ask({ brief, jobClass, roles: roleRows }, {
       role: { type: "choice", instructions: "Choose the native role whose existing permissions meet the task.", criteria: roles },
-      lane: { type: "choice", instructions: "Choose department only for planner, executor or reviewer; all other roles use direct.", criteria: lanes },
     })
-    const role = select(roleResult, "role", roles).choice
-    const lane = select(roleResult, "lane", lanes)
-    if ((lane.choice === "department") !== departmentRoles.has(role)) fail("selection_failed", "Jev role and lane are incompatible")
+    const selectedRole = select(roleResult, "role", roles)
+    const role = selectedRole.choice
+    // Execution topology is a runtime permission invariant of the selected role.
+    const lane = departmentRoles.has(role) ? "department" : "direct"
     let selectedCandidates = classCandidates.filter((candidate) => candidate.role === role)
+    let preferenceConfidence = 1
     while (selectedCandidates.length > JEV_CHOICE_LIMIT) {
       const size = Math.ceil(selectedCandidates.length / JEV_CHOICE_LIMIT)
       const groups = Array.from({ length: Math.ceil(selectedCandidates.length / size) }, (_, index) => selectedCandidates.slice(index * size, (index + 1) * size))
@@ -114,19 +114,43 @@ export async function selectJobClassModel(client: JevClient, request: NativeJevR
       const result = await ask({ brief, jobClass, role, candidateCount: selectedCandidates.length }, { group: {
         type: "choice", instructions: "Choose the group containing the least costly adequate model; all eligible class members are represented.", criteria,
       } })
-      selectedCandidates = groups[Number(select(result, "group", criteria).choice.slice("group-".length))]!
+      const preferred = validatedJevChoice(result, "group", criteria)
+      preferenceConfidence = Math.min(preferenceConfidence, preferred.confidence)
+      selectedCandidates = groups[Number(preferred.choice.slice("group-".length))]!
     }
-    const criteria = candidateCriteria(selectedCandidates)
-    const result = await ask({ brief, jobClass, role }, { candidate: {
-      type: "choice", instructions: "Choose the least costly adequate model. Unknown prices are not free; suitability recommendations are not verified abilities.", criteria,
-    } })
-    const selected = select(result, "candidate", criteria)
-    const candidate = selectedCandidates.find((entry) => candidateKey(entry) === selected.choice)!
-    return { jobClass, classificationProvenance: "jev-recommendation", role: candidate.role, model: candidate.model,
-      confidence, probabilities: selected.probabilities, lane: lane.choice as "direct" | "department", laneConfidence: lane.confidence,
-      source: { contract: "job-class-role-model-v1", probabilityScope: "selected-class-role-and-group", definitionsVersion: definitions.version,
-        classifierVersion: definitions.classifierVersion, stages },
+    const groupPreferenceConfidence = preferenceConfidence
+    for (let attempt = 0; attempt < 3 && selectedCandidates.length; attempt++) {
+      const criteria = candidateCriteria(selectedCandidates)
+      const result = await ask({ brief, jobClass, role }, { candidate: {
+        type: "choice", instructions: "Choose the least costly adequate model. Unknown prices are not free; suitability recommendations are not verified abilities.", criteria,
+      } })
+      const selected = validatedJevChoice(result, "candidate", criteria)
+      preferenceConfidence = Math.min(groupPreferenceConfidence, selected.confidence)
+      const candidate = selectedCandidates.find((entry) => candidateKey(entry) === selected.choice)!
+      let acceptanceConfidence = selected.confidence
+      if (preferenceConfidence < threshold) {
+        const adequacyCriteria = { adequate: "Supplied evidence supports this model completing this specific task", inadequate: "Supplied evidence shows this model cannot complete this task", unknown: "Evidence is insufficient to assess this task" }
+        const adequacyResult = await ask({ brief, jobClass, role, selectedCandidate: JSON.parse(criteria[selected.choice]!) }, {
+          modelAdequacy: { type: "choice", instructions: "Assess this selected model's adequacy for the specific task using the supplied evidence. Distinguish adequacy from preference among several adequate models. Published descriptions are evidence, class memberships are recommendations, and missing abilities remain unknown.", criteria: adequacyCriteria },
+        })
+        const adequacy = validatedJevChoice(adequacyResult, "modelAdequacy", adequacyCriteria)
+        const selectedProbability = adequacy.probabilities[adequacy.choice]!
+        if (selectedProbability <= 0 || Object.values(adequacy.probabilities).some(probability => probability > selectedProbability)) fail("selection_failed", "Contradictory Jev task adequacy probabilities")
+        if (adequacy.choice !== "adequate" || adequacy.confidence < threshold) {
+          // Exclude only this decision's unconfirmed candidate, never its catalog facts.
+          selectedCandidates = selectedCandidates.filter(entry => candidateKey(entry) !== selected.choice)
+          continue
+        }
+        acceptanceConfidence = adequacy.confidence
+      }
+      confidence = Math.min(confidence, acceptanceConfidence)
+      return { jobClass, classificationProvenance: "jev-recommendation", role: candidate.role, model: candidate.model,
+        confidence, probabilities: selected.probabilities, lane, laneConfidence: selectedRole.confidence,
+        source: { contract: "job-class-role-model-v1", preferenceConfidence, acceptanceConfidence: confidence, probabilityScope: "selected-class-role-and-group", definitionsVersion: definitions.version,
+          classifierVersion: definitions.classifierVersion, stages },
+      }
     }
+    return fail("low_confidence", "No confirmed adequate model within the bounded selection attempts; caller selection required")
   } catch (error) {
     if (error instanceof JobClassSelectionError) throw error
     throw new JobClassSelectionError("selection_failed", error instanceof Error ? error.message : String(error), [...stages], { cause: error })

@@ -74,6 +74,10 @@ momo reads layered `.omo/omo.jsonc` configuration, including the `[opencode]` bl
 }
 ```
 
+The default manager uses public `opencode/jev-1.13-free` without an account key. Explicit paid models and custom endpoints retain provider authentication. To choose the public binding explicitly, set `manager.jev` to `{ "model": "jev-1.13-free", "provider_id": "opencode", "authentication": "none", "base_url": "https://opencode.ai/zen/v1" }`. Anonymous access is limited to this official binding; it never falls back to a paid model.
+
+The native catalog enriches exact provider/model identities with bounded, cached models.dev descriptions, reasoning traits and published prices. Only verified zero prices count as free. Disconnected official OpenCode providers expose verified public free models while provider toggles and pool restrictions still apply. Job classifications are cached recommendations, not measured performance claims. Runtime roles determine direct versus department execution. If several models make the preference uncertain, at most three candidates receive task adequacy checks; insufficient evidence still returns caller selection.
+
 An empty advisor pool disables consultation. Advisors must also pass the general hard-allow pool. The general pool in `~/.omo/model-pool.json` allows all when missing or valid and empty. Malformed or unreadable native routing controls fail closed. Provider toggles and fresh model availability are checked at dispatch. Existing concurrency and timeout settings remain configurable; native defaults protect active tools for up to 60 minutes and detect silence without active tools after three minutes.
 
 The versioned decision ledger records the actual manager inputs, candidate snapshot, response/fallback, caller selection, dispatch, usage and outcome links. It does not copy every chat. Research claims stay separate from verified task results. Export can include old ledger rows through a readonly legacy path.

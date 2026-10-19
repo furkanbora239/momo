@@ -40,13 +40,13 @@ export function createJobClassificationBatch(definitions: JobClassDefinitions, i
       const key = `m${index}c${classIndex}`
       questions[key] = {
         type: "choice", instructions: `Model ${index}; job class ${entry.id}.`,
-        criteria: { suitable: "Evidence supports suitability", unsuitable: "Evidence supports unsuitability", unknown: "Insufficient evidence" },
+        criteria: { suitable: "Source-backed traits support an inferred suitability recommendation", unsuitable: "Source-backed traits support an inferred unsuitability recommendation", unknown: "Insufficient evidence" },
       }
       return { key, classId: entry.id }
     }),
   }))
   if (new Set(inputs.map((input) => jobModelKey(input.model))).size !== inputs.length) throw new Error("duplicate classification model")
-  const state = JSON.stringify({ version: 1, instructions: "Assess job suitability using the supplied source evidence. Native roles are independent. Return unknown when evidence is insufficient. Suitability is a recommendation, never a new verified model fact.", definitions, models: entries.map((entry) => entry.input) })
+  const state = JSON.stringify({ version: 1, instructions: "Infer job suitability recommendations from the supplied verified traits and published model descriptions. A direct task benchmark or an explicit claim naming the job class is not required: consider what the stated language, reasoning, tool and modality capabilities can support. Text output supports language generation but alone does not prove skill in every text-based job. Native roles are independent. Return unknown when evidence is insufficient or irrelevant, and unsuitable when it contradicts the job requirements. Do not invent measured performance or promote recommendations into verified model facts.", definitions, models: entries.map((entry) => entry.input) })
   if (Buffer.byteLength(state, "utf8") > MAX_STATE_BYTES) throw new Error("classification evidence exceeds bounded state limit")
   return { definitions: structuredClone(definitions), state, questions, entries }
 }

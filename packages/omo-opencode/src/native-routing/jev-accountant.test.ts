@@ -123,3 +123,60 @@ test("given an attempted linked decision has no canonical receipt, a semantic ze
   const f = fixture(); f.rows.push({ ...decision("missing-call"), jevAttempted: true, jevUsage: { costUsd: 0 } })
   await expect(f.make().run(identity("later"), paid)).rejects.toThrow("spend is unknown")
 })
+
+
+test("given malformed free output, canonical zero billing survives restart without consuming the paid cap", async () => {
+  const f = fixture(), accountant = f.make()
+  await expect(accountant.run(identity("free-malformed", "classification"), async audit => {
+    await audit.beforeRequest()
+    await audit.recordAttempt({ url: "https://opencode.ai/zen/v1/systemone", headers: {}, requestBody: { model: "jev-1.13-free" }, status: 200,
+      responseBody: { usage: { input_tokens: 900000, output_tokens: 99999 }, answers: {} } })
+    throw new Error("malformed classification answer")
+  })).rejects.toThrow("malformed classification answer")
+  expect(accountant.receipt("free-malformed")).toMatchObject({ status: "complete", usage: { inputTokens: 900000, costUsd: 0 } })
+  expect((await f.make().run(identity("paid-later"), paid)).value).toBe("value")
+})
+
+const freeBinding = { model: "jev-1.13-free", endpoint: "https://opencode.ai/zen/v1/systemone" }
+async function free(audit: NativeJevCallAudit, missingUsage = false) {
+  await audit.beforeRequest(freeBinding)
+  await audit.recordAttempt({ url: freeBinding.endpoint, headers: {}, requestBody: { model: freeBinding.model }, status: 200,
+    responseBody: missingUsage ? {} : { usage: { input_tokens: 100, output_tokens: 1 } } })
+  return "free-value"
+}
+
+test("given the paid cap is exhausted, verified free calls remain admitted after restart", async () => {
+  const f = fixture(); await f.make().run(identity("spent"), paid)
+  const result = await f.make().run({ ...identity("free-after-cap"), billingBinding: freeBinding }, free)
+  expect(result.value).toBe("free-value")
+  expect(result.receipt).toMatchObject({ billingBinding: freeBinding, usage: { inputTokens: 100, costUsd: 0 } })
+  await expect(f.make().run(identity("paid-after-cap"), paid)).rejects.toThrow("budget cap")
+})
+
+test("given historical unknown spend or missing free usage, only verified free calls can continue", async () => {
+  const f = fixture()
+  f.rows.push({ version: 1, type: "jev_call", ...identity("unknown-paid"), createdAt: "2026-10-17T00:00:00Z", status: "pending" })
+  const missing = await f.make().run({ ...identity("missing-free"), billingBinding: freeBinding }, audit => free(audit, true))
+  expect(missing.receipt.usage?.costUsd).toBeUndefined()
+  expect((await f.make().run({ ...identity("next-free"), billingBinding: freeBinding }, free)).value).toBe("free-value")
+  await expect(f.make().run(identity("paid-blocked"), paid)).rejects.toThrow("spend is unknown")
+})
+
+test("given a free admitted binding changes before HTTP, admission rejects the changed model or endpoint", async () => {
+  const f = fixture()
+  for (const [index, binding] of [{ ...freeBinding, model: "jev-1.13" }, { ...freeBinding, endpoint: "https://custom.invalid/systemone" }].entries()) {
+    let sent = false
+    await expect(f.make().run({ ...identity("mismatch-" + index), billingBinding: freeBinding }, async audit => {
+      await audit.beforeRequest(binding); sent = true; return 1
+    })).rejects.toThrow("billing binding differs")
+    expect(sent).toBe(false)
+  }
+})
+
+test("given free admission, replay and poisoned persistence still block execution", async () => {
+  const f = fixture(), accountant = f.make(), call = { ...identity("free-once"), billingBinding: freeBinding }
+  await accountant.run(call, free)
+  await expect(f.make().run(call, free)).rejects.toThrow("already recorded")
+  f.fail(); await expect(accountant.run({ ...identity("disk-fail"), billingBinding: freeBinding }, free)).rejects.toThrow("disk unavailable")
+  await expect(accountant.run({ ...identity("disk-poisoned"), billingBinding: freeBinding }, free)).rejects.toThrow("persistence is uncertain")
+})

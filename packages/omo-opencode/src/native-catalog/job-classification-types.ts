@@ -37,6 +37,9 @@ export interface JobClassificationResult {
 export type JobClassificationUsageReceipt = {
   readonly source: "audited-http"
   readonly receiptID: string
+  /** Exact billed model; older receipts omit this and retain the historical paid estimate. */
+  readonly billedModel?: string
+  readonly billedEndpoint?: string
   readonly outputTokens?: number
 } & (
   | { readonly status: "known"; readonly inputTokens: number; readonly costUsd: number }

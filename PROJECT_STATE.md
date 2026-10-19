@@ -3,11 +3,19 @@
 **Last Updated:** 2026-10-19
 **Version / Branch:** `dev`
 
+## Public Jev and source-backed catalog readiness (2026-10-19)
+
+The native zero-config manager now uses official anonymous `opencode/jev-1.13-free`; explicit paid and custom bindings keep their previous authentication. Published models.dev facts, native text/input/output modalities and verified prices feed both cached job classification and final model selection. Public provider admission remains limited to verified free official models, with provider and pool controls preserved. Classifier semantics are versioned so old sparse profiles cannot hide the richer evidence.
+
+Execution topology follows the selected native role. Model preference and task adequacy are separate: uncertain preferences can trigger bounded per-task checks of up to three candidates without lowering the confidence threshold. Free HTTP billing is bound to the official model and endpoint, retains usage, and bypasses paid spend caps without bypassing persistence or replay protection.
+
+Real isolated OpenCode 2.0.32 has already run a free orchestrator, real free Jev and a selected free worker from four candidates to repair TypeScript and pass its actual unit test. Restart reused the classification profiles and published source cache. The full distribution also passed a builtin-registry coding task with Mimo and cold published metadata; builtin three-model selection also passed with a controlled root and real Nemotron worker. One three-model worker run timed out on Nemotron, so provider reliability is not established. Research/planning/analysis/writing memberships remain unknown or below the confidence threshold. See [the source-bound receipt](notes/qa/native-free-jev-catalog-20261019.json) for exact scope and gates. No real user catalog or credentials were modified by the isolated tests.
+
 ## Native v2 live-test repairs and cached job classes (2026-10-19)
 
 The first native live-test repairs are delivered through PRs #38-44: bounded Jev choices, compact task inspection, durable consumption and form delivery, provider admission, single root steering wake, paid/unknown/no-send accounting, model privacy/capacity checks and shared classification/routing budget ownership. F13 file-scope coordination and F14 repeated briefing remain deferred without an established conflicting edit or duplicate injection.
 
-The composed job-class feature now classifies catalog facts in small bounded batches and reuses immutable profiles across restarts and projects. Each task selects class, then native role, then an eligible model. Roles remain separate from job types; provider controls and source fingerprints are rechecked before transport. Unchanged profiles send no additional classification requests. Paid malformed and missing-input usage block capped routing and classification across restart. Simultaneous separate processes with an empty shared cache may still each classify before publication.
+The composed job-class feature now classifies catalog facts in small bounded batches and reuses immutable profiles across restarts and projects. Each task selects class, then native role, then an eligible model. Roles remain separate from job types; provider controls and source fingerprints are rechecked before transport. Unchanged profiles send no additional classification requests. Paid malformed and missing-input usage block capped paid routing and classification across restart. Simultaneous separate processes with an empty shared cache may still each classify before publication.
 
 Generated schema, build, complete monorepo typecheck, fresh full suite and isolated native OpenCode 2.0.32 scenarios passed on the recorded composed source. Exact-head CI and bounded review remain publication gates. See [the repair status](notes/native-v2-live-test-repair-status-20261018.md) and [source-bound receipt](notes/qa/native-job-classification-20261017.json) for counts, native observations, source hashes and coverage limits. Main promotion and npm publishing are separate.
 

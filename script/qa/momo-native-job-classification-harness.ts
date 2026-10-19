@@ -14,7 +14,7 @@ export async function until<T>(read: () => Promise<T>, ready: (value: T) => bool
 export function isolatedEnv(root: string): NodeJS.ProcessEnv {
   return { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: join(root,"home"), USERPROFILE: join(root,"home"), OPENCODE_TEST_HOME: join(root,"home"), TMPDIR: join(root,"tmp"), TMP: join(root,"tmp"), TEMP: join(root,"tmp"), XDG_DATA_HOME: join(root,"data"), XDG_CONFIG_HOME: join(root,"config"), XDG_STATE_HOME: join(root,"state"), XDG_CACHE_HOME: join(root,"cache"), OPENCODE_CONFIG_DIR: join(root,"config/opencode"), OPENCODE_DISABLE_AUTOUPDATE:"1", OPENCODE_DISABLE_MODELS_FETCH:"1", NO_COLOR:"1" }
 }
-export async function harness(binary: string, evidence: string) {
+export async function harness(binary: string, evidence: string, options: { allowConcurrentMessageWrites?: boolean } = {}) {
   const realDB = join(process.env.HOME ?? "", ".local/share/opencode/opencode.db")
   const counts = () => execFileSync("sqlite3", ["-readonly", realDB,"select 'session',count(*) from session union all select 'session_v2',count(*) from session_v2 union all select 'session_message',count(*) from session_message"], {encoding:"utf8"}).trim()
   const before = counts(), root = await mkdtemp(join(tmpdir(),"momo-job-class-")), env = isolatedEnv(root)
@@ -61,8 +61,9 @@ export async function harness(binary: string, evidence: string) {
     const groupsGone = groups.every(group=>!alive.includes(group))
     // Preserve the isolated files if a native process still owns them.
     if(groupsGone) await rm(root,{recursive:true,force:true})
-    const receipt={before,after,unchanged:before===after,groups,groupsGone,openedDatabases:[...databases],disposableRootRemoved:!existsSync(root),...(failure?{error:String(failure)}:{})}
-    assert(receipt.unchanged&&receipt.groupsGone&&receipt.disposableRootRemoved&&!failure,"Native QA cleanup failed: "+JSON.stringify(receipt))
+    const unchangedSessions = before.split("\n").slice(0,2).join("\n") === after.split("\n").slice(0,2).join("\n")
+    const receipt={before,after,unchanged:before===after,unchangedSessions,concurrentMessageWritesAllowed:options.allowConcurrentMessageWrites===true,groups,groupsGone,openedDatabases:[...databases],disposableRootRemoved:!existsSync(root),...(failure?{error:String(failure)}:{})}
+    assert((receipt.unchanged || options.allowConcurrentMessageWrites && unchangedSessions && databases.size>0)&&receipt.groupsGone&&receipt.disposableRootRemoved&&!failure,"Native QA cleanup failed: "+JSON.stringify(receipt))
     return receipt
   }
   return {root,env,project,plugin,start,stop,capture,cleanup}

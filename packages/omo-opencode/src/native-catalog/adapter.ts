@@ -11,6 +11,7 @@ import { nativeModelFacts, resolveNativePriceSource } from "./model-facts"
 import { hasVerifiedKnowledgeSource } from "./knowledge-facts"
 import { createNativeCatalogKnowledgeStore } from "./knowledge-store"
 import { resolveNativeCatalogHealthDirectory, resolveNativeOmoDirectory } from "./paths"
+import { isOfficialPublicProvider } from "./public-provider"
 import { connectedNativeProviders } from "./provider-admission"
 import type { NativeCatalogAdapterOptions, NativeCatalogModelFacts, NativeCatalogSnapshot } from "./types"
 
@@ -33,6 +34,14 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
     const [providerResponse, modelResponse] = await Promise.all([options.context.provider.list(), options.context.model.list()])
     const providers = providerResponse.data
     const models = modelResponse.data
+    const publishedModels = await options.readPublishedModels?.(models, providers) ?? new Map()
+    const publicModels = models.filter((model) => {
+      const published = publishedModels.get(`${model.providerID}/${model.id}`)
+      const provider = providers.find((item) => item.id === model.providerID)
+      return provider !== undefined && isOfficialPublicProvider(provider, model) && published?.inputPricePerMillion === 0 && published.outputPricePerMillion === 0
+    }).map((model) => ({ providerID: model.providerID, id: model.id }))
+    const publicKeys = new Set(publicModels.map((model) => `${model.providerID}/${model.id}`))
+    const publicOnlyProviders = new Set<string>()
     const toggles = options.readToggles?.() ?? controlStores.readProviderToggles()
     const health = options.readHealth?.() ?? healthStore.readProviderHealth()
     const unavailableProviders: Record<string, { reason: string; until?: number; statusCode?: number }> = {}
@@ -51,13 +60,19 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
     const connectionStates = await Promise.all(configuredProviders.map(async (provider) => {
       if (!provider.integrationID) return { provider, connected: true }
       const connected = await options.context.integration.connection.active(provider.integrationID)
+      if (!connected && isOfficialPublicProvider(provider) && publicModels.some((model) => model.providerID === provider.id)) {
+        publicOnlyProviders.add(provider.id)
+        return { provider, connected: true }
+      }
       if (!connected) unavailableProviders[provider.id] = { reason: "no active OpenCode integration connection" }
       return { provider, connected: connected !== undefined }
     }))
     const activeProviders = connectionStates.filter((item) => item.connected).map((item) => item.provider)
     const liveByProvider = new Map<string, NativeLiveModelsResult>()
     await Promise.all(activeProviders.map(async (provider) => {
-      liveByProvider.set(provider.id, await fetchNativeLiveModels(options, provider, models, markUnavailable))
+      liveByProvider.set(provider.id, publicOnlyProviders.has(provider.id)
+        ? { models: new Map(), authoritative: false }
+        : await fetchNativeLiveModels(options, provider, models, markUnavailable))
     }))
     for (const [providerID, live] of liveByProvider) {
       if (live.unavailable) unavailableProviders[providerID] = { ...live.unavailable }
@@ -71,17 +86,25 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
     const unregisteredLiveModels: Record<string, string[]> = {}
     for (const model of models) {
       if (!eligibleIDs.has(model.providerID) || !model.enabled || model.status === "deprecated") continue
+      if (publicOnlyProviders.has(model.providerID) && !publicKeys.has(`${model.providerID}/${model.id}`)) continue
       const live = liveByProvider.get(model.providerID)
       if (live?.unavailable) continue
       const liveRecord = live?.models.get(model.modelID)
       if (live?.authoritative && !liveRecord) continue
       const modelRef = { providerID: model.providerID, id: model.id }
-      const publishedPrice = knowledgeStore.readPrice(modelRef)
-      const price = publishedPrice ? { source: "provider" as const, verified: true } : resolveNativePriceSource(model, options)
+      const published = publishedModels.get(`${model.providerID}/${model.id}`)
+      const metadataPrice = published?.inputPricePerMillion !== undefined && published.outputPricePerMillion !== undefined
+        ? { inputPerMillion: published.inputPricePerMillion, outputPerMillion: published.outputPricePerMillion, source: published.source }
+        : undefined
+      const researchedPrice = knowledgeStore.readPrice(modelRef)
+      const publishedPrice = researchedPrice ?? metadataPrice
+      const price = researchedPrice ? { source: "provider" as const, verified: true }
+        : metadataPrice ? { source: "models.dev" as const, verified: true } : resolveNativePriceSource(model, options)
       const fact = nativeModelFacts(model, price.source, price.verified, liveRecord?.contextLength, publishedPrice)
       const policy = await options.modelPolicyHealth?.get(modelRef)
       if (policy) unavailableModels[`${model.providerID}/${model.id}`] = { reason: policy.reason, until: policy.unavailableUntil }
-      facts.push(policy ? { ...fact, available: false } : fact)
+      const enriched = published ? { ...fact, published } : fact
+      facts.push(policy ? { ...enriched, available: false } : enriched)
       const key = `${model.providerID}/${model.id}`
       transportModelIDs[key] = model.modelID
       sources[key] = liveRecord === undefined
@@ -137,13 +160,14 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
       toggles: () => options.readToggles?.() ?? controlStores.readProviderToggles(),
       health: () => options.readHealth?.() ?? healthStore.readProviderHealth(),
       now,
+      publicModels: snapshot.models.filter((model) => model.inputPricePerMillion === 0 && model.outputPricePerMillion === 0),
     })
     const allowed = new Set(current.providers.map((provider) => provider.id))
     const filterKeys = <T>(records: Readonly<Record<string, T>>) => Object.fromEntries(Object.entries(records).filter(([key]) => allowed.has(key.split("/")[0])))
     const visible: NativeCatalogSnapshot = {
       ...snapshot,
       connectedProviders: snapshot.connectedProviders.filter((id) => allowed.has(id)),
-      models: snapshot.models.filter((model) => allowed.has(model.providerID)),
+      models: snapshot.models.filter((model) => allowed.has(model.providerID) && (!current.publicOnlyProviders.includes(model.providerID) || model.inputPricePerMillion === 0 && model.outputPricePerMillion === 0)),
       sources: filterKeys(snapshot.sources),
       transportModelIDs: filterKeys(snapshot.transportModelIDs),
       unregisteredLiveModels: filterKeys(snapshot.unregisteredLiveModels),

@@ -34,3 +34,13 @@ describe("job classification source inputs", () => {
     expect(() => createJobClassDefinitions(Array.from({ length: 33 }, (_, i) => ({ id: String(i), description: "D" })))).toThrow()
   })
 })
+
+test("classification preserves source modalities and fingerprints output capability changes", () => {
+  const definitions = createJobClassDefinitions()
+  const source = { ...model, inputModalities: ["image", "text", "text"], outputModalities: ["text"] }
+  const first = jobClassificationInput(source)
+  expect(first.evidence[0]?.facts.inputModalities).toEqual(["image", "text"])
+  expect(first.evidence[0]?.facts.outputModalities).toEqual(["text"])
+  expect(jobClassificationFingerprint(definitions, first)).toBe(jobClassificationFingerprint(definitions, jobClassificationInput({ ...source, inputModalities: ["text", "image"] })))
+  expect(jobClassificationFingerprint(definitions, first)).not.toBe(jobClassificationFingerprint(definitions, jobClassificationInput({ ...source, outputModalities: ["image"] })))
+})

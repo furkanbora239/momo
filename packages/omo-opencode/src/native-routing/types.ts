@@ -34,7 +34,19 @@ export interface NativeRouteInput {
   readonly requiredCapabilities?: readonly string[]
 }
 
+export interface NativePublishedModelMetadata {
+  readonly source: string
+  readonly name?: string
+  readonly description?: string
+  readonly family?: string
+  readonly reasoning?: boolean
+}
+
 export interface NativeModelFacts extends NativeModelRef {
+  readonly displayName?: string
+  readonly family?: string
+  readonly canonical?: string
+  readonly published?: NativePublishedModelMetadata
   readonly available: boolean
   readonly priceSource?: "models.dev" | "opencode.model.list" | "provider" | "configuration" | "unknown"
   readonly priceCurrency?: "USD" | "unknown"
@@ -43,6 +55,8 @@ export interface NativeModelFacts extends NativeModelRef {
   readonly outputPricePerMillion?: number
   readonly contextLength?: number
   readonly toolCall?: boolean
+  readonly inputModalities?: readonly string[]
+  readonly outputModalities?: readonly string[]
   readonly capabilities?: readonly string[]
 }
 
@@ -140,14 +154,20 @@ export interface NativeJevAnswer {
   readonly usage?: { readonly inputTokens?: number; readonly outputTokens?: number; readonly costUsd?: number }
 }
 
+export interface NativeJevBillingBinding {
+  readonly model: string
+  readonly endpoint: string
+}
+
 export interface NativeJev {
+  readonly billingBinding?: NativeJevBillingBinding
   /** Catalog warmup runs before the routing paid-call queue is acquired. */
   prepare?(request: NativeJevRequest): Promise<void> | void
   choose(request: NativeJevRequest, audit?: NativeJevCallAudit): Promise<NativeJevAnswer>
 }
 
 export interface NativeJevCallAudit {
-  beforeRequest(): Promise<void> | void
+  beforeRequest(binding?: NativeJevBillingBinding): Promise<void> | void
   recordAttempt(attempt: NativeJevHttpAttempt): Promise<void> | void
 }
 
@@ -157,6 +177,7 @@ export interface NativeJevCallRecord {
   readonly callId: string
   readonly purpose: "routing" | "classification"
   readonly inputDigest: string
+  readonly billingBinding?: NativeJevBillingBinding
   readonly createdAt: string
   readonly status: "pending" | "complete" | "not_sent"
   readonly usage?: NativeJevAnswer["usage"]

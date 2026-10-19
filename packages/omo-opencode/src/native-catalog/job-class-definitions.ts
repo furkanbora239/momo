@@ -18,5 +18,5 @@ export const DEFAULT_JOB_CLASSES = [
 ] as const
 
 export function createJobClassDefinitions(classes: unknown = DEFAULT_JOB_CLASSES): JobClassDefinitions {
-  return { version: "job-types-v1", classifierVersion: "source-suitability-v1", classes: JobClassesSchema.parse(classes) }
+  return { version: "job-types-v1", classifierVersion: "source-suitability-v2", classes: JobClassesSchema.parse(classes) }
 }

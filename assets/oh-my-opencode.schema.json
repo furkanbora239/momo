@@ -11499,8 +11499,9 @@
         },
         "jev": {
           "default": {
-            "model": "jev-1.13",
-            "provider_id": "opencode-go",
+            "model": "jev-1.13-free",
+            "provider_id": "opencode",
+            "authentication": "none",
             "base_url": "https://opencode.ai/zen/v1",
             "confidence_threshold": 0.75,
             "max_attempts": 5,
@@ -11513,18 +11514,29 @@
               "warn_at_usd": 1.5
             }
           },
+          "description": "Jev decision-engine tuning.",
           "type": "object",
           "properties": {
             "model": {
-              "default": "jev-1.13",
+              "default": "jev-1.13-free",
               "description": "Jev model identifier.",
-              "type": "string"
-            },
-            "provider_id": {
-              "default": "opencode-go",
-              "description": "Connected OpenCode provider whose native credential Jev uses.",
               "type": "string",
               "minLength": 1
+            },
+            "provider_id": {
+              "default": "opencode",
+              "description": "OpenCode provider that owns the Jev binding.",
+              "type": "string",
+              "minLength": 1
+            },
+            "authentication": {
+              "default": "none",
+              "description": "Use provider credentials, or explicitly anonymous official free Jev access.",
+              "type": "string",
+              "enum": [
+                "provider",
+                "none"
+              ]
             },
             "base_url": {
               "default": "https://opencode.ai/zen/v1",
@@ -11606,14 +11618,14 @@
           "required": [
             "model",
             "provider_id",
+            "authentication",
             "base_url",
             "confidence_threshold",
             "max_attempts",
             "circuit_breaker",
             "budget"
           ],
-          "additionalProperties": false,
-          "description": "Jev decision-engine tuning."
+          "additionalProperties": false
         }
       },
       "required": [

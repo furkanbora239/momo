@@ -15,18 +15,21 @@ function request(candidates: NativeCandidate[]): NativeJevRequest {
   return { decisionId: "PRIVATE_DECISION", input: { prompt: "Investigate the problem", rootSessionID: "PRIVATE_ROOT", parentSessionID: "PRIVATE_PARENT", parentRole: "orchestrator", kind: "task" },
     allowedRoles: ["worker", "research", "planner"], candidates, knowledge: candidates.map((entry) => entry.knowledge), outcomes: [], instructions: "PRIVATE_INSTRUCTIONS" }
 }
-function fixture(options: { jobClass?: string; role?: string; target?: string; invalid?: string; low?: string; total?: number; reject?: number } = {}) {
+function fixture(options: { jobClass?: string; role?: string; target?: string; invalid?: string; low?: string; total?: number; reject?: number; adequacy?: string; weakAdequacy?: boolean; weakFirstAdequacy?: boolean; contradictoryAdequacy?: boolean } = {}) {
   const calls: { state: string; questions: JevQuestionSet }[] = []
+  let adequacyCalls = 0
   const client: JevClient = { async ask(state, questions) {
     calls.push({ state, questions })
     if (calls.length === options.reject) throw new Error("transport failed after prior paid stage")
     const answers = Object.fromEntries(Object.entries(questions).map(([name, question]) => {
       if (question.type !== "choice") throw new Error("expected choice")
       expect(Object.keys(question.criteria).length).toBeLessThanOrEqual(255)
-      let choice = name === "jobClass" ? options.jobClass ?? "research" : name === "role" ? options.role ?? "research" : name === "lane" ? options.role === "planner" ? "department" : "direct" : `${options.role ?? "research"}|PRIVATE_PROVIDER/${options.target ?? "PRIVATE_MODEL"}`
+      let choice = name === "modelAdequacy" ? options.adequacy ?? "adequate" : name === "jobClass" ? options.jobClass ?? "research" : name === "role" ? options.role ?? "research" : name === "lane" ? options.role === "planner" ? "department" : "direct" : `${options.role ?? "research"}|PRIVATE_PROVIDER/${options.target ?? "PRIVATE_MODEL"}`
       if (name === "group") choice = Object.entries(question.criteria).find(([, value]) => value.includes(`"id":"${options.target}"`))?.[0] ?? ""
+      if (name === "modelAdequacy") adequacyCalls++
+      if (name === "candidate" && !options.target && !Object.hasOwn(question.criteria, choice)) choice = Object.keys(question.criteria)[0]!
       if (name === options.invalid) choice = "not-offered"
-      return [name, { type: "choice", choice, confidence: name === options.low ? 0.1 : name === "role" ? 0.9 : 0.98, probabilities: { [choice]: options.total ?? 1 } }]
+      return [name, { type: "choice", choice, confidence: name === options.low || name === "modelAdequacy" && (options.weakAdequacy || options.weakFirstAdequacy && adequacyCalls === 1) ? 0.1 : name === "role" ? 0.9 : 0.98, probabilities: name === "modelAdequacy" && options.contradictoryAdequacy ? { adequate: 0, unknown: 1 } : { [choice]: options.total ?? 1 } }]
     })) as JevCallResult["answers"]
     return { answers, model: "jev", usage: { inputTokens: 100, outputTokens: 5 }, costUsd: 0, latencyMs: 1 }
   } }
@@ -75,6 +78,15 @@ describe("job class before runtime role and model", () => {
     expect(calls).toHaveLength(3)
   })
 
+  test("given a worker role, runtime derives direct execution without a dependent Jev question", async () => {
+    const { client, calls } = fixture({ role: "worker", jobClass: "coding", invalid: "lane" })
+    const answer = await selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "worker")]), options)
+    expect(answer.lane).toBe("direct")
+    expect(answer.laneConfidence).toBe(0.9)
+    expect(Object.keys(calls[1]!.questions)).toEqual(["role"])
+    expect(calls).toHaveLength(3)
+  })
+
   test("missing, unknown and weak memberships remain explicit pending without any paid request", async () => {
     for (const memberships of [undefined, [tag("research", 1, "unknown")], [tag("research", 0.2)]]) {
       const { client, calls } = fixture()
@@ -105,7 +117,7 @@ describe("job class before runtime role and model", () => {
     expect(answer.probabilities).toEqual({ "research|PRIVATE_PROVIDER/PRIVATE_MODEL": 0.99 })
   })
 
-  for (const stage of ["jobClass", "role", "lane", "candidate"]) test(`invalid ${stage} stops with earlier semantic evidence`, async () => {
+  for (const stage of ["jobClass", "role", "candidate"]) test(`invalid ${stage} stops with earlier semantic evidence`, async () => {
     const { client, calls } = fixture({ invalid: stage })
     try {
       await selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "research")]), options)
@@ -175,6 +187,41 @@ describe("job class before runtime role and model", () => {
       expect(error.stages.every((stage) => stage.result !== undefined)).toBe(true)
       expect(calls).toHaveLength(3)
     }
+  })
+
+  test("low preference confidence requires a separate high-confidence task adequacy decision", async () => {
+    const { client, calls } = fixture({ low: "candidate" })
+    const answer = await selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "research")]), options)
+    expect(calls).toHaveLength(4)
+    expect(Object.keys(calls[3]!.questions)).toEqual(["modelAdequacy"])
+    expect(answer.confidence).toBe(0.9)
+    expect(answer.probabilities).toEqual({ "research|PRIVATE_PROVIDER/PRIVATE_MODEL": 1 })
+    expect(JSON.parse(calls[3]!.state).selectedCandidate.model.id).toBe("PRIVATE_MODEL")
+  })
+
+  test("a task-unconfirmed preference tries the next eligible model within the bounded decision", async () => {
+    const { client, calls } = fixture({ low: "candidate", weakFirstAdequacy: true })
+    const answer = await selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "research"), candidate("SECOND_MODEL", "research")]), options)
+    expect(answer.model.id).toBe("SECOND_MODEL")
+    expect(calls).toHaveLength(6)
+    expect(JSON.stringify(calls[4]!.questions)).not.toContain("PRIVATE_MODEL")
+  })
+
+  test("high confidence cannot override contradictory task adequacy probabilities", async () => {
+    const { client } = fixture({ low: "candidate", contradictoryAdequacy: true })
+    await expect(selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "research")]), options)).rejects.toMatchObject({ reason: "selection_failed" })
+  })
+
+  test("weak or malformed adequacy cannot rescue an uncertain model preference", async () => {
+    for (const settings of [{ weakAdequacy: true }, { invalid: "modelAdequacy" }]) {
+      const { client } = fixture({ low: "candidate", ...settings })
+      await expect(selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "research")]), options)).rejects.toBeInstanceOf(JobClassSelectionError)
+    }
+  })
+
+  for (const adequacy of ["unknown", "inadequate"]) test(`unconfirmed task adequacy ${adequacy} still requires caller selection`, async () => {
+    const { client } = fixture({ low: "candidate", adequacy })
+    await expect(selectJobClassModel(client, request([candidate("PRIVATE_MODEL", "research")]), options)).rejects.toMatchObject({ reason: "low_confidence" })
   })
 
   test("low role confidence stops before model selection", async () => {

@@ -1,0 +1,305 @@
+{
+  "kind": "real-free-native-orchestrator-catalog-acceptance",
+  "status": "passed-with-recorded-limits",
+  "native": {
+    "status": "passed",
+    "rootModel": "mimo-v2.6-flash-free",
+    "workerModel": "mimo-v2.6-flash-free",
+    "jevModel": "jev-1.13-free",
+    "bundleSHA256": "233978ffae683b9a501ea0ef4e41247c80ba463468576171c8a48c6f15792992",
+    "credentialsCopied": false,
+    "publishedMetadataFromVerifiedFile": true,
+    "nativeProviderSource": "builtin OpenCode registry",
+    "version": "2.0.32",
+    "requestedCandidates": [
+      "mimo-v2.6-flash-free"
+    ],
+    "registeredCandidates": [
+      "mimo-v2.6-flash-free"
+    ],
+    "removedCandidates": [],
+    "selectedWorker": {
+      "providerID": "opencode",
+      "id": "mimo-v2.6-flash-free"
+    },
+    "fixedSource": "export function add(a: number, b: number) { return a + b }\n",
+    "workerTest": "bun test v1.3.14 (0d9b296a)\n\narithmetic.test.ts:\n(pass) adds [0.29ms]\n\n 1 pass\n 0 fail\n 1 expect() calls\nRan 1 test across 1 file. [41.00ms]\n",
+    "jevCalls": [
+      {
+        "purpose": "classification",
+        "usage": {
+          "inputTokens": 1186,
+          "outputTokens": 265,
+          "costUsd": 0
+        }
+      },
+      {
+        "purpose": "routing",
+        "usage": {
+          "inputTokens": 2480,
+          "outputTokens": 197,
+          "costUsd": 0
+        }
+      }
+    ],
+    "restartReclassified": false,
+    "publishedCachePersisted": true,
+    "rootCalls": 0,
+    "cleanup": {
+      "before": "session|249\nsession_v2|322\nsession_message|19853",
+      "after": "session|249\nsession_v2|322\nsession_message|19855",
+      "unchanged": false,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        360217,
+        361275
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-J5qU3R/data/opencode/opencode.db",
+        "/tmp/momo-job-class-J5qU3R/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-J5qU3R/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  },
+  "builtinColdThreeModelCatalog": {
+    "status": "passed",
+    "rootModel": "controlled local delegation fixture",
+    "workerModel": "mimo-v2.6-flash-free",
+    "jevModel": "jev-1.13-free",
+    "bundleSHA256": "233978ffae683b9a501ea0ef4e41247c80ba463468576171c8a48c6f15792992",
+    "credentialsCopied": false,
+    "publishedMetadataFromVerifiedFile": true,
+    "nativeProviderSource": "builtin OpenCode registry",
+    "version": "2.0.32",
+    "requestedCandidates": [
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+      "longcat-2.5-preview-free"
+    ],
+    "registeredCandidates": [
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+      "longcat-2.5-preview-free"
+    ],
+    "removedCandidates": [],
+    "catalogOnly": true,
+    "rootCalls": 0,
+    "cleanup": {
+      "before": "session|249\nsession_v2|322\nsession_message|19841",
+      "after": "session|249\nsession_v2|322\nsession_message|19841",
+      "unchanged": true,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        357509
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-bZNbse/data/opencode/opencode.db",
+        "/tmp/momo-job-class-bZNbse/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-bZNbse/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  },
+  "additionalFourCandidateWorkerAcceptance": {
+    "status": "passed",
+    "rootModel": "mimo-v2.6-flash-free",
+    "workerModel": "mimo-v2.6-flash-free",
+    "jevModel": "jev-1.13-free",
+    "bundleSHA256": "5e75843e3901928b5d61b3c54ff6b92a43a22cb01f08d808383aca5b0e6b92f2",
+    "credentialsCopied": false,
+    "version": "2.0.32",
+    "selectedWorker": {
+      "providerID": "opencode",
+      "id": "nemotron-3.5-lightning-free"
+    },
+    "fixedSource": "export function add(a: number, b: number) { return a + b }\n",
+    "workerTest": "bun test v1.3.14 (0d9b296a)\n\narithmetic.test.ts:\n(pass) adds [0.18ms]\n\n 1 pass\n 0 fail\n 1 expect() calls\nRan 1 test across 1 file. [35.00ms]\n",
+    "jevCalls": [
+      {
+        "purpose": "classification",
+        "usage": {
+          "inputTokens": 3169,
+          "outputTokens": 1047,
+          "costUsd": 0
+        }
+      },
+      {
+        "purpose": "routing",
+        "usage": {
+          "inputTokens": 2838,
+          "outputTokens": 239,
+          "costUsd": 0
+        }
+      }
+    ],
+    "restartReclassified": false,
+    "publishedCachePersisted": true,
+    "rootCalls": 0,
+    "cleanup": {
+      "before": "session|249\nsession_v2|322\nsession_message|19744",
+      "after": "session|249\nsession_v2|322\nsession_message|19744",
+      "unchanged": true,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        300585,
+        300979
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-tbfJIb/data/opencode/opencode.db",
+        "/tmp/momo-job-class-tbfJIb/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-tbfJIb/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  },
+  "builtinThreeModelAttempt": {
+    "status": "failed",
+    "reason": "Selected Nemotron worker was still producing when the 90-second QA worker deadline elapsed. Routing and four Jev HTTP calls succeeded. No silent retry or production timeout change.",
+    "artifact": "native-builtin-final/receipt.json"
+  },
+  "sourceHashes": {
+    "packages/decision-core/src/index.ts": "a5e5dd9895d586838cb7abc19d64fcb1f78f4ce20090a77948ba68c549349979",
+    "packages/decision-core/src/jev-client.ts": "81cc84adc5f828df90f10060ea06f64acb377ff4e9a163830d305b4c15dfb410",
+    "packages/decision-core/src/jev-pricing.ts": "4b00f633c380fe5b300f5f353b2e2145c8ef8feb588eea140990188d6440e7dc",
+    "packages/omo-opencode/src/config/schema/decision-engine.ts": "3902fa2f8090dcfd2ad3ae0f3717eafbe2f3e2d1e5e43edfe92f903ca444a589",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "dac02f75a248fbf677365fb81ea549fc68292d0721f21e2a5ae48186b0fd58c6",
+    "packages/omo-opencode/src/native-catalog/index.ts": "d8567d50ac3d283efa65d2344e6e1c9054ac64d5d78123ae552fe81dab1a42ca",
+    "packages/omo-opencode/src/native-catalog/job-class-definitions.ts": "09c9c1dbcfaf6b9e6e6e620ecaf0b271db2e77bd487438ba43d477d86971677d",
+    "packages/omo-opencode/src/native-catalog/job-classification-codec.ts": "43778c2c87c21ad7896ad47e7877d9cedb921e2f58fd11b59f1726295e240d11",
+    "packages/omo-opencode/src/native-catalog/job-classification-input.ts": "e3fffc20e8edcc6f3d0b085728c22d5960487fd2847c08766e65f3917ee8b0b1",
+    "packages/omo-opencode/src/native-catalog/job-classification-types.ts": "a2b2e069ddbcc6a53b7148054a5ee23590a83c8025e04867bcfacb3434a74682",
+    "packages/omo-opencode/src/native-catalog/job-classification-usage.ts": "60ddf7e6c8200b14b2ae9ccc5fd41afa005642b2eb8575c67ff025a3db6959fd",
+    "packages/omo-opencode/src/native-catalog/model-facts.ts": "e2a0c870ea298a12111c9b8a34a6a305d7cc9017dd09a45a0a4242cf9897a769",
+    "packages/omo-opencode/src/native-catalog/provider-admission.ts": "f8440f77ebd16a4ff5eb67102df956a1644f9da832f500ab63e14e57e3644cca",
+    "packages/omo-opencode/src/native-catalog/public-provider.ts": "c3fdb649921226adc53375d90f6e56f1b686a9e5c480ca5dd2dfe061b0f89d06",
+    "packages/omo-opencode/src/native-catalog/published-models.ts": "320959e332a1cffc9db3abfd7042e541353bee0b2d77d81608841b0e8216af75",
+    "packages/omo-opencode/src/native-catalog/types.ts": "122dd2e3c7c944f8caddd935af5788c1d9ad91558faca68fe9a473c85913f0a3",
+    "packages/omo-opencode/src/native-routing/index.ts": "5b5dd2b4a870b09b6bc211cec297f81bb366164fd2071579c8fe84949368e0bb",
+    "packages/omo-opencode/src/native-routing/jev-accountant.ts": "00c53798ca206f184a7b8eaa32f9bfc26e8e36c923691ba01513279f1f3c89e2",
+    "packages/omo-opencode/src/native-routing/jev-adapter.ts": "eb00f0b2ddfe3f78e54d7524883bdcbbdad31fb97f4ce0bf023f1a776b832be2",
+    "packages/omo-opencode/src/native-routing/jev-billing-binding.ts": "de1c0d55ac41c9ee79acabf2b472526a460f3a43f5ab0be454717bdf1c5b338f",
+    "packages/omo-opencode/src/native-routing/jev-http-usage.ts": "9d2309b5d2094097dc5d8b5059a2c65210f93711791890fdea5996b93c90c98e",
+    "packages/omo-opencode/src/native-routing/jev-staged-selection.ts": "fdf5666c37b6846f3bf0dcdc30bbe627eff9d2eee957bfd2e2a97eb19d1cbcd1",
+    "packages/omo-opencode/src/native-routing/job-class-backend.ts": "952f8c23210c095d1b5308d6f75843993482724a5156c46d4fc966e3cefb7f54",
+    "packages/omo-opencode/src/native-routing/job-class-selection.ts": "d5dfc5c67abe486e3b0bb2cd0f8f52d59d27b69c3fc21b251c45f86e6fcea4eb",
+    "packages/omo-opencode/src/native-routing/ledger-validation.ts": "3dd87c0508dbf5ef3f2fa81a0d89353b2afe07c3f046927575d0253fc03fe603",
+    "packages/omo-opencode/src/native-routing/router.ts": "05a9457a954382067c8fca320d23b9a115f0788e6988807dcb2487f101cdb8c3",
+    "packages/omo-opencode/src/native-routing/types.ts": "8d80ac39ab7b84bdd5cf59279db40ce00f63c69d6ab4d94814ea2b42d5c5573b",
+    "packages/omo-opencode/src/native-runtime/jev-credentials.ts": "3182877e5efc225a115004187e0dd636840f74d2fa88d0c4275ab1b902792e6b",
+    "packages/omo-opencode/src/native-runtime/job-classifier.ts": "b66314f091d635a9fb60570e79b40cffb5037d5a3aa30ead0f85b43e7c3f4d50",
+    "packages/omo-opencode/src/native-runtime/model-admission.ts": "cf283ba8e64efc7b253c7d2c28d7212b585aec3601bb83df0871339751ca7165",
+    "packages/omo-opencode/src/native-runtime/task-tools.ts": "abaa0e02c913062bfeb98aa159e8f63f98ea9fe33ba23eafef8e16b9b9c26607",
+    "script/qa/momo-native-free-jev.ts": "4b763c86e3c751b13d40cce81fe0e339f7b56b18395ebc6108479499b5d108f1",
+    "script/qa/momo-native-job-classification-fixture.ts": "a67b9725d6ef1648cc8cba38b5da223c4b15a554185d99e149efa9984def4f4e",
+    "script/qa/momo-native-job-classification-harness.ts": "fe0fe6bdbe9a7734575eea4a24b9ee9dc7d06a907163b0e96a875b7e3e28eba1",
+    "script/qa/momo-native-job-classification.ts": "7ae6598904d8ecda2fa58c196a3803f72b89b45cf3d823c4d61b9fefbf1caf48"
+  },
+  "verification": {
+    "typecheck": "passed on final product and QA sources",
+    "scriptTypecheck": "passed including isolated message diagnostics",
+    "fullSuite": {
+      "passed": 12865,
+      "skipped": 20,
+      "failed": 0,
+      "assertions": 37518,
+      "files": 1578,
+      "seconds": 281.91,
+      "scope": "composed worktree before final builtin package alias; alias has focused regression and exact-head CI gate"
+    },
+    "fullBuild": "passed; bundle digest in native receipt",
+    "focusedTests": "passed, including official native SDK package alias, provider admission, accounting binding and bounded adequacy",
+    "corePR": {
+      "number": 46,
+      "merged": true,
+      "mergeCommit": "a939b357ab3622741a7538a76ca208f5eeac122c",
+      "ci": "passed on 286af6c5f34bce199be56f6dd72af0dd83bafe0f",
+      "cubic": "SKIPPED: no bot review within 600 seconds; no quota exhaustion independently established"
+    },
+    "nativePR": {
+      "number": 47,
+      "ci": "pending exact-head GitHub gate",
+      "cubic": "pending bounded review gate"
+    }
+  },
+  "limits": [
+    "Confident live memberships cover coding and visual only; research/planning/analysis/writing remain unknown or below the 0.75 admission threshold.",
+    "Final builtin worker success used one pool candidate; three-model builtin selection also passed with a controlled root and a real selected Nemotron worker. Earlier four-candidate worker selection is separate evidence.",
+    "Native SDK registry was seeded from a TLS-verified official models.dev download less than 24 hours old. Published metadata cache was not seeded: native production reader fetched it cold.",
+    "QA copied no credentials and opened only isolated database descriptors. Real session counts stayed unchanged; message counts changed during concurrent activity, so whole-database immutability is not claimed.",
+    "This proves coding delegation, not universal capabilities, provider reliability, or globally optimal cost. User provider/catalog/config files were not modified. Main promotion and publishing are separate."
+  ],
+  "builtinThreeCandidateWorkerAcceptance": {
+    "status": "passed",
+    "rootModel": "controlled local delegation fixture",
+    "workerModel": "mimo-v2.6-flash-free",
+    "jevModel": "jev-1.13-free",
+    "bundleSHA256": "233978ffae683b9a501ea0ef4e41247c80ba463468576171c8a48c6f15792992",
+    "credentialsCopied": false,
+    "publishedMetadataFromVerifiedFile": true,
+    "nativeProviderSource": "builtin OpenCode registry",
+    "version": "2.0.32",
+    "requestedCandidates": [
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+      "longcat-2.5-preview-free"
+    ],
+    "registeredCandidates": [
+      "mimo-v2.6-flash-free",
+      "nemotron-3.5-lightning-free",
+      "longcat-2.5-preview-free"
+    ],
+    "removedCandidates": [],
+    "selectedWorker": {
+      "providerID": "opencode",
+      "id": "nemotron-3.5-lightning-free"
+    },
+    "fixedSource": "export function add(a: number, b: number) { return a + b }\n",
+    "workerTest": "bun test v1.3.14 (0d9b296a)\n\narithmetic.test.ts:\n(pass) adds [0.25ms]\n\n 1 pass\n 0 fail\n 1 expect() calls\nRan 1 test across 1 file. [89.00ms]\n",
+    "jevCalls": [
+      {
+        "purpose": "classification",
+        "usage": {
+          "inputTokens": 2534,
+          "outputTokens": 789,
+          "costUsd": 0
+        }
+      },
+      {
+        "purpose": "routing",
+        "usage": {
+          "inputTokens": 2353,
+          "outputTokens": 243,
+          "costUsd": 0
+        }
+      }
+    ],
+    "restartReclassified": false,
+    "publishedCachePersisted": true,
+    "rootCalls": 4,
+    "cleanup": {
+      "before": "session|249\nsession_v2|322\nsession_message|19855",
+      "after": "session|249\nsession_v2|322\nsession_message|19857",
+      "unchanged": false,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        363978,
+        364791
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-KDsviU/data/opencode/opencode.db",
+        "/tmp/momo-job-class-KDsviU/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-KDsviU/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  }
+}

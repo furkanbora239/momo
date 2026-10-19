@@ -1,3 +1,4 @@
+import { nativeJevBillingBinding } from "./jev-billing-binding"
 import { usageFromAttempts } from "./jev-http-usage"
 import { NativeJevUsageError, jevUsage } from "./jev-usage"
 import { NativeJevAdmissionError, createJevClient, type JevCallResult, type JevClient, type JevClientDeps, type PostJson } from "@oh-my-opencode/decision-core"
@@ -124,7 +125,8 @@ function createAuditedPostJson(
 ): PostJson {
   return async (url, headers, body) => {
     await beforeRequest?.()
-    await audit?.beforeRequest()
+    const request = body as { model?: unknown }
+    await audit?.beforeRequest(typeof request.model === "string" ? { model: request.model, endpoint: url } : undefined)
     const entry: { url: string; headers: Readonly<Record<string, string>>; requestBody: unknown; status?: number; responseBody?: unknown; error?: string } = {
       url,
       headers: redactedHeaders(headers),
@@ -177,6 +179,7 @@ export async function executeAuditedNativeJev<T>(
 
 export function createNativeJevBackend(deps: NativeJevBackendDeps): NativeJev {
   return {
+    billingBinding: nativeJevBillingBinding(deps),
     async choose(request, audit) {
       const execution = await executeAuditedNativeJev({ ...deps, session: request.input.rootSessionID },
         (client) => nativeAnswer(client, request), { audit, beforeRequest: () => deps.beforeRequest?.(request) })

@@ -34,7 +34,7 @@ function fixture() {
     knowledge: [], outcomes: [], instructions: "route",
   }
   const session = (child: boolean): SessionInfo => ({ id: child ? "child" : "root", ...(child ? { parentID: "root" } : {}), projectID: "project", agent: "momo-worker", model, cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }, time: { created: 0, updated: 0 }, location: { directory: "/fixture" } })
-  return { providers, controls, catalog, admission, request, session, setOnList: (callback: () => Promise<void> | void) => { onList = callback } }
+  return { home, providers, controls, catalog, admission, request, session, setOnList: (callback: () => Promise<void> | void) => { onList = callback } }
 }
 
 describe("native model admission", () => {
@@ -132,4 +132,17 @@ describe("classification admission", () => {
     const third = h.admission.revision(); expect(third).not.toBe(second)
     await h.catalog.refresh(); expect(h.admission.revision()).not.toBe(third)
   })
+})
+
+it("anonymous free manager admission ignores missing credentials but respects provider toggles", async () => {
+  const h = fixture()
+  h.providers[0].id = "opencode"
+  Object.assign(h.providers[0], { integrationID: "zen" })
+  const admission = createNativeModelAdmission({ context: {
+    provider: { list: async () => ({ data: h.providers }) },
+    integration: { connection: { active: async () => undefined } },
+  } as unknown as NativeCatalogContext, homeDirectory: h.home, catalog: h.catalog, managerProviderID: "opencode", managerPublicModelID: "jev-1.13-free", reject: message => { throw new Error(message) } })
+  expect((await admission.assertManagerProvider()).has("opencode")).toBe(true)
+  h.controls.writeProviderToggles({ version: 1, disabled: ["opencode"], updatedAt: "test" })
+  await expect(admission.assertManagerProvider()).rejects.toThrow("disabled by provider toggle")
 })
