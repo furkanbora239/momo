@@ -10,9 +10,10 @@
   "authorizationSent": false,
   "paidFallback": false,
   "sourceHashes": {
-    "packages/decision-core/src/jev-client.ts": "79781ae3f331f2f749e6318961dd7519c07c529d2f2199c89b9e527457392edd",
+    "packages/decision-core/src/jev-client.ts": "81cc84adc5f828df90f10060ea06f64acb377ff4e9a163830d305b4c15dfb410",
     "packages/decision-core/src/jev-pricing.ts": "4b00f633c380fe5b300f5f353b2e2145c8ef8feb588eea140990188d6440e7dc",
     "packages/decision-core/src/index.ts": "a5e5dd9895d586838cb7abc19d64fcb1f78f4ce20090a77948ba68c549349979"
   },
-  "coverageLimit": "Direct production core client with real upstream response; native adapter acceptance is delivered separately."
+  "coverageLimit": "Direct production core client with real upstream response; native adapter acceptance is delivered separately.",
+  "trailingSlashBaseURLVerified": true
 }

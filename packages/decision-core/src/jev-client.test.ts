@@ -218,9 +218,11 @@ describe("createJevClient", () => {
 
  it("omits Authorization for an explicit anonymous transport", async () => {
    let headers: Record<string, string> = {}
-   const client = createJevClient({ session: "free", model: "jev-1.13-free", getApiKey: () => undefined,
-     postJson: async (_url, sentHeaders) => { headers = sentHeaders; return okResponse({}) } })
+   let endpoint = ""
+   const client = createJevClient({ session: "free", model: "jev-1.13-free", baseUrl: "https://opencode.ai/zen/v1/", getApiKey: () => undefined,
+     postJson: async (url, sentHeaders) => { endpoint = url; headers = sentHeaders; return okResponse({}) } })
    const result = await client.ask("state", { q: { type: "noul", instructions: "x" } })
+   expect(endpoint).toBe("https://opencode.ai/zen/v1/systemone")
    expect(headers.Authorization).toBeUndefined()
    expect(result.costUsd).toBe(0)
  })

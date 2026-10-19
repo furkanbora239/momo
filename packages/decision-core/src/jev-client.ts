@@ -188,7 +188,7 @@ function createDefaultPostJson(deps: {
 }
 
 export function createJevClient(deps: JevClientDeps): JevClient {
-  const baseUrl = deps.baseUrl ?? DEFAULT_BASE_URL
+  const baseUrl = (deps.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "")
   const model = deps.model ?? DEFAULT_MODEL
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const retryDelaysMs = deps.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS
