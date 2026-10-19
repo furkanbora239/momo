@@ -7,6 +7,9 @@ import { createNativeCatalogAdapter } from "../native-catalog"
 import { createNativeControlStores } from "../native-catalog/native-control-stores"
 import type { NativeCatalogContext } from "../native-catalog/types"
 import type { NativeJevRequest } from "../native-routing/types"
+import { createJobClassificationBatch } from "../native-catalog/job-classification-codec"
+import { createJobClassDefinitions } from "../native-catalog/job-class-definitions"
+import { jobClassificationInput } from "../native-catalog/job-classification-input"
 import { createNativeModelAdmission } from "./model-admission"
 
 const roots: string[] = []
@@ -94,5 +97,39 @@ describe("native model admission", () => {
       expect((await second).models).toEqual([])
       expect(h.catalog.snapshot().models).toEqual([])
     } finally { release?.(); await second }
+  })
+})
+
+
+describe("classification admission", () => {
+  async function classifiedFixture() {
+    const h = fixture()
+    const model = (await h.catalog.catalog.listAvailable())[0]
+    const batch = createJobClassificationBatch(createJobClassDefinitions(), [jobClassificationInput(model, h.catalog.knowledge.get(model))])
+    return { ...h, batch }
+  }
+  it("admits a separate manager while rejecting a disabled classifier batch provider", async () => {
+    const h = await classifiedFixture()
+    await h.admission.beforeClassificationRequest(h.batch)
+    h.controls.writeProviderToggles({ version: 1, disabled: ["worker"], updatedAt: "test" })
+    await expect(h.admission.beforeClassificationRequest(h.batch)).rejects.toThrow("eligibility changed")
+  })
+  it("rejects a disabled manager for classification before transport", async () => {
+    const h = await classifiedFixture()
+    h.providers[0].activation = "disabled"
+    await expect(h.admission.beforeClassificationRequest(h.batch)).rejects.toThrow("unavailable")
+  })
+  it("checks the concrete hard pool after the last native manager lookup", async () => {
+    const h = await classifiedFixture(); let calls = 0
+    h.setOnList(() => { if (++calls === 5) h.controls.writePool({ version: 1, allowed: [{ providerID: "other", modelID: "other" }], updatedAt: "test" }) })
+    await expect(h.admission.beforeClassificationRequest(h.batch)).rejects.toThrow("eligibility changed")
+  })
+  it("changes the maintenance revision when the pool, toggles or native snapshot change", async () => {
+    const h = await classifiedFixture(), first = h.admission.revision()
+    h.controls.writePool({ version: 1, allowed: [{ providerID: "other", modelID: "other" }], updatedAt: "test" })
+    const second = h.admission.revision(); expect(second).not.toBe(first)
+    h.controls.writeProviderToggles({ version: 1, disabled: ["worker"], updatedAt: "test" })
+    const third = h.admission.revision(); expect(third).not.toBe(second)
+    await h.catalog.refresh(); expect(h.admission.revision()).not.toBe(third)
   })
 })

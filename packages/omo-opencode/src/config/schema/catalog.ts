@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { JobClassesSchema } from "../../native-catalog/job-class-definitions"
 
 // Configuration for the built-in `catalog` MCP (Model Catalog, Tier-1).
 // The catalog surfaces the connected provider models so the orchestrator can
@@ -8,6 +9,7 @@ import { z } from "zod"
 export const CatalogConfigSchema = z
   .object({
     research_executor: z.object({ providerID: z.string().min(1), modelID: z.string().min(1) }).optional().describe("Explicit executor binding for bounded native catalog maintenance. Omitted leaves maintenance paused."),
+    job_classes: JobClassesSchema.optional().describe("Catalog job types classified once per source-fact version; native execution roles are selected separately."),
     enabled: z.boolean().optional().describe("Enable the built-in catalog MCP (default: true)."),
     providers: z
       .array(z.string())

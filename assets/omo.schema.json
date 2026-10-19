@@ -13206,6 +13206,32 @@
               ],
               "additionalProperties": false
             },
+            "job_classes": {
+              "description": "Catalog job types classified once per source-fact version; native execution roles are selected separately.",
+              "minItems": 1,
+              "maxItems": 32,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  }
+                },
+                "required": [
+                  "id",
+                  "description"
+                ],
+                "additionalProperties": false
+              }
+            },
             "enabled": {
               "description": "Enable the built-in catalog MCP (default: true).",
               "type": "boolean"
@@ -30046,6 +30072,32 @@
                       "modelID"
                     ],
                     "additionalProperties": false
+                  },
+                  "job_classes": {
+                    "description": "Catalog job types classified once per source-fact version; native execution roles are selected separately.",
+                    "minItems": 1,
+                    "maxItems": 32,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "description": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
                   },
                   "enabled": {
                     "description": "Enable the built-in catalog MCP (default: true).",

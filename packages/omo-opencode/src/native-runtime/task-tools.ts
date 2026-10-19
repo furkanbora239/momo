@@ -1,6 +1,7 @@
-import { z } from "zod"
 import { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
+import { createCatalogJobRouting } from "./catalog-job-routing"
 import { createNativeModelAdmission } from "./model-admission"
+import { z } from "zod"
 import { createNativeResearchMaintenance } from "../native-catalog/research-maintenance"
 import { createNativeModelPolicyHealth } from "../native-catalog/model-policy-health"
 import { createNativeModelPolicyObserver } from "./model-policy-observer"
@@ -9,7 +10,7 @@ import type { Plugin } from "@opencode/plugin"
 import { createNativeTaskEngine } from "../native-task"
 import type { NativeTaskEngine, NativeTaskRole } from "../native-task"
 import { createNativeCatalogAdapter, createNativeCatalogKnowledgeStore, registerNativeCatalogKnowledgeTool } from "../native-catalog"
-import { createNativeRouter, createNativeJevBackend, createJsonlNativeRouterStore } from "../native-routing"
+import { createNativeRouter, createJsonlNativeRouterStore } from "../native-routing"
 import { createFileNativeTaskRepository } from "../native-task"
 import { createNativeSessionRuntime } from "./session-runtime"
 import { mapV2TaskEvent } from "../native-task"
@@ -146,19 +147,19 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
       catalog.setAdvisorModels(models)
     },
   })
+  const jobRouting = createCatalogJobRouting({ directory: ctx.location.directory, catalog, routerStore, managerConfig,
+    classes: appConfig.catalog?.job_classes, revision: admission.revision,
+    beforeRoutingRequest: admission.beforeRoutingRequest, beforeClassificationRequest: admission.beforeClassificationRequest,
+    async getApiKey() {
+      await admission.assertManagerProvider()
+      try { return await nativeApiKey(ctx, managerConfig.jev.provider_id) }
+      catch (error) { throw new NativeJevAdmissionError(error instanceof Error ? error.message : String(error)) }
+    },
+    onError: error => console.warn("momo catalog classification failed", error),
+  })
   const router = createNativeRouter({
-    jev: createNativeJevBackend({
-      session: "momo-native-routing",
-      getApiKey: async () => {
-        await admission.assertManagerProvider()
-        try { return await nativeApiKey(ctx, managerConfig.jev.provider_id) }
-        catch (error) { throw new NativeJevAdmissionError(error instanceof Error ? error.message : String(error)) }
-      },
-      beforeRequest: admission.beforeRoutingRequest,
-      baseUrl: managerConfig.jev.base_url,
-      model: managerConfig.jev.model,
-      maxAttempts: managerConfig.jev.max_attempts,
-    }),
+    jev: jobRouting.jev,
+    accountant: jobRouting.accountant,
     ...catalog,
     store: routerStore,
     config: {
@@ -280,7 +281,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     exportDecisions: async () => ({ lines: [...await router.exportLedger()] }),
     catalogSnapshot: async () => {
       const snapshot = await catalog.refresh()
-      return { snapshot: jsonSafe(snapshot), providerIDs: await catalog.listProviderIDs() }
+      return { snapshot: jsonSafe({ ...snapshot, classifier: jobRouting.classifier.status() }), providerIDs: await catalog.listProviderIDs() }
     },
   })
   const disposeKnowledgeTool = await registerNativeCatalogKnowledgeTool(ctx, knowledgeStore, (agentID) => agentID === "momo-catalog-researcher" && activeOwnedIDs.has(agentID))
@@ -307,6 +308,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   await nativeEngine.reconcile()
   await router.recoverResearch()
   await maintenance.pump()
+  jobRouting.classifier.start()
   const watchdog = setInterval(() => {
       void Promise.all([nativeEngine.checkWatchdogs(), nativeEngine.retryDeliveries(), maintenance.pump()]).catch((error: unknown) => console.warn("momo native task recovery failed", error))
   }, 30_000)
@@ -315,6 +317,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     dispose: async () => {
       disposed = true
       clearInterval(watchdog)
+      await jobRouting.classifier.stop()
       await iterator.return?.()
       await eventLoop
       await toolRegistration.dispose()
