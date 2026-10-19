@@ -86,3 +86,75 @@ test("uncertain reserved launch pauses on restart without replay or starving ano
   expect(starts[0]).not.toBe("reserved")
   expect((await queue.list())[0]).toMatchObject({ status: "paused", reason: "research_launch_uncertain", taskID: "reserved" })
 })
+
+test("dynamic executor selection is snapshotted before asynchronous eligibility and persisted", async () => {
+  const path = await file()
+  const selected = { providerID: "public", id: "free" }
+  const starts: unknown[] = []
+  let selections = 0
+  const queue = createNativeResearchMaintenance(path, { ...options(),
+    getExecutor: async () => { selections++; return selected },
+    isEligible: async (executor) => { expect(executor.id).toBe("free"); selected.id = "changed"; return true },
+    create: async ({ taskID, executor }) => { starts.push(executor); return { id: taskID, state: "running" } },
+  })
+  await queue.enqueue(model, context)
+  await Promise.all([queue.pump(), queue.pump()])
+  expect(selections).toBe(1)
+  expect(starts).toEqual([{ providerID: "public", id: "free" }])
+  expect((await queue.list())[0]?.executor).toEqual(starts[0])
+})
+
+test("dynamic restart resumes only the persisted executor without selecting a replacement", async () => {
+  const path = await file()
+  const assigned = { providerID: "public", id: "original" }
+  await writeFile(path, JSON.stringify({ version: 1, entries: [{ model, executor: assigned, context, status: "running", taskID: "existing", updatedAt: 1 }] }))
+  const checked: unknown[] = []
+  const resumed: string[] = []
+  let state = "interrupted"
+  const queue = createNativeResearchMaintenance(path, { ...options(),
+    getExecutor: async () => { throw new Error("must not reselect persisted assignment") },
+    isEligible: async (executor) => { checked.push(executor); return true }, inspect: async () => state,
+    resume: async (taskID) => { resumed.push(taskID); state = "running" },
+  })
+  await queue.pump()
+  expect(checked).toEqual([assigned])
+  expect(resumed).toEqual(["existing"])
+})
+
+test("dynamic mode does not replay legacy interrupted assignments or failed research", async () => {
+  const path = await file()
+  await writeFile(path, JSON.stringify({ version: 1, entries: [
+    { model, context, status: "running", taskID: "legacy", updatedAt: 1 },
+    { model: { ...model, id: "failed" }, context, status: "failed", taskID: "failed", updatedAt: 1 },
+  ] }))
+  let calls = 0
+  const queue = createNativeResearchMaintenance(path, { ...options(), getExecutor: async () => { calls++; return model }, inspect: async () => "interrupted",
+    resume: async () => { calls++ }, create: async ({ taskID }) => { calls++; return { id: taskID, state: "running" } },
+  })
+  await queue.pump()
+  expect(calls).toBe(0)
+  expect((await queue.list()).map((item) => item.status)).toEqual(["failed", "failed"])
+  expect((await queue.list())[0]?.reason).toBe("research_executor_unknown")
+  await queue.enqueue({ ...model, id: "new-model" }, context)
+  await queue.pump()
+  expect(calls).toBe(2)
+  expect((await queue.list())[2]?.status).toBe("running")
+})
+
+test("unavailable targets pause without starving another model and are reconsidered later", async () => {
+  const path = await file()
+  let available = false
+  const started: string[] = []
+  const queue = createNativeResearchMaintenance(path, { ...options(), executor: model,
+    isTargetEligible: async (candidate) => candidate.id !== model.id || available,
+    inspect: async () => "failed", create: async ({ model: target, taskID }) => { started.push(target.id); return { id: taskID, state: "running" } },
+  })
+  await queue.enqueue(model, context)
+  await queue.enqueue({ ...model, id: "later" }, context)
+  await queue.pump()
+  expect(started).toEqual(["later"])
+  expect((await queue.list())[0]).toMatchObject({ status: "paused", reason: "target_unavailable" })
+  available = true
+  await queue.pump()
+  expect(started).toEqual(["later", "selected"])
+})

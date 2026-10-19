@@ -21,3 +21,4 @@ export type { ModelCard, ModelCatalog } from "./model-cards"
 export { createModelCardContribution, validateModelCardContributionFile, exportModelCardContributionFile } from "./model-card-export"
 
 export { hasUsableModelKnowledge } from "./knowledge-facts"
+export { createNativeResearchDiscovery, isAutomaticResearchExecutor } from "./research-discovery"
