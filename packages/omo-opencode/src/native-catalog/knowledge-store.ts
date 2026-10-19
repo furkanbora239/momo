@@ -20,6 +20,7 @@ export interface NativePublishedPriceClaim {
 
 export interface NativeCatalogKnowledgeStore {
   read(model: NativeModelRef): NativeKnowledgeFact | undefined
+  readEntry(model: NativeModelRef): NativeCatalogKnowledgeEntry | undefined
   readPrice(model: NativeModelRef): NativePublishedPriceClaim | undefined
   upsert(entry: NativeCatalogKnowledgeEntry): void
 }
@@ -72,6 +73,9 @@ export function createNativeCatalogKnowledgeStore(filePath: string): NativeCatal
   }
 
   return {
+    readEntry(model) {
+      return readStore().entries[key(model)]
+    },
     readPrice(model) {
       const claim = readStore().entries[key(model)]?.price
       return claim && isPublishedPrice(claim) ? claim : undefined

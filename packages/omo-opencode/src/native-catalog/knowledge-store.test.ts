@@ -35,6 +35,8 @@ describe("native catalog knowledge store", () => {
     })
     expect(JSON.parse(readFileSync(path, "utf8"))).toMatchObject({ version: 1 })
     expect(store.readPrice(model)).toEqual({ currency: "USD", inputPerMillion: 0, outputPerMillion: 0, source: "https://provider.example/model-card" })
+    expect(store.readEntry(model)).toMatchObject({ ...model, sources: ["https://provider.example/model-card"], researchedAt: "2026-10-12T00:00:00.000Z" })
+    expect(store.readEntry({ providerID: "absent", id: "model" })).toBeUndefined()
   })
 
   test("rejects source-less claims", () => {
