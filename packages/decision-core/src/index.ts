@@ -42,4 +42,4 @@ export {
   type DecisionEngineDeps,
 } from "./decision-engine"
 
-export { JEV_INPUT_PRICE_PER_MILLION } from "./jev-client"
+export { JEV_INPUT_PRICE_PER_MILLION, jevInputPricePerMillion } from "./jev-pricing"

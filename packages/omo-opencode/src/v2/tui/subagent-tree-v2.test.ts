@@ -26,6 +26,13 @@ const originalEnv: EnvSnapshot = {
 }
 
 const tempDirs: string[] = []
+const facades: ReturnType<typeof createV2TuiFacade>[] = []
+
+function trackedFacade(context: Parameters<typeof createV2TuiFacade>[0]) {
+  const facade = createV2TuiFacade(context)
+  facades.push(facade)
+  return facade
+}
 
 function makeTempDir(label: string): string {
   const dir = mkdtempSync(join(tmpdir(), `omo-v2-tui-tasks-${label}-`))
@@ -85,6 +92,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  for (const facade of facades.splice(0)) facade.runCleanups()
   for (const dir of tempDirs) {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -97,7 +105,7 @@ afterEach(() => {
 describe("#given a registered V2 subagent tree", () => {
   it("#when registration completes #then the tasks slash command and the card keymap layer are added", () => {
     const fake = createFakeV2TuiContext()
-    const facade = createV2TuiFacade(fake.ctx)
+    const facade = trackedFacade(fake.ctx)
     const solid = createFakeSolidRuntime()
 
     registerSubagentTreeV2(fake.ctx, facade, solid)
@@ -116,7 +124,7 @@ describe("#given a registered V2 subagent tree", () => {
     process.env.XDG_DATA_HOME = dataHome
 
     const fake = createFakeV2TuiContext({ directory: project })
-    const facade = createV2TuiFacade(fake.ctx)
+    const facade = trackedFacade(fake.ctx)
     const solid = createFakeSolidRuntime()
     registerSubagentTreeV2(fake.ctx, facade, solid)
 
@@ -153,7 +161,7 @@ describe("#given a registered V2 subagent tree", () => {
     })
 
     const fake = createFakeV2TuiContext({ directory: project })
-    const facade = createV2TuiFacade(fake.ctx)
+    const facade = trackedFacade(fake.ctx)
     const solid = createFakeSolidRuntime()
     registerSubagentTreeV2(fake.ctx, facade, solid)
 
@@ -196,7 +204,7 @@ describe("#given a registered V2 subagent tree", () => {
       directory: project,
       messages: [{ type: "user", text: "the orchestrator prompt" }],
     })
-    const facade = createV2TuiFacade(fake.ctx)
+    const facade = trackedFacade(fake.ctx)
     const solid = createFakeSolidRuntime()
     registerSubagentTreeV2(fake.ctx, facade, solid)
 
@@ -218,7 +226,7 @@ describe("#given a registered V2 subagent tree", () => {
     process.env.XDG_DATA_HOME = dataHome
 
     const fake = createFakeV2TuiContext({ directory: project })
-    const facade = createV2TuiFacade(fake.ctx)
+    const facade = trackedFacade(fake.ctx)
     const solid = createFakeSolidRuntime()
     registerSubagentTreeV2(fake.ctx, facade, solid)
 

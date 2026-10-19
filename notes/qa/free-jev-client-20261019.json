@@ -1,0 +1,36 @@
+{
+  "kind": "real-public-free-jev-client",
+  "model": "jev-1.13-free",
+  "usage": {
+    "inputTokens": 314,
+    "outputTokens": 31
+  },
+  "estimatedCostUsd": 0,
+  "requestEndpoint": "https://opencode.ai/zen/v1/systemone",
+  "authorizationSent": false,
+  "paidFallback": false,
+  "sourceHashes": {
+    "packages/decision-core/src/jev-client.ts": "81cc84adc5f828df90f10060ea06f64acb377ff4e9a163830d305b4c15dfb410",
+    "packages/decision-core/src/jev-pricing.ts": "4b00f633c380fe5b300f5f353b2e2145c8ef8feb588eea140990188d6440e7dc",
+    "packages/decision-core/src/index.ts": "a5e5dd9895d586838cb7abc19d64fcb1f78f4ce20090a77948ba68c549349979",
+    "packages/omo-opencode/src/v2/tui/subagent-tree-v2.test.ts": "93651ad5e3de2498781e50e192d6313d78d8c9375c8ceaa1c8eb9cca8ad2f86e"
+  },
+  "coverageLimit": "Direct production core client with real upstream response; native adapter acceptance is delivered separately.",
+  "trailingSlashBaseURLVerified": true,
+  "testHygiene": {
+    "problem": "Retained subagent TUI tests left refresh timers active across cases and interfered with a later mocked fs test.",
+    "change": "Dispose each test facade in afterEach before removing its fixture paths.",
+    "focusedResult": "7 pass, 0 fail across the two affected test files; no product code changed."
+  },
+  "localValidation": {
+    "scope": "Composed native readiness worktree; standalone client branch is separately checked by PR CI.",
+    "monorepoTypecheck": "passed",
+    "scriptTypecheck": "passed",
+    "fullSuite": {
+      "pass": 12865,
+      "skip": 20,
+      "fail": 0
+    },
+    "fullDistributionBuild": "passed"
+  }
+}
