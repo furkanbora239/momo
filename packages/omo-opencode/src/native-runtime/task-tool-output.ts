@@ -33,7 +33,7 @@ export function compactTask(task: NativeTask, includeResult = true) {
     createdAt: task.createdAt, updatedAt: task.updatedAt, attempts: task.attempts,
     activity: { progress: terminal ? undefined : bounded(task.progress), lastActivityAt: task.lastActivityAt, activeTools: terminal ? [] : task.activeTools.slice(0, 10).map((tool) => ({ name: bounded(tool.name, 128), startedAt: tool.startedAt })), activeToolCount: terminal ? 0 : task.activeTools.length },
     selection: { required: task.state === "awaiting_selection", candidateCount: task.state === "awaiting_selection" ? task.candidates?.length ?? 0 : 0 },
-    error: task.state === "failed" || task.state === "awaiting_selection" ? bounded(task.error, 1024) : undefined,
+    error: task.state === "failed" || task.state === "awaiting_selection" || task.state === "interrupted" ? bounded(task.error, 1024) : undefined,
     question: task.state === "waiting_question" && task.question ? { id: task.question.id, prompt: bounded(task.question.prompt, 1024), options: optionsFit ? options : undefined, requiresNativeForm: !optionsFit, escalated: task.questionEscalated } : undefined,
     childCount: task.childTaskIDs.length,
     result: bounded(result, previewLimit), resultLength: task.result?.length ?? 0,
