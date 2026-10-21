@@ -1,3 +1,4 @@
+import { taskDiscoveryInput, consultDiscoveryInput } from "./tool-discovery-input"
 import { taskInput, consultInput } from "./tool-operation-inputs"
 import { describeNativeTool } from "./tool-operation-help"
 import { readNativeToolCapabilities } from "./tool-capabilities"
@@ -219,12 +220,13 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     }
     editor.add({
       name: "momo_task",
-      options: { pinned: true },
+      options: { pinned: false },
       description: "Manage native tasks. First use action: help for current operations, or capabilities for role and advisor availability. JSON STRING results: parse once. Use view: brief for monitoring; follow nextActions and nextOffset. Missing input uses native question, answered by the parent with answer.",
-      input: taskInput,
-      execute: async (input, tool) => {
+      input: taskDiscoveryInput,
+      execute: async (rawInput, tool) => {
         const role = activeOwnedIDs.has(tool.agent) ? ownedAgentID(tool.agent) : undefined
         if (role === undefined || !nativeToolAllowed(role, "momo_task")) throw new Error("This momo role cannot create tasks")
+        const input = taskInput.parse(rawInput)
         if (input.action === "help") return response(describeNativeTool({ tool: "momo_task", role: roleByAgentID.get(role)!, operation: input.operation }))
         if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "task", input))
@@ -249,12 +251,13 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     })
     editor.add({
       name: "momo_consult",
-      options: { pinned: true },
+      options: { pinned: false },
       description: "Consult another configured model for advice. First use action: capabilities to check availability, or help for the current contract. JSON STRING results: parse once. Use view: brief for monitoring. Workers may consult; advisors cannot. Missing user input belongs in native question rather than a consultation.",
-      input: consultInput,
-      execute: async (input, tool) => {
+      input: consultDiscoveryInput,
+      execute: async (rawInput, tool) => {
         const role = activeOwnedIDs.has(tool.agent) ? ownedAgentID(tool.agent) : undefined
         if (role === undefined || !nativeToolAllowed(role, "momo_consult")) throw new Error("This momo role cannot consult an advisor")
+        const input = consultInput.parse(rawInput)
         if (input.action === "help") return response(describeNativeTool({ tool: "momo_consult", role: roleByAgentID.get(role)!, operation: input.operation }))
         if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "consultation", input))
