@@ -21,9 +21,13 @@ async function sourceHashes() {
   return Object.fromEntries(await Promise.all(files.map(async file => [file.replace(process.cwd() + "/", ""), createHash("sha256").update(await readFile(file)).digest("hex")])))
 }
 const result: Row = { status: "running", proof: "real native runtime with controlled HTTP model responses", realProviderProof: false, credentialsCopied: false, questionProof: "Deterministic model calls the advertised native question tool; parent answers through momo_task; not an autonomous model-quality proof", sourceHashesBefore: await sourceHashes() }
+const rolePolicies = Object.fromEntries(await Promise.all([['root', 'orchestrator'], ['worker', 'worker'], ['advisor', 'advisor']].map(async ([model, role]) => {
+  const markdown = await readFile(join(process.cwd(), `packages/omo-opencode/assets/native-agents/momo-${role}.md`), "utf8")
+  return [model, markdown.split("<!-- momo-native-agent-owned:v1 -->")[1]!.trim()]
+})))
 const qa = await harness(binary, evidence, { allowConcurrentMessageWrites: true })
 let client: Awaited<ReturnType<typeof qa.start>>, rootID = "", phase: "empty" | "full" = "empty", rootCreated = false, workerConsulted = false, rootAnswered = false, formCreated = false, rootProbeChecked = false
-const requests: ReturnType<typeof requestSummary>[] = [], jevRequests: { questions: string[] }[] = [], errors: string[] = []
+const requests: (ReturnType<typeof requestSummary> & { rolePolicyMatched?: boolean; rolePolicySHA256?: string })[] = [], jevRequests: { questions: string[] }[] = [], errors: string[] = []
 async function tasks(): Promise<Row[]> {
   const response = await client.rpc.call({ rpcID: "momo.native", method: "tasks", input: { rootSessionID: rootID }, location: { directory: qa.project } })
   return (((response as { output?: unknown }).output ?? response) as { tasks: Row[] }).tasks
@@ -34,7 +38,9 @@ const server = Bun.serve({ port: 0, async fetch(request) {
     if (request.method === "GET" && path.endsWith("/models")) return Response.json({ data: ["root", "worker", "advisor"].map(id => ({ id })) })
     if (path.endsWith("/systemone")) { const body = await request.json() as JevRequest; jevRequests.push({ questions: Object.keys(body.questions) }); return Response.json(contractReply(body)) }
     const body = await request.json() as ContractRequest
-    requests.push(requestSummary(body))
+    const policy = rolePolicies[body.model]
+    const system = body.messages.filter(message => ["system", "developer"].includes(message.role)).map(message => typeof message.content === "string" ? message.content : JSON.stringify(message.content)).join("\n")
+    requests.push({ ...requestSummary(body), rolePolicyMatched: policy ? system.includes(policy) : undefined, rolePolicySHA256: policy ? createHash("sha256").update(policy).digest("hex") : undefined })
     const text = JSON.stringify(body.messages)
     if (!body.tools?.some(tool => tool.function?.name === "execute")) return contractResponse(body.model, { text: "CONTROLLED_NO_TOOL_REQUEST" })
     if (body.model === "advisor") return contractResponse(body.model, { text: "CONTRACT_ADVICE: request the missing input before continuing." })
@@ -79,6 +85,15 @@ try {
     return JSON.stringify(await client.session.context({ sessionID: session.id }))
   }
   await config([]); client = await qa.start(); result.version = (await client.server.info()).version
+  const installedPolicies: Record<string, string> = {}
+  for (const name of await readdir(join(process.cwd(), "packages/omo-opencode/assets/native-agents"))) {
+    if (!name.endsWith(".md")) continue
+    const expected = await readFile(join(process.cwd(), "packages/omo-opencode/assets/native-agents", name))
+    const installed = await readFile(join(qa.env.OPENCODE_CONFIG_DIR!, "agents", name))
+    assert(expected.equals(installed), "Installed owned policy differs: " + name)
+    installedPolicies[name] = createHash("sha256").update(installed).digest("hex")
+  }
+  result.installedPolicies = installedPolicies
   assert(String(result.version).startsWith("2.1."), "This scenario must exercise native 2.1.x")
   const empty = await newRoot("EMPTY_CONTRACT_PROBE")
   assert(empty.includes("EMPTY_CONTRACT_PASSED"), "Actual Code Mode did not prove empty advisor capabilities")
@@ -99,6 +114,7 @@ try {
   // Answering queues the existing session through scheduler admission: start + answer continuation.
   assert.equal(worker.attempts, 2); assert(rootAnswered && formCreated && result.questionTool)
   assert.equal(errors.length, 0, "Controlled HTTP failures")
+  for (const model of ["root", "worker", "advisor"]) assert(requests.some(row => row.model === model && row.rolePolicyMatched), "Updated owned role policy missing from provider request: " + model)
   result.status = "passed"; result.worker = { id: worker.id, sessionID: worker.sessionID, state: worker.state, attempts: worker.attempts }; result.advisor = { id: advisor.id, model: advisor.model }; result.nativeFormAnswered = true; result.sameSessionCompletion = true
 } catch (error) { result.status = "failed"; result.error = String(error); throw error }
 finally {

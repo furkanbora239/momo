@@ -36,6 +36,8 @@ const parse = `const task = async input => JSON.parse(await tools.momo_task(inpu
 export const emptyCode = `${parse}
 const help = await task({action:'help',operation:'answer'}); const caps = await task({action:'capabilities'});
 check(help.inputSchema.properties.questionID && help.inputSchema.properties.answer,'answer schema missing');
+let rejected=false;try{await task({action:'create',prompt:'INVALID_FORGED_MODEL',modelID:'forged'});}catch(error){rejected=true;}
+check(rejected && (await task({action:'list'})).total===0,'strict handler accepted invented model binding');
 check(!caps.consultation.enabled && caps.consultation.reason==='advisor_pool_empty','empty advisor pool not explained');
 return {proof:'EMPTY_CONTRACT_PASSED',version:help.contractVersion,capabilities:caps};`
 export const createCode = `${parse}

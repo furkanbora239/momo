@@ -1,7 +1,13 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-10-20
+**Last Updated:** 2026-10-21
 **Version / Branch:** `dev`
+
+## Discoverable native tools and role policies (2026-10-21)
+
+Native lifecycle tools expose versioned help generated from the execution validators, effective advisor/question capabilities, and optional brief monitoring. Model-facing discovery envelopes keep detailed operation schemas on demand while handlers retain strict validation and runtime-derived authority. All ten native role bodies now distinguish missing input, consultation, delegation, recovery and acceptance, preserving readonly and headless restrictions. Advisor bindings remain explicit; an empty pool is reported, not populated automatically.
+
+Isolated actual OpenCode 2.1.2 acceptance exercised worker-to-different-model consultation, the advertised native question tool, parent answer and completion in one durable child session. Provider request capture confirms the installed root/worker/advisor policies reached the model. This is controlled-model integration evidence, not spontaneous production-model compliance. Byte counts are not billed token estimates; changing only pinned flags did not establish savings. The intermittent activity-loss incident, shared quota cooldown and low-confidence job-class quality remain separate repair work.
 
 ## Shared repository model research (2026-10-20)
 
