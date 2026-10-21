@@ -1,3 +1,7 @@
+import { taskInput, consultInput } from "./tool-operation-inputs"
+import { describeNativeTool } from "./tool-operation-help"
+import { readNativeToolCapabilities } from "./tool-capabilities"
+import { taskToolView } from "./task-tool-brief"
 import { createCatalogMaintenanceRunner } from "./catalog-maintenance-runner"
 import { createNativeCatalogResearchContext } from "./catalog-research-context"
 import { NativeJevAdmissionError } from "@oh-my-opencode/decision-core"
@@ -29,38 +33,12 @@ import type { SessionInfo } from "@opencode/client"
 import { loadNativeRuntimeConfig } from "./native-config"
 import { compactTask, candidatePage, listTasksForCaller, resultPage, taskDetail, taskForCaller } from "./task-tool-output"
 
-const roles = ["planner", "executor", "reviewer", "worker", "explore", "librarian", "research", "catalog-researcher"] as const
 const roleByAgentID = new Map<string, NativeTaskRole>([
   ["momo-orchestrator", "orchestrator"], ["momo-planner", "planner"], ["momo-executor", "executor"],
   ["momo-reviewer", "reviewer"], ["momo-worker", "worker"], ["momo-explore", "explore"],
   ["momo-librarian", "librarian"], ["momo-research", "research"],
   ["momo-catalog-researcher", "catalog-researcher"], ["momo-advisor", "advisor"],
 ])
-const pageInput = { offset: z.number().int().min(0).optional(), limit: z.number().int().min(1).max(10).optional() }
-const inspectionInputs = [
-  z.object({ action: z.literal("list"), ...pageInput, includeMaintenance: z.boolean().optional() }),
-  z.object({ action: z.literal("candidates"), taskID: z.string(), ...pageInput, role: z.enum([...roles, "advisor"]).optional(), providerID: z.string().optional() }),
-  z.object({ action: z.literal("detail"), taskID: z.string() }),
-  z.object({ action: z.literal("result"), taskID: z.string(), offset: z.number().int().min(0).optional(), limit: z.number().int().min(1).max(16384).optional() }),
-] as const
-const taskInput = z.discriminatedUnion("action", [
-  ...inspectionInputs,
-  z.object({ action: z.literal("create"), prompt: z.string().min(1), scope: z.string().optional(), acceptance: z.string().optional(), waitMs: z.number().int().min(1_000).max(60_000).optional() }),
-  z.object({ action: z.literal("status"), taskID: z.string() }),
-  z.object({ action: z.literal("wait"), taskID: z.string(), timeoutMs: z.number().int().min(1_000).max(60_000).optional() }),
-  z.object({ action: z.literal("select"), taskID: z.string(), decisionId: z.string(), role: z.enum(roles), providerID: z.string(), modelID: z.string() }),
-  z.object({ action: z.literal("resume"), taskID: z.string() }),
-  z.object({ action: z.literal("answer"), taskID: z.string(), questionID: z.string(), answer: z.unknown() }),
-  z.object({ action: z.literal("cancel"), taskID: z.string() }),
-])
-const consultInput = z.discriminatedUnion("action", [
-  ...inspectionInputs,
-  z.object({ action: z.literal("start"), prompt: z.string().min(1), scope: z.string().optional(), waitMs: z.number().int().min(1_000).max(60_000).optional() }),
-  z.object({ action: z.literal("select"), taskID: z.string(), decisionId: z.string(), providerID: z.string(), modelID: z.string() }),
-  z.object({ action: z.literal("status"), taskID: z.string() }),
-  z.object({ action: z.literal("wait"), taskID: z.string(), timeoutMs: z.number().int().min(1_000).max(60_000).optional() }),
-])
-
 function response(value: unknown): { content: string } {
   return { content: JSON.stringify(value) }
 }
@@ -242,52 +220,56 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     editor.add({
       name: "momo_task",
       options: { pinned: true },
-      description: "Create, list, inspect, wait, select, resume, answer, or cancel tasks. Returns a JSON STRING: const t = JSON.parse(await tools.momo_task({action: 'create', prompt: '...'})); use t.id. list recovers IDs in your parent/root scope; includeMaintenance reveals internal research. candidates pages eligible choices with runtime rolePermissions separate from modelFacts. Select with taskID, decisionId, role, providerID, modelID. worker edits/runs shell; executor/planner/reviewer coordinate workers. status/wait return bounded result previews: check resultTruncated/resultLength and use result with offset/limit for full text. Execution succeeded does not verify acceptance; verification remains unknown. A wait timeout can return a nonterminal state.",
+      description: "Manage native tasks. First use action: help for current operations, or capabilities for role and advisor availability. JSON STRING results: parse once. Use view: brief for monitoring; follow nextActions and nextOffset. Missing input uses native question, answered by the parent with answer.",
       input: taskInput,
       execute: async (input, tool) => {
         const role = activeOwnedIDs.has(tool.agent) ? ownedAgentID(tool.agent) : undefined
         if (role === undefined || !nativeToolAllowed(role, "momo_task")) throw new Error("This momo role cannot create tasks")
+        if (input.action === "help") return response(describeNativeTool({ tool: "momo_task", role: roleByAgentID.get(role)!, operation: input.operation }))
+        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "task", input))
         if (input.action === "create") {
           const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, acceptance: input.acceptance, callerSessionID: tool.sessionID, kind: "task" })
-          return response(compactTask(input.waitMs === undefined ? created : await nativeEngine.wait(created.id, tool.sessionID, input.waitMs)))
+          return response(taskToolView(input.waitMs === undefined ? created : await nativeEngine.wait(created.id, tool.sessionID, input.waitMs), input.view, tool.sessionID))
         }
         const task = await taskForCaller(repository, input.taskID, tool.sessionID, "task")
         if (input.action === "candidates") return response(candidatePage(task, input))
         if (input.action === "result") return response(resultPage(task, input))
         if (input.action === "detail") return response(taskDetail(task))
-        if (input.action === "status") return response(compactTask(await nativeEngine.status(task.id, tool.sessionID)))
-        if (input.action === "wait") return response(compactTask(await nativeEngine.wait(task.id, tool.sessionID, input.timeoutMs)))
+        if (input.action === "status") return response(taskToolView(await nativeEngine.status(task.id, tool.sessionID), input.view, tool.sessionID))
+        if (input.action === "wait") return response(taskToolView(await nativeEngine.wait(task.id, tool.sessionID, input.timeoutMs), input.view, tool.sessionID))
         if (input.action === "select") {
           if (task.decisionId !== input.decisionId) throw new Error("Decision ID does not match this task")
-          return response(compactTask(await nativeEngine.select(task.id, tool.sessionID, { providerID: input.providerID, id: input.modelID }, input.role as NativeTaskRole)))
+          return response(taskToolView(await nativeEngine.select(task.id, tool.sessionID, { providerID: input.providerID, id: input.modelID }, input.role as NativeTaskRole), input.view, tool.sessionID))
         }
-        if (input.action === "resume") return response(compactTask(await nativeEngine.resume(task.id, tool.sessionID)))
-        if (input.action === "answer") return response(compactTask(await nativeEngine.answer(task.id, tool.sessionID, input.questionID, input.answer)))
-        return response(compactTask(await nativeEngine.cancel(task.id, tool.sessionID)))
+        if (input.action === "resume") return response(taskToolView(await nativeEngine.resume(task.id, tool.sessionID), input.view, tool.sessionID))
+        if (input.action === "answer") return response(taskToolView(await nativeEngine.answer(task.id, tool.sessionID, input.questionID, input.answer), input.view, tool.sessionID))
+        return response(taskToolView(await nativeEngine.cancel(task.id, tool.sessionID), input.view, tool.sessionID))
       },
     })
     editor.add({
       name: "momo_consult",
       options: { pinned: true },
-      description: "Start, list, inspect, select or wait for an advisor consultation. Returns a JSON STRING; parse once with JSON.parse(await tools.momo_consult(...)), then use id. list recovers IDs in your parent/root scope. candidates pages advisor choices; select with taskID, decisionId, providerID, modelID. Advisors are readonly. status/wait contain bounded result previews: check resultTruncated/resultLength and use result offset/limit to recover complete text. Execution success does not verify acceptance. wait may return nonterminal state on timeout.",
+      description: "Consult another configured model for advice. First use action: capabilities to check availability, or help for the current contract. JSON STRING results: parse once. Use view: brief for monitoring. Workers may consult; advisors cannot. Missing user input belongs in native question rather than a consultation.",
       input: consultInput,
       execute: async (input, tool) => {
         const role = activeOwnedIDs.has(tool.agent) ? ownedAgentID(tool.agent) : undefined
         if (role === undefined || !nativeToolAllowed(role, "momo_consult")) throw new Error("This momo role cannot consult an advisor")
+        if (input.action === "help") return response(describeNativeTool({ tool: "momo_consult", role: roleByAgentID.get(role)!, operation: input.operation }))
+        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "consultation", input))
         if (input.action === "start") {
           const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, callerSessionID: tool.sessionID, kind: "consultation" })
-          return response(compactTask(input.waitMs === undefined ? created : await nativeEngine.wait(created.id, tool.sessionID, input.waitMs)))
+          return response(taskToolView(input.waitMs === undefined ? created : await nativeEngine.wait(created.id, tool.sessionID, input.waitMs), input.view, tool.sessionID))
         }
         const task = await taskForCaller(repository, input.taskID, tool.sessionID, "consultation")
         if (input.action === "candidates") return response(candidatePage(task, input))
         if (input.action === "result") return response(resultPage(task, input))
         if (input.action === "detail") return response(taskDetail(task))
-        if (input.action === "status") return response(compactTask(await nativeEngine.status(task.id, tool.sessionID)))
-        if (input.action === "wait") return response(compactTask(await nativeEngine.wait(task.id, tool.sessionID, input.timeoutMs)))
+        if (input.action === "status") return response(taskToolView(await nativeEngine.status(task.id, tool.sessionID), input.view, tool.sessionID))
+        if (input.action === "wait") return response(taskToolView(await nativeEngine.wait(task.id, tool.sessionID, input.timeoutMs), input.view, tool.sessionID))
         if (task.decisionId !== input.decisionId) throw new Error("Decision ID does not match this consultation")
-        return response(compactTask(await nativeEngine.select(task.id, tool.sessionID, { providerID: input.providerID, id: input.modelID }, "advisor")))
+        return response(taskToolView(await nativeEngine.select(task.id, tool.sessionID, { providerID: input.providerID, id: input.modelID }, "advisor"), input.view, tool.sessionID))
       },
     })
   })
