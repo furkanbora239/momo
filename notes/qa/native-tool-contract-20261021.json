@@ -1,0 +1,434 @@
+{
+  "kind": "native-tool-contract",
+  "native": {
+    "status": "passed",
+    "proof": "real native runtime with controlled HTTP model responses",
+    "realProviderProof": false,
+    "credentialsCopied": false,
+    "questionProof": "Deterministic model calls the advertised native question tool; parent answers through momo_task; not an autonomous model-quality proof",
+    "sourceHashesBefore": {
+      "dist/index.js": "32653bf6d8a8cc6c8d9c06e0030387f86c6a1c4d672d398e1f7e42bdeae782ad",
+      "script/qa/momo-native-tool-contract.ts": "7bf9d877a45977f755dd567f9fbd5257adba8bc5388ea551db11a341f065c616",
+      "script/qa/momo-native-tool-contract-fixture.ts": "5fe46ba39a71f1b7bb2ed25657209376422be5f830bcf8b4b46a94710d133646",
+      "packages/omo-opencode/src/native-runtime/advisor-pool-config.ts": "309aa268a3f7e031617b62ac46e1f006389616f8438267aeb0d8fd0a41c78589",
+      "packages/omo-opencode/src/native-runtime/agents/owned-agents.ts": "8050696abfe01325ddb1f8aed32606c9eb74da2f702a36bf4bdf4224ada8c536",
+      "packages/omo-opencode/src/native-runtime/catalog-job-routing.ts": "13fccf930069653b8fc682976c197cb73d8a0f322891088298ea340bbf2714d0",
+      "packages/omo-opencode/src/native-runtime/catalog-maintenance-runner.ts": "22bca60ed1105ce829f6d6bde01d75a7ee63af811d6606674d36f63289cce40c",
+      "packages/omo-opencode/src/native-runtime/catalog-registry.ts": "2589145d1e5ea8ff61dd079f199227aefadc7f17e513f72d91b7dd8d8b9a7f77",
+      "packages/omo-opencode/src/native-runtime/catalog-research-context.ts": "208f3fcc83fba49bb2633516e692141a3ad9a913fe09dc22599e2231b0b14b66",
+      "packages/omo-opencode/src/native-runtime/delivery-message-id.ts": "d308ab9874dbbc3374be1e48c7c594b3dc41728b3a84bb83dc0dbf9e5471acf6",
+      "packages/omo-opencode/src/native-runtime/jev-credentials.ts": "3182877e5efc225a115004187e0dd636840f74d2fa88d0c4275ab1b902792e6b",
+      "packages/omo-opencode/src/native-runtime/job-classifier.ts": "b66314f091d635a9fb60570e79b40cffb5037d5a3aa30ead0f85b43e7c3f4d50",
+      "packages/omo-opencode/src/native-runtime/model-admission.ts": "cf283ba8e64efc7b253c7d2c28d7212b585aec3601bb83df0871339751ca7165",
+      "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "a5fe44eaee54b7e6d7ed7300c509423dd20a8bfb9487d9d35686a12f47bae420",
+      "packages/omo-opencode/src/native-runtime/native-config.ts": "f31ccf9637b451de5230351caf7b98d1e42f471473d585a9862d5df67cb6ef86",
+      "packages/omo-opencode/src/native-runtime/permission-policy.ts": "4998411fd46da852c6219a93156efe4e8f50b6d62011ffc82b8de4b24315568a",
+      "packages/omo-opencode/src/native-runtime/role-policy.ts": "5129ad229f8d786a7396a30df32c1f885dc598e555e5c05e6b83682196025cf5",
+      "packages/omo-opencode/src/native-runtime/session-runtime.ts": "5bb5a472e4d4ebd5eb5d5bab423502ec8e30f9bfe93d3f14a1a22e03df04a18c",
+      "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "66b0c4f41b1dc4ddc11ec4b3305537f48a149d2d6f7be2a29eff7be147c06084",
+      "packages/omo-opencode/src/native-runtime/task-tools.ts": "7fa6bb1f31e730069e89e9831f3eab2c91c30f5b3c2e6c22badac250454f9905",
+      "packages/omo-opencode/src/native-runtime/tui/catalog-controls.ts": "8e6a535c9804a20a82cb16f8eb92ca7c1b6dc3e09197ea1a5bb66640338fb3db",
+      "packages/omo-opencode/src/native-runtime/tui/control-stores.ts": "b76430c186d41d60e6279e603516febb276ede3535ef32bddf0a2cee76d6c0de",
+      "packages/omo-opencode/src/native-runtime/user-data-paths.ts": "57b4fb2408c60e50af100f35fe0f82dceb138b87bee2b2f701a608e7ef980c82",
+      "packages/omo-opencode/src/native-runtime/v2-service-client.ts": "d54f98f14d9fbf4893db61892511c812843e0287c7940543a7ed83810e1126db",
+      "packages/omo-opencode/src/native-runtime/tool-capabilities.ts": "cbf892ecc6841538ef85b5c048610583c1abe6ad7861d4200cc8ee67d022e3d2",
+      "packages/omo-opencode/src/native-runtime/task-tool-brief.ts": "7ac4c781c4e907240dbc31895544ef9f66239b0d75b9e7adb8c8250c4d114751",
+      "packages/omo-opencode/src/native-runtime/tool-operation-inputs.ts": "6d464fb1a3c3e834c3152da6818936f37077fac76fa665b35fbcf57d60a0a89a",
+      "packages/omo-opencode/src/native-runtime/tool-operation-help.ts": "8bc3d536aace283ae478de4895065d7d33cbd17729ad934f84925967dbd0af1e",
+      "packages/omo-opencode/src/native-task/child-batch-delivery.ts": "f0f8c925f0a8af5589058c1f9c5bcb2c27cd7aeb9c02e6b109a5b668429deafe",
+      "packages/omo-opencode/src/native-task/engine.test-support.ts": "45db3e5da6a69b7224701a85432e52a1c27c2d9dbbbf1bb87c5f665370517592",
+      "packages/omo-opencode/src/native-task/engine.ts": "481fecfa7a091496000b4a8b7dae93b0ef1ccd26e7b5645dbb3d5cbaba277c0c",
+      "packages/omo-opencode/src/native-task/events.ts": "d931b6130c24a7edbeebc28b117245b15be163454392fb1e6ad2c05d77e2cbdb",
+      "packages/omo-opencode/src/native-task/failure-observation.ts": "8f680f6c7739067cffc770acd8f3baa7b15ebd0c9f81254e4e5ecefb8c413698",
+      "packages/omo-opencode/src/native-task/file-repository.ts": "98251336ed6a597ec389fb1aa781f47e80040f3065c13575206e8bdded1f2a62",
+      "packages/omo-opencode/src/native-task/guards.ts": "5b20599cb80d537448f02473135b9b80fdb01140abe43ed2056287da1eaf4aab",
+      "packages/omo-opencode/src/native-task/id.ts": "6fc07ea8eaa7ee594b57d73e569e73c64fa344ac9e94cd2e146cf14a3cd1319b",
+      "packages/omo-opencode/src/native-task/index.ts": "5eafc75765a8422e148cd21ff29d30f47ab27c67a5de82413482a95803258a32",
+      "packages/omo-opencode/src/native-task/lifecycle.ts": "98673150308ca60029d59b953082f8003a4857478e38d913a71e3d4cb2559d12",
+      "packages/omo-opencode/src/native-task/policy.ts": "4253304916b45ab1dc1e770ce6eab05b7c3a393eecf1491b4cd1e61dd522ebfa",
+      "packages/omo-opencode/src/native-task/runner.ts": "398429fc204afe12e6fe881ce50e1b3e51c0596a6804be46a1576bf95967468d",
+      "packages/omo-opencode/src/native-task/task-controls.ts": "807bda478028397fc9b8cedaf7d79af650203a19d5b6041d35d16af7d9a84930",
+      "packages/omo-opencode/src/native-task/task-lifecycle.ts": "23cd5389b815960ef591c6cf18d7ff69affac7682829f958817a6e34df0b69da",
+      "packages/omo-opencode/src/native-task/testing.ts": "d6aafb02d8a01536ac2021f4647be25f2d29903599b9447353907d655c840ed4",
+      "packages/omo-opencode/src/native-task/types.ts": "e89498e1ae595b8c1fe4f989378a1f648e34cd71f5b98e9ad0ebc38ac012e16d",
+      "packages/omo-opencode/src/native-task/v2-event-adapter.ts": "5a9387a4632e3199c5d4ee82d3d07fcafbfadd3f3ca64614403524904aab4c94",
+      "packages/omo-opencode/assets/native-agents/momo-advisor.md": "210fd3ec0db185233afc47b3a8f9d6876bf8575fa9d240e23ba6358281b4d090",
+      "packages/omo-opencode/assets/native-agents/momo-catalog-researcher.md": "e9ecc99dde167f7dc9adc8b882aefa0dfdcd28d3a1e152489773a60118bd71e6",
+      "packages/omo-opencode/assets/native-agents/momo-executor.md": "9be7539a76f7efa91910cef96d1370015a8eb8519e2ae7b8f1f72c5412f99803",
+      "packages/omo-opencode/assets/native-agents/momo-explore.md": "ffc0868cbade6679e7a791ab1d8d2986dd90be5a14f58c17486322a45496c685",
+      "packages/omo-opencode/assets/native-agents/momo-librarian.md": "928d98353c1ab8fa8c2b53507f093445ca44fbef2dbdbe54a3763f6451b5df72",
+      "packages/omo-opencode/assets/native-agents/momo-orchestrator.md": "b952aa21de8c6f9bf6e2a321d025d0b056dac8f047eac1e3f7d06726fcf37838",
+      "packages/omo-opencode/assets/native-agents/momo-planner.md": "0913c849266f1a5e8767ae8b5b55be56957dd52f8456a1615fc31f0d4765fe7d",
+      "packages/omo-opencode/assets/native-agents/momo-research.md": "665dd592c4f4780aaeca98023e1509868a23af1bfcb5822060eb874d88ec43f3",
+      "packages/omo-opencode/assets/native-agents/momo-reviewer.md": "59420fc08310dad8deb3fdf5a4c1aadd388c9a9f3b9abf9d3f99de51bc41cc75",
+      "packages/omo-opencode/assets/native-agents/momo-worker.md": "a63b989b094a4cc9bfefd9f877229b9ee2e69fe2d6e9a1b4b55be68b9e2fe65d"
+    },
+    "version": "2.1.2",
+    "emptyAdvisorPool": true,
+    "questionTool": {
+      "name": "question",
+      "schemaSHA256": "7458ad9ee6ce97dd5ffc307dc8cd3ca28fd1853c557cc84d57a01fe8d8dce7b8",
+      "schemaBytes": 754
+    },
+    "worker": {
+      "id": "ntask_8fccf8de-9c92-44f8-bbef-842f7502ce19",
+      "sessionID": "ses_e8b6cb2b2627507779c01ce772",
+      "state": "succeeded",
+      "attempts": 2
+    },
+    "advisor": {
+      "id": "ntask_59d034b3-b873-4442-9875-21e8be4be925",
+      "model": {
+        "providerID": "contract",
+        "id": "advisor"
+      }
+    },
+    "nativeFormAnswered": true,
+    "sameSessionCompletion": true,
+    "requests": [
+      {
+        "model": "root",
+        "toolSchemaBytes": 2,
+        "toolSchemaSHA256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "systemBytes": 2234,
+        "systemSHA256": "9455f5e260c0c1c9a1587ac18e266abd8a842e6e4c68eff41858a4e3d88ea869",
+        "messageCount": 2
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 12138,
+        "systemSHA256": "861510a4ed2ba4396c2d3d619d020d24fca7318cfeec5dd9cec0c3fc08869dd8",
+        "messageCount": 2
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 12138,
+        "systemSHA256": "861510a4ed2ba4396c2d3d619d020d24fca7318cfeec5dd9cec0c3fc08869dd8",
+        "messageCount": 5
+      },
+      {
+        "model": "root",
+        "toolSchemaBytes": 2,
+        "toolSchemaSHA256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "systemBytes": 2234,
+        "systemSHA256": "9455f5e260c0c1c9a1587ac18e266abd8a842e6e4c68eff41858a4e3d88ea869",
+        "messageCount": 2
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 10830,
+        "systemSHA256": "1d99bf97fca5df9781a3798e1262b8ecfc972f41636d32f2312876e603a244d0",
+        "messageCount": 2
+      },
+      {
+        "model": "worker",
+        "toolNames": [
+          "edit",
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "shell",
+          "skill",
+          "webfetch",
+          "websearch",
+          "write",
+          "execute"
+        ],
+        "toolSchemaBytes": 10672,
+        "toolSchemaSHA256": "59ddbb38cbf3627042fb6b6dcd99615ab7d3739a46ca6e7510909ad3f600045f",
+        "systemBytes": 11200,
+        "systemSHA256": "1bdacaf249fab232c5505daa8ed8bdd76749a7cc1a50487f0e4ec13828bbff16",
+        "messageCount": 2
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 10830,
+        "systemSHA256": "1d99bf97fca5df9781a3798e1262b8ecfc972f41636d32f2312876e603a244d0",
+        "messageCount": 5
+      },
+      {
+        "model": "advisor",
+        "toolNames": [
+          "glob",
+          "grep",
+          "read",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 5134,
+        "toolSchemaSHA256": "ab65df52b93049a02d46e25c622e253e060bcaaa5b4d24dd08d2e0e690ef5440",
+        "systemBytes": 11207,
+        "systemSHA256": "168c4dc2d56c8850fa8c2c98703c28dea593e66843e73aa54d052449ba6446ca",
+        "messageCount": 2
+      },
+      {
+        "model": "worker",
+        "toolNames": [
+          "edit",
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "shell",
+          "skill",
+          "webfetch",
+          "websearch",
+          "write",
+          "execute"
+        ],
+        "toolSchemaBytes": 10672,
+        "toolSchemaSHA256": "59ddbb38cbf3627042fb6b6dcd99615ab7d3739a46ca6e7510909ad3f600045f",
+        "systemBytes": 11200,
+        "systemSHA256": "1bdacaf249fab232c5505daa8ed8bdd76749a7cc1a50487f0e4ec13828bbff16",
+        "messageCount": 4
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 10830,
+        "systemSHA256": "1d99bf97fca5df9781a3798e1262b8ecfc972f41636d32f2312876e603a244d0",
+        "messageCount": 7
+      },
+      {
+        "model": "worker",
+        "toolNames": [
+          "edit",
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "shell",
+          "skill",
+          "webfetch",
+          "websearch",
+          "write",
+          "execute"
+        ],
+        "toolSchemaBytes": 10672,
+        "toolSchemaSHA256": "59ddbb38cbf3627042fb6b6dcd99615ab7d3739a46ca6e7510909ad3f600045f",
+        "systemBytes": 11200,
+        "systemSHA256": "1bdacaf249fab232c5505daa8ed8bdd76749a7cc1a50487f0e4ec13828bbff16",
+        "messageCount": 6
+      },
+      {
+        "model": "worker",
+        "toolNames": [
+          "edit",
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "shell",
+          "skill",
+          "webfetch",
+          "websearch",
+          "write",
+          "execute"
+        ],
+        "toolSchemaBytes": 10672,
+        "toolSchemaSHA256": "59ddbb38cbf3627042fb6b6dcd99615ab7d3739a46ca6e7510909ad3f600045f",
+        "systemBytes": 11200,
+        "systemSHA256": "1bdacaf249fab232c5505daa8ed8bdd76749a7cc1a50487f0e4ec13828bbff16",
+        "messageCount": 8
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 10830,
+        "systemSHA256": "1d99bf97fca5df9781a3798e1262b8ecfc972f41636d32f2312876e603a244d0",
+        "messageCount": 10
+      },
+      {
+        "model": "root",
+        "toolNames": [
+          "glob",
+          "grep",
+          "question",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ],
+        "toolSchemaBytes": 7072,
+        "toolSchemaSHA256": "4fbe9d09b5536414e85cbbe229cd2eb10871fe1b2712f895e6856fd08d8199f3",
+        "systemBytes": 10830,
+        "systemSHA256": "1d99bf97fca5df9781a3798e1262b8ecfc972f41636d32f2312876e603a244d0",
+        "messageCount": 12
+      }
+    ],
+    "routing": [
+      {
+        "questions": [
+          "m0c0",
+          "m0c1",
+          "m0c2",
+          "m0c3",
+          "m0c4",
+          "m0c5",
+          "m1c0",
+          "m1c1",
+          "m1c2",
+          "m1c3",
+          "m1c4",
+          "m1c5",
+          "m2c0",
+          "m2c1",
+          "m2c2",
+          "m2c3",
+          "m2c4",
+          "m2c5"
+        ]
+      },
+      {
+        "questions": [
+          "jobClass"
+        ]
+      },
+      {
+        "questions": [
+          "role"
+        ]
+      },
+      {
+        "questions": [
+          "candidate"
+        ]
+      },
+      {
+        "questions": [
+          "jobClass"
+        ]
+      },
+      {
+        "questions": [
+          "role"
+        ]
+      },
+      {
+        "questions": [
+          "candidate"
+        ]
+      }
+    ],
+    "fixtureErrors": [],
+    "cleanup": {
+      "before": "session|249\nsession_v2|414\nsession_message|20958",
+      "after": "session|249\nsession_v2|414\nsession_message|20958",
+      "unchanged": true,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [
+        118832,
+        118928
+      ],
+      "groupsGone": true,
+      "openedDatabases": [
+        "/tmp/momo-job-class-Dss0K4/data/opencode/opencode.db",
+        "/tmp/momo-job-class-Dss0K4/data/opencode/opencode.db-wal",
+        "/tmp/momo-job-class-Dss0K4/data/opencode/opencode.db-shm"
+      ],
+      "disposableRootRemoved": true
+    }
+  },
+  "validation": {
+    "focused": {
+      "pass": 22,
+      "fail": 0,
+      "assertions": 102
+    },
+    "typecheck": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "pass": 12908,
+      "skip": 20,
+      "fail": 0,
+      "assertions": 49499,
+      "files": 1587,
+      "seconds": 153.55
+    }
+  },
+  "limits": [
+    "Deterministic HTTP model responses prove native contract integration, not spontaneous production-model behavior.",
+    "Pinned full schemas remain in this foundation; deferred schema exposure and new role policies are a dependent delivery.",
+    "Request measurements are serialized bytes, not billed/tokenized counts.",
+    "A question answer resumes through scheduler admission; two generation attempts share one durable worker task and child session.",
+    "Earlier failed QA probes had incorrect attempt-count expectations and confused tool-less title/warmup requests with agent calls."
+  ],
+  "qaSourceSHA256": {
+    "script/qa/momo-native-tool-contract.ts": "7bf9d877a45977f755dd567f9fbd5257adba8bc5388ea551db11a341f065c616",
+    "script/qa/momo-native-tool-contract-fixture.ts": "5fe46ba39a71f1b7bb2ed25657209376422be5f830bcf8b4b46a94710d133646"
+  }
+}

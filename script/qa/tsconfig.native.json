@@ -19,6 +19,8 @@
     "./momo-native-job-classification-harness.ts",
     "./momo-native-free-jev.ts",
     "./momo-native-shared-catalog.ts",
-    "./momo-native-shared-catalog-fixture.ts"
+    "./momo-native-shared-catalog-fixture.ts",
+    "./momo-native-tool-contract.ts",
+    "./momo-native-tool-contract-fixture.ts"
   ]
 }
