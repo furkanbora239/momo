@@ -123,3 +123,18 @@ describe("coordinator unknown action boundary", () => {
     expect(nativeActionEffect("momo-worker", "external_operate")).toBeUndefined()
   })
 })
+
+
+describe("native model discovery boundary", () => {
+  test("coordinators retain the exact native models action without trusting namespaced copies", () => {
+    for (const role of ["momo-orchestrator", "momo-planner", "momo-executor", "momo-reviewer"] as const) {
+      const tools = { opencode_models: {}, opencode_models_update: {}, mcp__external__opencode_models: {}, external_opencode_models: {}, external__opencode_models: {} }
+      filterNativeContextTools(role, tools)
+      expect(Object.keys(tools)).toEqual(["opencode_models"])
+      expect(nativeActionEffect(role, "opencode_models")).toBeUndefined()
+      for (const action of ["opencode_models_update", "mcp__external__opencode_models", "external_opencode_models", "external__opencode_models"]) {
+        expect(nativeActionEffect(role, action)).toBe("deny")
+      }
+    }
+  })
+})

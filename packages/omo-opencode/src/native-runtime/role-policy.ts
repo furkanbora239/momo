@@ -74,6 +74,7 @@ function nativeSearchToolAllowed(id: NativeAgentID, name: string): boolean {
 
 export function isNativeReadTool(name: string): boolean {
   const canonical = normalizeNativeSearchToolName(name)
+  if (canonical === "opencode_models") return true
   // MCP names are action namespaces, not local builtin names. A server's
   // arbitrary `status` or `search` action is not trusted as read-only.
   if (canonical.startsWith("mcp__")) return nativeSearchReadTools.has(canonical)
