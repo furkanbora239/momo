@@ -120,7 +120,7 @@
     "rejected": true
   },
   "isolation": {
-    "unchanged": true,
+    "unchanged": false,
     "unchangedSessions": true,
     "groupsGone": true,
     "disposableRootRemoved": true
@@ -136,7 +136,7 @@
   },
   "provenance": {
     "baseCommit": "ca100ab81",
-    "sourceBinding": "Hashes captured during publication, after QA. All four source modification times precede live receipt and validation logs. No source edits made during publication. Timestamps support continuity but are not contemporaneous hash attestation.",
+    "sourceBinding": "Fresh unchanged probe rerun against the existing build; SHA-256 of all four source/test files, dist/index.js, and probe captured before and after execution are identical. Earlier full suite/typecheck/build evidence retained because source was unchanged.",
     "files": {
       "packages/omo-opencode/src/native-runtime/role-policy.ts": {
         "sha256": "9a463dbc3e225bfcf7e30766e1eb94113395906a943ef34575af01296df3e5d3",
@@ -176,6 +176,32 @@
         "sha256": "6ea0fe63ccfa89a53cf25df931d362df7c3c87870f3b530787693fd873476a6f",
         "modifiedAt": "2026-10-25T21:42:16.594091+00:00"
       }
+    },
+    "liveRerun": {
+      "before": {
+        "capturedAt": "2026-10-26T09:15:29.770703+00:00",
+        "files": {
+          "packages/omo-opencode/src/native-runtime/role-policy.ts": "9a463dbc3e225bfcf7e30766e1eb94113395906a943ef34575af01296df3e5d3",
+          "packages/omo-opencode/src/native-runtime/role-policy.test.ts": "67062303d4b4e6fdf1ced5a4f957bb822a0ae1d2e909e351714fb4f70588cdce",
+          "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "3cc5e389e6a0084809aa582cfd41d879948f5720eb0fa21d32077db84608f2e5",
+          "packages/omo-opencode/src/native-runtime/task-tool-output.test.ts": "d32b753f054470d8b8ab5e1279dfcc344fcd6c64d6f38d0f78fc4e6827960b24",
+          "dist/index.js": "6896e5aa31fd459b9eb6b581b06e013bb81873d7b39ceb4c7fe8ac4a033cee50",
+          ".omo/evidence/20261025-task-diagnostics/probe.ts": "381e61a7ff9437b90fdfacefdcddec4c70b52bbf7ca7ebda5ef74fa210a05714"
+        }
+      },
+      "after": {
+        "capturedAt": "2026-10-26T09:16:13.921254+00:00",
+        "files": {
+          "packages/omo-opencode/src/native-runtime/role-policy.ts": "9a463dbc3e225bfcf7e30766e1eb94113395906a943ef34575af01296df3e5d3",
+          "packages/omo-opencode/src/native-runtime/role-policy.test.ts": "67062303d4b4e6fdf1ced5a4f957bb822a0ae1d2e909e351714fb4f70588cdce",
+          "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "3cc5e389e6a0084809aa582cfd41d879948f5720eb0fa21d32077db84608f2e5",
+          "packages/omo-opencode/src/native-runtime/task-tool-output.test.ts": "d32b753f054470d8b8ab5e1279dfcc344fcd6c64d6f38d0f78fc4e6827960b24",
+          "dist/index.js": "6896e5aa31fd459b9eb6b581b06e013bb81873d7b39ceb4c7fe8ac4a033cee50",
+          ".omo/evidence/20261025-task-diagnostics/probe.ts": "381e61a7ff9437b90fdfacefdcddec4c70b52bbf7ca7ebda5ef74fa210a05714"
+        }
+      },
+      "identical": true,
+      "receiptSha256": "5f5dd174a0bf2e565bfd3dea912a2121e4fb037370ae6a709de943799a2d0bc0"
     }
   },
   "limits": [
