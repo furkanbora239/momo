@@ -123,7 +123,11 @@
     "unchanged": false,
     "unchangedSessions": true,
     "groupsGone": true,
-    "disposableRootRemoved": true
+    "disposableRootRemoved": true,
+    "concurrentMessageWritesAllowed": true,
+    "openedDatabaseFilesObserved": 3,
+    "openedDatabaseFilesIsolated": true,
+    "note": "Session counts unchanged; concurrent user message writes occurred. Harness checked that all observed QA database descriptors belonged to the disposable root."
   },
   "validation": {
     "typecheck": "passed",
