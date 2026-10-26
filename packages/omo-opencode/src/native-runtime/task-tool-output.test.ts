@@ -112,3 +112,14 @@ describe("public native task output", () => {
     await expect(taskForCaller(repository, "consult", "root", "task")).rejects.toThrow("No task")
   })
 })
+
+
+test("candidate pages distinguish inactive task decisions from model availability", () => {
+  const candidates = [{ role: "worker" as const, model: { providerID: "test", id: "model" } }]
+  for (const state of ["failed", "succeeded", "cancelled", "running", "interrupted", "queued"] as const) {
+    const output = candidatePage(task({ state, candidates }), {})
+    expect(output).toMatchObject({ scope: "task_decision", applicability: "not_applicable", storedCandidateCount: 1, total: 0, candidates: [], discovery: { tool: "opencode_models", scope: "registered_models", eligibility: "not_evaluated" } })
+  }
+  expect(candidatePage(task({ candidates }), {})).toMatchObject({ applicability: "awaiting_selection", storedCandidateCount: 1, total: 1 })
+  expect(candidatePage(task({ candidates }), { providerID: "absent" })).toMatchObject({ applicability: "awaiting_selection", storedCandidateCount: 1, total: 0 })
+})
