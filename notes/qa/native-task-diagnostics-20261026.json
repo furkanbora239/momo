@@ -1,0 +1,186 @@
+{
+  "status": "passed",
+  "surface": "real OpenCode HTTP and Code Mode; seeded durable tasks; controlled local model",
+  "version": "2.1.2",
+  "observed": {
+    "proof": "DIAGNOSTICS_RECEIPT",
+    "models": {
+      "providers": [
+        {
+          "id": "contract",
+          "name": "Contract QA",
+          "models": [
+            {
+              "id": "contract/root",
+              "name": "root",
+              "released": 0,
+              "variants": [],
+              "cost": [
+                {
+                  "input": 1,
+                  "output": 1,
+                  "cache": {
+                    "read": 0,
+                    "write": 0
+                  }
+                }
+              ],
+              "status": "active"
+            },
+            {
+              "id": "contract/worker",
+              "name": "worker",
+              "released": 0,
+              "variants": [],
+              "cost": [
+                {
+                  "input": 1,
+                  "output": 1,
+                  "cache": {
+                    "read": 0,
+                    "write": 0
+                  }
+                }
+              ],
+              "status": "active"
+            },
+            {
+              "id": "contract/advisor",
+              "name": "advisor",
+              "released": 0,
+              "variants": [],
+              "cost": [
+                {
+                  "input": 1,
+                  "output": 1,
+                  "cache": {
+                    "read": 0,
+                    "write": 0
+                  }
+                }
+              ],
+              "status": "active"
+            }
+          ]
+        }
+      ],
+      "total": 3,
+      "next": null
+    },
+    "failed": {
+      "scope": "task_decision",
+      "applicability": "not_applicable",
+      "storedCandidateCount": 1,
+      "discovery": {
+        "tool": "opencode_models",
+        "scope": "registered_models",
+        "eligibility": "not_evaluated"
+      },
+      "taskID": "failed",
+      "decisionId": "decision-failed",
+      "state": "failed",
+      "total": 0,
+      "offset": 0,
+      "candidates": []
+    },
+    "awaiting": {
+      "scope": "task_decision",
+      "applicability": "awaiting_selection",
+      "storedCandidateCount": 1,
+      "discovery": {
+        "tool": "opencode_models",
+        "scope": "registered_models",
+        "eligibility": "not_evaluated"
+      },
+      "taskID": "awaiting_selection",
+      "decisionId": "decision-awaiting_selection",
+      "state": "awaiting_selection",
+      "total": 1,
+      "offset": 0,
+      "candidates": [
+        {
+          "role": "worker",
+          "model": {
+            "providerID": "contract",
+            "id": "worker"
+          },
+          "rolePermissions": {
+            "scope": "role_policy",
+            "purpose": "Direct implementation with shell and editing",
+            "canRead": true,
+            "canEdit": true,
+            "canShell": true,
+            "canDelegate": false,
+            "canConsult": true
+          },
+          "modelFacts": {}
+        }
+      ]
+    },
+    "rejected": true
+  },
+  "isolation": {
+    "unchanged": true,
+    "unchangedSessions": true,
+    "groupsGone": true,
+    "disposableRootRemoved": true
+  },
+  "validation": {
+    "typecheck": "passed",
+    "build": "passed",
+    "fullTest": {
+      "passed": 12912,
+      "skipped": 20,
+      "failed": 0
+    }
+  },
+  "provenance": {
+    "baseCommit": "ca100ab81",
+    "sourceBinding": "Hashes captured during publication, after QA. All four source modification times precede live receipt and validation logs. No source edits made during publication. Timestamps support continuity but are not contemporaneous hash attestation.",
+    "files": {
+      "packages/omo-opencode/src/native-runtime/role-policy.ts": {
+        "sha256": "9a463dbc3e225bfcf7e30766e1eb94113395906a943ef34575af01296df3e5d3",
+        "modifiedAt": "2026-10-25T07:09:46.419384+00:00"
+      },
+      "packages/omo-opencode/src/native-runtime/role-policy.test.ts": {
+        "sha256": "67062303d4b4e6fdf1ced5a4f957bb822a0ae1d2e909e351714fb4f70588cdce",
+        "modifiedAt": "2026-10-25T07:09:46.419640+00:00"
+      },
+      "packages/omo-opencode/src/native-runtime/task-tool-output.ts": {
+        "sha256": "3cc5e389e6a0084809aa582cfd41d879948f5720eb0fa21d32077db84608f2e5",
+        "modifiedAt": "2026-10-25T07:09:18.043561+00:00"
+      },
+      "packages/omo-opencode/src/native-runtime/task-tool-output.test.ts": {
+        "sha256": "d32b753f054470d8b8ab5e1279dfcc344fcd6c64d6f38d0f78fc4e6827960b24",
+        "modifiedAt": "2026-10-24T14:46:11.310719+00:00"
+      }
+    },
+    "evidenceFiles": {
+      "receipt.json": {
+        "sha256": "f3bc8dfb4c4d3cbbf949feab2ef95175d27d6086680671d096dcfa4651fd9d8e",
+        "modifiedAt": "2026-10-25T21:42:37.263341+00:00"
+      },
+      "probe.ts": {
+        "sha256": "381e61a7ff9437b90fdfacefdcddec4c70b52bbf7ca7ebda5ef74fa210a05714",
+        "modifiedAt": "2026-10-25T21:42:24.447275+00:00"
+      },
+      "full-test.log": {
+        "sha256": "d5dc82b22c43d8dd0a79947205ae59dc7c6cde0374546e26c28edc1c62257550",
+        "modifiedAt": "2026-10-25T21:44:41.332007+00:00"
+      },
+      "typecheck.log": {
+        "sha256": "f8a9d0a2ed1a37ef97aa4757b24213d32ac621261098cef5ab270ddf4beb4efa",
+        "modifiedAt": "2026-10-25T21:41:50.077354+00:00"
+      },
+      "build.log": {
+        "sha256": "6ea0fe63ccfa89a53cf25df931d362df7c3c87870f3b530787693fd873476a6f",
+        "modifiedAt": "2026-10-25T21:42:16.594091+00:00"
+      }
+    }
+  },
+  "limits": [
+    "The local controlled model exercises real OpenCode Code Mode and HTTP surfaces; it does not establish hosted-provider reliability.",
+    "Durable tasks were seeded; candidate selection and model discovery were exercised through the installed plugin.",
+    "Raw context and local process paths are omitted. The original probe and logs remain in ignored evidence; no new reusable QA driver is introduced."
+  ]
+}
