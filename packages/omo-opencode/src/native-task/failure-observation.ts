@@ -1,9 +1,10 @@
+import { isNativeQuotaFailureHint } from "../native-catalog/model-quota-evidence"
 import { isNativePrivacyPolicyRejection } from "../native-catalog/model-policy-health"
 import { errorText } from "./lifecycle"
 import type { NativeTask, NativeTaskEngineOptions } from "./types"
 
 export function markNativeExecutionFailurePending(task: NativeTask, error: string): void {
-  if (isNativePrivacyPolicyRejection(error)) task.failureObservationError ??= "Native privacy failure observation is pending"
+  if (isNativePrivacyPolicyRejection(error) || isNativeQuotaFailureHint(error)) task.failureObservationError ??= "Native model failure observation is pending"
 }
 
 /** Persist unresolved policy observation before another selected model can dispatch. */
