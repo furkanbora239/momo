@@ -1,10 +1,16 @@
 import type { ProviderInfo } from "@opencode/client"
 import { isProviderDisabled } from "../shared/provider-toggles"
-import type { ProviderHealthSnapshot } from "../shared/provider-health"
+import type { ProviderHealthEntry, ProviderHealthSnapshot } from "../shared/provider-health"
 import type { ProviderToggles } from "../shared/provider-toggles"
 import { isOfficialPublicProvider } from "./public-provider"
 import type { NativeModelRef } from "../native-routing/types"
 import type { NativeCatalogContext } from "./types"
+
+/** Earlier native discovery treated an optional endpoint as provider-wide failure. */
+export function isObsoleteNativeDiscoveryFailure(entry: ProviderHealthEntry | undefined): boolean {
+  return entry !== undefined && (entry.statusCode === 404 || entry.statusCode === 405)
+    && entry.reason === `live model endpoint returned HTTP ${entry.statusCode}`
+}
 
 export function nativeProviderBlockReason(
   provider: ProviderInfo,
@@ -15,7 +21,7 @@ export function nativeProviderBlockReason(
   if (provider.activation === "disabled") return "disabled in OpenCode provider settings"
   if (isProviderDisabled(toggles, provider.id)) return "disabled by provider toggle"
   const blocked = health[provider.id.trim().toLowerCase()]
-  if (blocked && now < blocked.unavailableUntil) return blocked.reason
+  if (blocked && !isObsoleteNativeDiscoveryFailure(blocked) && now < blocked.unavailableUntil) return blocked.reason
   return undefined
 }
 
@@ -49,7 +55,7 @@ export async function connectedNativeProviders(input: {
       (bindingChanged ? "provider integration changed during admission" : !previous.connected && !publicAccess ? "no active OpenCode integration connection" : undefined)
     if (reason !== undefined) {
       const blocked = health[provider.id.trim().toLowerCase()]
-      const healthBlocked = provider.activation !== "disabled" && !isProviderDisabled(toggles, provider.id) && blocked && now < blocked.unavailableUntil
+      const healthBlocked = provider.activation !== "disabled" && !isProviderDisabled(toggles, provider.id) && blocked && !isObsoleteNativeDiscoveryFailure(blocked) && now < blocked.unavailableUntil
       unavailable[provider.id] = { reason, ...(healthBlocked ? { until: blocked.unavailableUntil, ...(blocked.statusCode === undefined ? {} : { statusCode: blocked.statusCode }) } : {}) }
       return []
     }

@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { SessionInfo } from "@opencode/client"
+import { createProviderHealthStore } from "../shared/provider-health"
+import { resolveNativeCatalogHealthDirectory } from "../native-catalog"
 import { createNativeCatalogAdapter } from "../native-catalog"
 import { createNativeControlStores } from "../native-catalog/native-control-stores"
 import type { NativeCatalogContext } from "../native-catalog/types"
@@ -38,6 +40,18 @@ function fixture() {
 }
 
 describe("native model admission", () => {
+  for (const statusCode of [404, 405]) it(`executes registered children with obsolete discovery health (${statusCode})`, async () => {
+    const h = fixture()
+    const health = createProviderHealthStore(() => resolveNativeCatalogHealthDirectory(h.home))
+    health.markProviderUnavailable("worker", { reason: `live model endpoint returned HTTP ${statusCode}`, statusCode })
+    await h.admission.beforeModelRequest(h.session(true))
+    expect(health.readProviderHealth().worker?.statusCode).toBe(statusCode)
+    health.markProviderUnavailable("worker", { reason: "inference endpoint unavailable", statusCode })
+    await expect(h.admission.beforeModelRequest(h.session(true))).rejects.toThrow("no longer available")
+    health.markProviderUnavailable("worker", { reason: `live model endpoint returned HTTP ${statusCode}`, statusCode: 429 })
+    await expect(h.admission.beforeModelRequest(h.session(true))).rejects.toThrow("no longer available")
+  })
+
   it("rejects a toggled-off manager even when its configured credential remains present", async () => {
     const h = fixture()
     h.controls.writeProviderToggles({ version: 1, disabled: ["manager"], updatedAt: "test" })

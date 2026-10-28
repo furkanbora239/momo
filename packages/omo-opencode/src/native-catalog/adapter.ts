@@ -6,18 +6,19 @@ import { isModelAllowed } from "../shared/model-pool"
 import { isProviderDisabled } from "../shared/provider-toggles"
 import { createProviderHealthStore } from "../shared/provider-health"
 import { createNativeControlStores } from "./native-control-stores"
-import { fetchNativeLiveModels, type NativeLiveModel, type NativeLiveModelsResult } from "./live-models"
+import { createNativeLiveModelCache, fetchNativeLiveModels, type NativeLiveModel, type NativeLiveModelsResult } from "./live-models"
 import { nativeModelFacts, resolveNativePriceSource } from "./model-facts"
 import { hasUsableModelKnowledge, hasVerifiedKnowledgeSource } from "./knowledge-facts"
 import { readBundledModelKnowledge } from "./model-cards"
 import { createNativeCatalogKnowledgeStore } from "./knowledge-store"
 import { resolveNativeCatalogHealthDirectory, resolveNativeOmoDirectory } from "./paths"
 import { isOfficialPublicProvider } from "./public-provider"
-import { connectedNativeProviders } from "./provider-admission"
+import { connectedNativeProviders, isObsoleteNativeDiscoveryFailure } from "./provider-admission"
 import type { NativeCatalogAdapterOptions, NativeCatalogModelFacts, NativeCatalogSnapshot } from "./types"
 
 export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions) {
   const now = options.now ?? Date.now
+  const liveModelCache = createNativeLiveModelCache()
   const omoDirectory = resolveNativeOmoDirectory(options.homeDirectory)
   const controlStores = createNativeControlStores(options.homeDirectory)
   const healthStore = createProviderHealthStore(() => resolveNativeCatalogHealthDirectory(options.homeDirectory))
@@ -52,7 +53,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
         unavailableProviders[provider.id] = { reason: provider.activation === "disabled" ? "disabled in OpenCode provider settings" : "disabled by provider toggle" }
         return false
       }
-      if (providerHealth && now() < providerHealth.unavailableUntil) {
+      if (providerHealth && !isObsoleteNativeDiscoveryFailure(providerHealth) && now() < providerHealth.unavailableUntil) {
         unavailableProviders[provider.id] = { reason: providerHealth.reason, until: providerHealth.unavailableUntil }
         return false
       }
@@ -73,7 +74,7 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
     await Promise.all(activeProviders.map(async (provider) => {
       liveByProvider.set(provider.id, publicOnlyProviders.has(provider.id)
         ? { models: new Map(), authoritative: false }
-        : await fetchNativeLiveModels(options, provider, models, markUnavailable))
+        : await fetchNativeLiveModels(options, provider, models, markUnavailable, liveModelCache))
     }))
     for (const [providerID, live] of liveByProvider) {
       if (live.unavailable) unavailableProviders[providerID] = { ...live.unavailable }
