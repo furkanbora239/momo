@@ -1,3 +1,4 @@
+import { parseNativeQuotaFailure } from "../native-catalog/model-quota-evidence"
 import type { OpenCodeEvent } from "@opencode/client"
 import type { NativeTaskEvent } from "./types"
 
@@ -74,6 +75,8 @@ function shouldReportProgress(sessionID: string): boolean {
 }
 
 function errorMessage(error: unknown): string {
+  const quota = parseNativeQuotaFailure(error)
+  if (quota) return JSON.stringify(quota)
   if (typeof error === "object" && error !== null && "message" in error && typeof error.message === "string") return error.message
   return String(error)
 }
