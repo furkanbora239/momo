@@ -393,6 +393,19 @@ describe("native V2 session runtime", () => {
     expect(inspected).toMatchObject({ state: "failed", failureID: "assistant-old", failureModel: { providerID: "momo-qa", id: "old-model" }, failureAt: 1000 })
   })
 
+  it("preserves newer native typed quota evidence without interpreting assistant prose", async () => {
+    const h = harness()
+    const session = h.sessions.get("ses_child")!
+    h.sessions.set("ses_child", { ...session, outcome: "failed" })
+    const quota = { type: "provider.free-limit", status: 429, retryAfterMs: 37_243_000, message: "Free usage limit reached" }
+    const message = { id: "quota-message", type: "assistant", agent: "momo-worker", model: { providerID: "free", id: "beam" }, time: { created: 1, completed: 1000 }, content: [], error: quota }
+    // Native 2.1 emits a newer variant than the installed client declaration.
+    h.setContext(JSON.parse(JSON.stringify([message])))
+    expect(await h.runtime.inspect("ses_child")).toMatchObject({ state: "failed", failureID: "quota-message", failureAt: 1000, failureModel: message.model, failureQuota: { type: "provider.free-limit", status: 429, retryAfterMs: 37_243_000 } })
+    h.setContext(JSON.parse(JSON.stringify([{ ...message, error: { type: "api", message: JSON.stringify(quota) } }])))
+    expect((await h.runtime.inspect("ses_child")).failureQuota).toBeUndefined()
+  })
+
   it("inspects native active state and completed assistant context instead of idle events", async () => {
     const h = harness()
     h.setActive({ ses_child: { type: "running" } })
