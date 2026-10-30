@@ -1,0 +1,642 @@
+{
+  "status": "passed",
+  "sourceHead": "4b5d111d68c287d883faabe26edeb218a9c7fac8",
+  "sourceTree": "d826646b742a549b213dfb627116cd3b2ab0ad94",
+  "bundleSha256": "a5a1cf6b3f211ae65312855fb3405c0b3477f9dc43b6d66292378382d4acf598",
+  "focused": {
+    "passed": 299,
+    "failed": 0,
+    "files": 47
+  },
+  "typecheck": "passed; recorded exit 0",
+  "scriptTypecheckAfterQAFix": "passed; recorded exit 0",
+  "build": "passed; exit 0 and all steps completed",
+  "buildMethod": "Filled only absent upstream files from pinned local git objects, direct strict materialize-frontend-refs, OMO_SKIP_MATERIALIZE=1 npm_config_ignore_scripts=true bun run build. No existing upstream files overwritten.",
+  "scenarios": {
+    "discovery": {
+      "receipt": "/home/furkanbora/.codex/worktrees/native-orchestration-integrated/momo/.omo/evidence/20261028-integrated/discovery-final/receipt.json",
+      "sha256": "f7c9d5b68b84ef453a3edc8776b8dd67ba3243185d14371a719adaab841f8d2e",
+      "status": "passed",
+      "version": "2.2.0",
+      "sourceHashes": {
+        "dist/index.js": "a5a1cf6b3f211ae65312855fb3405c0b3477f9dc43b6d66292378382d4acf598",
+        "packages/omo-opencode/src/native-catalog/live-models.ts": "3ed19fcd2063d30e33dafd88c5393c6946561a051d3a4632b60cc3683fdaaf62",
+        "packages/omo-opencode/src/native-catalog/adapter.ts": "83351eac63bbff057a328d64ecfa6ea8801eb749a2deda3447173bfc7ebd661a",
+        "packages/omo-opencode/src/native-catalog/provider-admission.ts": "4091bc81791ae224802bea1abca4bd30a8877131212466d06c0f65faa038b942",
+        "script/qa/momo-native-discovery-recovery.ts": "aaed4ade70af9df6df9dcd45b5e7aae4b2282a91127079deea9fd15c41384209"
+      },
+      "cleanup": {
+        "before": "session|249\nsession_v2|447\nsession_message|23731",
+        "after": "session|249\nsession_v2|447\nsession_message|23731",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          30211
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-WnxERK/data/opencode/opencode.db",
+          "/tmp/momo-job-class-WnxERK/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-WnxERK/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      },
+      "childRequests": 1,
+      "tasks": [
+        {
+          "id": "ntask_645235c9-c8c5-4150-a3bb-1642979671d1",
+          "rootTaskID": "ntask_645235c9-c8c5-4150-a3bb-1642979671d1",
+          "rootSessionID": "ses_e72f7f247ffeZwcJZkwdmEmzIf",
+          "parentSessionID": "ses_e72f7f247ffeZwcJZkwdmEmzIf",
+          "kind": "task",
+          "parentRole": "orchestrator",
+          "decisionId": "ntask_645235c9-c8c5-4150-a3bb-1642979671d1",
+          "state": "succeeded",
+          "prompt": "DISCOVERY_CHILD: reply CHILD_EXECUTED",
+          "scope": "Return the requested marker.",
+          "acceptance": "Return CHILD_EXECUTED",
+          "createdAt": 1793367479702,
+          "updatedAt": 1793367479937,
+          "attempts": 1,
+          "routeStatus": "routed",
+          "activeTools": [],
+          "childTaskIDs": [],
+          "processedEventIDs": [
+            "evt_18d0816280013NV6IDJIaJ84eX",
+            "evt_18d081645001OPYO4cgfW3riiK",
+            "evt_18d0816460013zcWSvWAezDcIe",
+            "evt_18d081649001iioLox9t60uRS8"
+          ],
+          "lastActivityAt": 1793367479887,
+          "role": "worker",
+          "model": {
+            "providerID": "qa-404",
+            "id": "mimo-v2.6-flash-free"
+          },
+          "startedAt": 1793367479794,
+          "sessionID": "ses_3074151d150afa6cea5253b7d4",
+          "dispatchStatus": "recorded",
+          "lastExecutionSequence": 10,
+          "progress": "Assistant is producing a response",
+          "result": "CHILD_EXECUTED",
+          "delivery": {
+            "receiptVersion": 2,
+            "status": "delivered",
+            "admittedAt": 1793367479914,
+            "attempts": 1,
+            "messageID": "msg_d27f2c1b71d30f02985f17ba6a",
+            "attemptedAt": 1793367479894,
+            "deliveredAt": 1793367479937
+          },
+          "outcomeStatus": "recorded"
+        }
+      ],
+      "expiryTiming": {
+        "wallElapsedMs": 27602,
+        "monotonicElapsedMs": 27602.587036,
+        "fetchedAt": "2026-10-30T13:37:55.679Z",
+        "calls": {
+          "qa-404": 1,
+          "qa-405": 1,
+          "qa-empty": 1,
+          "qa-auth": 1
+        }
+      },
+      "lastRefresh": {
+        "elapsedMs": 29606,
+        "fetchedAt": "2026-10-30T13:37:57.684Z",
+        "calls": {
+          "qa-404": 2,
+          "qa-405": 2,
+          "qa-empty": 2,
+          "qa-auth": 1
+        }
+      }
+    },
+    "quota": {
+      "receipt": "/home/furkanbora/.codex/worktrees/native-orchestration-integrated/momo/.omo/evidence/20261028-integrated/quota/receipt.json",
+      "sha256": "6b25028be260d706c5b0881d4e656fc22c43467ab4b64249238b997cf25eeb2c",
+      "status": "passed",
+      "version": "2.2.0",
+      "sourceHashes": {
+        "dist/index.js": "a5a1cf6b3f211ae65312855fb3405c0b3477f9dc43b6d66292378382d4acf598",
+        "packages/omo-opencode/src/native-catalog/adapter.test.ts": "03055191632f014dcbfa2f149f1b3dbd787dd1661212d22bf5c2da7babdefd0f",
+        "packages/omo-opencode/src/native-catalog/adapter.ts": "83351eac63bbff057a328d64ecfa6ea8801eb749a2deda3447173bfc7ebd661a",
+        "packages/omo-opencode/src/native-catalog/index.ts": "2e87b472cf42a3a28ba111f59a5df20cbf3e5c8a229aeb73a43493aba007d8e6",
+        "packages/omo-opencode/src/native-catalog/job-class-definitions.ts": "09c9c1dbcfaf6b9e6e6e620ecaf0b271db2e77bd487438ba43d477d86971677d",
+        "packages/omo-opencode/src/native-catalog/job-classification-codec.ts": "43778c2c87c21ad7896ad47e7877d9cedb921e2f58fd11b59f1726295e240d11",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor-review.test.ts": "e1bd2a1f34416d00e86ca88e427c56279c4ed8b32291434e8f54fe49d901050c",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor-state.ts": "12f66b34100ae9c6c495eb30b7c3db9830205bff7489e07bf0d5b2ab8bca1500",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor-types.ts": "1c483abbc9b530bc8c9b679d3fa8204298f464d49326af9a15651246e49a0602",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor.test.ts": "8e2410cf4b53e74b8b29dfe4833571fa5dc6d6b1cfc48d3296aa1c3b9b137eb7",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor.ts": "eba6f014a035f76a540b680b199cf8ea22c84aab149a98268e4dda6542be11a7",
+        "packages/omo-opencode/src/native-catalog/job-classification-identity.ts": "95e5ca2ad026a1054bd9236d8c5d17a8198b42aefa0a28edc47b06be3362c390",
+        "packages/omo-opencode/src/native-catalog/job-classification-input.test.ts": "1c992486686e230d99b99b15490a8bd4c2413f2acae0d8b350be00ccde9811d2",
+        "packages/omo-opencode/src/native-catalog/job-classification-input.ts": "e3fffc20e8edcc6f3d0b085728c22d5960487fd2847c08766e65f3917ee8b0b1",
+        "packages/omo-opencode/src/native-catalog/job-classification-shared-cache.test.ts": "32704b5dbbfc0cd3d959fcbdf1a4166708707ec58b5fdb9fec2a0c0a78e76581",
+        "packages/omo-opencode/src/native-catalog/job-classification-store.ts": "a42803bf1b61c966ebc1ed64f39ad41bb0a8852400936b607afa1833f679a97a",
+        "packages/omo-opencode/src/native-catalog/job-classification-types.ts": "a2b2e069ddbcc6a53b7148054a5ee23590a83c8025e04867bcfacb3434a74682",
+        "packages/omo-opencode/src/native-catalog/job-classification-usage.test.ts": "4ba7088d3b502514ccf126fbc3302b0d2e2716aee3017962c8c10acb50d5f244",
+        "packages/omo-opencode/src/native-catalog/job-classification-usage.ts": "60ddf7e6c8200b14b2ae9ccc5fd41afa005642b2eb8575c67ff025a3db6959fd",
+        "packages/omo-opencode/src/native-catalog/job-classification.test.ts": "8b992a224ba544633c156341cfb207a9f5f327138b242da3e73946f2aec8f504",
+        "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.test.ts": "408a16b0ec5e6d0b6daf8c0fb32b23eb96ba67cd0782e502876e622828fada67",
+        "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.ts": "920f8c72781232ab58880c772dddc2c48b4fd7abfc0d0c4c58cddfbbc3f3d8dc",
+        "packages/omo-opencode/src/native-catalog/knowledge-facts.ts": "05d27a97f6a4351c02c9bcd2cb3a6af8bc0e4063744dc8bd907a4a8ec7a605f0",
+        "packages/omo-opencode/src/native-catalog/knowledge-store.test.ts": "8aa3351e32e0ae17984610f11691ae486cdcbb576d3ea669ec06e3cdbd59dffb",
+        "packages/omo-opencode/src/native-catalog/knowledge-store.ts": "ee7752b46a3b3ea05c9c57eedf38d68f47f99d96f22594b6ad9cee799f2ad53e",
+        "packages/omo-opencode/src/native-catalog/live-models.test.ts": "b56a78333d484066d4f0ee8e3c0ac616a24229f91eebe852d2f7d00ddb5c9af6",
+        "packages/omo-opencode/src/native-catalog/live-models.ts": "3ed19fcd2063d30e33dafd88c5393c6946561a051d3a4632b60cc3683fdaaf62",
+        "packages/omo-opencode/src/native-catalog/model-card-export.test.ts": "5fc5f4cd6992bdcf5a40216f9f2014047d778d0ac4d466f8d88466e0c602f498",
+        "packages/omo-opencode/src/native-catalog/model-card-export.ts": "1d2516d7bb13e7133c67ed50af78163302c1f68e6dfdb53b492e19fee2d7ea3d",
+        "packages/omo-opencode/src/native-catalog/model-cards.test.ts": "4264dc2141ed4344ec99db4ec3eea9be9124179fa0b88964c98fd2a3247787e9",
+        "packages/omo-opencode/src/native-catalog/model-cards.ts": "7539c404e905c6446e352647f80dec1dfd21fbac29efa95ce086310b5548b32d",
+        "packages/omo-opencode/src/native-catalog/model-facts.ts": "e2a0c870ea298a12111c9b8a34a6a305d7cc9017dd09a45a0a4242cf9897a769",
+        "packages/omo-opencode/src/native-catalog/model-policy-health.test.ts": "d89865e033bb2ce3f401231bb29c9918b2fedecb64ebcc18d096c8ff142aaab5",
+        "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "794ff4a78537f38f366257d7be51b8a2734c8f95a493ccfa5067b8454e991b76",
+        "packages/omo-opencode/src/native-catalog/model-quota-evidence.test.ts": "54edcf46c07800be834ed0ca839a8f1557a8044c5fb2c47802f9cf62a41663c3",
+        "packages/omo-opencode/src/native-catalog/model-quota-evidence.ts": "5760239364f87aaa6188ee3bbd9c1ccf7ef9337f3f7099d78d143d76e49bb8d0",
+        "packages/omo-opencode/src/native-catalog/native-control-stores.test.ts": "3181b71f4f583cc5ff09c62e0c4dc303006db41375da9f814ee21d1f66cd819f",
+        "packages/omo-opencode/src/native-catalog/native-control-stores.ts": "e53edff414af65791953949d33a65d0a6d4cbdd8c8387c26f7452337f4d349f7",
+        "packages/omo-opencode/src/native-catalog/paths.ts": "cc3f06ab05b8eccec2de56a378d5f5ed83271da07b8b68850341a44a72ab97c6",
+        "packages/omo-opencode/src/native-catalog/pricing-routing.test.ts": "7b0bb623660c4cab22ccadf5cb996f8dc9ec9f00973b854f8d149afe01315031",
+        "packages/omo-opencode/src/native-catalog/provider-admission.test.ts": "0dc212720a51a86c1eb2238ac8b71a1d37d060aaab9f32cb5c5371eb4a87b3c2",
+        "packages/omo-opencode/src/native-catalog/provider-admission.ts": "4091bc81791ae224802bea1abca4bd30a8877131212466d06c0f65faa038b942",
+        "packages/omo-opencode/src/native-catalog/public-provider.ts": "c3fdb649921226adc53375d90f6e56f1b686a9e5c480ca5dd2dfe061b0f89d06",
+        "packages/omo-opencode/src/native-catalog/published-models.test.ts": "17e08e8c1fadbf5c7ee65c8c25445612902cd3417131315a99e5627a10b24ba0",
+        "packages/omo-opencode/src/native-catalog/published-models.ts": "320959e332a1cffc9db3abfd7042e541353bee0b2d77d81608841b0e8216af75",
+        "packages/omo-opencode/src/native-catalog/research-discovery.test.ts": "c4a8457efe9a3828541a12b5cfe22caa771513dc0e5fc8130331942cadf1d211",
+        "packages/omo-opencode/src/native-catalog/research-discovery.ts": "fe48de4fc0bef8fce019f7aaf69df0572e4e206ec178d7d842434946b29f7b97",
+        "packages/omo-opencode/src/native-catalog/research-maintenance.test.ts": "bd16440accf13965935671807c88cddae3a985bb2827eaacbe50c3dc69a73e23",
+        "packages/omo-opencode/src/native-catalog/research-maintenance.ts": "dfaf761df2e63f11cda08c3f3ca31c760f3da2850ffdf529c30ec7e645702d9f",
+        "packages/omo-opencode/src/native-catalog/types.ts": "122dd2e3c7c944f8caddd935af5788c1d9ad91558faca68fe9a473c85913f0a3",
+        "packages/omo-opencode/src/native-runtime/advisor-pool-config.ts": "309aa268a3f7e031617b62ac46e1f006389616f8438267aeb0d8fd0a41c78589",
+        "packages/omo-opencode/src/native-runtime/agents/owned-agents.test.ts": "7566c0dc2feb33baa95eafd199d1818151abbd93e8596396d0e944e4487648dc",
+        "packages/omo-opencode/src/native-runtime/agents/owned-agents.ts": "8050696abfe01325ddb1f8aed32606c9eb74da2f702a36bf4bdf4224ada8c536",
+        "packages/omo-opencode/src/native-runtime/catalog-job-routing.test.ts": "db61db749144f4968fed41c693e6e047c45dacfd8aa989837cb5fea062ef1e29",
+        "packages/omo-opencode/src/native-runtime/catalog-job-routing.ts": "13fccf930069653b8fc682976c197cb73d8a0f322891088298ea340bbf2714d0",
+        "packages/omo-opencode/src/native-runtime/catalog-maintenance-runner.test.ts": "7a5cbda900e3a56b1e1c9ac9988ec319f34db31bb6fa1e4153a7949deca9abc5",
+        "packages/omo-opencode/src/native-runtime/catalog-maintenance-runner.ts": "22bca60ed1105ce829f6d6bde01d75a7ee63af811d6606674d36f63289cce40c",
+        "packages/omo-opencode/src/native-runtime/catalog-registry.ts": "2589145d1e5ea8ff61dd079f199227aefadc7f17e513f72d91b7dd8d8b9a7f77",
+        "packages/omo-opencode/src/native-runtime/catalog-research-context.test.ts": "4ff41d4cb03f6cd48c5674ace0e82f4533c16a44cd6131fcd59bbf4867305410",
+        "packages/omo-opencode/src/native-runtime/catalog-research-context.ts": "208f3fcc83fba49bb2633516e692141a3ad9a913fe09dc22599e2231b0b14b66",
+        "packages/omo-opencode/src/native-runtime/delivery-message-id.ts": "d308ab9874dbbc3374be1e48c7c594b3dc41728b3a84bb83dc0dbf9e5471acf6",
+        "packages/omo-opencode/src/native-runtime/jev-credentials.test.ts": "5dc0803b8904b2bcd2e8b0c6166954b1797072f4e1b585b36e4cfe3a203da7e3",
+        "packages/omo-opencode/src/native-runtime/jev-credentials.ts": "3182877e5efc225a115004187e0dd636840f74d2fa88d0c4275ab1b902792e6b",
+        "packages/omo-opencode/src/native-runtime/job-classifier.test.ts": "916110b506fa7456f30b946f9b001a2ceadf0a08ba91decb23afa229a4b0dbb3",
+        "packages/omo-opencode/src/native-runtime/job-classifier.ts": "b66314f091d635a9fb60570e79b40cffb5037d5a3aa30ead0f85b43e7c3f4d50",
+        "packages/omo-opencode/src/native-runtime/model-admission.test.ts": "8aaf05ca5e37bff039cd929d564f05ed3231b7189c8ab61f88db4949c9a2eee0",
+        "packages/omo-opencode/src/native-runtime/model-admission.ts": "6eb612c2964dada3754bf2f286f9f7e7b383a4e29938aeb0abffc9a86a4831d7",
+        "packages/omo-opencode/src/native-runtime/model-policy-observer.test.ts": "8e7088eca5ead19b9515527f2982dffdf8c03c38f2f349784dd3b2dccd1f10c7",
+        "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "6dca8de68060e54091c7bf177262943a4bb577d8912fb84578c5a564f611ae9f",
+        "packages/omo-opencode/src/native-runtime/native-config.test.ts": "c69bd41510802bac0024f75ddfa4ba19217451cb1749d5228c9977cfde03191f",
+        "packages/omo-opencode/src/native-runtime/native-config.ts": "f31ccf9637b451de5230351caf7b98d1e42f471473d585a9862d5df67cb6ef86",
+        "packages/omo-opencode/src/native-runtime/permission-policy.test.ts": "9eb0ff39543c2f5d4871e5fbb2033d7403c504c816e43bc0327836277995f329",
+        "packages/omo-opencode/src/native-runtime/permission-policy.ts": "4998411fd46da852c6219a93156efe4e8f50b6d62011ffc82b8de4b24315568a",
+        "packages/omo-opencode/src/native-runtime/qa-delivery-faults.test.ts": "c4d3b4710402ddd6dcf662162e7ca774c63cad399035340bb799949db6c2f647",
+        "packages/omo-opencode/src/native-runtime/role-policy.test.ts": "67062303d4b4e6fdf1ced5a4f957bb822a0ae1d2e909e351714fb4f70588cdce",
+        "packages/omo-opencode/src/native-runtime/role-policy.ts": "9a463dbc3e225bfcf7e30766e1eb94113395906a943ef34575af01296df3e5d3",
+        "packages/omo-opencode/src/native-runtime/session-runtime.test.ts": "602b15f740fa3f3cd125fc6dcdbbbb18518c37b8caa74c60cd02b055ff349638",
+        "packages/omo-opencode/src/native-runtime/session-runtime.ts": "5189e323cebd2f25deecabb56fde68b6af59e4bfc18f18c65cbf5b1f25ee5dbd",
+        "packages/omo-opencode/src/native-runtime/task-tool-brief.test.ts": "307bb383b67dd3638ef44cca63b3a56754827ebce8c87ae3ad3ede49901c16f5",
+        "packages/omo-opencode/src/native-runtime/task-tool-brief.ts": "7ac4c781c4e907240dbc31895544ef9f66239b0d75b9e7adb8c8250c4d114751",
+        "packages/omo-opencode/src/native-runtime/task-tool-output.test.ts": "d32b753f054470d8b8ab5e1279dfcc344fcd6c64d6f38d0f78fc4e6827960b24",
+        "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "3cc5e389e6a0084809aa582cfd41d879948f5720eb0fa21d32077db84608f2e5",
+        "packages/omo-opencode/src/native-runtime/task-tools.ts": "43d8e20891ed92cde3e885084ec75ce348c3727260816416d4e5a846744bc975",
+        "packages/omo-opencode/src/native-runtime/tool-capabilities.test.ts": "80a9014ba6e32e28b50e6ffd2be5173fdc3a294bda59ec256390ed824084a940",
+        "packages/omo-opencode/src/native-runtime/tool-capabilities.ts": "cbf892ecc6841538ef85b5c048610583c1abe6ad7861d4200cc8ee67d022e3d2",
+        "packages/omo-opencode/src/native-runtime/tool-discovery-input.test.ts": "e52ec1f0b2609a81093982bd7efaa5ca959f508078be267d2fac0392ed3246d8",
+        "packages/omo-opencode/src/native-runtime/tool-discovery-input.ts": "93f89d092f3863567449ee107f934ed1f9e48b5113a2b2bc5f44e1c7fc941f8d",
+        "packages/omo-opencode/src/native-runtime/tool-operation-help.test.ts": "881a2e43322a75d7a01b17a2b192f03b46724ce6e0984be44abb8c487ed1f646",
+        "packages/omo-opencode/src/native-runtime/tool-operation-help.ts": "8bc3d536aace283ae478de4895065d7d33cbd17729ad934f84925967dbd0af1e",
+        "packages/omo-opencode/src/native-runtime/tool-operation-inputs.ts": "6d464fb1a3c3e834c3152da6818936f37077fac76fa665b35fbcf57d60a0a89a",
+        "packages/omo-opencode/src/native-runtime/tui/catalog-controls.test.ts": "9e154b05e4fc1ac6af642837d0a15e85ee04f79cb69169f0e56c5f675e78c36e",
+        "packages/omo-opencode/src/native-runtime/tui/catalog-controls.ts": "8e6a535c9804a20a82cb16f8eb92ca7c1b6dc3e09197ea1a5bb66640338fb3db",
+        "packages/omo-opencode/src/native-runtime/tui/control-stores.ts": "b76430c186d41d60e6279e603516febb276ede3535ef32bddf0a2cee76d6c0de",
+        "packages/omo-opencode/src/native-runtime/user-data-paths.ts": "57b4fb2408c60e50af100f35fe0f82dceb138b87bee2b2f701a608e7ef980c82",
+        "packages/omo-opencode/src/native-runtime/v2-service-client.test.ts": "420af9f4eb4fa706002db66d23c29ce328f32930a01b1f2dfc86ccfaa879d480",
+        "packages/omo-opencode/src/native-runtime/v2-service-client.ts": "d54f98f14d9fbf4893db61892511c812843e0287c7940543a7ed83810e1126db",
+        "packages/omo-opencode/src/native-task/child-batch-delivery.test.ts": "68986f75999ca61b301d4744deec4caaf3b5828719d9d45e09f41a07948b030e",
+        "packages/omo-opencode/src/native-task/child-batch-delivery.ts": "f0f8c925f0a8af5589058c1f9c5bcb2c27cd7aeb9c02e6b109a5b668429deafe",
+        "packages/omo-opencode/src/native-task/dispatch-admission.test.ts": "baf1b5569732a5c51156893967cd325ca0a79458e0d6bf6fd66c13e420777558",
+        "packages/omo-opencode/src/native-task/engine.test-support.ts": "45db3e5da6a69b7224701a85432e52a1c27c2d9dbbbf1bb87c5f665370517592",
+        "packages/omo-opencode/src/native-task/engine.ts": "481fecfa7a091496000b4a8b7dae93b0ef1ccd26e7b5645dbb3d5cbaba277c0c",
+        "packages/omo-opencode/src/native-task/events.ts": "d931b6130c24a7edbeebc28b117245b15be163454392fb1e6ad2c05d77e2cbdb",
+        "packages/omo-opencode/src/native-task/failure-observation.ts": "9da51d92394594be6ea3a91e6539162bd2480bf63a70d0e939ace22cf680b15f",
+        "packages/omo-opencode/src/native-task/file-repository.test.ts": "6726e8c43efdc87ea9bd16854c73a2219009284a4158f997590f823f1fbac6b2",
+        "packages/omo-opencode/src/native-task/file-repository.ts": "98251336ed6a597ec389fb1aa781f47e80040f3065c13575206e8bdded1f2a62",
+        "packages/omo-opencode/src/native-task/guards.ts": "5b20599cb80d537448f02473135b9b80fdb01140abe43ed2056287da1eaf4aab",
+        "packages/omo-opencode/src/native-task/id.ts": "6fc07ea8eaa7ee594b57d73e569e73c64fa344ac9e94cd2e146cf14a3cd1319b",
+        "packages/omo-opencode/src/native-task/index.ts": "5eafc75765a8422e148cd21ff29d30f47ab27c67a5de82413482a95803258a32",
+        "packages/omo-opencode/src/native-task/lifecycle.test.ts": "0429a20f573f4c741bd2e1f1719bd57c4c82fae9a832d8089dac11eedfccc10d",
+        "packages/omo-opencode/src/native-task/lifecycle.ts": "98673150308ca60029d59b953082f8003a4857478e38d913a71e3d4cb2559d12",
+        "packages/omo-opencode/src/native-task/maintenance.test.ts": "cb091bd9fd817b390e9ab60d067750262e26bdbaaf72cdf33786201ca121ccd4",
+        "packages/omo-opencode/src/native-task/policy.ts": "4253304916b45ab1dc1e770ce6eab05b7c3a393eecf1491b4cd1e61dd522ebfa",
+        "packages/omo-opencode/src/native-task/runner.ts": "398429fc204afe12e6fe881ce50e1b3e51c0596a6804be46a1576bf95967468d",
+        "packages/omo-opencode/src/native-task/scheduling.test.ts": "1169816ed442bf9a0b6eca34ca2aceba4f9b7c051ef14f78c859d7516f03020b",
+        "packages/omo-opencode/src/native-task/task-controls.ts": "807bda478028397fc9b8cedaf7d79af650203a19d5b6041d35d16af7d9a84930",
+        "packages/omo-opencode/src/native-task/task-lifecycle.ts": "23cd5389b815960ef591c6cf18d7ff69affac7682829f958817a6e34df0b69da",
+        "packages/omo-opencode/src/native-task/testing.ts": "d6aafb02d8a01536ac2021f4647be25f2d29903599b9447353907d655c840ed4",
+        "packages/omo-opencode/src/native-task/types.ts": "9d436aec6e8d3a0322be83ebdaac33250f7d982a9f568e79cc5f2622fbce04eb",
+        "packages/omo-opencode/src/native-task/v2-event-adapter.test.ts": "bed0e5947c97555ddd088f4359d7f61e942136b5743fe4106b9d9255d5ab728a",
+        "packages/omo-opencode/src/native-task/v2-event-adapter.ts": "e10674dc0776a80f3607e4932d9153e4fc1d2847011164dff4d81e3c844f80b2"
+      },
+      "cleanup": {
+        "before": "session|249\nsession_v2|447\nsession_message|23731",
+        "after": "session|249\nsession_v2|447\nsession_message|23731",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          27603,
+          27718,
+          27880
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-XauVaM/data/opencode/opencode.db",
+          "/tmp/momo-job-class-XauVaM/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-XauVaM/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      },
+      "health": {
+        "version": 1,
+        "entries": [
+          {
+            "model": {
+              "providerID": "contract",
+              "id": "worker"
+            },
+            "reason": "observed_free_quota_limit",
+            "quota": {
+              "type": "provider.free-limit",
+              "status": 429,
+              "retryAfterMs": 37243000
+            },
+            "observedAt": 1793367286880,
+            "unavailableUntil": 1793404529880,
+            "taskID": "quota",
+            "sessionID": "ses_e72faec6affemGdcrDRPZ6BRvN",
+            "failureID": "msg_18d05243e001vVcI6UMtv0KdzC",
+            "observedFailures": [
+              "[\"quota\",\"ses_e72faec6affemGdcrDRPZ6BRvN\",\"msg_18d05243e001vVcI6UMtv0KdzC\"]"
+            ]
+          }
+        ]
+      },
+      "catalogBeforeRestart": {
+        "models": [
+          {
+            "id": "root",
+            "available": true
+          },
+          {
+            "id": "worker",
+            "available": false
+          },
+          {
+            "id": "advisor",
+            "available": true
+          }
+        ],
+        "unavailableModels": {
+          "contract/worker": {
+            "reason": "observed_free_quota_limit",
+            "until": 1793404529880
+          }
+        }
+      },
+      "catalogAfterRestart": {
+        "models": [
+          {
+            "id": "root",
+            "available": true
+          },
+          {
+            "id": "worker",
+            "available": false
+          },
+          {
+            "id": "advisor",
+            "available": true
+          }
+        ],
+        "unavailableModels": {
+          "contract/worker": {
+            "reason": "observed_free_quota_limit",
+            "until": 1793404529880
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "receipt": "/home/furkanbora/.codex/worktrees/native-orchestration-integrated/momo/.omo/evidence/20261028-integrated/diagnostics/receipt.json",
+      "sha256": "438d2498b67455fccfa3df885e44c8b0ef7b81f549cc8bfd866554f720827be1",
+      "status": "passed",
+      "version": "2.2.0",
+      "sourceHashes": {
+        "dist/index.js": "a5a1cf6b3f211ae65312855fb3405c0b3477f9dc43b6d66292378382d4acf598",
+        "packages/omo-opencode/src/native-catalog/adapter.test.ts": "03055191632f014dcbfa2f149f1b3dbd787dd1661212d22bf5c2da7babdefd0f",
+        "packages/omo-opencode/src/native-catalog/adapter.ts": "83351eac63bbff057a328d64ecfa6ea8801eb749a2deda3447173bfc7ebd661a",
+        "packages/omo-opencode/src/native-catalog/index.ts": "2e87b472cf42a3a28ba111f59a5df20cbf3e5c8a229aeb73a43493aba007d8e6",
+        "packages/omo-opencode/src/native-catalog/job-class-definitions.ts": "09c9c1dbcfaf6b9e6e6e620ecaf0b271db2e77bd487438ba43d477d86971677d",
+        "packages/omo-opencode/src/native-catalog/job-classification-codec.ts": "43778c2c87c21ad7896ad47e7877d9cedb921e2f58fd11b59f1726295e240d11",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor-review.test.ts": "e1bd2a1f34416d00e86ca88e427c56279c4ed8b32291434e8f54fe49d901050c",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor-state.ts": "12f66b34100ae9c6c495eb30b7c3db9830205bff7489e07bf0d5b2ab8bca1500",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor-types.ts": "1c483abbc9b530bc8c9b679d3fa8204298f464d49326af9a15651246e49a0602",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor.test.ts": "8e2410cf4b53e74b8b29dfe4833571fa5dc6d6b1cfc48d3296aa1c3b9b137eb7",
+        "packages/omo-opencode/src/native-catalog/job-classification-executor.ts": "eba6f014a035f76a540b680b199cf8ea22c84aab149a98268e4dda6542be11a7",
+        "packages/omo-opencode/src/native-catalog/job-classification-identity.ts": "95e5ca2ad026a1054bd9236d8c5d17a8198b42aefa0a28edc47b06be3362c390",
+        "packages/omo-opencode/src/native-catalog/job-classification-input.test.ts": "1c992486686e230d99b99b15490a8bd4c2413f2acae0d8b350be00ccde9811d2",
+        "packages/omo-opencode/src/native-catalog/job-classification-input.ts": "e3fffc20e8edcc6f3d0b085728c22d5960487fd2847c08766e65f3917ee8b0b1",
+        "packages/omo-opencode/src/native-catalog/job-classification-shared-cache.test.ts": "32704b5dbbfc0cd3d959fcbdf1a4166708707ec58b5fdb9fec2a0c0a78e76581",
+        "packages/omo-opencode/src/native-catalog/job-classification-store.ts": "a42803bf1b61c966ebc1ed64f39ad41bb0a8852400936b607afa1833f679a97a",
+        "packages/omo-opencode/src/native-catalog/job-classification-types.ts": "a2b2e069ddbcc6a53b7148054a5ee23590a83c8025e04867bcfacb3434a74682",
+        "packages/omo-opencode/src/native-catalog/job-classification-usage.test.ts": "4ba7088d3b502514ccf126fbc3302b0d2e2716aee3017962c8c10acb50d5f244",
+        "packages/omo-opencode/src/native-catalog/job-classification-usage.ts": "60ddf7e6c8200b14b2ae9ccc5fd41afa005642b2eb8575c67ff025a3db6959fd",
+        "packages/omo-opencode/src/native-catalog/job-classification.test.ts": "8b992a224ba544633c156341cfb207a9f5f327138b242da3e73946f2aec8f504",
+        "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.test.ts": "408a16b0ec5e6d0b6daf8c0fb32b23eb96ba67cd0782e502876e622828fada67",
+        "packages/omo-opencode/src/native-catalog/knowledge-enrich-tool.ts": "920f8c72781232ab58880c772dddc2c48b4fd7abfc0d0c4c58cddfbbc3f3d8dc",
+        "packages/omo-opencode/src/native-catalog/knowledge-facts.ts": "05d27a97f6a4351c02c9bcd2cb3a6af8bc0e4063744dc8bd907a4a8ec7a605f0",
+        "packages/omo-opencode/src/native-catalog/knowledge-store.test.ts": "8aa3351e32e0ae17984610f11691ae486cdcbb576d3ea669ec06e3cdbd59dffb",
+        "packages/omo-opencode/src/native-catalog/knowledge-store.ts": "ee7752b46a3b3ea05c9c57eedf38d68f47f99d96f22594b6ad9cee799f2ad53e",
+        "packages/omo-opencode/src/native-catalog/live-models.test.ts": "b56a78333d484066d4f0ee8e3c0ac616a24229f91eebe852d2f7d00ddb5c9af6",
+        "packages/omo-opencode/src/native-catalog/live-models.ts": "3ed19fcd2063d30e33dafd88c5393c6946561a051d3a4632b60cc3683fdaaf62",
+        "packages/omo-opencode/src/native-catalog/model-card-export.test.ts": "5fc5f4cd6992bdcf5a40216f9f2014047d778d0ac4d466f8d88466e0c602f498",
+        "packages/omo-opencode/src/native-catalog/model-card-export.ts": "1d2516d7bb13e7133c67ed50af78163302c1f68e6dfdb53b492e19fee2d7ea3d",
+        "packages/omo-opencode/src/native-catalog/model-cards.test.ts": "4264dc2141ed4344ec99db4ec3eea9be9124179fa0b88964c98fd2a3247787e9",
+        "packages/omo-opencode/src/native-catalog/model-cards.ts": "7539c404e905c6446e352647f80dec1dfd21fbac29efa95ce086310b5548b32d",
+        "packages/omo-opencode/src/native-catalog/model-facts.ts": "e2a0c870ea298a12111c9b8a34a6a305d7cc9017dd09a45a0a4242cf9897a769",
+        "packages/omo-opencode/src/native-catalog/model-policy-health.test.ts": "d89865e033bb2ce3f401231bb29c9918b2fedecb64ebcc18d096c8ff142aaab5",
+        "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "794ff4a78537f38f366257d7be51b8a2734c8f95a493ccfa5067b8454e991b76",
+        "packages/omo-opencode/src/native-catalog/model-quota-evidence.test.ts": "54edcf46c07800be834ed0ca839a8f1557a8044c5fb2c47802f9cf62a41663c3",
+        "packages/omo-opencode/src/native-catalog/model-quota-evidence.ts": "5760239364f87aaa6188ee3bbd9c1ccf7ef9337f3f7099d78d143d76e49bb8d0",
+        "packages/omo-opencode/src/native-catalog/native-control-stores.test.ts": "3181b71f4f583cc5ff09c62e0c4dc303006db41375da9f814ee21d1f66cd819f",
+        "packages/omo-opencode/src/native-catalog/native-control-stores.ts": "e53edff414af65791953949d33a65d0a6d4cbdd8c8387c26f7452337f4d349f7",
+        "packages/omo-opencode/src/native-catalog/paths.ts": "cc3f06ab05b8eccec2de56a378d5f5ed83271da07b8b68850341a44a72ab97c6",
+        "packages/omo-opencode/src/native-catalog/pricing-routing.test.ts": "7b0bb623660c4cab22ccadf5cb996f8dc9ec9f00973b854f8d149afe01315031",
+        "packages/omo-opencode/src/native-catalog/provider-admission.test.ts": "0dc212720a51a86c1eb2238ac8b71a1d37d060aaab9f32cb5c5371eb4a87b3c2",
+        "packages/omo-opencode/src/native-catalog/provider-admission.ts": "4091bc81791ae224802bea1abca4bd30a8877131212466d06c0f65faa038b942",
+        "packages/omo-opencode/src/native-catalog/public-provider.ts": "c3fdb649921226adc53375d90f6e56f1b686a9e5c480ca5dd2dfe061b0f89d06",
+        "packages/omo-opencode/src/native-catalog/published-models.test.ts": "17e08e8c1fadbf5c7ee65c8c25445612902cd3417131315a99e5627a10b24ba0",
+        "packages/omo-opencode/src/native-catalog/published-models.ts": "320959e332a1cffc9db3abfd7042e541353bee0b2d77d81608841b0e8216af75",
+        "packages/omo-opencode/src/native-catalog/research-discovery.test.ts": "c4a8457efe9a3828541a12b5cfe22caa771513dc0e5fc8130331942cadf1d211",
+        "packages/omo-opencode/src/native-catalog/research-discovery.ts": "fe48de4fc0bef8fce019f7aaf69df0572e4e206ec178d7d842434946b29f7b97",
+        "packages/omo-opencode/src/native-catalog/research-maintenance.test.ts": "bd16440accf13965935671807c88cddae3a985bb2827eaacbe50c3dc69a73e23",
+        "packages/omo-opencode/src/native-catalog/research-maintenance.ts": "dfaf761df2e63f11cda08c3f3ca31c760f3da2850ffdf529c30ec7e645702d9f",
+        "packages/omo-opencode/src/native-catalog/types.ts": "122dd2e3c7c944f8caddd935af5788c1d9ad91558faca68fe9a473c85913f0a3",
+        "packages/omo-opencode/src/native-runtime/advisor-pool-config.ts": "309aa268a3f7e031617b62ac46e1f006389616f8438267aeb0d8fd0a41c78589",
+        "packages/omo-opencode/src/native-runtime/agents/owned-agents.test.ts": "7566c0dc2feb33baa95eafd199d1818151abbd93e8596396d0e944e4487648dc",
+        "packages/omo-opencode/src/native-runtime/agents/owned-agents.ts": "8050696abfe01325ddb1f8aed32606c9eb74da2f702a36bf4bdf4224ada8c536",
+        "packages/omo-opencode/src/native-runtime/catalog-job-routing.test.ts": "db61db749144f4968fed41c693e6e047c45dacfd8aa989837cb5fea062ef1e29",
+        "packages/omo-opencode/src/native-runtime/catalog-job-routing.ts": "13fccf930069653b8fc682976c197cb73d8a0f322891088298ea340bbf2714d0",
+        "packages/omo-opencode/src/native-runtime/catalog-maintenance-runner.test.ts": "7a5cbda900e3a56b1e1c9ac9988ec319f34db31bb6fa1e4153a7949deca9abc5",
+        "packages/omo-opencode/src/native-runtime/catalog-maintenance-runner.ts": "22bca60ed1105ce829f6d6bde01d75a7ee63af811d6606674d36f63289cce40c",
+        "packages/omo-opencode/src/native-runtime/catalog-registry.ts": "2589145d1e5ea8ff61dd079f199227aefadc7f17e513f72d91b7dd8d8b9a7f77",
+        "packages/omo-opencode/src/native-runtime/catalog-research-context.test.ts": "4ff41d4cb03f6cd48c5674ace0e82f4533c16a44cd6131fcd59bbf4867305410",
+        "packages/omo-opencode/src/native-runtime/catalog-research-context.ts": "208f3fcc83fba49bb2633516e692141a3ad9a913fe09dc22599e2231b0b14b66",
+        "packages/omo-opencode/src/native-runtime/delivery-message-id.ts": "d308ab9874dbbc3374be1e48c7c594b3dc41728b3a84bb83dc0dbf9e5471acf6",
+        "packages/omo-opencode/src/native-runtime/jev-credentials.test.ts": "5dc0803b8904b2bcd2e8b0c6166954b1797072f4e1b585b36e4cfe3a203da7e3",
+        "packages/omo-opencode/src/native-runtime/jev-credentials.ts": "3182877e5efc225a115004187e0dd636840f74d2fa88d0c4275ab1b902792e6b",
+        "packages/omo-opencode/src/native-runtime/job-classifier.test.ts": "916110b506fa7456f30b946f9b001a2ceadf0a08ba91decb23afa229a4b0dbb3",
+        "packages/omo-opencode/src/native-runtime/job-classifier.ts": "b66314f091d635a9fb60570e79b40cffb5037d5a3aa30ead0f85b43e7c3f4d50",
+        "packages/omo-opencode/src/native-runtime/model-admission.test.ts": "8aaf05ca5e37bff039cd929d564f05ed3231b7189c8ab61f88db4949c9a2eee0",
+        "packages/omo-opencode/src/native-runtime/model-admission.ts": "6eb612c2964dada3754bf2f286f9f7e7b383a4e29938aeb0abffc9a86a4831d7",
+        "packages/omo-opencode/src/native-runtime/model-policy-observer.test.ts": "8e7088eca5ead19b9515527f2982dffdf8c03c38f2f349784dd3b2dccd1f10c7",
+        "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "6dca8de68060e54091c7bf177262943a4bb577d8912fb84578c5a564f611ae9f",
+        "packages/omo-opencode/src/native-runtime/native-config.test.ts": "c69bd41510802bac0024f75ddfa4ba19217451cb1749d5228c9977cfde03191f",
+        "packages/omo-opencode/src/native-runtime/native-config.ts": "f31ccf9637b451de5230351caf7b98d1e42f471473d585a9862d5df67cb6ef86",
+        "packages/omo-opencode/src/native-runtime/permission-policy.test.ts": "9eb0ff39543c2f5d4871e5fbb2033d7403c504c816e43bc0327836277995f329",
+        "packages/omo-opencode/src/native-runtime/permission-policy.ts": "4998411fd46da852c6219a93156efe4e8f50b6d62011ffc82b8de4b24315568a",
+        "packages/omo-opencode/src/native-runtime/qa-delivery-faults.test.ts": "c4d3b4710402ddd6dcf662162e7ca774c63cad399035340bb799949db6c2f647",
+        "packages/omo-opencode/src/native-runtime/role-policy.test.ts": "67062303d4b4e6fdf1ced5a4f957bb822a0ae1d2e909e351714fb4f70588cdce",
+        "packages/omo-opencode/src/native-runtime/role-policy.ts": "9a463dbc3e225bfcf7e30766e1eb94113395906a943ef34575af01296df3e5d3",
+        "packages/omo-opencode/src/native-runtime/session-runtime.test.ts": "602b15f740fa3f3cd125fc6dcdbbbb18518c37b8caa74c60cd02b055ff349638",
+        "packages/omo-opencode/src/native-runtime/session-runtime.ts": "5189e323cebd2f25deecabb56fde68b6af59e4bfc18f18c65cbf5b1f25ee5dbd",
+        "packages/omo-opencode/src/native-runtime/task-tool-brief.test.ts": "307bb383b67dd3638ef44cca63b3a56754827ebce8c87ae3ad3ede49901c16f5",
+        "packages/omo-opencode/src/native-runtime/task-tool-brief.ts": "7ac4c781c4e907240dbc31895544ef9f66239b0d75b9e7adb8c8250c4d114751",
+        "packages/omo-opencode/src/native-runtime/task-tool-output.test.ts": "d32b753f054470d8b8ab5e1279dfcc344fcd6c64d6f38d0f78fc4e6827960b24",
+        "packages/omo-opencode/src/native-runtime/task-tool-output.ts": "3cc5e389e6a0084809aa582cfd41d879948f5720eb0fa21d32077db84608f2e5",
+        "packages/omo-opencode/src/native-runtime/task-tools.ts": "43d8e20891ed92cde3e885084ec75ce348c3727260816416d4e5a846744bc975",
+        "packages/omo-opencode/src/native-runtime/tool-capabilities.test.ts": "80a9014ba6e32e28b50e6ffd2be5173fdc3a294bda59ec256390ed824084a940",
+        "packages/omo-opencode/src/native-runtime/tool-capabilities.ts": "cbf892ecc6841538ef85b5c048610583c1abe6ad7861d4200cc8ee67d022e3d2",
+        "packages/omo-opencode/src/native-runtime/tool-discovery-input.test.ts": "e52ec1f0b2609a81093982bd7efaa5ca959f508078be267d2fac0392ed3246d8",
+        "packages/omo-opencode/src/native-runtime/tool-discovery-input.ts": "93f89d092f3863567449ee107f934ed1f9e48b5113a2b2bc5f44e1c7fc941f8d",
+        "packages/omo-opencode/src/native-runtime/tool-operation-help.test.ts": "881a2e43322a75d7a01b17a2b192f03b46724ce6e0984be44abb8c487ed1f646",
+        "packages/omo-opencode/src/native-runtime/tool-operation-help.ts": "8bc3d536aace283ae478de4895065d7d33cbd17729ad934f84925967dbd0af1e",
+        "packages/omo-opencode/src/native-runtime/tool-operation-inputs.ts": "6d464fb1a3c3e834c3152da6818936f37077fac76fa665b35fbcf57d60a0a89a",
+        "packages/omo-opencode/src/native-runtime/tui/catalog-controls.test.ts": "9e154b05e4fc1ac6af642837d0a15e85ee04f79cb69169f0e56c5f675e78c36e",
+        "packages/omo-opencode/src/native-runtime/tui/catalog-controls.ts": "8e6a535c9804a20a82cb16f8eb92ca7c1b6dc3e09197ea1a5bb66640338fb3db",
+        "packages/omo-opencode/src/native-runtime/tui/control-stores.ts": "b76430c186d41d60e6279e603516febb276ede3535ef32bddf0a2cee76d6c0de",
+        "packages/omo-opencode/src/native-runtime/user-data-paths.ts": "57b4fb2408c60e50af100f35fe0f82dceb138b87bee2b2f701a608e7ef980c82",
+        "packages/omo-opencode/src/native-runtime/v2-service-client.test.ts": "420af9f4eb4fa706002db66d23c29ce328f32930a01b1f2dfc86ccfaa879d480",
+        "packages/omo-opencode/src/native-runtime/v2-service-client.ts": "d54f98f14d9fbf4893db61892511c812843e0287c7940543a7ed83810e1126db",
+        "packages/omo-opencode/src/native-task/child-batch-delivery.test.ts": "68986f75999ca61b301d4744deec4caaf3b5828719d9d45e09f41a07948b030e",
+        "packages/omo-opencode/src/native-task/child-batch-delivery.ts": "f0f8c925f0a8af5589058c1f9c5bcb2c27cd7aeb9c02e6b109a5b668429deafe",
+        "packages/omo-opencode/src/native-task/dispatch-admission.test.ts": "baf1b5569732a5c51156893967cd325ca0a79458e0d6bf6fd66c13e420777558",
+        "packages/omo-opencode/src/native-task/engine.test-support.ts": "45db3e5da6a69b7224701a85432e52a1c27c2d9dbbbf1bb87c5f665370517592",
+        "packages/omo-opencode/src/native-task/engine.ts": "481fecfa7a091496000b4a8b7dae93b0ef1ccd26e7b5645dbb3d5cbaba277c0c",
+        "packages/omo-opencode/src/native-task/events.ts": "d931b6130c24a7edbeebc28b117245b15be163454392fb1e6ad2c05d77e2cbdb",
+        "packages/omo-opencode/src/native-task/failure-observation.ts": "9da51d92394594be6ea3a91e6539162bd2480bf63a70d0e939ace22cf680b15f",
+        "packages/omo-opencode/src/native-task/file-repository.test.ts": "6726e8c43efdc87ea9bd16854c73a2219009284a4158f997590f823f1fbac6b2",
+        "packages/omo-opencode/src/native-task/file-repository.ts": "98251336ed6a597ec389fb1aa781f47e80040f3065c13575206e8bdded1f2a62",
+        "packages/omo-opencode/src/native-task/guards.ts": "5b20599cb80d537448f02473135b9b80fdb01140abe43ed2056287da1eaf4aab",
+        "packages/omo-opencode/src/native-task/id.ts": "6fc07ea8eaa7ee594b57d73e569e73c64fa344ac9e94cd2e146cf14a3cd1319b",
+        "packages/omo-opencode/src/native-task/index.ts": "5eafc75765a8422e148cd21ff29d30f47ab27c67a5de82413482a95803258a32",
+        "packages/omo-opencode/src/native-task/lifecycle.test.ts": "0429a20f573f4c741bd2e1f1719bd57c4c82fae9a832d8089dac11eedfccc10d",
+        "packages/omo-opencode/src/native-task/lifecycle.ts": "98673150308ca60029d59b953082f8003a4857478e38d913a71e3d4cb2559d12",
+        "packages/omo-opencode/src/native-task/maintenance.test.ts": "cb091bd9fd817b390e9ab60d067750262e26bdbaaf72cdf33786201ca121ccd4",
+        "packages/omo-opencode/src/native-task/policy.ts": "4253304916b45ab1dc1e770ce6eab05b7c3a393eecf1491b4cd1e61dd522ebfa",
+        "packages/omo-opencode/src/native-task/runner.ts": "398429fc204afe12e6fe881ce50e1b3e51c0596a6804be46a1576bf95967468d",
+        "packages/omo-opencode/src/native-task/scheduling.test.ts": "1169816ed442bf9a0b6eca34ca2aceba4f9b7c051ef14f78c859d7516f03020b",
+        "packages/omo-opencode/src/native-task/task-controls.ts": "807bda478028397fc9b8cedaf7d79af650203a19d5b6041d35d16af7d9a84930",
+        "packages/omo-opencode/src/native-task/task-lifecycle.ts": "23cd5389b815960ef591c6cf18d7ff69affac7682829f958817a6e34df0b69da",
+        "packages/omo-opencode/src/native-task/testing.ts": "d6aafb02d8a01536ac2021f4647be25f2d29903599b9447353907d655c840ed4",
+        "packages/omo-opencode/src/native-task/types.ts": "9d436aec6e8d3a0322be83ebdaac33250f7d982a9f568e79cc5f2622fbce04eb",
+        "packages/omo-opencode/src/native-task/v2-event-adapter.test.ts": "bed0e5947c97555ddd088f4359d7f61e942136b5743fe4106b9d9255d5ab728a",
+        "packages/omo-opencode/src/native-task/v2-event-adapter.ts": "e10674dc0776a80f3607e4932d9153e4fc1d2847011164dff4d81e3c844f80b2"
+      },
+      "cleanup": {
+        "before": "session|249\nsession_v2|447\nsession_message|23731",
+        "after": "session|249\nsession_v2|447\nsession_message|23731",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          28192,
+          28365
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-BwnFAY/data/opencode/opencode.db",
+          "/tmp/momo-job-class-BwnFAY/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-BwnFAY/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      },
+      "observed": {
+        "proof": "DIAGNOSTICS_RECEIPT",
+        "models": {
+          "providers": [
+            {
+              "id": "contract",
+              "name": "Contract QA",
+              "models": [
+                {
+                  "id": "contract/root",
+                  "name": "root",
+                  "released": 0,
+                  "variants": [],
+                  "cost": [
+                    {
+                      "input": 1,
+                      "output": 1,
+                      "cache": {
+                        "read": 0,
+                        "write": 0
+                      }
+                    }
+                  ],
+                  "status": "active"
+                },
+                {
+                  "id": "contract/worker",
+                  "name": "worker",
+                  "released": 0,
+                  "variants": [],
+                  "cost": [
+                    {
+                      "input": 1,
+                      "output": 1,
+                      "cache": {
+                        "read": 0,
+                        "write": 0
+                      }
+                    }
+                  ],
+                  "status": "active"
+                },
+                {
+                  "id": "contract/advisor",
+                  "name": "advisor",
+                  "released": 0,
+                  "variants": [],
+                  "cost": [
+                    {
+                      "input": 1,
+                      "output": 1,
+                      "cache": {
+                        "read": 0,
+                        "write": 0
+                      }
+                    }
+                  ],
+                  "status": "active"
+                }
+              ]
+            }
+          ],
+          "total": 3,
+          "next": null
+        },
+        "failed": {
+          "scope": "task_decision",
+          "applicability": "not_applicable",
+          "storedCandidateCount": 1,
+          "discovery": {
+            "tool": "opencode_models",
+            "scope": "registered_models",
+            "eligibility": "not_evaluated"
+          },
+          "taskID": "failed",
+          "decisionId": "decision-failed",
+          "state": "failed",
+          "total": 0,
+          "offset": 0,
+          "candidates": []
+        },
+        "awaiting": {
+          "scope": "task_decision",
+          "applicability": "awaiting_selection",
+          "storedCandidateCount": 1,
+          "discovery": {
+            "tool": "opencode_models",
+            "scope": "registered_models",
+            "eligibility": "not_evaluated"
+          },
+          "taskID": "awaiting_selection",
+          "decisionId": "decision-awaiting_selection",
+          "state": "awaiting_selection",
+          "total": 1,
+          "offset": 0,
+          "candidates": [
+            {
+              "role": "worker",
+              "model": {
+                "providerID": "contract",
+                "id": "worker"
+              },
+              "rolePermissions": {
+                "scope": "role_policy",
+                "purpose": "Direct implementation with shell and editing",
+                "canRead": true,
+                "canEdit": true,
+                "canShell": true,
+                "canDelegate": false,
+                "canConsult": true
+              },
+              "modelFacts": {}
+            }
+          ]
+        },
+        "rejected": true
+      }
+    }
+  },
+  "priorDiscoveryAttempts": {
+    "discovery": "failed expiry count 1 != 2",
+    "discovery-retry": "same failure",
+    "discovery-instrumented": "passed; sleep30100 returned after27686ms actual time, bounded observed refresh succeeded"
+  },
+  "fullSuite": "Not rerun combined. Individual branch suites passed diagnostics12912/quota12916/catalog12928, each20skip0fail. QA-only timer fix changes no runtime.",
+  "historicalVersion": "Original catalog receipt used OpenCode2.1.2; combined probes used direct binary OpenCode2.2.0.",
+  "limitation": "Earlier Oct26 dependency setup accidentally invoked user wrapper through postinstall. Config mtime remained Oct23, so no config write observed; deletion of OpenCode cache cannot be ruled out. Current verification disabled lifecycle scripts and launched direct binary with disposable HOME/XDG; all three probes observed unchanged user DB counts.",
+  "publication": "No push or PR creation performed.",
+  "preservedSubmoduleDirt": [
+    "designpowers",
+    "open-design",
+    "taste-skill"
+  ],
+  "artifacts": {
+    ".omo/evidence/20261028-integrated/typecheck.log": "f8a9d0a2ed1a37ef97aa4757b24213d32ac621261098cef5ab270ddf4beb4efa",
+    ".omo/evidence/20261028-integrated/materialize.log": "ae4daf83309bf1434fc39e7ee1b6fce135be749ca39515a3a607945db0ab297e",
+    ".omo/evidence/20261028-integrated/focused.log": "6acc7bd2f2e8e7bbe99da4cfe3e4c480e5d495a2461ce2daa4aff5676032774a",
+    ".omo/evidence/20261028-integrated/absent-upstream-files.json": "1ec17d35c5c463214a5a6f7d7f279d2685c78a352a1e964cf245b9b1ac0fbca7",
+    ".omo/evidence/20261028-integrated/build.log": "bd3cff83e195904535218ef24fab5d477778e33b2343c00084dab9cf4d44c461",
+    ".omo/evidence/20261028-integrated/discovery.log": "e1d6fbfca74d98873ad4a6c05a3becba9ff57fd4d728e7e72867aa522019a49d",
+    ".omo/evidence/20261028-integrated/discovery.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    ".omo/evidence/20261028-integrated/quota.log": "69573a6172b55f6cff41cb256a13505243efcfe753a8fdbff3ccb2dfcf51798c",
+    ".omo/evidence/20261028-integrated/quota.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    ".omo/evidence/20261028-integrated/diagnostics.log": "69573a6172b55f6cff41cb256a13505243efcfe753a8fdbff3ccb2dfcf51798c",
+    ".omo/evidence/20261028-integrated/diagnostics.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    ".omo/evidence/20261028-integrated/typecheck.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    ".omo/evidence/20261028-integrated/discovery-retry.log": "5ab809d2d6ada3193ef35864c9ba7c7def5561f1b82ec5853a98f73432b3bceb",
+    ".omo/evidence/20261028-integrated/discovery-retry.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    ".omo/evidence/20261028-integrated/discovery-instrumented.ts": "c83086a788d36c6cc53488f898d708573ef98adac9d89be3cbe23ecf602cf069",
+    ".omo/evidence/20261028-integrated/discovery-instrumented.log": "a00b1775547daa691d33cc62af70f97cb8afc9b09bbe42e95b88e3636c4b4e37",
+    ".omo/evidence/20261028-integrated/discovery-instrumented.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    ".omo/evidence/20261028-integrated/discovery-final.log": "2fdffe2e300e59303fe1ff323e8f61cb2f796ef1feafb8d127fa2d927f6da164",
+    ".omo/evidence/20261028-integrated/discovery-final.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    ".omo/evidence/20261028-integrated/typecheck-script-final.log": "246dfcfb12604a9351c285103b07da0b6d2940d73c70a6fcf66e2691d76d79df",
+    ".omo/evidence/20261028-integrated/typecheck-script-final.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    ".omo/evidence/20261028-integrated/quota/probe.ts": "564300cff237cd35e5b1de5b7524cbba82564dd861b5fe569e9bf9e1f888e9a9",
+    ".omo/evidence/20261028-integrated/quota/service.log": "ad0d59b7cfa43e97b4c6b43166664e97e4420f98aae817d9e6eeb0d87b925c67",
+    ".omo/evidence/20261028-integrated/diagnostics/probe.ts": "607b907fc9cfcee75f2995a423581038b026c0eb134259ffea082e9eaa1ec2a3",
+    ".omo/evidence/20261028-integrated/diagnostics/service.log": "539798818f62fac8c538559821ab63278784a93904b7ab61bbe8a3bc29249413",
+    ".omo/evidence/20261028-integrated/discovery/service.log": "c14660924efe5014204163b6e892f5a181068761f75b576e70519e9c78fcbc05",
+    ".omo/evidence/20261028-integrated/discovery-retry/service.log": "0d35634cebc2a856c17bea63e2e5417e80a1e9009c789e971f1e5c8172f613ec",
+    ".omo/evidence/20261028-integrated/discovery-instrumented/service.log": "e10522eadc09ee3a46faafcea1bef78bac39eb29920434c1bf7a9ed001530064",
+    ".omo/evidence/20261028-integrated/discovery-final/service.log": "184080ef9c3080df3fc1e16bc5a09289f6c507c18491209f3e7a834723c14fd4"
+  }
+}
