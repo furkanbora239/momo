@@ -76,5 +76,38 @@
     "final-full-test.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
     "native/receipt.json": "7c82bf067927abddb2080cf5052b75e4d84f02e81c688ac7b7199d2d84d7e1a8"
   },
-  "artifactRoot": ".omo/evidence/20261024-catalog-recovery (local ignored evidence)"
+  "artifactRoot": ".omo/evidence/20261024-catalog-recovery (local ignored evidence)",
+  "driverFollowup": {
+    "scope": "QA-only timer robustness; historical sourceHashes and native results above remain bound to the original catalog branch run",
+    "driverSha256": "aaed4ade70af9df6df9dcd45b5e7aae4b2282a91127079deea9fd15c41384209",
+    "validatedAgainst": "combined diagnostics/quota/catalog integration bundle",
+    "bundleSha256": "a5a1cf6b3f211ae65312855fb3405c0b3477f9dc43b6d66292378382d4acf598",
+    "nativeVersion": "2.2.0",
+    "status": "passed",
+    "childRequests": 1,
+    "expiryTiming": {
+      "wallElapsedMs": 27602,
+      "monotonicElapsedMs": 27602.587036,
+      "fetchedAt": "2026-10-30T13:37:55.679Z",
+      "calls": {
+        "qa-404": 1,
+        "qa-405": 1,
+        "qa-empty": 1,
+        "qa-auth": 1
+      }
+    },
+    "finalRefreshObservation": {
+      "elapsedMs": 29606,
+      "fetchedAt": "2026-10-30T13:37:57.684Z",
+      "calls": {
+        "qa-404": 2,
+        "qa-405": 2,
+        "qa-empty": 2,
+        "qa-auth": 1
+      }
+    },
+    "scriptTypecheck": "passed",
+    "receiptPath": "/home/furkanbora/.codex/worktrees/native-orchestration-integrated/momo/.omo/evidence/20261028-integrated/discovery-final/receipt.json",
+    "receiptSha256": "f7c9d5b68b84ef453a3edc8776b8dd67ba3243185d14371a719adaab841f8d2e"
+  }
 }

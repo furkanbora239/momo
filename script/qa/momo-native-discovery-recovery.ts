@@ -63,7 +63,7 @@ try {
   receipt.version = (await client.server.info()).version
   async function snapshot() {
     const result = await client.rpc.call({ rpcID: "momo.native", method: "catalogSnapshot", input: {}, location: { directory: qa.project } }) as { output?: unknown }
-    return (result.output ?? result) as { snapshot: { models: { providerID: string }[]; unavailableProviders: Record<string, unknown> } }
+    return (result.output ?? result) as { snapshot: { fetchedAt: string; models: { providerID: string }[]; unavailableProviders: Record<string, unknown> } }
   }
   const initial = (await snapshot()).snapshot
   assert.deepEqual(initial.models.map(row => row.providerID).sort(), ["qa-404", "qa-405"])
@@ -83,8 +83,18 @@ try {
   assert.deepEqual((await snapshot()).snapshot.models.map(row => row.providerID).sort(), ["qa-404", "qa-405"])
   assert.deepEqual(calls, initialCalls)
   receipt.toggleAppliedInsideCacheWindow = true
+  const expiryStart = { wall: Date.now(), monotonic: performance.now() }
   await Bun.sleep(30_100)
-  await snapshot()
+  const expirySnapshot = await snapshot()
+  receipt.expiryTiming = { wallElapsedMs: Date.now() - expiryStart.wall, monotonicElapsedMs: performance.now() - expiryStart.monotonic, fetchedAt: expirySnapshot.snapshot.fetchedAt, calls: { ...calls } }
+  // Bun timers can resume before the requested delay; verify observed refresh with a bounded deadline.
+  const refreshPolls: unknown[] = []
+  receipt.refreshPolls = refreshPolls
+  await until(async () => {
+    const current = await snapshot()
+    refreshPolls.push({ elapsedMs: Date.now() - expiryStart.wall, fetchedAt: current.snapshot.fetchedAt, calls: { ...calls } })
+    return ["qa-404", "qa-405", "qa-empty"].every(provider => calls[provider] === initialCalls[provider]! + 1)
+  }, Boolean, "bounded expiry refresh", 10_000)
   assert.equal(calls["qa-404"], initialCalls["qa-404"]! + 1)
   assert.equal(calls["qa-405"], initialCalls["qa-405"]! + 1)
   assert.equal(calls["qa-empty"], initialCalls["qa-empty"]! + 1)
