@@ -1,0 +1,80 @@
+{
+  "head": "32f2e93ef66314997f1f895e5f3343352789fd2f",
+  "tree": "d0a28e441703b3a85875f689c6e81de05ef58e1d",
+  "sourceHashes": {
+    "packages/omo-opencode/src/native-catalog/adapter.test.ts": "03055191632f014dcbfa2f149f1b3dbd787dd1661212d22bf5c2da7babdefd0f",
+    "packages/omo-opencode/src/native-catalog/adapter.ts": "83351eac63bbff057a328d64ecfa6ea8801eb749a2deda3447173bfc7ebd661a",
+    "packages/omo-opencode/src/native-catalog/index.ts": "2e87b472cf42a3a28ba111f59a5df20cbf3e5c8a229aeb73a43493aba007d8e6",
+    "packages/omo-opencode/src/native-catalog/live-models.test.ts": "b56a78333d484066d4f0ee8e3c0ac616a24229f91eebe852d2f7d00ddb5c9af6",
+    "packages/omo-opencode/src/native-catalog/live-models.ts": "3ed19fcd2063d30e33dafd88c5393c6946561a051d3a4632b60cc3683fdaaf62",
+    "packages/omo-opencode/src/native-catalog/provider-admission.ts": "4091bc81791ae224802bea1abca4bd30a8877131212466d06c0f65faa038b942",
+    "packages/omo-opencode/src/native-runtime/model-admission.test.ts": "8aaf05ca5e37bff039cd929d564f05ed3231b7189c8ab61f88db4949c9a2eee0",
+    "packages/omo-opencode/src/native-runtime/model-admission.ts": "6eb612c2964dada3754bf2f286f9f7e7b383a4e29938aeb0abffc9a86a4831d7",
+    "script/qa/momo-native-discovery-recovery.ts": "9dd72f823f0e5ba894f3a6c4778fca675bb9339cab2b7d39135f30fe784b866e"
+  },
+  "commits": [
+    "32f2e93ef66314997f1f895e5f3343352789fd2f test(qa): prove native discovery recovery and bounded refresh",
+    "5efeb220c5edf2198f61357300f7df96ab234f95 fix(catalog): recover obsolete discovery health through model execution",
+    "14361087ab9dd52b98081ad3cbbfd96e6496917c fix(catalog): cache optional discovery without quarantining unsupported endpoints"
+  ],
+  "focused": {
+    "passed": 45,
+    "failed": 0,
+    "assertions": 142
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "native": {
+    "status": "passed",
+    "version": "2.1.2",
+    "registeredChildSucceeded": true,
+    "registeredChildDelivered": true,
+    "persistedHealthRecovered": true,
+    "cachedReads": 5,
+    "expiryRefreshedDiscovery": true,
+    "localToggleAppliedImmediately": true,
+    "userDatabaseUnchanged": true,
+    "ownedProcessesGone": true,
+    "sandboxRemoved": true,
+    "realProviderProof": false,
+    "proof": "Real OpenCode HTTP catalog RPC with local discovery fixtures; not a real external provider proof.",
+    "discoveryCalls": {
+      "qa-404": 2,
+      "qa-405": 2,
+      "qa-empty": 2,
+      "qa-auth": 1
+    },
+    "cleanupMeaning": "Isolated QA database used; observed user database counters unchanged; owned process groups gone and disposable root removed."
+  },
+  "fullSuite": {
+    "command": "bun test",
+    "status": "passed",
+    "exitCode": 0,
+    "passed": 12928,
+    "skipped": 20,
+    "failed": 0,
+    "assertions": 45065,
+    "testFiles": 1589,
+    "durationSeconds": 157.88
+  },
+  "uncommitted": "pre-existing dirty designpowers submodule preserved",
+  "push": "Not performed during evidence finalization; external publication remains pending explicit destination approval.",
+  "recordedAt": "2026-10-30",
+  "hashVerification": {
+    "savedSourceHashesMatch": true,
+    "nativeBeforeAndAfterMatch": true,
+    "nativeHashesMatchCurrentFiles": true,
+    "builtBundleSha256": "698940cadf8e0ac62e9a450f3a3e1a97312205b957ff2e132409926f4f187e4f",
+    "gateRerun": false,
+    "reason": "Source and bundle hashes unchanged from the completed gates."
+  },
+  "artifacts": {
+    "final-focused.log": "bc58e340d8d21610e4bf8f33190b00475f23b362203a5c70bc91e7025f496bf7",
+    "final-typecheck.log": "f8a9d0a2ed1a37ef97aa4757b24213d32ac621261098cef5ab270ddf4beb4efa",
+    "final-build.log": "077097d92afdca1c3ac5196b231590953b85b2a11531d0bbb7cbfcbabc0ab10b",
+    "final-full-test.log": "e7266c0e3c7583d873e0c5d095055fc421371d92a375d826ffaefced70988438",
+    "final-full-test.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "native/receipt.json": "7c82bf067927abddb2080cf5052b75e4d84f02e81c688ac7b7199d2d84d7e1a8"
+  },
+  "artifactRoot": ".omo/evidence/20261024-catalog-recovery (local ignored evidence)"
+}
