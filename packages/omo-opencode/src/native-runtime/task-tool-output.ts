@@ -70,7 +70,7 @@ export function candidatePage(task: NativeTask, options: TaskPage & { role?: Nat
   const all = task.state === "awaiting_selection" ? (task.candidates ?? []).filter((candidate) => (options.role === undefined || options.role === candidate.role) && (options.providerID === undefined || options.providerID === candidate.model.providerID)) : []
   const offset = options.offset ?? 0
   const page = all.slice(offset, offset + Math.min(options.limit ?? 10, 10))
-  return { taskID: task.id, decisionId: task.decisionId, state: task.state, total: all.length, offset, nextOffset: offset + page.length < all.length ? offset + page.length : undefined, candidates: page.map((candidate) => ({ role: candidate.role, model: candidate.model, rolePermissions: rolePermissions(candidate.role), modelFacts: modelFacts(candidate.facts), probability: candidate.probability, rationale: bounded(candidate.rationale, 256) })) }
+  return { scope: "task_decision" as const, applicability: task.state === "awaiting_selection" ? "awaiting_selection" as const : "not_applicable" as const, storedCandidateCount: task.candidates?.length ?? 0, discovery: { tool: "opencode_models", scope: "registered_models", eligibility: "not_evaluated" }, taskID: task.id, decisionId: task.decisionId, state: task.state, total: all.length, offset, nextOffset: offset + page.length < all.length ? offset + page.length : undefined, candidates: page.map((candidate) => ({ role: candidate.role, model: candidate.model, rolePermissions: rolePermissions(candidate.role), modelFacts: modelFacts(candidate.facts), probability: candidate.probability, rationale: bounded(candidate.rationale, 256) })) }
 }
 
 export function resultPage(task: NativeTask, options: TaskPage) {
