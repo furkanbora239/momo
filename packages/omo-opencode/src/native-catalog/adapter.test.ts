@@ -37,6 +37,88 @@ function model(providerID: string, id: string, extras: Record<string, unknown> =
 }
 
 describe("native catalog adapter", () => {
+  for (const status of [404, 405]) it(`recovers persisted unsupported discovery health (${status}) without ignoring other failures`, async () => {
+    let reason = `live model endpoint returned HTTP ${status}`
+    let statusCode = status
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider("opencode-go")], models: [model("opencode-go", "glm-5")] }),
+      now: () => 1000,
+      readHealth: () => ({ "opencode-go": { reason, statusCode, unavailableUntil: 120000 } }),
+      readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }),
+      fetchImpl: async () => new Response(null, { status }),
+    })
+    expect((await adapter.refresh()).models.map(item => item.id)).toEqual(["glm-5"])
+    reason = "inference endpoint unavailable"
+    expect((await adapter.refresh()).models).toEqual([])
+    reason = `live model endpoint returned HTTP ${status}`
+    statusCode = 429
+    expect((await adapter.refresh()).models).toEqual([])
+    reason = "live model endpoint returned HTTP 401"
+    statusCode = 401
+    expect((await adapter.refresh()).models).toEqual([])
+  })
+
+  for (const status of [404, 405]) it(`retains registered models when discovery is unsupported (${status})`, async () => {
+    const marked: string[] = []
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider("opencode-go")], models: [model("opencode-go", "glm-5")] }),
+      readHealth: () => ({}), readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }),
+      markProviderUnavailable: id => { marked.push(id) },
+      onError: () => undefined,
+      fetchImpl: async () => new Response("unsupported", { status }),
+    })
+    expect((await adapter.refresh()).models.map(item => item.id)).toEqual(["glm-5"])
+    expect(marked).toEqual([])
+  })
+
+  it("caches sequential remote discovery while rechecking local controls and credential changes", async () => {
+    let time = 1_000, calls = 0, secret = "first"
+    let disabled: string[] = []
+    const fixture = contextFixture({ providers: [provider("live")], models: [model("live", "x")] })
+    const context = { ...fixture, integration: { ...fixture.integration, connection: { ...fixture.integration.connection,
+      resolve: async () => ({ type: "key" as const, key: secret }),
+    } } }
+    const adapter = createNativeCatalogAdapter({
+      context, now: () => time, readHealth: () => ({}),
+      readToggles: () => ({ version: 1, disabled, updatedAt: "test" }),
+      fetchImpl: async () => { calls++; return Response.json({ data: [{ id: "x" }] }) },
+    })
+    await adapter.refresh()
+    await adapter.catalog.listAvailable()
+    expect(calls).toBe(1)
+    disabled = ["live"]
+    expect(await adapter.catalog.listAvailable()).toEqual([])
+    disabled = []
+    secret = "second"
+    expect((await adapter.catalog.listAvailable()).length).toBe(1)
+    expect(calls).toBe(2)
+    time += 30_000
+    await adapter.refresh()
+    expect(calls).toBe(3)
+  })
+
+  it("rechecks model enablement, health and pool while remote discovery is cached", async () => {
+    let calls = 0, blocked = false
+    let allowed = pool.allowed as { providerID: string; modelID: string }[]
+    const models = [model("live", "x"), model("live", "y")]
+    const adapter = createNativeCatalogAdapter({
+      context: contextFixture({ providers: [provider("live")], models }),
+      now: () => 1000,
+      readPool: () => ({ ...pool, allowed }),
+      readToggles: () => ({ version: 1, disabled: [], updatedAt: "test" }),
+      readHealth: () => blocked ? { live: { reason: "quota", unavailableUntil: 5000 } } : {},
+      fetchImpl: async () => { calls++; return Response.json({ data: [{ id: "x" }, { id: "y" }] }) },
+    })
+    expect((await adapter.catalog.listAvailable()).length).toBe(2)
+    models[0]!.enabled = false
+    expect((await adapter.catalog.listAvailable()).map(item => item.id)).toEqual(["y"])
+    allowed = [{ providerID: "live", modelID: "x" }]
+    expect(await adapter.pool.isAllowed({ providerID: "live", id: "y" })).toBe(false)
+    blocked = true
+    expect(await adapter.catalog.listAvailable()).toEqual([])
+    expect(calls).toBe(1)
+  })
+
   it("uses shared knowledge for an exact transport identity and retains usable local overrides", async () => {
     let local = undefined as { model: { providerID: string; id: string }; known: boolean; summary: string; source: string } | undefined
     const ref = { providerID: "new-provider", id: "my-worker" }

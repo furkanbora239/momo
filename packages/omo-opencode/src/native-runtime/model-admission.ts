@@ -1,6 +1,6 @@
 import type { JobClassificationBatch } from "../native-catalog/job-classification-codec"
 import type { SessionInfo } from "@opencode/client"
-import { connectedNativeProviders, createNativeControlStores, resolveNativeCatalogHealthDirectory, type NativeCatalogAdapter, type NativeCatalogContext } from "../native-catalog"
+import { isObsoleteNativeDiscoveryFailure, connectedNativeProviders, createNativeControlStores, resolveNativeCatalogHealthDirectory, type NativeCatalogAdapter, type NativeCatalogContext } from "../native-catalog"
 import type { NativeJevRequest } from "../native-routing"
 import { createProviderHealthStore } from "../shared/provider-health"
 import { isProviderDisabled } from "../shared/provider-toggles"
@@ -56,7 +56,7 @@ export function createNativeModelAdmission(input: {
       || (session.agent === "momo-advisor" && !input.catalog.pool.isConsultationAllowed(model)))) input.reject("Native child model is no longer in its allowed pool")
     if (!providers.providers.some((provider) => provider.id === model.providerID && provider.activation !== "disabled")) input.reject("Native session provider is no longer available")
     const blocked = health.readProviderHealth()[model.providerID.trim().toLowerCase()]
-    if (isProviderDisabled(controls.readProviderToggles(), model.providerID) || (blocked && Date.now() < blocked.unavailableUntil)) input.reject("Native provider became unavailable before execution")
+    if (isProviderDisabled(controls.readProviderToggles(), model.providerID) || (blocked && !isObsoleteNativeDiscoveryFailure(blocked) && Date.now() < blocked.unavailableUntil)) input.reject("Native provider became unavailable before execution")
     if (session.parentID !== undefined && !isModelAllowed(controls.readPool(), model.providerID, model.id)) input.reject("Native child model left the allowed pool before execution")
   }
 
