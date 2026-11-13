@@ -1,0 +1,126 @@
+{
+  "status": "passed",
+  "surface": "real OpenCode HTTP; local provider 429; seeded owned durable task",
+  "version": "2.1.2",
+  "nativeFailure": {
+    "type": "provider.free-limit",
+    "status": 429,
+    "retryAfterMs": 37243000
+  },
+  "cooldown": {
+    "model": {
+      "providerID": "contract",
+      "id": "worker"
+    },
+    "reason": "observed_free_quota_limit",
+    "observedAt": 1793024233851,
+    "unavailableUntil": 1793061476851
+  },
+  "catalogBeforeRestart": {
+    "models": [
+      {
+        "id": "root",
+        "available": true
+      },
+      {
+        "id": "worker",
+        "available": false
+      },
+      {
+        "id": "advisor",
+        "available": true
+      }
+    ],
+    "unavailableModels": {
+      "contract/worker": {
+        "reason": "observed_free_quota_limit",
+        "until": 1793061476851
+      }
+    }
+  },
+  "catalogAfterRestart": {
+    "models": [
+      {
+        "id": "root",
+        "available": true
+      },
+      {
+        "id": "worker",
+        "available": false
+      },
+      {
+        "id": "advisor",
+        "available": true
+      }
+    ],
+    "unavailableModels": {
+      "contract/worker": {
+        "reason": "observed_free_quota_limit",
+        "until": 1793061476851
+      }
+    }
+  },
+  "replayExpiryUnchanged": true,
+  "alternativeNativeExecutionSucceeded": true,
+  "limitations": [
+    "The local HTTP fixture validates native failure translation and model-scoped catalog eligibility. It does not validate any production provider quota or entitlement.",
+    "The alternative execution was explicitly selected through the native API; automatic rerouting of the failed durable task is not claimed."
+  ],
+  "sourceHashesBefore": {
+    "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "794ff4a78537f38f366257d7be51b8a2734c8f95a493ccfa5067b8454e991b76",
+    "packages/omo-opencode/src/native-runtime/model-policy-observer.test.ts": "8e7088eca5ead19b9515527f2982dffdf8c03c38f2f349784dd3b2dccd1f10c7",
+    "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "6dca8de68060e54091c7bf177262943a4bb577d8912fb84578c5a564f611ae9f",
+    "packages/omo-opencode/src/native-runtime/session-runtime.test.ts": "602b15f740fa3f3cd125fc6dcdbbbb18518c37b8caa74c60cd02b055ff349638",
+    "packages/omo-opencode/src/native-runtime/session-runtime.ts": "5189e323cebd2f25deecabb56fde68b6af59e4bfc18f18c65cbf5b1f25ee5dbd",
+    "packages/omo-opencode/src/native-task/failure-observation.ts": "9da51d92394594be6ea3a91e6539162bd2480bf63a70d0e939ace22cf680b15f",
+    "packages/omo-opencode/src/native-task/types.ts": "9d436aec6e8d3a0322be83ebdaac33250f7d982a9f568e79cc5f2622fbce04eb",
+    "packages/omo-opencode/src/native-task/v2-event-adapter.ts": "e10674dc0776a80f3607e4932d9153e4fc1d2847011164dff4d81e3c844f80b2",
+    "packages/omo-opencode/src/native-catalog/model-quota-evidence.ts": "5760239364f87aaa6188ee3bbd9c1ccf7ef9337f3f7099d78d143d76e49bb8d0",
+    "packages/omo-opencode/src/native-catalog/model-quota-evidence.test.ts": "54edcf46c07800be834ed0ca839a8f1557a8044c5fb2c47802f9cf62a41663c3",
+    "dist/index.js": "6733cf7a2f8277dcf6efdcc4a172a7bddcb4de45a254479715ae016360bb9224"
+  },
+  "sourceHashesAfter": {
+    "packages/omo-opencode/src/native-catalog/model-policy-health.ts": "794ff4a78537f38f366257d7be51b8a2734c8f95a493ccfa5067b8454e991b76",
+    "packages/omo-opencode/src/native-runtime/model-policy-observer.test.ts": "8e7088eca5ead19b9515527f2982dffdf8c03c38f2f349784dd3b2dccd1f10c7",
+    "packages/omo-opencode/src/native-runtime/model-policy-observer.ts": "6dca8de68060e54091c7bf177262943a4bb577d8912fb84578c5a564f611ae9f",
+    "packages/omo-opencode/src/native-runtime/session-runtime.test.ts": "602b15f740fa3f3cd125fc6dcdbbbb18518c37b8caa74c60cd02b055ff349638",
+    "packages/omo-opencode/src/native-runtime/session-runtime.ts": "5189e323cebd2f25deecabb56fde68b6af59e4bfc18f18c65cbf5b1f25ee5dbd",
+    "packages/omo-opencode/src/native-task/failure-observation.ts": "9da51d92394594be6ea3a91e6539162bd2480bf63a70d0e939ace22cf680b15f",
+    "packages/omo-opencode/src/native-task/types.ts": "9d436aec6e8d3a0322be83ebdaac33250f7d982a9f568e79cc5f2622fbce04eb",
+    "packages/omo-opencode/src/native-task/v2-event-adapter.ts": "e10674dc0776a80f3607e4932d9153e4fc1d2847011164dff4d81e3c844f80b2",
+    "packages/omo-opencode/src/native-catalog/model-quota-evidence.ts": "5760239364f87aaa6188ee3bbd9c1ccf7ef9337f3f7099d78d143d76e49bb8d0",
+    "packages/omo-opencode/src/native-catalog/model-quota-evidence.test.ts": "54edcf46c07800be834ed0ca839a8f1557a8044c5fb2c47802f9cf62a41663c3",
+    "dist/index.js": "6733cf7a2f8277dcf6efdcc4a172a7bddcb4de45a254479715ae016360bb9224"
+  },
+  "probeHash": "c3b3facf228c98bd4b57fefac7bdaefee5fa587c03e7324e2066033cb5aa0b26",
+  "probeLocalPath": ".omo/evidence/20261026-native-quota/probe.ts",
+  "cleanup": {
+    "realDBCountsUnchanged": true,
+    "realSessionCountsUnchanged": true,
+    "observedDatabaseDescriptorsOnlyInDisposableRoot": true,
+    "ownedProcessGroupsGone": true,
+    "disposableRootRemoved": true
+  },
+  "checks": {
+    "focused": {
+      "passed": 31,
+      "failed": 0,
+      "assertions": 130
+    },
+    "typecheck": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "passed": 12916,
+      "skipped": 20,
+      "failed": 0,
+      "assertions": 41140,
+      "files": 1589
+    }
+  },
+  "logHashes": {
+    "focused-test.log": "3c5f32423c8d517b9ea09e78e70c6f3eeebc2ce62b8ba1a2c2344b1724109ef4",
+    "full-test.log": "b434e120ca1ca33c41283852704c69ea947a5d4c0b708ba225c383cf6aa7f666",
+    "typecheck.log": "f8a9d0a2ed1a37ef97aa4757b24213d32ac621261098cef5ab270ddf4beb4efa",
+    "build.log": "6686d814668b5ea663ea04741a3fe186d22ab0ccd894ef5299571106bac56e3c"
+  }
+}

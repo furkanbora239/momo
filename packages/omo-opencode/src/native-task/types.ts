@@ -169,7 +169,7 @@ export type NativeTaskRuntime = {
   resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string }>
   createSession(input: { taskID: string; rootSessionID: string; parentSessionID: string; role: NativeTaskRole; model: NativeModelRef }): Promise<{ sessionID: string }>
   start(input: { sessionID: string; prompt: string }): Promise<void>
-  inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; usage?: NativeTaskUsage }>
+  inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; failureQuota?: import("../native-catalog/model-quota-evidence").NativeQuotaFailure; usage?: NativeTaskUsage }>
   resume(input: { taskID: string; sessionID: string }): Promise<void>
   interrupt(input: { sessionID: string }): Promise<void>
   deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void | NativeTaskDeliveryReceipt>
