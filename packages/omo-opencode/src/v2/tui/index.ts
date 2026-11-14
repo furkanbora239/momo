@@ -1,3 +1,4 @@
+import { registerNativeMcpKeymap } from "./native-mcp-keymap"
 import { Plugin } from "@opencode/plugin/tui"
 
 import { log } from "../../shared/logger"
@@ -85,6 +86,7 @@ export function createV2TuiSetup(
 ): (ctx: V2TuiContext) => Promise<V2TuiCleanup | void> {
   return async (ctx) => {
     const cleanups: (() => void)[] = []
+    await runRegistration("[native-mcp-controls]", () => { cleanups.push(registerNativeMcpKeymap(ctx)) })
 
     await runRegistration("[native-catalog-controls]", () => {
       const directory = ctx.location?.directory ?? ""
