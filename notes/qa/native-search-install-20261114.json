@@ -1,7 +1,7 @@
 {
   "proof": "published archive, real native harness, controlled local model",
   "credentialsCopied": false,
-  "archiveSHA256": "2dd79cf711f38ba573a1570b43bbc9403b178840f2948de43a97fe921b1f92a4",
+  "archiveSHA256": "21c123027aeb839a4dbb7dfab0bbab2c2bdf783f3818154a15b4ff0c2b1a47fd",
   "version": "2.3.0",
   "servers": [
     {
@@ -28,38 +28,56 @@
     "unchangedSessions": true,
     "concurrentMessageWritesAllowed": true,
     "groups": [
-      38763,
-      40099
+      207221,
+      207921
     ],
     "groupsGone": true,
     "openedDatabases": [
-      "/tmp/momo-job-class-lqbOhO/data/opencode/opencode.db",
-      "/tmp/momo-job-class-lqbOhO/data/opencode/opencode.db-wal",
-      "/tmp/momo-job-class-lqbOhO/data/opencode/opencode.db-shm"
+      "/tmp/momo-job-class-BO2sjK/data/opencode/opencode.db",
+      "/tmp/momo-job-class-BO2sjK/data/opencode/opencode.db-wal",
+      "/tmp/momo-job-class-BO2sjK/data/opencode/opencode.db-shm"
     ],
     "disposableRootRemoved": true
   },
   "scope": {
     "archiveInstall": "Real root archive installed with lifecycle scripts disabled, no source checkout at consumer path",
     "models": "Controlled local HTTP fixture, no real credits",
-    "lsp": "TypeScript definition navigation; TypeScript 5.9.3 and language server 5.0.0 are explicit disposable test dependencies, not shipped language servers",
+    "lsp": "TypeScript definition navigation with explicitly installed disposable TypeScript 5.9.3 and language server 5.0.0. Trusted isolated user configuration selects its absolute executable; host PATH is excluded. Language servers are not bundled.",
     "restart": "New root session after full native server restart; existing ast-grep executable mtime unchanged",
     "platform": "Actual Linux x64 execution; other platforms retain checksum-pinned manifest, not native execution proof",
-    "failures": "Earlier fixture runs failed due stale call counters, incomplete discovery and fixture compaction on long reused transcript. Preserved under ignored evidence; no production behavior was bypassed."
+    "failures": "Earlier PATH isolation exposed a fixture relying on a host TypeScript language server because project command overrides are intentionally ignored. The final run uses private trusted user configuration without relaxing that restriction. Previous Btrfs fsync timeout preserved; final full suite uses private executable tmpfs. All failed probes remain in ignored evidence."
   },
-  "sourceHeadBeforeChanges": "fa4573bee",
+  "sourceHeadBeforeChanges": "6bddcfa6f122ed0a32fb476f51b7bef1e15ac1cc",
   "checks": {
     "build": "passed",
     "typecheck": "passed",
+    "qaDriverTypecheck": "passed after final fixture correction",
     "fullSuite": {
-      "pass": 12940,
+      "pass": 12941,
       "skip": 20,
       "fail": 0,
-      "assertions": 46629,
-      "files": 1591,
-      "seconds": 170.94
+      "assertions": 48585,
+      "files": 1592,
+      "seconds": 146.2
     },
-    "environment": "Private /var/tmp root avoids an unrelated /tmp/.git marker. Disk-full-corrupted task dependencies reinstalled using a separate cache and copyfile backend."
+    "environment": "Four-core CPU limit, isolated XDG and private /run/user/1000 temp root avoids unrelated /tmp/.git and disk fsync latency."
   },
-  "distSHA256": "7667f8f6d710ccc3224e030ed13ebe8869c362889763f17a833d8082b4f287ea"
+  "installer": {
+    "managedBinaryVersion": "ast-grep 0.43.0",
+    "noGlobalPackageInstall": true,
+    "passed": true,
+    "cleanup": {
+      "before": "session|249\nsession_v2|482\nsession_message|24546",
+      "after": "session|249\nsession_v2|482\nsession_message|24546",
+      "unchanged": true,
+      "unchangedSessions": true,
+      "concurrentMessageWritesAllowed": true,
+      "groups": [],
+      "groupsGone": true,
+      "openedDatabases": [],
+      "disposableRootRemoved": true
+    }
+  },
+  "distSHA256": "7667f8f6d710ccc3224e030ed13ebe8869c362889763f17a833d8082b4f287ea",
+  "evidenceRoot": ".omo/evidence/20261114-native-search-install/managed-installer"
 }
