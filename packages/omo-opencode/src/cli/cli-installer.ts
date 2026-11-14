@@ -1,3 +1,4 @@
+import { adoptConfiguredNativeMcps } from "../native-mcp/configuration"
 import { createInterface } from "node:readline/promises"
 import color from "picocolors"
 import { PLUGIN_NAME, PUBLISHED_PACKAGE_NAME } from "../shared"
@@ -119,6 +120,8 @@ export async function runCliInstaller(args: InstallArgs, version: string): Promi
       const message = error instanceof Error ? error.message : String(error)
       printWarning(`Could not update OpenCode TUI config: ${message}`)
     }
+    const managedMcps = await adoptConfiguredNativeMcps(pluginResult.configPath)
+    if (managedMcps.servers.length) printInfo(`Momo now manages ${managedMcps.servers.length} MCP server(s); private backup: ${managedMcps.backupPath}`)
 
     printStep(step++, totalSteps, `Writing ${PLUGIN_NAME} configuration...`)
     const omoResult = writeOmoConfig(config)

@@ -19,6 +19,7 @@ export function ownedAgentID(value: string | undefined): NativeAgentID | undefin
 
 export function nativeAgentPermissions(id: NativeAgentID): Array<{ action: string; resource: string; effect: "allow" | "deny" }> {
   const result: Array<{ action: string; resource: string; effect: "allow" | "deny" }> = [
+    { action: "momo_mcp", resource: "*", effect: "allow" },
     { action: "task", resource: "*", effect: "deny" },
     { action: "delegate_task", resource: "*", effect: "deny" },
     { action: "consult_advisor", resource: "*", effect: "deny" },
@@ -91,7 +92,7 @@ function isUnverifiedMcpReadAction(name: string): boolean {
 
 export function nativeActionEffect(id: NativeAgentID, action: string): "allow" | "deny" | undefined {
   const name = action.toLowerCase()
-  if (name === "execute") return undefined
+  if (name === "execute" || name === "momo_mcp") return undefined
   if (name === "momo_task") return coordinators.has(id) ? "allow" : "deny"
   if (name === "momo_consult") return id === "momo-advisor" ? "deny" : "allow"
   if (name === "momo_catalog_enrich") return id === "momo-catalog-researcher" ? "allow" : "deny"
@@ -120,6 +121,7 @@ export function filterNativeContextTools(agent: string | undefined, tools: Recor
       delete tools[name]
       continue
     }
+    if (normalized === "momo_mcp") continue
     if (role === "momo-advisor" && normalized !== "execute" && !isNativeReadTool(normalized)) delete tools[name]
     if (role === "momo-catalog-researcher" && normalized !== "execute" && normalized !== "momo_catalog_enrich" && !isNativeReadTool(normalized)) delete tools[name]
     if (isNativeSearchTool(normalized) && !nativeSearchToolAllowed(role, normalized)) delete tools[name]

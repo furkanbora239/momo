@@ -1,3 +1,4 @@
+import { adoptConfiguredNativeMcps } from "../native-mcp/configuration"
 import * as p from "@clack/prompts"
 import color from "picocolors"
 import { PLUGIN_NAME } from "../shared"
@@ -100,6 +101,8 @@ export async function runTuiInstaller(args: InstallArgs, version: string): Promi
       const message = error instanceof Error ? error.message : String(error)
       p.log.warn(`Could not update OpenCode TUI config: ${message}`)
     }
+    const managedMcps = await adoptConfiguredNativeMcps(pluginResult.configPath)
+    if (managedMcps.servers.length) p.log.info(`Momo now manages ${managedMcps.servers.length} MCP server(s); private backup: ${managedMcps.backupPath}`)
 
     spinner.start(`Writing ${PLUGIN_NAME} configuration`)
     const omoResult = writeOmoConfig(config)

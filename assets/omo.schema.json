@@ -1845,6 +1845,22 @@
             "minLength": 1
           }
         },
+        "mcp_policy": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "off",
+              "on-demand",
+              "always"
+            ]
+          }
+        },
         "disabled_mcps": {
           "type": "array",
           "items": {
@@ -18728,6 +18744,22 @@
                 "items": {
                   "type": "string",
                   "minLength": 1
+                }
+              },
+              "mcp_policy": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "on-demand",
+                    "always"
+                  ]
                 }
               },
               "disabled_mcps": {

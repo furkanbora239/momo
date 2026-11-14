@@ -1,3 +1,4 @@
+import { nativeMcpPolicy } from "../../native-mcp/schema"
 import { z } from "zod"
 import { AnyMcpNameSchema } from "../../mcp/types"
 import { AgentDefinitionsConfigSchema } from "./agent-definitions"
@@ -48,6 +49,7 @@ export const OhMyOpenCodeConfigSchema = z.object({
   agent_order: z.array(z.string().max(128)).max(64).optional(),
   /** Paths to external agent definition files (.md or .json) */
   agent_definitions: AgentDefinitionsConfigSchema,
+  mcp_policy: nativeMcpPolicy.optional(),
   disabled_mcps: z.array(AnyMcpNameSchema).optional(),
   /**
    * Agents to disable. The momo v1 roster keeps the orchestrator, explore,

@@ -1,5 +1,6 @@
 import { loadOmoConfig, mergeOmoConfigRecords, resolveOmoConfigView } from "@oh-my-opencode/omo-config-core"
 import { z } from "zod"
+import { nativeMcpPolicy } from "../native-mcp/schema"
 import { BackgroundTaskConfigSchema } from "../config/schema/background-task"
 import { CatalogConfigSchema } from "../config/schema/catalog"
 import { CodegraphConfigSchema } from "../config/schema/codegraph"
@@ -11,6 +12,7 @@ import { homeRoot } from "./user-data-paths"
 
 const NativeRuntimeConfigSchema = z.object({
   default_run_agent: z.string().optional(),
+  mcp_policy: nativeMcpPolicy.optional(),
   disabled_mcps: z.array(z.string()).optional(),
   disabled_providers: z.array(z.string()).optional(),
   disabled_tools: z.array(z.string()).optional(),
@@ -50,7 +52,7 @@ export function loadNativeRuntimeConfig(directory: string, options: NativeRuntim
   const selected: Record<string, unknown> = {}
   for (const key of [
     "default_run_agent", "disabled_mcps", "disabled_providers", "disabled_tools", "manager", "background_task",
-    "catalog", "codegraph", "context7", "grep_app", "model_fallback", "telemetry", "websearch",
+    "mcp_policy", "catalog", "codegraph", "context7", "grep_app", "model_fallback", "telemetry", "websearch",
   ]) {
     if (key in resolved.config) selected[key] = resolved.config[key]
   }
