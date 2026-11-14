@@ -22,6 +22,7 @@ import {
   type McpToolDescriptor,
   type ParentWatchdogConfig,
 } from "@oh-my-opencode/mcp-stdio-core";
+import { createManagedSgResolver } from "./managed-runtime";
 import { resolveSgBinarySync } from "@oh-my-opencode/utils";
 import { executeSearch, searchInputSchema, SEARCH_TOOL_DESCRIPTION, SEARCH_TOOL_NAME, type SearchInput, type SearchPayload } from "./tools/search";
 import { executeRewrite, REWRITE_TOOL_DESCRIPTION, REWRITE_TOOL_NAME, type RewritePayload } from "./tools/rewrite";
@@ -303,7 +304,7 @@ async function handleToolCall(
 
   let sgPath: string;
   try {
-    sgPath = resolveSgPath(options);
+    sgPath = await resolveSgPath(options);
   } catch (error) {
     return toolFailure(id, "BINARY_NOT_FOUND", messageOf(error), hintsOf(error));
   }
@@ -363,8 +364,11 @@ export function coerceToolArguments(value: unknown): Record<string, unknown> {
   return isPlainRecord(value) ? value : {};
 }
 
-function resolveSgPath(options: AstGrepMcpOptions): string {
+const managedSgResolver = createManagedSgResolver();
+
+async function resolveSgPath(options: AstGrepMcpOptions): Promise<string> {
   if (options.resolveSgPath !== undefined) return options.resolveSgPath();
+  if (process.env.OMO_AST_GREP_AUTO_INSTALL === "1") return managedSgResolver(options.signal);
   const resolution = resolveSgBinarySync();
   if (!resolution.found) {
     throw Object.assign(new Error(resolution.error.message), { hints: resolution.error.hints });
