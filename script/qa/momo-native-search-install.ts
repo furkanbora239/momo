@@ -4,8 +4,8 @@ import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { existsSync } from "node:fs"
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { mkdir, readFile, stat, writeFile, symlink } from "node:fs/promises"
+import { delimiter, join } from "node:path"
 import { harness, until } from "./momo-native-job-classification-harness"
 import { contractFixture, contractResponse, type ContractRequest } from "./momo-native-tool-contract-fixture"
 
@@ -14,6 +14,14 @@ assert(binary, "Set MOMO_NATIVE_OPENCODE_BIN to the real native executable")
 const evidence = process.env.MOMO_NATIVE_EVIDENCE_DIR ?? join(process.cwd(), ".omo/evidence/20261114-native-search-install/native")
 await mkdir(evidence, { recursive: true })
 const qa = await harness(binary, evidence, { allowConcurrentMessageWrites: true })
+const tools = join(qa.root, "tools")
+await mkdir(tools)
+for (const command of ["bun", "node"]) {
+  const executable = Bun.which(command)
+  assert(executable, `Missing QA executable: ${command}`)
+  await symlink(executable, join(tools, command))
+}
+qa.env.PATH = [tools, "/usr/bin", "/bin"].join(delimiter)
 const receipt: Record<string, unknown> = { proof: "published archive, real native harness, controlled local model", credentialsCopied: false }
 const server = Bun.serve({ port: 0, async fetch(request) {
   if (request.method === "GET") return Response.json({ data: [{ id: "root" }] })
@@ -47,7 +55,9 @@ try {
   await writeFile(join(qa.env.OPENCODE_CONFIG_DIR!, "service.json"), JSON.stringify({ password: "local-qa" }))
   await writeFile(join(qa.env.OPENCODE_CONFIG_DIR!, "opencode.json"), JSON.stringify({ plugins: [`file:${qa.plugin}`], model: "contract/root", agent: "momo-orchestrator" }))
   await writeFile(join(qa.project, ".omo/omo.jsonc"), JSON.stringify({ "[opencode]": { catalog: { auto_research: false } } }))
-  await writeFile(join(qa.project, ".omo/lsp.json"), JSON.stringify({ lsp: { typescript: { command: [join(consumer, "node_modules/.bin/typescript-language-server"), "--stdio"], extensions: [".ts"] } } }))
+  const lspConfig = join(qa.env.HOME!, ".omo/native/lsp.json")
+  await mkdir(join(qa.env.HOME!, ".omo/native"), { recursive: true })
+  await writeFile(lspConfig, JSON.stringify({ lsp: { typescript: { command: [join(consumer, "node_modules/.bin/typescript-language-server"), "--stdio"], extensions: [".ts"] } } }))
   await writeFile(join(qa.project, "definition.ts"), "export const answer = 42;\nconsole.log(answer);\n")
   let client = await qa.start()
   receipt.version = (await client.server.info()).version
