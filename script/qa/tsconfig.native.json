@@ -21,6 +21,7 @@
     "./momo-native-shared-catalog.ts",
     "./momo-native-shared-catalog-fixture.ts",
     "./momo-native-tool-contract.ts",
-    "./momo-native-tool-contract-fixture.ts"
+    "./momo-native-tool-contract-fixture.ts",
+    "./momo-native-search-install.ts"
   ]
 }
