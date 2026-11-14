@@ -61,6 +61,8 @@
     ".opencode/skills",
     ".agents/command",
     ".agents/skills",
+    "packages/ast-grep-mcp/package.json",
+    "packages/ast-grep-mcp/dist",
     "packages/lsp-tools-mcp/package.json",
     "packages/lsp-core/package.json",
     "packages/lsp-core/src",
