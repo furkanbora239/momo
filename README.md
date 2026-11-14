@@ -41,7 +41,7 @@ Register the package root in OpenCode v2 configuration:
 
 OpenCode loads the package's `./tui` export from that registration. Do not add duplicate entries to `cli.json` or `tui.json`. momo distributes owned markdown agent files and preserves conflicting user-owned files.
 
-Start `opencode`, choose the orchestrator and select its session model. Use native agent/task visibility. `/pool`, `/providers` and `/advisor-pool` manage routing controls.
+Start `opencode`, choose the orchestrator and select its session model. Use native agent/task visibility. `/pool`, `/providers` and `/advisor-pool` manage routing controls. `/mcp-policy` saves MCP modes for this project.
 
 ## Task and consultation tools
 
@@ -87,6 +87,10 @@ An empty advisor pool disables consultation. Advisors must also pass the general
 The versioned decision ledger records the actual manager inputs, candidate snapshot, response/fallback, caller selection, dispatch, usage and outcome links. It does not copy every chat. Research claims stay separate from verified task results. Export can include old ledger rows through a readonly legacy path.
 
 ## Code search and retained adapters
+
+External connectors are managed separately from their project policy. The installer preserves a private backup and records startup ownership in a private catalog for the active OpenCode configuration directory and marks native `mcp.servers` entries dormant. Definitions stay in OpenCode configuration so its environment/file interpolation remains intact. Existing installations can run `oh-my-opencode mcp-manage` (optionally `--config /absolute/path/opencode.jsonc`) before restarting OpenCode. This ownership change prevents OpenCode from starting all global connectors before plugins initialize. The catalog stores only ownership fingerprints and original disable flags; credentials remain in native configuration and private backups. Snapshots and project policy contain no commands, headers or environment secrets. Back up and retain the reported original configuration if removing momo later; without momo, managed connectors remain disabled until their native startup flags are restored. The command rejects a conflicting existing definition instead of replacing it silently.
+
+`/mcp-policy` distinguishes `off`, `on-demand`, and `always` from the actual connection state. Native search defaults to always, known graph servers to off, and managed external connectors to on-demand. Native disables present when a connector is adopted and `disabled_mcps` remain hard denies. An agent can use `momo_mcp` to inspect, activate or release a known connector, but this control tool cannot change persistent policy or add servers. Activation does not grant new role permissions: readonly coordinators still delegate external writes. On-demand leases last until released or the native service restarts. Turning a connector off blocks new calls immediately and waits for admitted calls before disconnecting. Project policies are saved under `[opencode].mcp_policy` in `.omo/omo.jsonc`; leases are not persisted. A connector still owned by host configuration is marked in the panel because runtime filtering alone cannot prevent its initial host startup.
 
 Native search uses bundled LSP and ast-grep plus file reading and text search. Role policy restricts rename/rewrite to workers and denies unknown MCP tools for readonly roles. Codebase Memory MCP v0.11.0 is an optional pinned candidate; it stays disabled because automatic index freshness did not pass QA. Its managed cache includes its upstream license notice. The old Codegraph default is not restored.
 

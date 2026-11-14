@@ -1,0 +1,176 @@
+{
+  "sourceHeadBeforeChanges": "29d654938",
+  "proof": "real isolated OpenCode 2.3.0, controlled local model and stdio MCP fixture",
+  "credentialsCopied": false,
+  "evidenceRoot": ".omo/evidence/20261114-project-mcps/final",
+  "acceptance": {
+    "project-mcps": {
+      "proof": "real native service, local controlled models and MCP fixture",
+      "credentialsCopied": false,
+      "adopted": [
+        "appwrite",
+        "codegraph",
+        "momo_lsp",
+        "locked"
+      ],
+      "version": "2.3.0",
+      "coldExternalDormant": true,
+      "advisorControlReadOnly": true,
+      "projectIsolation": true,
+      "coordinatorExternalCallDenied": true,
+      "inFlightDrain": true,
+      "offSurvivesRestart": true,
+      "alwaysSurvivesRestart": true,
+      "restartDropsTransientLeases": true,
+      "nativeEnvironmentInterpolation": true,
+      "observedRolePolicies": [
+        "orchestrator",
+        "worker"
+      ],
+      "passed": true,
+      "cleanup": {
+        "before": "session|249\nsession_v2|482\nsession_message|24546",
+        "after": "session|249\nsession_v2|482\nsession_message|24546",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          217894,
+          218135,
+          218209,
+          218258
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-Tupt6x/data/opencode/opencode.db",
+          "/tmp/momo-job-class-Tupt6x/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-Tupt6x/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      }
+    },
+    "mcp-install": {
+      "proof": "compiled CLI installer with isolated HOME and native configuration",
+      "credentialsCopied": false,
+      "noGlobalPackageInstall": true,
+      "automaticStartupAdoption": true,
+      "nativeTemplatesPreserved": true,
+      "passed": true,
+      "cleanup": {
+        "before": "session|249\nsession_v2|482\nsession_message|24546",
+        "after": "session|249\nsession_v2|482\nsession_message|24546",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [],
+        "groupsGone": true,
+        "openedDatabases": [],
+        "disposableRootRemoved": true
+      }
+    },
+    "mcp-tui": {
+      "proof": "real native TUI dialog driven through tmux, not visual layout QA",
+      "version": "2.3.0",
+      "persistedOff": true,
+      "passed": true,
+      "cleanup": {
+        "before": "session|249\nsession_v2|482\nsession_message|24546",
+        "after": "session|249\nsession_v2|482\nsession_message|24546",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          218380,
+          218417
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-nD8oFf/data/opencode/opencode.db",
+          "/tmp/momo-job-class-nD8oFf/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-nD8oFf/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      },
+      "tmuxSessionGone": true
+    },
+    "clean-install": {
+      "proof": "published archive, real native harness, controlled local model",
+      "credentialsCopied": false,
+      "archiveSHA256": "069990844077243a11cc8b572e6bdd0057731a27ad60300c45ba2acf40b1d892",
+      "version": "2.3.0",
+      "servers": [
+        {
+          "name": "momo_ast_grep",
+          "status": {
+            "status": "connected"
+          }
+        },
+        {
+          "name": "momo_lsp",
+          "status": {
+            "status": "connected"
+          }
+        }
+      ],
+      "runtimeProvisionedOnFirstUse": true,
+      "sourceFreshness": true,
+      "restartReusedRuntime": true,
+      "passed": true,
+      "cleanup": {
+        "before": "session|249\nsession_v2|482\nsession_message|24546",
+        "after": "session|249\nsession_v2|482\nsession_message|24546",
+        "unchanged": true,
+        "unchangedSessions": true,
+        "concurrentMessageWritesAllowed": true,
+        "groups": [
+          218535,
+          218830
+        ],
+        "groupsGone": true,
+        "openedDatabases": [
+          "/tmp/momo-job-class-vnb5jP/data/opencode/opencode.db",
+          "/tmp/momo-job-class-vnb5jP/data/opencode/opencode.db-wal",
+          "/tmp/momo-job-class-vnb5jP/data/opencode/opencode.db-shm"
+        ],
+        "disposableRootRemoved": true
+      }
+    }
+  },
+  "scope": {
+    "models": "Local HTTP fixtures; no production model inference or credits. Captures confirm owned orchestrator and worker policy bodies reach the model.",
+    "connectors": "Controlled stdio fixture; real Appwrite services and arbitrary production MCP compatibility are not claimed.",
+    "tui": "Actual command palette, server selection and Off selection persisted through scoped RPC. Terminal pane capture is functional smoke, not a visual layout audit.",
+    "startup": "Compiled installer adopts private native startup ownership before host launch. Definitions remain in native config so env/file interpolation is retained; registry stores only original flags and fingerprints.",
+    "roles": "Activation does not expand tool authority. Advisor activation and coordinator external invocation are denied in the real harness.",
+    "leases": "Transient project connection leases are explicitly released or forgotten on service restart, not persisted.",
+    "failures": "Earlier raw-registry insertion lost native environment interpolation and runtime-only filtering allowed startup processes. Final metadata-only registry plus dormant native entries resolves both. One earlier legacy installer probe installed a host global ast-grep package despite HOME isolation; the exact task-created package was removed and active installer switched to managed provisioning. Final compiled installer QA confirms no global package-manager prefix created. Failed probes and cleanup evidence remain in ignored evidence.",
+    "packaging": "Clean archive runs exclude ambient host tool directories. TypeScript 5.9.3 and language server 5.0.0 are explicit disposable dependencies selected through trusted isolated user config.",
+    "publication": "Depends on PR #55. Repository Actions is enabled and momo CI active, but dispatch returns HTTP 422 and no run exists. CI and review remain external publication gates."
+  },
+  "checks": {
+    "typecheck": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "pass": 12959,
+      "skip": 20,
+      "fail": 0,
+      "assertions": 50333,
+      "files": 1597,
+      "seconds": 146.72
+    },
+    "resources": "Serial probes and full suite; CPU affinity 0-3 and GOMAXPROCS=4. Full suite uses private executable tmpfs plus isolated XDG."
+  },
+  "artifactsSHA256": {
+    "typecheck.log": "f8a9d0a2ed1a37ef97aa4757b24213d32ac621261098cef5ab270ddf4beb4efa",
+    "build.log": "15e176619a3b206530c67952ca3187eaae3b980d1abaf8b7cf4cf9f0f9623086",
+    "full-suite.log": "94f26071139cc4b2fd9fa644ad623df6a79cb21723497677481e57d4ae7dff54",
+    "project-mcps/result.json": "70a77f14aa6569f371b1b25cf0519ee9fcf3da65aefbfeb842deae1ce05a4057",
+    "mcp-install/result.json": "6c86370868eaab16f09bd973adaa23fd9e9bcdbdeff188aa57adfdf20d297f58",
+    "mcp-tui/result.json": "bf7a32d613abdfae63ed7bcb9f55e24e352634a1b32abd0555e54f96803e740d",
+    "clean-install/result.json": "6f9b8e5d75d6159ed99f343f4e5f486bc515217dd2d5aaa39c5fd3c729a58301"
+  },
+  "distSHA256": {
+    "dist/index.js": "352c59ee72461fda142d83b1ec32d02d58108cb51325fa5cd5ad9a2ee432c5b7",
+    "dist/cli-node/index.js": "7f1bcd199d151c25e6e1cbe2b98a51c26f862ee4613638d66a2505901ffaa6d5"
+  }
+}

@@ -1,7 +1,15 @@
 # PROJECT_STATE.md — momo (My Oh My Openagent)
 
-**Last Updated:** 2026-10-21
+**Last Updated:** 2026-11-15
 **Version / Branch:** `dev`
+
+## Project MCP policy and clean native search (2026-11-15)
+
+The native search package ships its LSP and ast-grep transports. The active installer prepares the checksum-pinned managed ast-grep runtime without global package-manager changes; first structural use can retry provisioning. Discovery does not download binaries. Language servers remain separate dependencies. Clean archive acceptance uses an isolated PATH and a private TypeScript language server, preserving the restriction against project-provided executable overrides. Delivery is tracked in PR #55; GitHub Actions currently reports enabled but refuses workflow dispatch with HTTP 422, so publication gates remain open.
+
+Project MCP preferences live in `.omo/omo.jsonc` under `[opencode].mcp_policy`: `off`, `on-demand`, or `always`. Native search defaults to always; graph candidates stay off; external connectors default to on-demand. `/mcp-policy` edits persistent modes through scoped native RPC. The owned `momo_mcp` tool can inspect or acquire/release transient activation, without changing persistent policy, adding servers, or broadening role permissions. Off blocks new calls while already admitted calls drain. Leases disappear on service restart.
+
+The installer, or `mcp-manage` for an existing installation, adopts native startup control before the next OpenCode launch. Definitions and environment/file references stay in native configuration; a private registry stores only fingerprints and original disable flags. Private backups preserve the original configuration. Existing native disables and `disabled_mcps` remain hard denies. Removing momo requires restoring native startup flags from the backup. Real isolated OpenCode 2.3.0 acceptance proves cold dormant connectors, cross-project isolation, denied advisor activation/coordinator writes, in-flight draining, persistence, interpolation, compiled installer adoption, and the TUI policy dialog. These fixture-backed checks do not establish compatibility with every production MCP server. See `notes/qa/native-project-mcps-20261115.json` for final checks and evidence scope.
 
 ## Discoverable native tools and role policies (2026-10-21)
 
