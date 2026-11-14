@@ -1,0 +1,65 @@
+{
+  "proof": "published archive, real native harness, controlled local model",
+  "credentialsCopied": false,
+  "archiveSHA256": "2dd79cf711f38ba573a1570b43bbc9403b178840f2948de43a97fe921b1f92a4",
+  "version": "2.3.0",
+  "servers": [
+    {
+      "name": "momo_ast_grep",
+      "status": {
+        "status": "connected"
+      }
+    },
+    {
+      "name": "momo_lsp",
+      "status": {
+        "status": "connected"
+      }
+    }
+  ],
+  "runtimeProvisionedOnFirstUse": true,
+  "sourceFreshness": true,
+  "restartReusedRuntime": true,
+  "passed": true,
+  "cleanup": {
+    "before": "session|249\nsession_v2|482\nsession_message|24546",
+    "after": "session|249\nsession_v2|482\nsession_message|24546",
+    "unchanged": true,
+    "unchangedSessions": true,
+    "concurrentMessageWritesAllowed": true,
+    "groups": [
+      38763,
+      40099
+    ],
+    "groupsGone": true,
+    "openedDatabases": [
+      "/tmp/momo-job-class-lqbOhO/data/opencode/opencode.db",
+      "/tmp/momo-job-class-lqbOhO/data/opencode/opencode.db-wal",
+      "/tmp/momo-job-class-lqbOhO/data/opencode/opencode.db-shm"
+    ],
+    "disposableRootRemoved": true
+  },
+  "scope": {
+    "archiveInstall": "Real root archive installed with lifecycle scripts disabled, no source checkout at consumer path",
+    "models": "Controlled local HTTP fixture, no real credits",
+    "lsp": "TypeScript definition navigation; TypeScript 5.9.3 and language server 5.0.0 are explicit disposable test dependencies, not shipped language servers",
+    "restart": "New root session after full native server restart; existing ast-grep executable mtime unchanged",
+    "platform": "Actual Linux x64 execution; other platforms retain checksum-pinned manifest, not native execution proof",
+    "failures": "Earlier fixture runs failed due stale call counters, incomplete discovery and fixture compaction on long reused transcript. Preserved under ignored evidence; no production behavior was bypassed."
+  },
+  "sourceHeadBeforeChanges": "fa4573bee",
+  "checks": {
+    "build": "passed",
+    "typecheck": "passed",
+    "fullSuite": {
+      "pass": 12940,
+      "skip": 20,
+      "fail": 0,
+      "assertions": 46629,
+      "files": 1591,
+      "seconds": 170.94
+    },
+    "environment": "Private /var/tmp root avoids an unrelated /tmp/.git marker. Disk-full-corrupted task dependencies reinstalled using a separate cache and copyfile backend."
+  },
+  "distSHA256": "7667f8f6d710ccc3224e030ed13ebe8869c362889763f17a833d8082b4f287ea"
+}
