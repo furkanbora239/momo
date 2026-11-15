@@ -93,6 +93,7 @@ export function createNativeSearchFallbackConfigs(options: NativeSearchFallbackO
       type: "local",
       command: [...(astGrepCommand ?? ["node", astGrepDist, "mcp"])],
       cwd: options.cwd,
+      environment: { OMO_AST_GREP_AUTO_INSTALL: "1" },
       disabled: astGrepCommand === undefined,
     },
   }

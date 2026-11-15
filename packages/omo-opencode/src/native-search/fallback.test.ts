@@ -37,6 +37,7 @@ describe("native search fallback wiring", () => {
     })
     expect(configs.momo_ast_grep).toEqual({
       type: "local", command: ["node", "/managed/ast-grep/cli.js", "mcp"], cwd: "/workspace/project", disabled: false,
+      environment: { OMO_AST_GREP_AUTO_INSTALL: "1" },
     })
   })
 
