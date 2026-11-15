@@ -1,3 +1,4 @@
+import { registerNativeMcpControl } from "./native-mcp"
 import { Plugin } from "@opencode/plugin"
 import { installOwnedAgents } from "./native-runtime/agents/owned-agents"
 import { registerNativePermissions } from "./native-runtime/permission-policy"
@@ -10,6 +11,7 @@ export const omoPlugin = Plugin.define({
   async setup(ctx) {
     const agents = installOwnedAgents()
     const activeOwnedIDs = new Set(agents.owned)
+    const disposeMcp = await registerNativeMcpControl(ctx, activeOwnedIDs)
     await ctx.agent.reload()
     await ctx.agent.transform((editor) => {
       for (const id of agents.owned) {
@@ -25,6 +27,7 @@ export const omoPlugin = Plugin.define({
     return async () => {
       await native.dispose()
       await disposePermissions()
+      await disposeMcp()
     }
   },
 })

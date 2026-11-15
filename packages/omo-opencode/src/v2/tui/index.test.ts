@@ -85,7 +85,7 @@ describe("#given a setup that does not load a second Solid runtime", () => {
     const setup = createV2TuiSetup({ getAdvisorPool: () => ({ read: () => [], write: () => undefined }) })
 
     await setup(fake.ctx)
-    const pool = fake.keymapLayers[0]?.().commands?.find((command) => command.id === "omo.native.pool")
+    const pool = fake.keymapLayers.flatMap(layer => layer().commands ?? []).find((command) => command.id === "omo.native.pool")
     await pool?.run?.()
 
     expect(fake.toasts).toEqual([{
@@ -97,7 +97,7 @@ describe("#given a setup that does not load a second Solid runtime", () => {
 })
 
 describe("#given a setup with isolated catalog and advisor controls", () => {
-  it("#when setup runs #then only native pool, providers, and advisor-pool controls register", async () => {
+  it("#when setup runs #then native routing and project MCP controls register", async () => {
     const testHome = makeTempDir("test-home")
     const dataHome = makeTempDir("data")
     const project = makeTempDir("project")
@@ -132,14 +132,14 @@ describe("#given a setup with isolated catalog and advisor controls", () => {
         commands.push(command)
       }
     }
-    expect(slashCommandIds).toEqual(["omo.native.pool", "omo.native.providers", "omo.native.advisor-pool"])
+    expect(slashCommandIds).toEqual(["omo.native.mcps", "omo.native.pool", "omo.native.providers", "omo.native.advisor-pool"])
     const pool = commands.find((command) => command.id === "omo.native.pool")
     await pool?.run?.()
     expect(fake.clientRpcCalls).toEqual([{
       rpcID: "momo.native", method: "catalogSnapshot", location: { directory: project }, input: {},
     }])
 
-    expect(fake.keymapLayers.map((layer) => layer().mode)).toEqual(["global"])
+    expect(fake.keymapLayers.map((layer) => layer().mode)).toEqual(["global", "global"])
 
     cleanup?.()
     unregisterAdvisor()

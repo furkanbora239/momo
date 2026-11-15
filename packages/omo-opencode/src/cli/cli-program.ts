@@ -1,3 +1,4 @@
+import { configureMcpCommand } from "./mcp-command"
 import { Command, Option } from "commander"
 import { install } from "./install"
 import { configureCleanupCommand, resolveCleanupPlatform } from "./cleanup-command"
@@ -148,6 +149,7 @@ Model Providers (Priority: Native > Copilot > OpenCode Zen > Z.ai > Kimi > Baili
 
 configureCleanupCommand(program)
 configureCatalogCommand(program)
+configureMcpCommand(program)
 
 program
    .command("run <message>")

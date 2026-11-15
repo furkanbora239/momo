@@ -29,7 +29,6 @@ import { ManagerConfigSchema } from "../config/schema/decision-engine"
 import { registerNativeAdvisorPool, registerNativeCatalog } from "./catalog-registry"
 import { getAdvisorPool as getAdvisorPoolConfig } from "./advisor-pool-config"
 import { discoverNativeV2Client } from "./v2-service-client"
-import { registerNativeSearchFallbacks } from "../native-search/fallback"
 import type { SessionInfo } from "@opencode/client"
 import { loadNativeRuntimeConfig } from "./native-config"
 import { compactTask, candidatePage, listTasksForCaller, resultPage, taskDetail, taskForCaller } from "./task-tool-output"
@@ -121,7 +120,6 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     managerPublicModelID: managerConfig.jev.authentication === "none" ? managerConfig.jev.model : undefined,
     reject: (message) => { throw new NativeJevAdmissionError(message) },
   })
-  const disposeSearchFallbacks = await registerNativeSearchFallbacks(ctx, { cwd: ctx.location.directory, homeDirectory: homeRoot() })
   const unregisterCatalog = registerNativeCatalog(ctx.location.directory, catalog)
   const unregisterAdvisorPool = registerNativeAdvisorPool(ctx.location.directory, {
     read: () => advisorPool.read(),
@@ -335,7 +333,6 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
       await toolRegistration.dispose()
       await rpcRegistration.dispose()
       await disposeKnowledgeTool()
-      await disposeSearchFallbacks()
       unregisterCatalog()
       unregisterAdvisorPool()
     },

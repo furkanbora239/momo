@@ -66,5 +66,9 @@ export async function harness(binary: string, evidence: string, options: { allow
     assert((receipt.unchanged || options.allowConcurrentMessageWrites && unchangedSessions && databases.size>0)&&receipt.groupsGone&&receipt.disposableRootRemoved&&!failure,"Native QA cleanup failed: "+JSON.stringify(receipt))
     return receipt
   }
-  return {root,env,project,plugin,start,stop,capture,cleanup}
+  function trackOwnedProcessGroup(group: number) {
+    assert(Number.isSafeInteger(group) && group > 1, "Invalid owned process group")
+    if (!groups.includes(group)) groups.push(group)
+  }
+  return {root,env,project,plugin,start,stop,capture,cleanup,trackOwnedProcessGroup}
 }
