@@ -1,112 +1,25 @@
-import { registerNativeMcpKeymap } from "./native-mcp-keymap"
 import { Plugin } from "@opencode/plugin/tui"
-
 import { log } from "../../shared/logger"
+import { registerNativeMcpKeymap } from "./native-mcp-keymap"
+import { routingProfileCommands } from "./routing-profile-panel"
+import { createRoutingStatusPanel } from "./routing-status-panel"
 import type { V2TuiCleanup, V2TuiContext } from "./types"
-import type { NativeCatalogAdapter } from "../../native-catalog"
-import type { NativeCatalogSnapshot } from "../../native-catalog"
-import type { NativeAdvisorPoolControl } from "../../native-runtime/tui/catalog-controls"
-import { createNativeCatalogControlStores } from "../../native-runtime/tui/control-stores"
-import { resolveNativeHomeDirectory } from "../../native-catalog/paths"
-import { registerNativeCatalogKeymapControls } from "./native-catalog-keymap"
-import { getAdvisorPool } from "../../native-runtime/advisor-pool-config"
 
-type NativeCatalogView = Pick<NativeCatalogAdapter, "refresh" | "snapshot" | "listProviderIDs">
-
-function isNativeCatalogSnapshot(value: unknown): value is NativeCatalogSnapshot {
-  if (!value || typeof value !== "object") return false
-  const snapshot = value as Record<string, unknown>
-  return typeof snapshot.fetchedAt === "string" && Array.isArray(snapshot.connectedProviders) &&
-    Array.isArray(snapshot.models) && typeof snapshot.sources === "object" && snapshot.sources !== null &&
-    typeof snapshot.transportModelIDs === "object" && snapshot.transportModelIDs !== null &&
-    typeof snapshot.unregisteredLiveModels === "object" && snapshot.unregisteredLiveModels !== null &&
-    typeof snapshot.unavailableProviders === "object" && snapshot.unavailableProviders !== null
-}
-
-function createRpcCatalogView(ctx: V2TuiContext, directory: string): NativeCatalogView {
-  let snapshot: NativeCatalogSnapshot = {
-    fetchedAt: "", connectedProviders: [], models: [], sources: {}, transportModelIDs: {},
-    unregisteredLiveModels: {}, unavailableProviders: {},
-  }
-  let providerIDs: readonly string[] = []
-  return {
-    async refresh() {
-      const response = await ctx.client.rpc.call({
-        rpcID: "momo.native", method: "catalogSnapshot", location: { directory }, input: {},
-      })
-      const output: unknown = response.output
-      if (!output || typeof output !== "object") throw new Error("native catalog RPC returned an invalid result")
-      const result = output as Record<string, unknown>
-      if (!isNativeCatalogSnapshot(result.snapshot) || !Array.isArray(result.providerIDs) ||
-          !result.providerIDs.every((providerID) => typeof providerID === "string")) {
-        throw new Error("native catalog RPC returned an invalid snapshot")
-      }
-      snapshot = result.snapshot
-      providerIDs = result.providerIDs
-      return snapshot
-    },
-    snapshot: () => snapshot,
-    listProviderIDs: async () => [...providerIDs],
-  }
-}
-
-export type V2TuiSetupDeps = {
-  readonly getCatalog?: (ctx: V2TuiContext) => NativeCatalogView | undefined
-  readonly getAdvisorPool?: (ctx: V2TuiContext) => NativeAdvisorPoolControl | undefined
-  readonly homeDirectory?: (ctx: V2TuiContext) => string
-}
-
-async function runRegistration(
-  label: string,
-  register: () => void | Promise<void>,
-): Promise<void> {
-  try {
-    await register()
-  } catch (error) {
-    log(`${label} V2 TUI registration failed`, {
-      error:
-        error instanceof Error
-          ? `${error.message}\n${error.stack ?? ""}`
-          : String(error),
-    })
-  }
-}
-
-/**
- * Registers catalog controls through OpenCode's native keymap context. The
- * TUI process reads the server-owned catalog over the scoped native RPC and
- * writes the shared model/provider stores plus project advisor configuration.
- */
-export function createV2TuiSetup(
-  deps: V2TuiSetupDeps = {
-    getCatalog: (ctx) => createRpcCatalogView(ctx, ctx.location?.directory ?? ""),
-    getAdvisorPool: (ctx) => getAdvisorPool(ctx.location?.directory ?? ""),
-      homeDirectory: () => resolveNativeHomeDirectory(),
-  },
-): (ctx: V2TuiContext) => Promise<V2TuiCleanup | void> {
+export function createV2TuiSetup(): (ctx: V2TuiContext) => Promise<V2TuiCleanup> {
   return async (ctx) => {
-    const cleanups: (() => void)[] = []
-    await runRegistration("[native-mcp-controls]", () => { cleanups.push(registerNativeMcpKeymap(ctx)) })
+    let cleanup: V2TuiCleanup = () => undefined
+    try { cleanup = registerNativeMcpKeymap(ctx) }
+    catch (error) { log("[native-mcp-controls] V2 TUI registration failed", { error: String(error) }) }
 
-    await runRegistration("[native-catalog-controls]", () => {
-      const directory = ctx.location?.directory ?? ""
-      const catalog = deps.getCatalog?.(ctx) ?? createRpcCatalogView(ctx, directory)
-      const advisorPool = deps.getAdvisorPool?.(ctx) ?? getAdvisorPool(directory)
-      if (!catalog || !advisorPool) {
-        log("[native-catalog-controls] shared native catalog or advisor config is not ready")
-        return
-      }
-      const stores = createNativeCatalogControlStores(deps.homeDirectory?.(ctx))
-      cleanups.push(registerNativeCatalogKeymapControls(ctx, catalog, stores, advisorPool))
-    })
-
-    return () => {
-      for (const cleanup of cleanups.splice(0)) cleanup()
+    const panel = createRoutingStatusPanel(ctx)
+    try {
+      const commands = routingProfileCommands(ctx, panel)
+      if (commands.length) ctx.keymap.layer(() => ({ mode: "global", commands }))
+    } catch (error) {
+      log("[native-routing-controls] V2 TUI registration failed", { error: String(error) })
     }
+    return () => { panel.dispose(); return cleanup() }
   }
 }
 
-export default Plugin.define({
-  id: "oh-my-openagent:tui",
-  setup: createV2TuiSetup(),
-})
+export default Plugin.define({ id: "oh-my-openagent:tui", setup: createV2TuiSetup() })

@@ -11,6 +11,7 @@ import type { JobClassificationBatch } from "../native-catalog/job-classificatio
 import type { JobClassificationInput } from "../native-catalog/job-classification-types"
 import { createNativeJevAccountant } from "../native-routing/jev-accountant"
 import { createJobClassJevBackend } from "../native-routing/job-class-backend"
+import { createNativeJevBackend } from "../native-routing/jev-adapter"
 import type { NativeJevRequest, NativeModelRef, NativeRouterStore } from "../native-routing/types"
 import { createNativeJobClassifier } from "./job-classifier"
 import { homeRoot, projectNativeRoot } from "./user-data-paths"
@@ -23,6 +24,7 @@ export interface CatalogJobRoutingOptions {
   readonly routerStore: NativeRouterStore
   readonly managerConfig: ManagerConfig
   readonly waitForKnowledge?: boolean
+  readonly classificationEnabled?: () => boolean
   readonly classes?: unknown
   readonly getApiKey: JevClientDeps["getApiKey"]
   readonly beforeRoutingRequest: (request: NativeJevRequest) => Promise<void> | void
@@ -39,6 +41,7 @@ export function createCatalogJobRouting(options: CatalogJobRoutingOptions) {
   const transport: JevClientDeps = { session: "momo-native-catalog", getApiKey: options.getApiKey,
     baseUrl: config.base_url, model: config.model, maxAttempts: config.max_attempts }
   async function getInputs(): Promise<readonly JobClassificationInput[]> {
+    if (options.classificationEnabled?.() === false) return []
     const models = await catalog.catalog.listAvailable(), inputs: JobClassificationInput[] = []
     for (const model of models) {
       if (!model.available || !await catalog.pool.isAllowed(model)) continue
@@ -66,6 +69,7 @@ export function createCatalogJobRouting(options: CatalogJobRoutingOptions) {
     profileCacheDirectory: options.profileCacheDirectory ?? join(homeRoot(), ".omo", "native", "job-classifications"),
     definitions: () => definitions, getInputs, currentInput, isEligible, revision: options.revision, onError: options.onError,
     async assertBatchEligible(batch) {
+      if (options.classificationEnabled?.() === false) throw new NativeJevAdmissionError("Background catalog classification is disabled by the active routing profile")
       const models = await catalog.catalog.listAvailable()
       for (const entry of batch.entries) {
         if (!models.some(model => model.available && sameModel(model, entry.input.model)) || !await catalog.pool.isAllowed(entry.input.model)) {
@@ -75,6 +79,7 @@ export function createCatalogJobRouting(options: CatalogJobRoutingOptions) {
       // The runtime owner rechecks native manager/provider controls immediately
       // before every HTTP attempt, including client retries.
       await options.beforeClassificationRequest(batch)
+      if (options.classificationEnabled?.() === false) throw new NativeJevAdmissionError("Background catalog classification is disabled by the active routing profile")
       for (const entry of batch.entries) {
         const current = currentInput(entry.input.model)
         if (!current || jobClassificationFingerprint(definitions, current) !== entry.fingerprint) {
@@ -83,9 +88,17 @@ export function createCatalogJobRouting(options: CatalogJobRoutingOptions) {
       }
     },
   })
-  const jev = createJobClassJevBackend({ ...transport, session: "momo-native-routing", beforeRequest: options.beforeRoutingRequest }, {
+  const routingTransport = { ...transport, session: "momo-native-routing", beforeRequest: options.beforeRoutingRequest }
+  const classified = createJobClassJevBackend(routingTransport, {
     definitions, confidenceThreshold: config.confidence_threshold, prepare: classifier.prepare,
     readClassMembership: classifier.memberships,
   })
+  const direct = createNativeJevBackend(routingTransport)
+  const jev = {
+    billingBinding: classified.billingBinding,
+    prepare: (request: NativeJevRequest) => options.classificationEnabled?.() === false ? undefined : classified.prepare?.(request),
+    choose: (...args: Parameters<typeof classified.choose>) =>
+      (options.classificationEnabled?.() === false ? direct : classified).choose(...args),
+  }
   return { jev, accountant, classifier }
 }

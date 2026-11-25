@@ -32,6 +32,11 @@ import { discoverNativeV2Client } from "./v2-service-client"
 import type { SessionInfo } from "@opencode/client"
 import { loadNativeRuntimeConfig } from "./native-config"
 import { compactTask, candidatePage, listTasksForCaller, resultPage, taskDetail, taskForCaller } from "./task-tool-output"
+import { createNativeControlStores } from "../native-catalog"
+import { createRoutingProfileStore, effectiveRoutingPool } from "./routing-profile"
+import { createRoutingAssistant, isRoutingWorker } from "./routing-assistant"
+import { registerRoutingProfileRpc } from "./routing-profile-rpc"
+import { sameModel } from "../native-routing/candidate-ranking"
 
 const roleByAgentID = new Map<string, NativeTaskRole>([
   ["momo-orchestrator", "orchestrator"], ["momo-planner", "planner"], ["momo-executor", "executor"],
@@ -64,13 +69,42 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
   })
   const knowledgeStore = createNativeCatalogKnowledgeStore(`${homeRoot()}/.omo/native/catalog-knowledge.json`)
   const advisorPool = getAdvisorPoolConfig(ctx.location.directory)
+  const controls = createNativeControlStores(homeRoot())
+  const profiles = createRoutingProfileStore(join(dataRoot, "routing-profiles.json"), () => {
+    const pool = controls.readPool()
+    return {
+      decision: { kind: "jev" },
+      pool: { mode: pool.mode ?? (pool.allowed.length ? "allowlist" : "all"), models: pool.allowed.map(model => ({ providerID: model.providerID, id: model.modelID })) },
+      advisors: [...advisorPool.read()],
+      research: { kind: "inherit" },
+    }
+  })
+  let cachedPool: { profile: NonNullable<ReturnType<typeof profiles.current>>; pool: ReturnType<typeof effectiveRoutingPool> } | undefined
+  const readPool = () => {
+    const saved = profiles.current()
+    if (!saved) return controls.readPool()
+    if (cachedPool?.profile !== saved) cachedPool = { profile: saved, pool: effectiveRoutingPool(saved) }
+    return cachedPool.pool
+  }
+  const readAdvisors = () => profiles.current()?.advisors ?? advisorPool.read()
   const modelPolicyHealth = createNativeModelPolicyHealth(`${dataRoot}/model-policy-health.json`)
-  const autoResearch = appConfig.catalog?.auto_research !== false
-  const binding = appConfig.catalog?.research_executor
+  const autoResearch = () => {
+    const research = profiles.current()?.research
+    return research?.kind === "chat" || (research?.kind !== "off" && appConfig.catalog?.auto_research !== false)
+  }
+  const legacyResearch = appConfig.catalog?.research_executor
+  const legacyResearchExecutor = legacyResearch && { providerID: legacyResearch.providerID, id: legacyResearch.modelID }
+  const explicitResearchExecutor = () => {
+    const research = profiles.current()?.research
+    if (research?.kind === "off") return
+    if (research?.kind === "chat") return research.model
+    return legacyResearchExecutor
+  }
   async function researchExecutor() {
     if (maintenanceRunner.stopping()) return undefined
-    if (binding) return { providerID: binding.providerID, id: binding.modelID }
-    if (!autoResearch) return undefined
+    const binding = explicitResearchExecutor()
+    if (binding) return binding
+    if (!autoResearch()) return undefined
     const models = await catalog.catalog.listAvailable()
     for (const model of [...models].sort((a, b) => `${a.providerID}/${a.id}`.localeCompare(`${b.providerID}/${b.id}`))) {
       if (isAutomaticResearchExecutor(model) && await catalog.pool.isAllowed(model)) return { providerID: model.providerID, id: model.id }
@@ -78,10 +112,14 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     return undefined
   }
   const maintenance = createNativeResearchMaintenance(`${dataRoot}/catalog-maintenance.json`, {
-    executor: binding ? { providerID: binding.providerID, id: binding.modelID } : undefined,
-    getExecutor: binding ? undefined : researchExecutor,
+    executor: legacyResearchExecutor,
+    getExecutor: researchExecutor,
     isTargetEligible: async (model) => (await catalog.catalog.listAvailable()).some(item => item.available && item.providerID === model.providerID && item.id === model.id) && await catalog.pool.isAllowed(model),
-    isEligible: async (model) => (await catalog.catalog.listAvailable()).some((item) => item.available && item.toolCall !== false && item.providerID === model.providerID && item.id === model.id && (binding !== undefined || autoResearch && isAutomaticResearchExecutor(item))) && await catalog.pool.isAllowed(model),
+    isEligible: async (model) => {
+      const binding = explicitResearchExecutor()
+      return (await catalog.catalog.listAvailable()).some(item => sameModel(item, model) && isRoutingWorker(item)
+        && (binding ? sameModel(binding, item) : autoResearch() && isAutomaticResearchExecutor(item))) && await catalog.pool.isAllowed(model)
+    },
     isBusy: async () => {
       if (maintenanceRunner.stopping()) return true
       const tasks = await repository.list()
@@ -104,11 +142,14 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     modelPolicyHealth,
     readMaintenance: () => maintenance.list(),
     homeDirectory: homeRoot(),
-    advisorModels: advisorPool.read(),
+    readAdvisorModels: readAdvisors,
+    readPool,
     routerStore,
     knowledgeStore,
     readPublishedModels: createNativePublishedModelReader({ cachePath: join(homeRoot(), ".omo/native/published-models.json") }),
-    researchModel: (model, research) => maintenance.enqueue(model, research),
+    researchModel: async (model, research) => {
+      if (profiles.current()?.research.kind !== "off") await maintenance.enqueue(model, research)
+    },
     onError: (message, error) => console.warn(message, error),
   })
   await catalog.refresh()
@@ -116,6 +157,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     context: ctx,
     homeDirectory: homeRoot(),
     catalog,
+    readPool,
     managerProviderID: managerConfig.jev.provider_id,
     managerPublicModelID: managerConfig.jev.authentication === "none" ? managerConfig.jev.model : undefined,
     reject: (message) => { throw new NativeJevAdmissionError(message) },
@@ -128,9 +170,24 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
       catalog.setAdvisorModels(models)
     },
   })
+  const assistant = createRoutingAssistant(async () => catalog.catalog.listAvailable(), async (model, prompt) =>
+    (await ctx.generate.text({ model, prompt })).text, model => {
+      const policy = profiles.current()?.decision
+      return policy !== undefined && policy.kind !== "manual" &&
+        ((policy.kind === "chat" && sameModel(policy.model, model)) || (policy.fallback !== undefined && sameModel(policy.fallback, model)))
+    })
   const jobRouting = createCatalogJobRouting({ directory: ctx.location.directory, catalog, routerStore, managerConfig,
-    classes: appConfig.catalog?.job_classes, waitForKnowledge: autoResearch, revision: admission.revision,
-    beforeRoutingRequest: admission.beforeRoutingRequest, beforeClassificationRequest: admission.beforeClassificationRequest,
+    classes: appConfig.catalog?.job_classes, waitForKnowledge: appConfig.catalog?.auto_research !== false, revision: admission.revision,
+    classificationEnabled: () => {
+      const active = profiles.current()
+      return !active || (active.decision.kind === "jev" && active.research.kind !== "off")
+    },
+    async beforeRoutingRequest(request) {
+      await admission.beforeRoutingRequest(request)
+      const policy = profiles.current()?.decision
+      if (policy && policy.kind !== "jev") throw new NativeJevAdmissionError("The active profile no longer uses Jev")
+    },
+    beforeClassificationRequest: admission.beforeClassificationRequest,
     async getApiKey() {
       await admission.assertManagerProvider()
       try { return await nativeJevApiKey(ctx, managerConfig.jev) }
@@ -139,13 +196,14 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     onError: error => console.warn("momo catalog classification failed", error),
   })
   const router = createNativeRouter({
-    authorizeCatalogResearch: async input => autoResearch && !maintenanceRunner.stopping() && input.sourceDecisionID === `catalog-discovery:${input.rootSessionID}` && await researchContext.owns(input.rootSessionID),
+    authorizeCatalogResearch: async input => autoResearch() && !maintenanceRunner.stopping() && input.sourceDecisionID === `catalog-discovery:${input.rootSessionID}` && await researchContext.owns(input.rootSessionID),
+    decision: { current: () => profiles.current()?.decision, choose: assistant.choose },
     jev: jobRouting.jev,
     accountant: jobRouting.accountant,
     ...catalog,
     store: routerStore,
     config: {
-      getAdvisorModels: () => advisorPool.read(),
+      getAdvisorModels: readAdvisors,
       confidenceThreshold: managerConfig.jev.confidence_threshold,
       breakerFailures: managerConfig.jev.circuit_breaker.failures,
       breakerCooldownMs: managerConfig.jev.circuit_breaker.cooldown_ms,
@@ -168,7 +226,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     },
   })
   const maintenanceRunner = createCatalogMaintenanceRunner({
-    discover: async () => { if (autoResearch) discoveryStatus = await discovery.discover() },
+    discover: async () => { if (autoResearch()) discoveryStatus = await discovery.discover() },
     pump: () => maintenance.pump(),
   })
   let engine: NativeTaskEngine | undefined
@@ -199,9 +257,10 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     onExecutionFailure: createNativeModelPolicyObserver(sessionRuntime, modelPolicyHealth),
     canRunMaintenance: async (task) => {
       if (maintenanceRunner.stopping() || await researchContext.isBusy()) return false
-      if (!autoResearch && task.sourceDecisionID?.startsWith("catalog-discovery:")) return false
-      if (binding) return (await client.session.active())[task.rootSessionID] === undefined
-      return autoResearch && (await catalog.catalog.listAvailable()).some(model => isAutomaticResearchExecutor(model) && model.providerID === task.model?.providerID && model.id === task.model.id)
+      if (!autoResearch() && task.sourceDecisionID?.startsWith("catalog-discovery:")) return false
+      const binding = explicitResearchExecutor()
+      if (binding) return task.model !== undefined && sameModel(binding, task.model) && (await client.session.active())[task.rootSessionID] === undefined
+      return autoResearch() && (await catalog.catalog.listAvailable()).some(model => isAutomaticResearchExecutor(model) && task.model !== undefined && sameModel(model, task.model))
     },
     defaultConcurrency: config?.defaultConcurrency ?? 5,
     providerConcurrency: config?.providerConcurrency,
@@ -226,7 +285,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
         if (role === undefined || !nativeToolAllowed(role, "momo_task")) throw new Error("This momo role cannot create tasks")
         const input = taskInput.parse(rawInput)
         if (input.action === "help") return response(describeNativeTool({ tool: "momo_task", role: roleByAgentID.get(role)!, operation: input.operation }))
-        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
+        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: readAdvisors(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "task", input))
         if (input.action === "create") {
           const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, acceptance: input.acceptance, callerSessionID: tool.sessionID, kind: "task" })
@@ -257,7 +316,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
         if (role === undefined || !nativeToolAllowed(role, "momo_consult")) throw new Error("This momo role cannot consult an advisor")
         const input = consultInput.parse(rawInput)
         if (input.action === "help") return response(describeNativeTool({ tool: "momo_consult", role: roleByAgentID.get(role)!, operation: input.operation }))
-        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
+        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, advisors: readAdvisors(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "consultation", input))
         if (input.action === "start") {
           const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, callerSessionID: tool.sessionID, kind: "consultation" })
@@ -294,6 +353,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
     },
   })
   const disposeKnowledgeTool = await registerNativeCatalogKnowledgeTool(ctx, knowledgeStore, (agentID) => agentID === "momo-catalog-researcher" && activeOwnedIDs.has(agentID))
+  const routingProfileRpc = await registerRoutingProfileRpc(ctx, { profiles, assistant, catalog, manager: managerConfig.jev, controls, admission, router })
   let disposed = false
   const iterator = ctx.event.subscribe()[Symbol.asyncIterator]()
   let eventQueue = Promise.resolve()
@@ -332,6 +392,7 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
       await eventLoop
       await toolRegistration.dispose()
       await rpcRegistration.dispose()
+      await routingProfileRpc.dispose()
       await disposeKnowledgeTool()
       unregisterCatalog()
       unregisterAdvisorPool()

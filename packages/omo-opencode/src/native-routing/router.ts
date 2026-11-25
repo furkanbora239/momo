@@ -88,7 +88,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     const permitted: NativeModelFacts[] = []
     for (const facts of catalogFacts) {
       if (!facts.available || !await deps.pool.isAllowed(facts)) continue
-      if (facts.toolCall === false) continue
+      if (facts.toolCall === false || (facts.type !== undefined && facts.type !== "chat")) continue
       if (input.requiredContextLength !== undefined && facts.contextLength !== undefined && facts.contextLength < input.requiredContextLength) continue
       if (input.requiredContextLength !== undefined && facts.contextLength === undefined) continue
       if (input.requiredCapabilities?.some((capability) => !facts.capabilities?.includes(capability))) continue
@@ -235,6 +235,13 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       return { kind: "unavailable", decisionId, reason }
     }
     const request = requestFor(input, decisionId, candidates, await deps.outcomes.list())
+    const policy = deps.decision?.current()
+    if (policy && policy.kind !== "jev") {
+      const pending = { ...makeRecord(request, "awaiting_selection", policy.kind === "manual" ? "Active profile uses caller selection" : "Routing decision is pending or was interrupted"), jevCallId: undefined }
+      await saveNew(pending)
+      if (policy.kind === "manual") return routeResult(pending)
+      return chooseWithoutJev(pending, [policy.model, policy.fallback], "Chat decision unavailable")
+    }
     const pending = { ...makeRecord(request, "awaiting_selection", "Jev decision is pending or was interrupted"), jevCallId: `routing:${decisionId}`, choiceCandidates: candidates }
     await saveNew(pending)
     try { await deps.jev.prepare?.(request) }
@@ -242,6 +249,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       if (error instanceof NativeJevAccountingPersistenceError) throw error
       const reason = `jev catalog preparation unavailable: ${error instanceof Error ? error.message : String(error)}`
       await setRecord({ ...pending, reason, jevFailure: { message: reason } })
+      if (policy) return chooseWithoutJev(byDecision.get(decisionId) ?? pending, [policy.fallback], reason)
       return { kind: "awaiting_selection", decisionId, reason, candidates }
     }
     const jevResult = await serialJev(async (): Promise<{ answer?: NativeJevAnswer; rawResponse?: unknown; failure?: unknown }> => {
@@ -280,6 +288,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       const reason = message === "jev monthly budget cap reached" || message === "jev circuit breaker is open" || message.startsWith("jev monthly spend is unknown") ? message : `jev unavailable: ${message}`
       const record = byDecision.get(decisionId) ?? pending
       if (record.reason !== reason) await setRecord({ ...record, reason, choiceCandidates: candidates, jevFailure: { message: reason, rawResponse: jevResult.rawResponse } })
+      if (policy) return chooseWithoutJev(byDecision.get(decisionId) ?? record, [policy.fallback], reason)
       return { kind: "awaiting_selection", decisionId, reason, candidates }
     }
     const answer = jevResult.answer
@@ -318,6 +327,52 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     const record = { ...makeRecord(request, "selected", undefined, answer, probabilities), candidateSnapshots: [...pending.candidateSnapshots, { capturedAt: new Date(now()).toISOString(), source: "post-jev-revalidation" as const, candidates: refreshedCandidates }], selected: { role: candidate.role, model: candidate.model, by: "jev" as const } }
     await setRecord(record)
     return { kind: "selected", decisionId, role: candidate.role, model: candidate.model }
+  }
+
+  async function chooseWithoutJev(
+    pending: NativeDecisionRecord, models: readonly (NativeModelRef | undefined)[], reason: string,
+  ): Promise<NativeRouteResult> {
+    const { request, decisionId } = pending
+    let choices = await snapshot(request.input)
+    let selection: NativeCandidate | undefined
+    let decisionModel: NativeModelRef | undefined
+    let decisionRationale: string | undefined
+    if (choices.length === 1) selection = choices[0]
+    const tried: NativeModelRef[] = []
+    for (const model of models) {
+      if (selection || !choices.length || !model || tried.some(previous => sameModel(previous, model))) continue
+      tried.push(model)
+      if (!deps.decision) break
+      try {
+        const answer = await deps.decision.choose(model, { ...request, candidates: choices })
+        if (!answer) { reason = "Decision model deferred to caller selection"; break }
+        const offered = choices.some(item => item.role === answer.candidate.role && sameModel(item.model, answer.candidate.model))
+        choices = await snapshot(request.input)
+        selection = offered ? choices.find(item => item.role === answer.candidate.role && sameModel(item.model, answer.candidate.model)) : undefined
+        if (!selection) { reason = "Decision candidate is no longer eligible"; continue }
+        decisionModel = model
+        decisionRationale = answer.rationale
+      } catch (error) {
+        reason = error instanceof Error ? error.message : "Decision model request failed"
+      }
+    }
+    const refreshed = {
+      ...pending, decisionModel, decisionRationale,
+      candidateSnapshots: [...pending.candidateSnapshots, { capturedAt: new Date(now()).toISOString(), source: "selection-revalidation" as const, candidates: choices }],
+      choiceCandidates: choices,
+    }
+    if (selection) {
+      const selected = { role: selection.role, model: selection.model, by: decisionModel ? "chat" as const : "runtime" as const }
+      await setRecord({ ...refreshed, status: "selected", reason: undefined, selected })
+      return { kind: "selected", decisionId, role: selected.role, model: selected.model }
+    }
+    if (!choices.length) {
+      reason = "no eligible available models"
+      await setRecord({ ...refreshed, status: "unavailable", reason })
+      return { kind: "unavailable", decisionId, reason }
+    }
+    await setRecord({ ...refreshed, reason })
+    return { kind: "awaiting_selection", decisionId, reason, candidates: choices }
   }
 
   async function select(decisionId: string, modelRef: NativeModelRef, role: NativeRole, callerSessionID: string): Promise<NativeRouteResult> {
@@ -433,7 +488,14 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     return deps.store.exportLines()
   }
 
-  return { route, bindResearch, recoverResearch, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger, accountant }
+  async function status() {
+    await ensureLoaded()
+    const latest = [...byDecision.values()].reverse().find(record => record.selected?.role !== "catalog-researcher")
+    return { jevRetryAt: openUntil > now() ? openUntil : undefined,
+      lastDecision: latest ? { status: latest.status, reason: latest.reason?.slice(0, 240), selected: latest.selected } : undefined }
+  }
+
+  return { route, bindResearch, recoverResearch, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger, accountant, status }
 }
 
 export type NativeRouter = ReturnType<typeof createNativeRouter>

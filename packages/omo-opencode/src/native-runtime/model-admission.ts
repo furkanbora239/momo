@@ -12,9 +12,11 @@ export function createNativeModelAdmission(input: {
   catalog: NativeCatalogAdapter
   managerProviderID: string
   managerPublicModelID?: string
+  readPool?: ReturnType<typeof createNativeControlStores>["readPool"]
   reject: (message: string) => never
 }) {
   const controls = createNativeControlStores(input.homeDirectory)
+  const readPool = input.readPool ?? controls.readPool
   const health = createProviderHealthStore(() => resolveNativeCatalogHealthDirectory(input.homeDirectory))
 
   function publicModels() {
@@ -36,7 +38,7 @@ export function createNativeModelAdmission(input: {
     // The manager is a separate provider from the worker pool. Check it last,
     // after any asynchronous catalog reconciliation, for every HTTP attempt.
     const providers = await assertManagerProvider()
-    const pool = controls.readPool()
+    const pool = readPool()
     for (const candidate of request.candidates) {
       if (!allowed.has(`${candidate.model.providerID}/${candidate.model.id}`) || !providers.has(candidate.model.providerID)
         || !isModelAllowed(pool, candidate.model.providerID, candidate.model.id)
@@ -57,13 +59,13 @@ export function createNativeModelAdmission(input: {
     if (!providers.providers.some((provider) => provider.id === model.providerID && provider.activation !== "disabled")) input.reject("Native session provider is no longer available")
     const blocked = health.readProviderHealth()[model.providerID.trim().toLowerCase()]
     if (isProviderDisabled(controls.readProviderToggles(), model.providerID) || (blocked && !isObsoleteNativeDiscoveryFailure(blocked) && Date.now() < blocked.unavailableUntil)) input.reject("Native provider became unavailable before execution")
-    if (session.parentID !== undefined && !isModelAllowed(controls.readPool(), model.providerID, model.id)) input.reject("Native child model left the allowed pool before execution")
+    if (session.parentID !== undefined && !isModelAllowed(readPool(), model.providerID, model.id)) input.reject("Native child model left the allowed pool before execution")
   }
 
   async function beforeClassificationRequest(batch: JobClassificationBatch): Promise<void> {
     const available = await input.catalog.catalog.listAvailable()
     const providers = await assertManagerProvider()
-    const pool = controls.readPool()
+    const pool = readPool()
     for (const { input: entry } of batch.entries) {
       const model = entry.model
       if (!providers.has(model.providerID) || !available.some(row => row.available && row.providerID === model.providerID && row.id === model.id)
@@ -73,7 +75,7 @@ export function createNativeModelAdmission(input: {
 
   function revision(): string {
     const snapshot = input.catalog.snapshot()
-    return JSON.stringify({ pool: controls.readPool(), toggles: controls.readProviderToggles(), health: health.readProviderHealth(),
+    return JSON.stringify({ pool: readPool(), toggles: controls.readProviderToggles(), health: health.readProviderHealth(),
       providers: snapshot.connectedProviders, unavailable: snapshot.unavailableProviders,
       models: snapshot.models.map(model => [model.providerID, model.id, model.available]) })
   }

@@ -43,6 +43,7 @@ export interface NativePublishedModelMetadata {
 }
 
 export interface NativeModelFacts extends NativeModelRef {
+  readonly type?: string
   readonly displayName?: string
   readonly family?: string
   readonly canonical?: string
@@ -228,8 +229,10 @@ export interface NativeDecisionRecord {
   readonly jevAttempted?: boolean
   readonly jevAnswer?: NativeJevAnswer
   readonly jevFailure?: { readonly message: string; readonly rawResponse?: unknown }
+  readonly decisionModel?: NativeModelRef
+  readonly decisionRationale?: string
   readonly probabilities?: Readonly<Record<string, number>>
-  readonly selected?: { readonly role: NativeRole; readonly model: NativeModelRef; readonly by: "jev" | "caller" | "runtime"; readonly taskId?: string; readonly sessionId?: string }
+  readonly selected?: { readonly role: NativeRole; readonly model: NativeModelRef; readonly by: "jev" | "chat" | "caller" | "runtime"; readonly taskId?: string; readonly sessionId?: string }
   readonly outcome?: NativeOutcomeFact
   readonly status: "awaiting_selection" | "selected" | "completed" | "unavailable"
   readonly choiceCandidates?: readonly NativeCandidate[]
@@ -263,6 +266,10 @@ export interface NativeRouterConfig {
 }
 
 export interface NativeRouterDeps {
+  readonly decision?: {
+    current(): NativeDecisionPolicy | undefined
+    choose(model: NativeModelRef, request: NativeJevRequest): Promise<{ candidate: NativeCandidate; rationale?: string } | undefined>
+  }
   /** Runtime-only proof of an owned discovery root; never accepted from tool arguments. */
   readonly authorizeCatalogResearch?: (input: NativeRouteInput) => Promise<boolean>
   readonly accountant?: import("./jev-accountant").NativeJevAccountant
@@ -275,3 +282,8 @@ export interface NativeRouterDeps {
   readonly config?: NativeRouterConfig
   readonly onError?: (message: string, error: unknown) => void
 }
+
+export type NativeDecisionPolicy =
+  | { readonly kind: "manual" }
+  | { readonly kind: "jev"; readonly fallback?: NativeModelRef }
+  | { readonly kind: "chat"; readonly model: NativeModelRef; readonly fallback?: NativeModelRef }

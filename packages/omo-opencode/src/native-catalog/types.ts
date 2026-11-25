@@ -31,6 +31,7 @@ export interface NativeCatalogAdapterOptions {
   /** Home root for native data. `.omo` and managed cache paths are resolved beneath it. */
   readonly homeDirectory?: string
   readonly advisorModels?: readonly NativeModelRef[]
+  readonly readAdvisorModels?: () => readonly NativeModelRef[]
   readonly fetchImpl?: typeof fetch
   readonly now?: () => number
   readonly onError?: (message: string, error: unknown) => void

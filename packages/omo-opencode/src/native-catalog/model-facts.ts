@@ -34,6 +34,7 @@ export function nativeModelFacts(
   return {
     providerID: model.providerID,
     id: model.id,
+    ...("type" in model && typeof model.type === "string" ? { type: model.type } : {}),
     ...(model.name?.trim() ? { displayName: model.name.trim().slice(0, 160) } : {}),
     ...(model.family?.trim() ? { family: model.family.trim().slice(0, 160) } : {}),
     ...(model.canonical?.trim() ? { canonical: model.canonical.trim().slice(0, 256) } : {}),

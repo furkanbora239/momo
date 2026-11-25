@@ -6,7 +6,7 @@
 > Upstream documentation is available in the [oh-my-openagent repository](https://github.com/code-yeongyu/oh-my-openagent#readme).
 
 
-momo extends OpenCode v2 with a session-model orchestrator, a Jev routing manager, departments, workers and on-demand readonly consultation. The OpenCode adapter targets v2.0.24. The native implementation passed isolated OpenCode acceptance. [The handoff](notes/native-v2-handoff-20261012.md) records the evidence and delivery PRs; [PR #34](https://github.com/furkanbora239/momo/pull/34) is the final dev delivery gate.
+momo extends OpenCode v2 with a session-model orchestrator, a configurable routing manager, departments, workers and on-demand readonly consultation. The OpenCode adapter targets v2.0.24 or later. [The handoff](notes/native-v2-handoff-20261012.md) records the native migration evidence and delivery PRs.
 
 ## Execution model
 
@@ -41,7 +41,17 @@ Register the package root in OpenCode v2 configuration:
 
 OpenCode loads the package's `./tui` export from that registration. Do not add duplicate entries to `cli.json` or `tui.json`. momo distributes owned markdown agent files and preserves conflicting user-owned files.
 
-Start `opencode`, choose the orchestrator and select its session model. Use native agent/task visibility. `/pool`, `/providers` and `/advisor-pool` manage routing controls. `/mcp-policy` saves MCP modes for this project.
+Start `opencode`, connect an account with `/connect` and select the orchestrator's model with `/models`. Use `/momo-routing` to set up delegation and `/mcp-policy` to set MCP modes for the project.
+
+## Routing profiles
+
+Open `/momo-routing` and choose **Automatic**, **ChatGPT** or **OpenCode Go**. Set a decision model and worker pool, or choose **Fill with AI** and select a connected chat model to prepare a draft. ChatGPT and Go drafts favor the corresponding provider. Review the proposed choices and select **Apply profile** to activate the draft. **Fill unavailable choices with AI** repairs unavailable entries in a saved profile while preserving eligible choices.
+
+The decision model may use configured Jev, a connected chat model, or caller selection. Chat decisions use a tool-free OpenCode generation request with the task brief and eligible role/model options. Momo validates the answer against the current pool and existing role rules. A configured backup can handle a failed decision request. Unresolved decisions return the candidates on the same task. Chat generation uses the selected provider's allowance or API billing. Jev's budget applies to Jev requests.
+
+The worker pool offers **All eligible models**, **Only selected models** and **Pause delegation**. An empty explicit selection allows zero models. `Ctrl+Space` toggles models without clearing a filter and `Ctrl+S` keeps the selections in the draft. Advisor and research models are optional and must pass the worker pool when dispatched. Catalog maintenance can inherit existing settings, use a chosen researcher, or be turned off. Background Jev classification pauses for chat and manual decision profiles.
+
+Profiles take effect on save and are kept per project in Momo's private data directory. Existing installations use their previous pool, advisor and Jev settings until a profile is applied. Provider routing permissions apply across projects and can be inspected separately from OpenCode connection and quota status. `/pool`, `/providers` and `/advisor-pool` remain shortcuts into the routing panel. **Show alongside session** opens the active routing status in OpenCode's session panel.
 
 ## Task and consultation tools
 

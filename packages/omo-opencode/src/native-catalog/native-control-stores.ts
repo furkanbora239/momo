@@ -15,6 +15,10 @@ function parsePool(value: unknown, path: string): ModelPool {
   if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.allowed)) {
     throw new NativeControlStoreError(path, "invalid model pool schema")
   }
+  const mode = value.mode
+  if (mode !== undefined && mode !== "all" && mode !== "allowlist" && mode !== "paused") {
+    throw new NativeControlStoreError(path, "invalid model pool mode")
+  }
   const allowed = value.allowed.map((entry) => {
     if (!isRecord(entry) || typeof entry.providerID !== "string" || !entry.providerID || typeof entry.modelID !== "string" || !entry.modelID || (entry.preferred !== undefined && typeof entry.preferred !== "boolean")) {
       throw new NativeControlStoreError(path, "invalid model pool entry")
@@ -23,7 +27,7 @@ function parsePool(value: unknown, path: string): ModelPool {
       ? { providerID: entry.providerID, modelID: entry.modelID }
       : { providerID: entry.providerID, modelID: entry.modelID, preferred: entry.preferred }
   })
-  return { version: 1, allowed, updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : "" }
+  return { version: 1, ...(mode === undefined ? {} : { mode }), allowed, updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : "" }
 }
 
 function parseToggles(value: unknown, path: string): ProviderToggles {

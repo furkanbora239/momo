@@ -49,7 +49,7 @@ export function createNativeResearchMaintenance(file: string, options: {
     for (const item of await load()) {
       if (!item.taskID || item.status !== "running") continue
       let state = await options.inspect(item.taskID)
-      const assignedExecutor = item.executor ?? (options.getExecutor ? undefined : options.executor)
+      const assignedExecutor = item.executor ?? options.executor
       if (state === "interrupted" && options.resume && assignedExecutor && !await options.isBusy() && await options.isEligible(assignedExecutor)) {
         await options.resume(item.taskID, item.context as NativeResearchContext)
         state = await options.inspect(item.taskID)
@@ -87,7 +87,7 @@ export function createNativeResearchMaintenance(file: string, options: {
     }
     if (!next) return
     const targetModel = next.model
-    const selectedExecutor = known ? undefined : options.executor ?? await options.getExecutor?.()
+    const selectedExecutor = known ? undefined : options.getExecutor ? await options.getExecutor() : options.executor
     const executor = selectedExecutor && { providerID: selectedExecutor.providerID, id: selectedExecutor.id }
     const eligible = executor && await options.isEligible(executor)
     let reserved: NativeResearchMaintenanceEntry | undefined

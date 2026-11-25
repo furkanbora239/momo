@@ -83,6 +83,49 @@ function deps(options: {
 }
 
 describe("native task routing", () => {
+  test("dispatches an approved chat choice with a durable decision and no Jev call", async () => {
+    const store = memoryStore()
+    const worker = model("worker")
+    const decider = model("chat-router")
+    let jevCalls = 0
+    let chatCalls = 0
+    const options = { ...deps({ models: [worker], store, choose: async () => {
+      jevCalls++
+      throw new Error("Jev unavailable")
+    } }), decision: {
+      current: () => ({ kind: "chat" as const, model: decider }),
+      async choose(ref: NativeModelRef, request: Parameters<NativeRouterDeps["jev"]["choose"]>[0]) {
+        chatCalls++
+        expect(ref).toEqual(decider)
+        return { candidate: request.candidates.find(candidate => candidate.role === "worker")! }
+      },
+    } }
+    const brief = input({ decisionId: "chat-decision" })
+
+    expect(await createNativeRouter(options).route(brief)).toMatchObject({ kind: "selected", role: "worker", model: { id: "worker" } })
+    expect(await createNativeRouter(options).route(brief)).toMatchObject({ kind: "selected", decisionId: "chat-decision" })
+    expect((await store.load()).at(-1)).toMatchObject({ decisionModel: decider, selected: { by: "chat" } })
+    expect({ jevCalls, chatCalls }).toEqual({ jevCalls: 0, chatCalls: 1 })
+  })
+
+  test("uses the configured chat backup when Jev fails and rejects a removed choice", async () => {
+    const worker = model("worker")
+    const backup = model("backup")
+    let allowed = true
+    const router = createNativeRouter({
+      ...deps({ models: [worker], allowed: () => allowed, choose: async () => { throw new Error("Jev offline") } }),
+      decision: {
+        current: () => ({ kind: "jev", fallback: backup }),
+        async choose(ref, request) {
+          expect(ref).toEqual(backup)
+          allowed = false
+          return { candidate: request.candidates.find(candidate => candidate.role === "worker")! }
+        },
+      },
+    })
+
+    expect(await router.route(input())).toMatchObject({ kind: "unavailable", reason: "no eligible available models" })
+  })
   test("corrupt active ledger prevents Jev replay after restart", async () => {
     const root = await mkdtemp(join(tmpdir(), "momo-native-ledger-corrupt-"))
     tempDirs.push(root)

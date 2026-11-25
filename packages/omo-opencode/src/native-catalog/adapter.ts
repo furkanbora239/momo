@@ -183,7 +183,9 @@ export function createNativeCatalogAdapter(options: NativeCatalogAdapterOptions)
   const pool = {
     isAllowed(model) { return isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id) },
     isConsultationAllowed(model) {
-      return advisorModels.size > 0 && advisorModels.has(`${model.providerID}/${model.id}`) && isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id)
+      const models = options.readAdvisorModels?.()
+      const listed = models ? models.some(item => item.providerID === model.providerID && item.id === model.id) : advisorModels.has(`${model.providerID}/${model.id}`)
+      return listed && isModelAllowed(options.readPool?.() ?? controlStores.readPool(), model.providerID, model.id)
     },
   } satisfies NativePool
   const knowledge: NativeKnowledge = {

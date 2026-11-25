@@ -12,6 +12,7 @@ export type ModelPoolEntry = {
 
 export type ModelPool = {
   version: 1
+  mode?: "all" | "allowlist" | "paused"
   allowed: ModelPoolEntry[]
   updatedAt: string
 }
@@ -27,6 +28,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function parseModelPool(value: unknown): ModelPool | null {
   if (!isRecord(value)) return null
   if (value.version !== 1) return null
+  const mode = value.mode
+  if (mode !== undefined && mode !== "all" && mode !== "allowlist" && mode !== "paused") return null
   if (!Array.isArray(value.allowed)) return null
   const allowed: ModelPoolEntry[] = []
   for (const entry of value.allowed) {
@@ -45,7 +48,7 @@ function parseModelPool(value: unknown): ModelPool | null {
   }
   const updatedAt =
     typeof value.updatedAt === "string" ? value.updatedAt : ""
-  return { version: 1, allowed, updatedAt }
+  return { version: 1, ...(mode === undefined ? {} : { mode }), allowed, updatedAt }
 }
 
 function emptyPool(): ModelPool {
@@ -102,16 +105,16 @@ function matchesEntry(
 }
 
 /**
- * An empty `allowed` list means "no restriction": every model is allowed.
- * This keeps the pool file backward compatible with installs that never
- * touched it.
+ * In the legacy file an empty list allows every model. An explicit
+ * routing profile mode controls how its own list is interpreted.
  */
 export function isModelAllowed(
   pool: ModelPool,
   providerID: string,
   modelID: string,
 ): boolean {
-  if (pool.allowed.length === 0) return true
+  if (pool.mode === "paused") return false
+  if (pool.mode === "all" || (pool.mode === undefined && pool.allowed.length === 0)) return true
   return pool.allowed.some((entry) => matchesEntry(entry, providerID, modelID))
 }
 
@@ -138,5 +141,5 @@ export function toggleModelInPool(
   const allowed = isModelAllowed(pool, providerID, modelID)
     ? pool.allowed.filter((entry) => !matchesEntry(entry, providerID, modelID))
     : [...pool.allowed, { providerID, modelID }]
-  return { version: 1, allowed, updatedAt: new Date().toISOString() }
+  return { version: 1, ...(pool.mode === undefined ? {} : { mode: "allowlist" }), allowed, updatedAt: new Date().toISOString() }
 }
