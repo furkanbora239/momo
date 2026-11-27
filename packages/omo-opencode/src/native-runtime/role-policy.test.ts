@@ -107,12 +107,14 @@ describe("coordinator unknown action boundary", () => {
         execute: {}, question: {}, skill: {}, read: {}, momo_lsp_status: {}, momo_task: {}, momo_consult: {},
       }
       filterNativeContextTools(role, tools)
-      expect(Object.keys(tools).sort()).toEqual(["execute", "momo_consult", "momo_lsp_status", "momo_task", "question", "read", "skill"])
+      const expected = ["execute", "momo_consult", "momo_lsp_status", "momo_task", "read", "skill"]
+      if (role === "momo-orchestrator") expected.push("question")
+      expect(Object.keys(tools).sort()).toEqual(expected.sort())
       for (const name of ["mcp__external__operate", "external_operate", "momo_lsp_unknown"]) {
         expect(nativeActionEffect(role, name)).toBe("deny")
       }
       expect(nativeActionEffect(role, "momo_lsp_status")).toBeUndefined()
-      expect(nativeActionEffect(role, "question")).toBeUndefined()
+      expect(nativeActionEffect(role, "question")).toBe(role === "momo-orchestrator" ? undefined : "deny")
       expect(nativeActionEffect(role, "skill")).toBeUndefined()
     })
   }

@@ -1,9 +1,10 @@
 // MODIFIED: expose effective native capabilities without changing caller authority.
 import type { NativeModelRef } from "../native-routing/types"
-import { nativeToolAllowed, type NativeAgentID } from "./role-policy"
+import { nativeParentQuestionAllowed, nativeToolAllowed, type NativeAgentID } from "./role-policy"
 
 export async function readNativeToolCapabilities(options: {
   agent: NativeAgentID
+  managed: boolean
   advisors: readonly NativeModelRef[]
   available: readonly (NativeModelRef & { available: boolean; toolCall?: boolean })[]
   callerModel?: NativeModelRef
@@ -25,7 +26,7 @@ export async function readNativeToolCapabilities(options: {
     }
     eligible.push({ providerID: ref.providerID, id: ref.id })
   }
-  const questions = options.agent !== "momo-advisor" && options.agent !== "momo-catalog-researcher"
+  const questions = options.managed ? nativeParentQuestionAllowed(options.agent) : options.agent === "momo-orchestrator"
   return {
     role: options.agent.slice("momo-".length),
     delegation: { allowed: nativeToolAllowed(options.agent, "momo_task") },
@@ -33,8 +34,8 @@ export async function readNativeToolCapabilities(options: {
       reason: !canConsult ? "role_denied" : seen.size === 0 ? "advisor_pool_empty" : eligible.length > 0 ? undefined : excludedCallerModel ? "no_distinct_advisor" : "no_eligible_advisor",
       configuredCount: seen.size, eligibleCount: eligible.length, models: canConsult ? eligible.slice(0, 10) : [], truncated: canConsult && eligible.length > 10,
     },
-    questions: { supported: questions, tool: questions ? "question" : undefined,
-      destination: questions ? options.agent === "momo-orchestrator" ? "user" : "parent_then_root" : undefined,
+    questions: { supported: questions, tool: questions ? options.managed ? "momo_ask_parent" : "question" : undefined,
+      destination: questions ? options.managed ? "parent" : "user" : undefined,
       replyTool: questions ? "momo_task answer" : undefined },
     monitoring: { maxWaitMs: 60000, pageLimit: 10, notifications: "durable", steering: false },
   }

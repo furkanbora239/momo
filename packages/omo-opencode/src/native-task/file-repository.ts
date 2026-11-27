@@ -18,7 +18,7 @@ const taskSchema = z.object({
   prompt: z.string(), scope: z.string().optional(), acceptance: z.string().optional(),
   createdAt: z.number(), updatedAt: z.number(), attempts: z.number().int().nonnegative(), progress: z.string().optional(),
   activeTools: z.array(z.object({ id: z.string(), name: z.string(), startedAt: z.number() })),
-  question: z.object({ id: z.string(), prompt: z.string(), options: z.array(z.string()).optional(), form: z.record(z.string(), z.unknown()).optional() }).optional(),
+  question: z.object({ id: z.string(), prompt: z.string(), transport: z.literal("parent").optional(), options: z.array(z.string()).optional(), form: z.record(z.string(), z.unknown()).optional() }).optional(),
   questionDelivery: z.enum(["pending", "sent"]).optional(), questionDeadlineAt: z.number().optional(), questionEscalated: z.boolean().optional(),
   answer: z.unknown().optional(), answerStatus: z.enum(["pending", "sent"]).optional(), childrenWakePending: z.boolean().optional(), parentWakeID: z.string().optional(), waitForTaskID: z.string().optional(), resumeInPlace: z.boolean().optional(),
   executionOutcome: z.object({ state: z.enum(["succeeded", "failed"]), result: z.string().optional(), error: z.string().optional() }).optional(),

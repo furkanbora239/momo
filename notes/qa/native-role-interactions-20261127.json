@@ -1,0 +1,143 @@
+{
+  "checkedOn": "OpenCode v2.4.2",
+  "provider": "Local deterministic model and Jev fixtures",
+  "finalBundleSHA256": "74bc5296f3678d0aef277982a58dfd1b0a3aa61466c8fa8202b729285a9a773a",
+  "terminal": {
+    "input": "Physical Shift+Tab and Enter through an isolated tmux session",
+    "roleTransitionsInProviderRequests": [
+      {
+        "transition": "Role changed in this chat from momo-orchestrator to momo-planner",
+        "matchedRolePolicies": [
+          "planner"
+        ],
+        "historyMarkers": [
+          "QA_SWITCH_ORCHESTRATOR",
+          "QA_SWITCH_PLANNER"
+        ],
+        "nativeTools": [
+          "glob",
+          "grep",
+          "read",
+          "skill",
+          "webfetch",
+          "websearch",
+          "execute"
+        ]
+      },
+      {
+        "transition": "Role changed in this chat from momo-planner to momo-worker",
+        "matchedRolePolicies": [
+          "worker"
+        ],
+        "historyMarkers": [
+          "QA_SWITCH_ORCHESTRATOR",
+          "QA_SWITCH_PLANNER",
+          "QA_SWITCH_WORKER"
+        ],
+        "nativeTools": [
+          "edit",
+          "glob",
+          "grep",
+          "read",
+          "shell",
+          "skill",
+          "webfetch",
+          "websearch",
+          "write",
+          "execute"
+        ]
+      }
+    ],
+    "pendingDepartmentQuestionHadNoFormInRootPane": true
+  },
+  "directAndDepartmentAnswers": [
+    {
+      "case": "HOLD",
+      "taskID": "ntask_59fd82e1-1e16-4782-9737-0d59c5e703ab",
+      "sessionID": "ses_299241a77ec0d8e2db2c4bf864",
+      "questionID": "c0d74ff7-d353-4c92-a910-877a10e0a111",
+      "answerStatus": "sent",
+      "answer": "Alpha",
+      "state": "succeeded",
+      "sameWorkerSession": true,
+      "workerTerminalResult": "QA_CHILD_FINISHED"
+    },
+    {
+      "case": "DIRECT",
+      "taskID": "ntask_a6b70450-9d7b-4321-909a-33d7811e327f",
+      "sessionID": "ses_4af8acddc4325fbb9d3427729d",
+      "questionID": "e0b1763c-3d0e-48cd-b467-9f4e4ba1b8c7",
+      "answerStatus": "sent",
+      "answer": "Alpha",
+      "state": "succeeded",
+      "sameWorkerSession": true,
+      "workerTerminalResult": "QA_CHILD_FINISHED"
+    },
+    {
+      "case": "ANSWER",
+      "taskID": "ntask_b5d18622-c895-4ff0-888c-36486390602d",
+      "sessionID": "ses_c65c8f29368e4c6b6f8c6c4a55",
+      "questionID": "62c5fc28-2669-4bdb-a491-9542158024dc",
+      "answerStatus": "sent",
+      "answer": "Alpha",
+      "state": "succeeded",
+      "sameWorkerSession": true,
+      "workerTerminalResult": "QA_CHILD_FINISHED"
+    }
+  ],
+  "timeout": {
+    "bundleSHA256": "49463ebe029200de39324f9d97eaeeb16926b2ac34e2fd4c5489b518f6cba97e",
+    "secondsUntilDeliberateForm": 147.46,
+    "nativeFormsCreated": 1,
+    "formOpenedBy": "Root orchestrator native question tool after receiving the timeout notification",
+    "rawChildPromptAppearedInRootDialog": false,
+    "contextualFormTitle": "Which project preference should apply? This decides the deployment target.",
+    "answeredWithTerminalEnter": true,
+    "worker": {
+      "case": "TIMEOUT",
+      "taskID": "ntask_2dd888b2-adb0-43fe-8849-4787b24906bb",
+      "sessionID": "ses_11f3382cd50a0692dd78cb5a4f",
+      "questionID": "d96f6c49-123a-4024-b0e3-16d7b1bc44d9",
+      "answerStatus": "sent",
+      "answer": "Alpha",
+      "state": "succeeded",
+      "sameWorkerSession": true,
+      "workerTerminalResult": "QA_CHILD_FINISHED"
+    }
+  },
+  "restart": {
+    "bundleSHA256": "9d129960c52cada7824c5727bae5db6c93159a89c4a2e7e38e141d87d9b19413",
+    "serviceRestarts": 1,
+    "confirmedAnswerInWorkerRequest": true,
+    "worker": {
+      "case": "RESTART",
+      "taskID": "ntask_22df0fcb-ca7b-4015-9523-1ace37aac572",
+      "sessionID": "ses_806287dfe7c8fb6b99854665bc",
+      "questionID": "b7131a2c-bf5e-4e98-bffc-4e86152a54e0",
+      "answerStatus": "sent",
+      "answer": "Alpha",
+      "state": "succeeded",
+      "sameWorkerSession": true,
+      "workerTerminalResult": "QA_CHILD_FINISHED"
+    }
+  },
+  "isolatedCleanup": {
+    "final": {
+      "unchanged": true,
+      "groupsGone": true,
+      "disposableRootRemoved": true
+    },
+    "timeout": {
+      "unchanged": true,
+      "groupsGone": true,
+      "disposableRootRemoved": true
+    },
+    "restart": {
+      "unchanged": true,
+      "groupsGone": true,
+      "disposableRootRemoved": true
+    }
+  },
+  "sameChatRetestBundleSHA256": "4c13802d19ee36f7d7ef1de8d6a1c45f730db745e607842db72e4b87f503b495",
+  "sameChatRetestAt": "2026-11-27T12:05:00Z"
+}
