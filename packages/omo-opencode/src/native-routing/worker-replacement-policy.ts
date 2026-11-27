@@ -5,14 +5,15 @@ import type { NativeCandidate, NativeDecisionRecord, NativeModelFacts } from "./
 export function workerReplacementCandidates(
   origin: NativeDecisionRecord,
   live: readonly NativeCandidate[],
-  excludeProvider: boolean,
+  scope: NonNullable<NativeDecisionRecord["workerReplacementScope"]>,
 ): NativeCandidate[] {
   if (origin.selected?.role !== "worker") return []
   const originalModel = origin.selected.model
   const ceiling = origin.workerPriceCeilingUsd
   return live.filter(candidate => {
-    if (candidate.role !== "worker" || candidate.facts.toolCall !== true || sameModel(candidate.model, originalModel)) return false
-    if (excludeProvider && candidate.model.providerID === originalModel.providerID) return false
+    if (candidate.role !== "worker" || candidate.facts.toolCall !== true) return false
+    if (sameModel(candidate.model, originalModel) !== (scope === "retry_original")) return false
+    if (scope === "provider" && candidate.model.providerID === originalModel.providerID) return false
     const rates = usdRates(candidate.facts)
     if (!rates) return false
     if (rates.input === 0 && rates.output === 0) return true

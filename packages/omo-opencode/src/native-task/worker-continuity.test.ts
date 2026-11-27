@@ -20,6 +20,9 @@ function setup() {
   const outcomes: Record<string, string> = {}
   const routed: Parameters<NonNullable<NativeTaskRouter["selectWorkerReplacement"]>>[0][] = []
   const runtime = new FakeNativeTaskRuntime()
+  let alternateAvailable = true
+  let originalSelection: (() => void) | undefined
+  let dispatch: ((id: string) => void) | undefined
   let inspection: Awaited<ReturnType<NativeTaskRuntime["inspect"]>> = receipt
   let now = 10_000
   const options = {
@@ -27,8 +30,14 @@ function setup() {
     router: Object.assign(router, {
       selectWorkerReplacement: async (input: typeof routed[number]) => {
         routed.push(input)
+        if (input.retryOriginal) {
+          originalSelection?.()
+          return { kind: "selected", decisionId: "decision-b", model: firstModel, role: "worker" } as const
+        }
+        if (!alternateAvailable) return { kind: "unavailable", reason: "No eligible alternate" } as const
         return { kind: "selected", decisionId: "decision-b", model: secondModel, role: "worker" } as const
       },
+      recordDispatch: async (id: string) => { dispatch?.(id) },
       recordOutcome: async (id: string, outcome: { result: string }) => { outcomes[id] = outcome.result },
     }),
     runtime: Object.assign(runtime, {
@@ -40,6 +49,9 @@ function setup() {
   }
   return {
     engine: createNativeTaskEngine(options), options, repository, runtime, calls, routed, outcomes,
+    removeAlternate() { alternateAvailable = false },
+    advanceDuringOriginalSelection(ms: number) { originalSelection = () => { now += ms } },
+    advanceDuringReplacementDispatch(ms: number) { dispatch = id => { if (id === "decision-b") now += ms } },
     inspectWith(value: typeof inspection) { inspection = value },
     advanceClock(ms: number) { now += ms },
   }
@@ -109,4 +121,80 @@ test("missing terminal evidence expires without a second execution", async () =>
   expect(await h.repository.get(task.id)).toMatchObject({ state: "failed", attempts: 1, error: expect.stringContaining("could not confirm") })
   expect(h.calls).toEqual(["session-a"])
   expect(h.runtime.deliveries).toHaveLength(1)
+})
+
+const rateLimitEvent = { ...failedEvent, error: JSON.stringify({ type: "provider.free-limit", status: 429, retryAfterMs: 10_000 }) }
+const rateLimitReceipt = { ...receipt, failureRejection: { kind: "rate_limit", scope: "model", retryAfterMs: 10_000, explicitRetryAfter: true } } as const
+
+test("the sole approved model is retried once after its durable reset across restart", async () => {
+  const h = setup()
+  h.removeAlternate()
+  h.inspectWith(rateLimitReceipt)
+  const task = await h.engine.create({ callerSessionID: "root", prompt: "Read the fixture" })
+  await h.engine.onEvent(rateLimitEvent)
+  expect(await h.repository.get(task.id)).toMatchObject({ state: "queued", attempts: 1, workerRetryAt: 20_000 })
+  expect(h.runtime.deliveries).toHaveLength(0)
+  expect(h.calls).toEqual(["session-a"])
+
+  const restarted = createNativeTaskEngine(h.options)
+  h.advanceClock(9_999)
+  await restarted.reconcile()
+  expect(h.calls).toEqual(["session-a"])
+  h.advanceClock(1)
+  await restarted.checkWatchdogs()
+  expect(h.calls).toEqual(["session-a", "session-b"])
+  await restarted.onEvent({ ...rateLimitEvent, sessionID: "session-b", id: "reject-b" })
+  await restarted.checkWatchdogs()
+
+  expect(await h.repository.get(task.id)).toMatchObject({ state: "failed", attempts: 2, error: expect.stringContaining("automatic replacement was also rejected") })
+  expect(h.calls).toEqual(["session-a", "session-b"])
+  expect(h.routed.map(route => route.retryOriginal)).toEqual([undefined, true])
+  expect(h.runtime.deliveries).toHaveLength(1)
+})
+
+test("a retry window that expired while offline never launches stale work", async () => {
+  const h = setup()
+  h.removeAlternate()
+  h.inspectWith(rateLimitReceipt)
+  const task = await h.engine.create({ callerSessionID: "root", prompt: "Read the fixture" })
+  await h.engine.onEvent(rateLimitEvent)
+  h.advanceClock(131_000)
+
+  const restarted = createNativeTaskEngine(h.options)
+  await restarted.reconcile()
+  expect(await h.repository.get(task.id)).toMatchObject({ state: "failed", attempts: 1, error: expect.stringContaining("retry window expired") })
+  expect(h.calls).toEqual(["session-a"])
+  expect(h.runtime.deliveries).toHaveLength(1)
+})
+
+test("a missing or overlong native retry deadline leaves actionable exhaustion", async () => {
+  for (const retry of [
+    { retryAfterMs: 60_000 },
+    { retryAfterMs: 1_000_000, explicitRetryAfter: true as const },
+  ]) {
+    const h = setup()
+    h.removeAlternate()
+    h.inspectWith({ ...rateLimitReceipt, failureRejection: { kind: "rate_limit", scope: "model", ...retry } })
+    const task = await h.engine.create({ callerSessionID: "root", prompt: "Read the fixture" })
+    await h.engine.onEvent(rateLimitEvent)
+    expect(await h.repository.get(task.id)).toMatchObject({ state: "failed", attempts: 1, error: expect.stringContaining("Wait for the cooldown") })
+    expect(h.calls).toEqual(["session-a"])
+  }
+})
+
+test("expiration during routing or dispatch admission prevents a delayed launch", async () => {
+  for (const stage of ["selection", "dispatch"]) {
+    const h = setup()
+    h.removeAlternate()
+    h.inspectWith(rateLimitReceipt)
+    const task = await h.engine.create({ callerSessionID: "root", prompt: "Read the fixture" })
+    await h.engine.onEvent(rateLimitEvent)
+    h.advanceClock(10_000)
+    if (stage === "selection") h.advanceDuringOriginalSelection(120_000)
+    else h.advanceDuringReplacementDispatch(120_000)
+    await h.engine.checkWatchdogs()
+
+    expect(await h.repository.get(task.id)).toMatchObject({ state: "failed", error: expect.stringContaining("retry window expired") })
+    expect(h.calls).toEqual(["session-a"])
+  }
 })

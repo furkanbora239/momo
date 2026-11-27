@@ -153,12 +153,14 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
   }
 
   async function pumpQueue(): Promise<void> {
+    const deferredRetries = new Set<string>()
     while (true) {
       const tasks = await options.repository.list()
       const active = tasks.filter((task) => task.state === "running").length
       if (active >= maxConcurrent) return
       let next: NativeTask | undefined
       for (const task of tasks) {
+        if (task.workerRetryAt !== undefined && (task.workerRetryAt > now() || deferredRetries.has(task.id))) continue
         if (task.state !== "queued" || task.routeStatus === "pending" || !hasCapacity(task, tasks, maxConcurrent, options.providerConcurrency, options.modelConcurrency, options.defaultConcurrency ?? 5)) continue
         if (tasks.some((candidate) => candidate.failureObservationError !== undefined && sameModel(candidate.model, task.model))) continue
         if (task.maintenance && (tasks.some((candidate) => !candidate.maintenance && ["awaiting_selection", "queued", "running", "waiting_children", "waiting_question"].includes(candidate.state)) || options.canRunMaintenance && !await options.canRunMaintenance(task))) continue
@@ -166,6 +168,16 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
         break
       }
       if (next === undefined) return
+      const taskID = next.id
+      if (next.workerRetryAt !== undefined && next.replacementStart !== "pending") {
+        const outcome = await withTaskLock(taskID, async () => workerContinuity.startScheduled(await get(taskID)))
+        if (outcome === "pending") deferredRetries.add(taskID)
+        else if (outcome === "failed") {
+          const failed = await controls.deliver(taskID)
+          if (failed.parentTaskID !== undefined) await retryChildWake(await get(failed.parentTaskID), false)
+        }
+        continue
+      }
       if (options.router.revalidateSelected !== undefined && !(await revalidateQueued(next.id))) continue
       await withTaskLock(next.id, async () => {
         const current = await get(next.id)
@@ -211,6 +223,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
         }
         if (task.replacementStart === "pending") {
           task.state = "failed"
+          task.workerRetryAt = undefined
           task.error = "The replacement model is no longer available within the original assignment's price and policy bounds. Review the model pool before creating another task."
           task.result = task.error
           task.delivery = { status: "pending", attempts: 0 }
@@ -232,7 +245,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     return valid
   }
 
-  async function retryChildWake(task: NativeTask): Promise<void> {
+  async function retryChildWake(task: NativeTask, resumeNow = true): Promise<void> {
     let shouldResume = false
     await withTaskLock(task.id, async () => {
       const current = await get(task.id)
@@ -241,7 +254,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       await signalTaskChildrenDone(current, { repository: options.repository, runtime: options.runtime, save })
       if (current.state === "queued" && current.parentWakeMessage !== undefined) shouldResume = true
     })
-    if (shouldResume) await pump()
+    if (shouldResume && resumeNow) await pump()
   }
 
   async function wakeParentForQuestion(childTaskID: string, questionID: string): Promise<boolean> {

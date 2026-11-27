@@ -1031,3 +1031,24 @@ test("worker replacement respects price, tool, context, pool and account bounds 
   models[1] = { ...alternate, inputPricePerMillion: 3 }
   expect(await restarted.revalidateSelected("task:worker-replacement", "parent-1")).toMatchObject({ kind: "unavailable" })
 })
+
+test("scheduled original model still requires current pool membership and stays within its immutable rates", async () => {
+  const original = model("original", {
+    toolCall: true, priceCurrency: "USD", priceOrigin: "configuration", priceSource: "configuration",
+    inputPricePerMillion: 1, outputPricePerMillion: 2,
+  })
+  const models = [original]
+  let allowed = true
+  const router = createNativeRouter(deps({ models, allowed: () => allowed }))
+  await router.route(input({ decisionId: "original" }))
+  await router.recordDispatch("original", { taskId: "task", sessionId: "first", role: "worker", model: original }, "parent-1")
+  const saved = { decisionId: "original", sessionID: "first", taskID: "task", callerSessionID: "parent-1", excludeProvider: false, retryOriginal: true } as const
+
+  allowed = false
+  expect(await router.selectWorkerReplacement(saved)).toMatchObject({ kind: "unavailable" })
+  allowed = true
+  models[0] = { ...original, outputPricePerMillion: 3 }
+  expect(await router.selectWorkerReplacement(saved)).toMatchObject({ kind: "unavailable" })
+  models[0] = original
+  expect(await router.selectWorkerReplacement(saved)).toMatchObject({ kind: "selected", model: { id: "original" }, decisionId: "task:worker-replacement" })
+})

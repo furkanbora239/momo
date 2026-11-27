@@ -232,7 +232,7 @@ export interface NativeDecisionRecord {
   readonly probabilities?: Readonly<Record<string, number>>
   readonly selected?: { readonly role: NativeRole; readonly model: NativeModelRef; readonly by: "jev" | "caller" | "runtime"; readonly taskId?: string; readonly sessionId?: string }
   readonly workerPriceCeilingUsd?: { readonly input: number; readonly output: number }
-  readonly workerReplacementScope?: "model" | "provider"
+  readonly workerReplacementScope?: "model" | "provider" | "retry_original"
   readonly outcome?: NativeOutcomeFact
   readonly status: "awaiting_selection" | "selected" | "completed" | "unavailable"
   readonly choiceCandidates?: readonly NativeCandidate[]

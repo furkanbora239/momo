@@ -1,3 +1,4 @@
+import { workerRetryDeadline } from "./worker-continuity"
 import { errorText } from "./lifecycle"
 import type { NativeTask, NativeTaskRepository, NativeTaskRuntime } from "./types"
 
@@ -53,16 +54,20 @@ export async function runNativeTask(
       }
     }
     if (task.replacementStart === "pending") {
+      const deadlineAt = workerRetryDeadline(task.workerRetryAt)
       await deps.onAllocated(task)
       if (task.dispatchStatus !== "recorded") throw new Error("Replacement dispatch could not be recorded. Review provider availability before continuing.")
+      if (deadlineAt !== undefined && deps.now() >= deadlineAt) throw new Error("The provider retry window expired before launch. Check availability before creating another task.")
       task.replacementStart = "issued"
+      task.workerRetryAt = undefined
       await deps.save(task)
-      await deps.runtime.start({ sessionID: task.sessionID, prompt: buildTaskPrompt(task) })
+      await deps.runtime.start({ sessionID: task.sessionID, prompt: buildTaskPrompt(task), deadlineAt })
       return
     }
     await deps.onResume(task)
   } catch (error) {
     task.error = errorText(error)
+    task.workerRetryAt = undefined
     if (task.answerStatus === "pending") task.state = "waiting_question"
     else if (task.parentWakeMessage !== undefined) task.state = "waiting_children"
     else {

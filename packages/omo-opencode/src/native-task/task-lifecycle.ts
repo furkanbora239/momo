@@ -209,6 +209,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     let retriedWorkerFailure = false
     let retriedAnswer = false
     for (const task of await deps.options.repository.list()) {
+      if (task.state === "queued" && task.workerRetryAt !== undefined && task.workerRetryAt <= deps.now()) retriedWorkerFailure = true
       if (task.state === "waiting_question" && task.answerStatus === "pending") {
         await queuePendingAnswer(task.id)
         retriedAnswer = true
