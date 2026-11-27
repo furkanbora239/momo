@@ -40,6 +40,7 @@ function isDecisionRecord(value: Record<string, unknown>): value is Record<strin
     typeof request.input.parentRole !== "string" || typeof request.input.rootSessionID !== "string" ||
     typeof request.input.parentSessionID !== "string" ||
     (request.input.kind !== "task" && request.input.kind !== "consultation") ||
+    (request.input.excludedAdvisors !== undefined && (request.input.kind !== "consultation" || !Array.isArray(request.input.excludedAdvisors) || !request.input.excludedAdvisors.every(isModelRef))) ||
     !Array.isArray(request.allowedRoles) || !request.allowedRoles.every((role) => typeof role === "string") ||
     !Array.isArray(request.candidates) || !request.candidates.every(isCandidate) ||
     !Array.isArray(request.knowledge) || !Array.isArray(request.outcomes) || typeof request.instructions !== "string") return false

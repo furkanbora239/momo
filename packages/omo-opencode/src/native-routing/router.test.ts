@@ -83,6 +83,45 @@ function deps(options: {
 }
 
 describe("native task routing", () => {
+  test("consultation fallback and selection exclude caller and previous advisor across router restart", async () => {
+    const [caller, previous, next, denied] = ["caller", "previous", "next", "denied"].map(id => model(id))
+    const configured = [caller!, previous!, next!, denied!]
+    const store = memoryStore()
+    const options = deps({
+      models: configured,
+      advisorModels: configured,
+      allowed: candidate => candidate.id !== denied!.id,
+      store,
+      choose: async request => {
+        expect(request.candidates.map(candidate => candidate.model.id)).toEqual(["next"])
+        return answer("advisor", previous!)
+      },
+    })
+    const request = input({ kind: "consultation", decisionId: "discussion", excludedAdvisors: [caller!, previous!] })
+    const first = await createNativeRouter(options).route(request)
+    expect(first.kind).toBe("awaiting_selection")
+    if (first.kind !== "awaiting_selection") throw new Error("Expected caller selection")
+    expect(first.candidates.map(candidate => candidate.model.id)).toEqual(["next"])
+
+    const restarted = createNativeRouter(options)
+    const invalid = await restarted.select(first.decisionId, previous!, "advisor", request.parentSessionID)
+    expect(invalid.kind).toBe("awaiting_selection")
+    const accepted = await restarted.select(first.decisionId, next!, "advisor", request.parentSessionID)
+    expect(accepted).toMatchObject({ kind: "selected", model: { id: "next" } })
+  })
+
+  test("only a caller model in the advisor pool does not spend a routing call", async () => {
+    const caller = model("caller")
+    let calls = 0
+    const router = createNativeRouter(deps({
+      models: [caller],
+      advisorModels: [caller],
+      choose: async () => { calls += 1; return answer("advisor", caller) },
+    }))
+    expect(await router.route(input({ kind: "consultation", excludedAdvisors: [caller] }))).toMatchObject({ kind: "unavailable" })
+    expect(calls).toBe(0)
+  })
+
   test("corrupt active ledger prevents Jev replay after restart", async () => {
     const root = await mkdtemp(join(tmpdir(), "momo-native-ledger-corrupt-"))
     tempDirs.push(root)
