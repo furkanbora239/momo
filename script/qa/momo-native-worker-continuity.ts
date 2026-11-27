@@ -36,12 +36,14 @@ const models = [
   { providerID: "qa-cheap", id, price: 0.1 },
   { providerID: "qa-exhausted", id, price: 0.3 },
   { providerID: "qa-worked", id, price: 0.3 },
+  { providerID: "qa-delayed", id, price: 0 },
 ]
 const scenarios = [
   { name: "FREE", worker: "qa-free", alternate: "qa-free-alternate", attemptCount: 2, status: "succeeded" },
   { name: "PAID", worker: "qa-paid", alternate: "qa-cheap", attemptCount: 2, status: "succeeded" },
   { name: "EXHAUSTED", worker: "qa-exhausted", attemptCount: 1, status: "failed" },
   { name: "TOOL", worker: "qa-worked", alternate: "qa-cheap", attemptCount: 1, status: "failed" },
+  { name: "DELAYED", worker: "qa-delayed", attemptCount: 2, status: "succeeded" },
 ] as const
 const initialRootRequests = new Set<string>()
 const calls: { provider: string; marker: string; http: number }[] = []
@@ -50,7 +52,7 @@ const proof = {
   bundleSHA256: digest(await readFile(entry)),
   version: "",
   calls, tasks: {} as Record<string, unknown>, health: undefined as unknown,
-  restart: {} as Record<string, unknown>, cleanup: undefined as unknown, error: undefined as string | undefined,
+  restart: {} as Record<string, unknown>, delayed: {} as Record<string, unknown>, cleanup: undefined as unknown, error: undefined as string | undefined,
 }
 
 function rootAssignment(marker: string, worker: string): string {
@@ -79,9 +81,13 @@ const provider = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request
   }
   if (provider === rootProvider) return contractResponse(body.model, { text: "Root acknowledgement" })
   if (provider === scenario.worker) {
-    if (scenario.name === "FREE") {
+    if (scenario.name === "FREE" || scenario.name === "DELAYED" && !calls.some(call => call.marker === marker)) {
       calls.push({ provider, marker, http: 429 })
-      return Response.json({ error: { name: "FreeUsageLimitError", code: "insufficient_quota", message: "Free usage limit reached" } }, { status: 429, headers: { "retry-after": "30" } })
+      return Response.json({ error: { name: "FreeUsageLimitError", code: "insufficient_quota", message: "Free usage limit reached" } }, { status: 429, headers: { "retry-after": scenario.name === "DELAYED" ? "4" : "30" } })
+    }
+    if (scenario.name === "DELAYED") {
+      calls.push({ provider, marker, http: 200 })
+      return contractResponse(body.model, { text: "Recovered worker" })
     }
     if (scenario.name === "TOOL" && !body.messages.some(message => message.role === "tool")) {
       calls.push({ provider, marker, http: 200 })
@@ -124,6 +130,18 @@ try {
     await save(join(qa.env.HOME!, ".omo/model-pool.json"), { version: 1, allowed, updatedAt: new Date().toISOString() })
     const root = await client.session.create({ location: project, agent: "momo-orchestrator", model: { providerID: rootProvider, id } })
     await client.session.prompt({ sessionID: root.id, text: `ROOT_${scenario.name}`, resume: true })
+    if (scenario.name === "DELAYED") {
+      const queued = (await until(() => tasksFor(root.id), rows => rows.some(task => task.workerRetryAt !== undefined), "durable retry timestamp"))[0]!
+      assert.equal(queued.state, "queued")
+      assert.equal(queued.attempts, 1)
+      assert(queued.workerRetryAt && queued.workerRetryAt > Date.now())
+      await client.session.wait({ sessionID: root.id })
+      assert.equal(calls.filter(call => call.marker === "WORK_DELAYED").length, 1)
+      await qa.stop()
+      await Bun.sleep(Math.max(0, queued.workerRetryAt - Date.now() + 100))
+      client = await qa.start()
+      proof.delayed = { taskID: queued.id, retryAt: queued.workerRetryAt, restartedAt: Date.now() }
+    }
     const tasks = await until(() => tasksFor(root.id), rows => rows.some(task => (task.state === "succeeded" || task.state === "failed") && task.outcomeStatus === "recorded"), scenario.name, 20_000).catch(async error => {
       proof.tasks[scenario.name] = { tasks: await tasksFor(root.id), context: await client.session.context({ sessionID: root.id }) }
       throw error
@@ -136,7 +154,8 @@ try {
     if (scenario.status === "succeeded") {
       assert(failedWorkerAttempt && failedWorkerAttempt.model.providerID === scenario.worker)
       assert.notEqual(failedWorkerAttempt.sessionID, sessionID)
-      assert.equal(task.model?.providerID, scenario.alternate)
+      assert.equal(task.model?.providerID, "alternate" in scenario ? scenario.alternate : scenario.worker)
+      if (scenario.name === "DELAYED") assert.equal(task.id, proof.delayed.taskID)
       const exported = await client.rpc.call({ rpcID: "momo.native", method: "exportDecisions", input: {}, location: project })
       const latest = new Map((exported.output as { lines: string[] }).lines.map(line => JSON.parse(line) as NativeDecisionRecord).filter(row => row.type === "decision").map(row => [row.decisionId, row]))
       assert.equal(latest.get(failedWorkerAttempt.decisionId)?.outcome?.result, "failure")
@@ -145,6 +164,7 @@ try {
       assert.equal(final?.outcome?.taskId, taskID)
       assert.equal(final?.request.input.sourceDecisionID, failedWorkerAttempt.decisionId)
       assert.equal(final?.jevCallId, undefined)
+      if (scenario.name === "DELAYED") assert.equal(final?.workerReplacementScope, "retry_original")
     } else {
       assert.equal(failedWorkerAttempt, undefined)
       assert.match(task.error ?? "", scenario.name === "TOOL" ? /may have started work/ : /Check provider funding/)
@@ -156,7 +176,7 @@ try {
   assert.equal(await readFile(join(qa.project, "side-effect.txt"), "utf8"), "x")
   assert.deepEqual(calls.map(row => [row.provider, row.http]), [
     ["qa-free", 429], ["qa-free-alternate", 200], ["qa-paid", 402], ["qa-cheap", 200],
-    ["qa-exhausted", 402], ["qa-worked", 200], ["qa-worked", 402],
+    ["qa-exhausted", 402], ["qa-worked", 200], ["qa-worked", 402], ["qa-delayed", 429], ["qa-delayed", 200],
   ])
   proof.health = await Bun.file(join(projectState, "model-policy-health.json")).json()
   const availability = await client.rpc.call({ rpcID: "momo.native", method: "catalogSnapshot", input: {}, location: project })
