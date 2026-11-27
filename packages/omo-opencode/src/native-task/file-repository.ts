@@ -20,6 +20,7 @@ const taskSchema = z.object({
   pendingWorkerFailure: z.object({ error: z.string(), observedAt: z.number() }).optional(),
   failedWorkerAttempt: z.object({ model: modelSchema, sessionID: z.string(), decisionId: z.string(), failureID: z.string(),
     reason: z.enum(["rate_limit", "payment_required"]), failedAt: z.number() }).optional(),
+  workerRetryAt: z.number().finite().positive().optional(),
   replacementStart: z.enum(["pending", "issued"]).optional(),
   toolStarted: z.literal(true).optional(),
   activeTools: z.array(z.object({ id: z.string(), name: z.string(), startedAt: z.number() })),

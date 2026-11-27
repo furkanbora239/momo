@@ -194,6 +194,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     let retriedFailureObservation = false
     let retriedWorkerFailure = false
     for (const task of await deps.options.repository.list()) {
+      if (task.state === "queued" && task.workerRetryAt !== undefined && task.workerRetryAt <= deps.now()) retriedWorkerFailure = true
       if (task.failureObservationError !== undefined) {
         await observeFailedTask(task)
         retriedFailureObservation = true

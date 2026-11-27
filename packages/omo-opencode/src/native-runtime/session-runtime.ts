@@ -97,6 +97,9 @@ export function createNativeSessionRuntime(input: {
     const messageID = startMessageID(task.id, task.failedWorkerAttempt !== undefined)
     const api = await client()
     await admitModelRequest(args.sessionID)
+    if (args.deadlineAt !== undefined && Date.now() >= args.deadlineAt) {
+      throw new Error("The provider retry window expired before prompt admission. Check availability before creating another task.")
+    }
     launchPrompt(api, args.sessionID, args.prompt, messageID, onLaunchError)
   }
 

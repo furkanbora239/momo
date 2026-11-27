@@ -3,7 +3,21 @@ import { isNativeModelRejectionHint } from "../native-catalog/model-continuity-e
 import { observeNativeExecutionFailure } from "./failure-observation"
 import { sameModel } from "./guards"
 import { errorText } from "./lifecycle"
-import type { NativeTask, NativeTaskEngineOptions } from "./types"
+import type { NativeTask, NativeTaskEngineOptions, NativeRouteResult } from "./types"
+
+const MAX_RETRY_WAIT_MS = 15 * 60_000
+const RETRY_RECOVERY_WINDOW_MS = 2 * 60_000
+
+export function workerRetryDeadline(retryAt: number | undefined): number | undefined {
+  return retryAt === undefined ? undefined : retryAt + RETRY_RECOVERY_WINDOW_MS
+}
+
+function retryExpired(retryAt: number | undefined, now: number): boolean {
+  const deadline = workerRetryDeadline(retryAt)
+  return deadline !== undefined && now >= deadline
+}
+
+type WorkerSelection = Extract<NativeRouteResult, { kind: "selected" }>
 
 export function createWorkerContinuity(deps: {
   options: NativeTaskEngineOptions
@@ -29,7 +43,8 @@ export function createWorkerContinuity(deps: {
     try {
       const receipt = await deps.options.runtime.inspect(sessionID)
       if (receipt.state !== "failed" || !receipt.failureID || !receipt.failureRejection ||
-          !sameModel(receipt.failureModel, model) || receipt.failureAt === undefined) {
+          !sameModel(receipt.failureModel, model) || receipt.failureAt === undefined ||
+          !Number.isFinite(receipt.failureAt) || receipt.failureAt <= 0 || receipt.failureAt > deps.now()) {
         if (expired) await fail(task, "OpenCode could not confirm the provider rejected the original request before work began.")
         return
       }
@@ -46,7 +61,11 @@ export function createWorkerContinuity(deps: {
       const replacement = await deps.options.router.selectWorkerReplacement?.({
         decisionId, taskID: task.id, sessionID, callerSessionID: task.parentSessionID, excludeProvider: rejection.scope === "provider",
       })
-      if (replacement?.kind !== "selected" || replacement.role !== "worker") {
+      const selected = replacement?.kind === "selected" && replacement.role === "worker" ? replacement : undefined
+      const retryAt = rejection.kind === "rate_limit" && rejection.explicitRetryAfter && rejection.retryAfterMs <= MAX_RETRY_WAIT_MS
+        ? receipt.failureAt + rejection.retryAfterMs : undefined
+      const canWait = retryAt !== undefined && !retryExpired(retryAt, deps.now())
+      if (!selected && !canWait) {
         const action = rejection.kind === "payment_required" ? "Check provider funding or your model pool." : "Wait for the cooldown or adjust your model pool."
         const reason = replacement?.kind === "unavailable" ? replacement.reason : "No automatic replacement was available."
         await fail(task, `${reason} ${action}`)
@@ -63,28 +82,68 @@ export function createWorkerContinuity(deps: {
       task.error = undefined
       task.result = undefined
       task.sessionID = undefined
-      task.model = replacement.model
-      task.decisionId = replacement.decisionId
-      task.replacementStart = "pending"
       task.lastExecutionSequence = undefined
       task.processedEventIDs = []
       task.progress = undefined
       task.activeTools = []
-      task.dispatchStatus = undefined
-      task.dispatchError = undefined
-      task.outcomeStatus = undefined
-      task.outcomeError = undefined
-      task.usage = undefined
-      task.usageError = undefined
+      if (selected) prepareLaunch(task, selected)
+      else task.workerRetryAt = retryAt
       await deps.save(task)
     } catch (error) {
       if (expired) await fail(task, `Replacement could not be prepared. Inspect the original session before creating another task. ${errorText(error)}`)
     }
   }
 
+  async function startScheduled(task: NativeTask): Promise<"ready" | "pending" | "failed"> {
+    const attempt = task.failedWorkerAttempt
+    const retryAt = task.workerRetryAt
+    if (!attempt || retryAt === undefined || task.state !== "queued" || deps.now() < retryAt) return "pending"
+    if (retryExpired(retryAt, deps.now())) {
+      await fail(task, "The provider retry window expired. Check availability before creating another task.")
+      return "failed"
+    }
+    let result: NativeRouteResult | undefined
+    try {
+      result = await deps.options.router.selectWorkerReplacement?.({
+        decisionId: attempt.decisionId, taskID: task.id, sessionID: attempt.sessionID, callerSessionID: task.parentSessionID,
+        excludeProvider: false, retryOriginal: true,
+      })
+    } catch (error) {
+      task.error = errorText(error)
+      await deps.save(task)
+      return "pending"
+    }
+    if (retryExpired(retryAt, deps.now())) {
+      await fail(task, "The provider retry window expired. Check availability before creating another task.")
+      return "failed"
+    }
+    if (result?.kind !== "selected" || result.role !== "worker") {
+      const reason = result?.kind === "unavailable" ? result.reason : "The provider retry was unavailable."
+      await fail(task, `${reason} Check availability and pool settings.`)
+      return "failed"
+    }
+    prepareLaunch(task, result)
+    await deps.save(task)
+    return "ready"
+  }
+
+  function prepareLaunch(task: NativeTask, selection: WorkerSelection): void {
+    task.model = selection.model
+    task.decisionId = selection.decisionId
+    task.replacementStart = "pending"
+    task.dispatchStatus = undefined
+    task.dispatchError = undefined
+    task.outcomeStatus = undefined
+    task.outcomeError = undefined
+    task.usage = undefined
+    task.usageError = undefined
+    task.error = undefined
+  }
+
   async function fail(task: NativeTask, reason: string): Promise<void> {
     const original = task.pendingWorkerFailure?.error
     task.pendingWorkerFailure = undefined
+    task.workerRetryAt = undefined
     task.state = "failed"
     task.error = original ? `${original} ${reason}` : reason
     task.result = `Task failed: ${task.error}`
@@ -92,5 +151,5 @@ export function createWorkerContinuity(deps: {
     await deps.save(task)
   }
 
-  return { observe, advance }
+  return { observe, advance, startScheduled }
 }

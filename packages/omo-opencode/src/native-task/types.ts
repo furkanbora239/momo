@@ -59,7 +59,7 @@ export type NativeTaskRouter = {
     role: NativeTaskRole,
     callerSessionID: string,
   ): Promise<NativeRouteResult>
-  selectWorkerReplacement?(input: { decisionId: string; taskID: string; sessionID: string; callerSessionID: string; excludeProvider: boolean }): Promise<NativeRouteResult>
+  selectWorkerReplacement?(input: { decisionId: string; taskID: string; sessionID: string; callerSessionID: string; excludeProvider: boolean; retryOriginal?: true }): Promise<NativeRouteResult>
   revalidateSelected?(decisionId: string, callerSessionID: string): Promise<NativeRouteResult>
   recordDispatch?(decisionId: string, dispatch: { taskId: string; sessionId: string; role: NativeTaskRole; model: NativeModelRef }, callerSessionID: string): Promise<void>
   recordOutcome?(decisionId: string, outcome: {
@@ -132,6 +132,7 @@ export type NativeTask = {
   attempts: number
   pendingWorkerFailure?: { error: string; observedAt: number }
   failedWorkerAttempt?: NativeFailedWorkerAttempt
+  workerRetryAt?: number
   replacementStart?: "pending" | "issued"
   toolStarted?: true
   progress?: string
@@ -182,7 +183,7 @@ export type NativeTaskRepository = {
 export type NativeTaskRuntime = {
   resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string }>
   createSession(input: { taskID: string; rootSessionID: string; parentSessionID: string; role: NativeTaskRole; model: NativeModelRef; replacement?: true }): Promise<{ sessionID: string }>
-  start(input: { sessionID: string; prompt: string }): Promise<void>
+  start(input: { sessionID: string; prompt: string; deadlineAt?: number }): Promise<void>
   inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; rejectedBeforeWork?: true; failureRejection?: import("../native-catalog/model-continuity-evidence").NativeModelRejection; failureQuota?: import("../native-catalog/model-quota-evidence").NativeQuotaFailure; usage?: NativeTaskUsage }>
   resume(input: { taskID: string; sessionID: string }): Promise<void>
   interrupt(input: { sessionID: string }): Promise<void>

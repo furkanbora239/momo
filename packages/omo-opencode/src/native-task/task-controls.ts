@@ -114,6 +114,8 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       sessionID = task.sessionID
       childTaskIDs = [...task.childTaskIDs]
       task.state = "cancelled"
+      task.workerRetryAt = undefined
+      task.pendingWorkerFailure = undefined
       task.activeTools = []
       task.result = `Task ${task.id} was cancelled.`
       task.delivery = { status: "pending", attempts: 0 }
@@ -138,6 +140,8 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       sessionID = task.sessionID
       children = [...task.childTaskIDs]
       task.state = "cancelled"
+      task.workerRetryAt = undefined
+      task.pendingWorkerFailure = undefined
       task.activeTools = []
       task.result = `Task ${task.id} was cancelled.`
       task.delivery = { status: "pending", attempts: 0 }
