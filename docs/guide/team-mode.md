@@ -1,5 +1,7 @@
 # Team Mode
 
+> This guide records earlier Oh My OpenAgent workflows. For momo on OpenCode v2, use the [OpenCode v2 task guide](opencode-v2.md).
+
 Parallel multi-agent coordination for omo, modeled after Claude Code's experimental Agent Teams.
 
 ## Status

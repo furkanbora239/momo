@@ -10,6 +10,7 @@
 
 | Audience / Task | Location |
 |------|----------|
+| Run a task with momo on OpenCode v2 | [docs/guide/opencode-v2.md](guide/opencode-v2.md) |
 | New users — what is this? | [docs/guide/overview.md](guide/overview.md) |
 | Installing the plugin | [docs/guide/installation.md](guide/installation.md) |
 | How agents collaborate | [docs/guide/orchestration.md](guide/orchestration.md) |

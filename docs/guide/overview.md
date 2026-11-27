@@ -1,5 +1,7 @@
 # What Is Oh My OpenAgent?
 
+> This guide records earlier Oh My OpenAgent workflows. For momo on OpenCode v2, use the [OpenCode v2 task guide](opencode-v2.md).
+
 Oh My OpenAgent is a multi-model agent orchestration harness for OpenCode. It transforms a single AI agent into a coordinated development team that actually ships code.
 
 Not locked to Claude. Not locked to OpenAI. Not locked to anyone.
