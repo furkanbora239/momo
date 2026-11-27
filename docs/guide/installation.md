@@ -1,5 +1,7 @@
 # Installation
 
+> This guide records earlier Oh My OpenAgent workflows. For momo on OpenCode v2, use the [OpenCode v2 task guide](opencode-v2.md).
+
 oh-my-openagent ships in **three editions** of the same product: two plugins that load into a host you already run, plus one standalone edition.
 
 - **Ultimate Edition (omo for [OpenCode](https://opencode.ai))** — the full omo experience. 11 discipline agents, 54+ lifecycle hooks, all built-in MCPs, every slash command, Team Mode, ulw-loop, hashline edits, the works.

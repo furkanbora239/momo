@@ -1,5 +1,7 @@
 # Agent-Model Matching Guide
 
+> This guide records earlier Oh My OpenAgent workflows. For momo on OpenCode v2, use the [OpenCode v2 task guide](opencode-v2.md).
+
 > **For agents and users**: Why each agent needs a specific model — and how to customize without breaking things.
 
 ---

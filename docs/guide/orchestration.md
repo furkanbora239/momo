@@ -1,5 +1,7 @@
 # Orchestration System Guide
 
+> This guide records earlier Oh My OpenAgent workflows. For momo on OpenCode v2, use the [OpenCode v2 task guide](opencode-v2.md).
+
 Oh My OpenAgent's orchestration system transforms a simple AI agent into a coordinated development team through **separation of planning and execution**.
 
 ---
