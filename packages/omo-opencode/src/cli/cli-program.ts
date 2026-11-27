@@ -3,6 +3,7 @@ import { Command, Option } from "commander"
 import { install } from "./install"
 import { configureCleanupCommand, resolveCleanupPlatform } from "./cleanup-command"
 import { configureCatalogCommand } from "./catalog-command"
+import { configureChatCommand } from "./chat-command"
 import { run } from "./run"
 import { getLocalVersion } from "./get-local-version"
 import { doctor, resolveDoctorTarget } from "./doctor"
@@ -149,6 +150,7 @@ Model Providers (Priority: Native > Copilot > OpenCode Zen > Z.ai > Kimi > Baili
 
 configureCleanupCommand(program)
 configureCatalogCommand(program)
+configureChatCommand(program)
 configureMcpCommand(program)
 
 program

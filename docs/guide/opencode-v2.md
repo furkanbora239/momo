@@ -2,6 +2,8 @@
 
 [Install momo from this checkout](../../README.md#install-from-this-checkout), start OpenCode in your project and choose **momo-orchestrator**. Use `/models` to pick the model for this chat. Jev routes delegated work using current model availability, known capabilities and prices, and your pool settings.
 
+
+With OpenCode v2.4.2, run `bun /absolute/path/to/momo/dist/cli/index.js chat` from your project to require a model choice before opening a fresh terminal chat. Type to filter the available models. Cancelling the picker exits before creating a session. Supply `--model provider/model` to select the model on the command line. Reopen saved chats with `/sessions` or `opencode --session <id>`. OpenCode’s built-in `/new` keeps its native model selection.
 ## Start with a task you can verify
 
 Start with an outcome, the files or behavior in scope, and a check you can repeat. For example:
