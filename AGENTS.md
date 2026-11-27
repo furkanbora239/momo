@@ -48,6 +48,27 @@ SUL-1.0 "Sustainable Use License" (`LICENSE.md`) — **not** OSI open source.
   `packages/ast-grep-mcp`, and `packages/omo-codex/plugin`.
 - Typecheck uses **tsgo** (`@typescript/native-preview`), not `tsc`.
 
+## Codex development orchestration
+
+This section governs Codex's work in this repository. It does not change the behavior,
+roles, or routing of agents shipped by momo or used by OpenCode at runtime.
+
+- The coordinator is an orchestrator: delegate repository reads and searches, edits,
+  tests, QA, and independent reviews to right-sized subagents. Do not inspect source
+  files or run implementation/verification commands directly; split the work, route
+  it, supervise the evidence, and accept or send back each result.
+- Route each assignment to the cheapest available adequate model, using current
+  catalog identifiers rather than pinning a model version. Prefer a Luna-family model
+  for routine reads, searches, and straightforward work; use a Sol-family model when
+  harder reasoning or broader integration warrants it. Keep each assignment scoped,
+  self-contained, and explicit about its deliverable and verification evidence.
+- Preserve the repository's branch and commit practices: isolate work when the
+  checkout has unrelated changes, make focused commits after meaningful verified
+  steps, and deliver changes through a PR to `dev`. Never push directly to `main`.
+- Accept work only when its requested criteria have evidence and an independent
+  review has checked the resulting diff. Re-delegate failed or incomplete criteria
+  with the missing evidence identified.
+
 ## Commands
 
 ```bash
