@@ -11,7 +11,7 @@ const docs: Record<string, string> = {
   help: "Load this operation index or one current input schema; cache by contractVersion.",
   capabilities: "Inspect current role permissions, consultation availability and question support.",
   create: "Delegate bounded implementation or investigation with scope and acceptance criteria.",
-  start: "Request distilled advice; requires an eligible configured advisor. It does not delegate implementation.",
+  start: "Request distilled advice from an eligible configured advisor. For a second opinion, pass differentFromTaskID for a completed consultation from this session; it excludes that model.",
   list: "Recover owned task IDs. Follow nextOffset until absent; maintenance is opt-in.",
   candidates: "Page current caller choices after awaiting_selection; reuse the task and decision IDs.",
   detail: "Inspect assignment and structured question keys/options before answering.",
