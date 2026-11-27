@@ -1,6 +1,6 @@
 import { nativeModelRejectionSummary, parseNativeModelRejection, type NativeModelRejection } from "../native-catalog/model-continuity-evidence"
 import { parseNativeQuotaFailure, type NativeQuotaFailure } from "../native-catalog/model-quota-evidence"
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { isMessageNotFoundError, type FormFields, type SessionInfo, type V2Event } from "@opencode/client"
 import type { NativeTask, NativeTaskEvent, NativeTaskQuestion, NativeTaskRepository, NativeTaskRole, NativeTaskRuntime } from "../native-task/types"
 import { childrenWakeMessageID, deliveryMessageID } from "./delivery-message-id"
@@ -17,6 +17,7 @@ type NativeSessionMetadata = {
 
 export type NativeSessionRuntime = NativeTaskRuntime & {
   onFormEvent(event: V2Event): Promise<boolean>
+  askParent(sessionID: string, prompt: string, options: string[] | undefined, signal: AbortSignal): Promise<unknown>
 }
 
 export function createNativeSessionRuntime(input: {
@@ -29,6 +30,7 @@ export function createNativeSessionRuntime(input: {
   onParentAnswer?: (taskID: string, questionID: string, answer: unknown, replyingSessionID: string) => Promise<void>
   onEvent?: (event: NativeTaskEvent) => Promise<void>
 }): NativeSessionRuntime {
+  const parentAnswers = new Map<string, { questionID: string; resolve: (answer: unknown) => void; signal: AbortSignal }>()
   let clientPromise: Promise<NativeV2Client> | undefined
   const client = () => {
     clientPromise ??= input.client === undefined ? discoverNativeV2Client() : Promise.resolve(input.client)
@@ -195,52 +197,117 @@ export function createNativeSessionRuntime(input: {
   }
 
   async function closeQuestion(task: NativeTask): Promise<void> {
-    await closeForwardedQuestionForms(await client(), task)
+    const api = await client()
+    if (task.question === undefined) return
+    const inboxID = questionNotificationID(task.id, task.question.id)
+    for (const sessionID of new Set([task.parentSessionID, task.rootSessionID])) {
+      if ((await api.session.inbox.list({ sessionID })).some((item) => item.id === inboxID)) await api.session.inbox.cancel({ sessionID, inboxID })
+    }
+    if (task.question.transport !== "parent") await closeForwardedQuestionForms(api, task)
+  }
+
+  async function retireLegacyQuestion(task: NativeTask): Promise<void> {
+    const api = await client()
+    await closeForwardedQuestionForms(api, task)
+    if (task.sessionID === undefined || task.question === undefined) return
+    if (!(await api.session.form.list({ sessionID: task.sessionID })).some(form => form.id === task.question?.id)) return
+    await api.session.interrupt({ sessionID: task.sessionID })
+    if ((await api.session.form.list({ sessionID: task.sessionID })).some(form => form.id === task.question?.id)) {
+      await api.session.form.cancel({ sessionID: task.sessionID, formID: task.question.id })
+    }
+  }
+
+  async function askParent(sessionID: string, prompt: string, options: string[] | undefined, signal: AbortSignal): Promise<unknown> {
+    const session = await ownedSession(sessionID)
+    const caller = await resolveCaller(sessionID)
+    const task = await findTaskBySession(input.repository, sessionID)
+    if (session.parentID === undefined || task.kind !== "task" || task.maintenance || caller.rootSessionID !== task.rootSessionID || task.state !== "running") {
+      throw new Error("Only a running managed task can ask its parent")
+    }
+    if (parentAnswers.has(sessionID)) throw new Error("This task already has a pending parent question")
+    if (input.onEvent === undefined) throw new Error("Native task event handler is not wired")
+    const id = randomUUID()
+    const answer = Promise.withResolvers<unknown>()
+    const abort = () => answer.resolve(undefined)
+    // The durable question remains pending if an execution or its host stops.
+    signal.throwIfAborted()
+    signal.addEventListener("abort", abort, { once: true })
+    parentAnswers.set(sessionID, { questionID: id, resolve: answer.resolve, signal })
+    try {
+      await input.onEvent({ id: `ask-parent:${id}`, type: "question.asked", sessionID, question: { id, prompt, options, transport: "parent" } })
+      const value = await answer.promise
+      signal.throwIfAborted()
+      return value
+    } finally {
+      parentAnswers.delete(sessionID)
+      signal.removeEventListener("abort", abort)
+    }
   }
 
   async function ask(args: Parameters<NativeTaskRuntime["ask"]>[0]): Promise<void> {
     const api = await client()
     await ownedSession(args.parentSessionID)
     if (!await questionIsPending(args.taskID, args.question.id, false)) return
-    await createQuestionForm(api, args.parentSessionID, args.taskID, args.question, "question")
-    if (!await questionIsPending(args.taskID, args.question.id, false)) {
-      await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
-      return
-    }
     if ((await requiredTask(args.taskID)).parentTaskID !== undefined) return
-    await admitModelRequest(args.parentSessionID)
-    await api.session.synthetic({
-      sessionID: args.parentSessionID,
-      id: questionNotificationID(args.taskID, args.question.id),
-      text: `A child task is waiting for a decision. Task ID: ${args.taskID}. Question ID: ${args.question.id}. ${args.question.prompt}. Fields and options: ${JSON.stringify(args.question.form ?? { options: args.question.options })}. Use momo_task answer with this task ID, question ID, and your answer before continuing.`,
-      description: `Native task ${args.taskID} question ${args.question.id}`,
-      metadata: { momoNativeQuestionNotification: { taskID: args.taskID, questionID: args.question.id } },
-      delivery: "steer",
-      resume: true,
-    })
-    if (!await questionIsPending(args.taskID, args.question.id, false)) await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
+    await notifyParentQuestion(api, args.parentSessionID, args.taskID, args.question)
+
+    if (!await questionIsPending(args.taskID, args.question.id, false)) await closeQuestion(await requiredTask(args.taskID))
   }
 
   async function escalateQuestion(args: Parameters<NativeTaskRuntime["escalateQuestion"]>[0]): Promise<void> {
     await ownedSession(args.rootSessionID)
     const api = await client()
     if (!await questionIsPending(args.taskID, args.question.id, true)) return
-    await createQuestionForm(api, args.rootSessionID, args.taskID, args.question, "escalation")
-    if (!await questionIsPending(args.taskID, args.question.id, true)) await closeForwardedQuestionForms(api, await requiredTask(args.taskID))
+    await notifyParentQuestion(api, args.rootSessionID, args.taskID, args.question)
+    if (!await questionIsPending(args.taskID, args.question.id, true)) await closeQuestion(await requiredTask(args.taskID))
+  }
+
+  async function notifyParentQuestion(api: NativeV2Client, sessionID: string, taskID: string, question: NativeTaskQuestion): Promise<void> {
+    const id = questionNotificationID(taskID, question.id)
+    if (await inspectDelivery({ parentSessionID: sessionID, messageID: id }) !== "missing") return
+    await admitModelRequest(sessionID)
+    await api.session.synthetic({
+      sessionID, id,
+      text: `A child task is waiting for a decision. Task ID: ${taskID}. Question ID: ${question.id}. ${question.prompt}. Fields and options: ${JSON.stringify(question.form ?? { options: question.options })}. Inspect the task and available evidence. Use momo_task answer for this task and question. If essential user-specific input is missing and you are the root orchestrator, ask a contextual user question before answering the child.`,
+      description: `Native task ${taskID} question ${question.id}`,
+      metadata: { momoNativeQuestionNotification: { taskID, questionID: question.id } },
+      delivery: "steer", resume: true,
+    })
   }
 
   async function answer(args: Parameters<NativeTaskRuntime["answer"]>[0]): Promise<void> {
     const api = await client()
     await ownedSession(args.sessionID)
-    const form = await api.session.form.get({ sessionID: args.sessionID, formID: args.questionID })
-    await admitModelRequest(args.sessionID)
-    await api.session.form.reply({
-      sessionID: args.sessionID,
-      formID: args.questionID,
-      answer: normalizeAnswer(args.answer, form.fields),
-    })
     const task = await findTaskBySession(input.repository, args.sessionID)
-    await closeForwardedQuestionForms(api, task)
+    if (task.question?.transport !== "parent"
+      && (await api.session.form.list({ sessionID: args.sessionID })).some(form => form.id === args.questionID)) {
+      try {
+        const form = await api.session.form.get({ sessionID: args.sessionID, formID: args.questionID })
+        await admitModelRequest(args.sessionID)
+        await api.session.form.reply({
+          sessionID: args.sessionID,
+          formID: args.questionID,
+          answer: normalizeAnswer(args.answer, form.fields),
+        })
+        await closeForwardedQuestionForms(api, task)
+        return
+      } catch (error) {
+        if (!isNotFound(error)) throw error
+      }
+    }
+    const messageID = stableID("msg", `answer:${task.id}:${args.questionID}`, 26)
+    if (await inspectDelivery({ parentSessionID: args.sessionID, messageID }) !== "missing") return
+    await admitModelRequest(args.sessionID)
+    const waiter = parentAnswers.get(args.sessionID)
+    if (waiter?.questionID === args.questionID && !waiter.signal.aborted) {
+      waiter.resolve(args.answer)
+      return
+    }
+    await api.session.synthetic({
+      sessionID: args.sessionID, id: messageID,
+      text: `Your parent answered the pending question ${args.questionID}: ${JSON.stringify(args.answer)}. Continue the same task with this answer.`,
+      description: `Native task ${task.id} parent answer`, delivery: "steer", resume: true,
+    })
   }
 
   async function continueParent(args: Parameters<NativeTaskRuntime["continueParent"]>[0]): Promise<{ status: "admitted" | "delivered" }> {
@@ -315,11 +382,13 @@ export function createNativeSessionRuntime(input: {
     childrenWakeMessageID,
     inspectDelivery,
     closeQuestion,
+    retireLegacyQuestion,
     ask,
     escalateQuestion,
     answer,
     continueParent,
     onFormEvent,
+    askParent,
   }
 }
 
@@ -356,26 +425,6 @@ async function findTaskBySession(repository: NativeTaskRepository, sessionID: st
   return task
 }
 
-async function createQuestionForm(api: NativeV2Client, sessionID: string, taskID: string, question: NativeTaskQuestion, kind: "question" | "escalation"): Promise<void> {
-  const questionID = question.id
-  const formID = questionFormID(kind, taskID, questionID)
-  const existing = await api.session.form.list({ sessionID })
-  if (existing.some((form) => form.id === formID)) return
-  const metadata = {
-    momoNativeFormKind: kind,
-    momoNativeTaskID: taskID,
-    momoNativeQuestionID: questionID,
-    momoNativeFormID: formID,
-  }
-  await api.session.form.create({
-    sessionID,
-    id: formID,
-    title: question.prompt,
-    fields: formFields(question.form),
-    metadata,
-  })
-}
-
 function questionFormID(kind: "question" | "escalation", taskID: string, questionID: string): string {
   return stableID("frm", `${kind}:${taskID}:${questionID}`, 24)
 }
@@ -385,10 +434,6 @@ function questionNotificationID(taskID: string, questionID: string): string {
 }
 
 async function closeForwardedQuestionForms(api: NativeV2Client, task: NativeTask): Promise<void> {
-  if (task.question !== undefined) {
-    const inboxID = questionNotificationID(task.id, task.question.id)
-    if ((await api.session.inbox.list({ sessionID: task.parentSessionID })).some((item) => item.id === inboxID)) await api.session.inbox.cancel({ sessionID: task.parentSessionID, inboxID })
-  }
   const expectedIDs = new Set([
     questionFormID("question", task.id, task.question?.id ?? ""),
     questionFormID("escalation", task.id, task.question?.id ?? ""),
@@ -397,12 +442,6 @@ async function closeForwardedQuestionForms(api: NativeV2Client, task: NativeTask
     const activeForms = await api.session.form.list({ sessionID })
     for (const form of activeForms) if (expectedIDs.has(form.id)) await api.session.form.cancel({ sessionID, formID: form.id })
   }
-}
-
-function formFields(value: unknown): FormFields {
-  const fields = asRecord(value)?.fields
-  if (Array.isArray(fields) && fields.length > 0) return fields as FormFields
-  return [{ key: "answer", title: "Answer", type: "string", required: true }]
 }
 
 function normalizeAnswer(value: unknown, fields: FormFields): Record<string, string | number | boolean | string[]> {

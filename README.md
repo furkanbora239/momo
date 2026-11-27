@@ -46,6 +46,7 @@ Start `opencode`, choose the orchestrator and select its session model. Use nati
 ## Task and consultation tools
 
 - `momo_task`: create, resume, select, answer, cancel, status and wait.
+- `momo_ask_parent`: request missing input from a managed task's parent. The parent responds through the original task.
 - `momo_consult`: start a single-question consultation, select, status and wait.
 
 Task text is the required brief; scope and acceptance criteria are optional. Normal task requests do not choose a model or role. Caller identity and delegation permissions come from the actual OpenCode session. Default assignment runs in the background; explicit waiting is supported.

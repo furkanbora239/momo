@@ -90,9 +90,15 @@ function isUnverifiedMcpReadAction(name: string): boolean {
   return /^(?:status|search)(?:_|$)/.test(action)
 }
 
+export function nativeParentQuestionAllowed(role: NativeAgentID): boolean {
+  return role !== "momo-advisor" && role !== "momo-catalog-researcher"
+}
+
 export function nativeActionEffect(id: NativeAgentID, action: string): "allow" | "deny" | undefined {
   const name = action.toLowerCase()
   if (name === "execute" || name === "momo_mcp") return undefined
+  if (name === "question") return id === "momo-orchestrator" ? undefined : "deny"
+  if (name === "momo_ask_parent") return nativeParentQuestionAllowed(id) ? "allow" : "deny"
   if (name === "momo_task") return coordinators.has(id) ? "allow" : "deny"
   if (name === "momo_consult") return id === "momo-advisor" ? "deny" : "allow"
   if (name === "momo_catalog_enrich") return id === "momo-catalog-researcher" ? "allow" : "deny"
@@ -113,7 +119,7 @@ export function filterNativeContextTools(agent: string | undefined, tools: Recor
   if (!role) return
   for (const name of Object.keys(tools)) {
     const normalized = name.toLowerCase()
-    if (coordinators.has(role) && nativeActionEffect(role, normalized) === "deny") {
+    if ((coordinators.has(role) || normalized === "question" || normalized === "momo_ask_parent") && nativeActionEffect(role, normalized) === "deny") {
       delete tools[name]
       continue
     }
