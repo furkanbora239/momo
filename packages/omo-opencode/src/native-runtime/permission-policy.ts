@@ -8,21 +8,27 @@ export async function registerNativePermissions(ctx: Plugin.Context, activeOwned
     const id = event.agent ?? session?.agent
     const role = id !== undefined && activeOwnedIDs.has(id) ? ownedAgentID(id) : undefined
     if (role === undefined) return
-    const effect = nativePermissionEffect(role, event.action)
+    const effect = event.action === "question" && role === "momo-orchestrator"
+      && (session ?? await ctx.session.get({ sessionID: event.sessionID })).parentID !== undefined
+      ? "deny" : nativePermissionEffect(role, event.action)
     if (effect !== undefined) event.effect = effect
   })
   const contextRegistration = await ctx.session.hook("context", async (event) => {
     filterNativeContextTools(event.agent, event.tools, activeOwnedIDs)
-    if (!activeOwnedIDs.has(event.agent) || !isTransitionRole(event.agent)) return
+    if (!activeOwnedIDs.has(event.agent)) return
     const session = await ctx.session.get({ sessionID: event.sessionID })
-    if (session.parentID !== undefined) return
+    if (session.parentID !== undefined) delete event.tools.question
+    if (session.parentID === undefined || session.metadata?.momoNativeTask === undefined) delete event.tools.momo_ask_parent
+    if (session.parentID !== undefined || !isTransitionRole(event.agent)) return
     const history = await ctx.session.context({ sessionID: event.sessionID })
     const transition = nativeRoleTransition(event.agent, history)
     if (transition !== undefined) event.system.push({ type: "text", text: transition })
   })
-  const executionRegistration = await ctx.tool.hook("execute.before", (event) => {
+  const executionRegistration = await ctx.tool.hook("execute.before", async (event) => {
     const role = activeOwnedIDs.has(event.agent) ? ownedAgentID(event.agent) : undefined
-    if (role === undefined || nativeActionEffect(role, event.tool) !== "deny") return
+    if (role === undefined) return
+    if (nativeActionEffect(role, event.tool) !== "deny"
+      && (event.tool !== "question" || (await ctx.session.get({ sessionID: event.sessionID })).parentID === undefined)) return
     throw new Error(`Native ${role} role cannot execute ${event.tool}`)
   })
   return async () => {

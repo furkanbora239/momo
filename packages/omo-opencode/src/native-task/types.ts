@@ -79,6 +79,7 @@ export type NativeTaskRouter = {
 export type NativeTaskQuestion = {
   id: string
   prompt: string
+  transport?: "parent"
   options?: string[]
   form?: Record<string, unknown>
 }
@@ -175,6 +176,7 @@ export type NativeTaskRuntime = {
   deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void | NativeTaskDeliveryReceipt>
   inspectDelivery?(input: { parentSessionID: string; messageID: string }): Promise<"missing" | "admitted" | "delivered">
   closeQuestion?(task: NativeTask): Promise<void>
+  retireLegacyQuestion?(task: NativeTask): Promise<void>
   deliveryMessageID?(taskID: string): string
   ask(input: { parentSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>
   escalateQuestion(input: { rootSessionID: string; taskID: string; question: NativeTaskQuestion }): Promise<void>

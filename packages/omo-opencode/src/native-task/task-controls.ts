@@ -88,6 +88,7 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       if (task.question?.id === questionID && task.answer !== undefined) return
       if (task.state !== "waiting_question" || task.question?.id !== questionID) throw new Error("Task is not waiting for that question")
       if (task.sessionID === undefined) throw new Error("Question task has no child session")
+      if (value === undefined) throw new Error("A question answer is required")
       task.answer = value
       task.answerStatus = "pending"
       task.questionDelivery = "sent"

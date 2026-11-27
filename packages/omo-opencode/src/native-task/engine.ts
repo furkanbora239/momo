@@ -247,7 +247,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       if (parent.state !== "waiting_children" || parent.waitForTaskID !== undefined) return
       parent.state = "queued"
       parent.executionOutcome = undefined
-      parent.parentWakeMessage = `A child task is waiting for a decision. Task ID: ${child.id}. Question ID: ${questionID}. ${child.question?.prompt}. Use momo_task answer with this task ID, question ID, and your answer before continuing.`
+      parent.parentWakeMessage = `A child task is waiting for a decision. Task ID: ${child.id}. Question ID: ${questionID}. ${child.question?.prompt}. Options: ${JSON.stringify(child.question?.options ?? [])}. Inspect detail if needed. Use momo_task answer with this task ID, question ID, and your answer before continuing.`
       parent.parentWakeID = `question:${child.id}:${questionID}`
       await save(parent)
       accepted = true

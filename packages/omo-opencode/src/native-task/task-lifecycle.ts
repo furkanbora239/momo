@@ -108,14 +108,22 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
         })
       }
       let latest = await deps.get(stored.id)
-      if (latest.state === "waiting_question" && latest.answerStatus === "pending") {
+      if (latest.state === "waiting_question" && latest.answerStatus === undefined && latest.question?.form !== undefined && deps.options.runtime.retireLegacyQuestion !== undefined) {
         await deps.withTaskLock(latest.id, async () => {
           const current = await deps.get(latest.id)
-          if (current.state === "waiting_question" && current.answerStatus === "pending") {
-            current.state = "queued"
+          if (current.state !== "waiting_question" || current.answerStatus !== undefined || current.question?.form === undefined) return
+          if (current.question.transport !== "parent") {
+            current.question.transport = "parent"
+            if (current.questionEscalated) current.questionEscalationStatus = "pending"
+            else current.questionDelivery = "pending"
             await deps.save(current)
           }
+          await deps.options.runtime.retireLegacyQuestion?.(current)
         })
+        latest = await deps.get(stored.id)
+      }
+      if (latest.state === "waiting_question" && latest.answerStatus === "pending") {
+        await queuePendingAnswer(latest.id)
         latest = await deps.get(stored.id)
       }
       if (latest.questionDelivery === "pending" && latest.question !== undefined) await deps.controls.deliverQuestion(latest)
@@ -172,6 +180,12 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     if (effectiveEvent.type === "execution.succeeded" || effectiveEvent.type === "execution.failed") {
       if (latest.parentTaskID !== undefined) await deps.retryChildWake(await deps.get(latest.parentTaskID))
     }
+    if (latest.state === "waiting_children") {
+      for (const childID of latest.childTaskIDs) {
+        const child = await deps.options.repository.get(childID)
+        if (child?.state === "waiting_question" && child.questionDelivery === "pending") await deps.controls.deliverQuestion(child)
+      }
+    }
     if (effectiveEvent.type === "children.waiting") await deps.retryChildWake(latest)
     await deps.pump()
   }
@@ -182,7 +196,12 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     const interrupted: string[] = []
     const recoverableTaskIDs = new Set<string>()
     let retriedFailureObservation = false
+    let retriedAnswer = false
     for (const task of await deps.options.repository.list()) {
+      if (task.state === "waiting_question" && task.answerStatus === "pending") {
+        await queuePendingAnswer(task.id)
+        retriedAnswer = true
+      }
       if (task.failureObservationError !== undefined) {
         await observeFailedTask(task)
         retriedFailureObservation = true
@@ -229,8 +248,17 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       if (current.childrenWakePending) await deps.retryChildWake(current)
       await deps.withTaskLock(current.id, async () => deps.retryRouterRecords(await deps.get(current.id)))
     }
-    if (retriedFailureObservation) await deps.pump()
+    if (retriedFailureObservation || retriedAnswer) await deps.pump()
     return interrupted
+  }
+
+  async function queuePendingAnswer(taskID: string): Promise<void> {
+    await deps.withTaskLock(taskID, async () => {
+      const current = await deps.get(taskID)
+      if (current.state !== "waiting_question" || current.answerStatus !== "pending") return
+      current.state = "queued"
+      await deps.save(current)
+    })
   }
 
   async function deliverEscalation(task: NativeTask): Promise<void> {
