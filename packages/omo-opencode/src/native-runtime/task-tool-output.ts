@@ -31,6 +31,8 @@ export function compactTask(task: NativeTask, includeResult = true) {
     role: task.role, model: task.model, rolePermissions: task.role === undefined ? undefined : rolePermissions(task.role),
     execution: { status: task.executionOutcome?.state ?? task.state, verification: "unknown" as const },
     createdAt: task.createdAt, updatedAt: task.updatedAt, attempts: task.attempts,
+    failedWorkerAttempt: task.failedWorkerAttempt,
+    checkingWorkerRejection: task.pendingWorkerFailure !== undefined ? true : undefined,
     activity: { progress: terminal ? undefined : bounded(task.progress), lastActivityAt: task.lastActivityAt, activeTools: terminal ? [] : task.activeTools.slice(0, 10).map((tool) => ({ name: bounded(tool.name, 128), startedAt: tool.startedAt })), activeToolCount: terminal ? 0 : task.activeTools.length },
     selection: { required: task.state === "awaiting_selection", candidateCount: task.state === "awaiting_selection" ? task.candidates?.length ?? 0 : 0 },
     error: task.state === "failed" || task.state === "awaiting_selection" || task.state === "interrupted" ? bounded(task.error, 1024) : undefined,

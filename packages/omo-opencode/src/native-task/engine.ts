@@ -10,6 +10,7 @@ import { markNativeExecutionFailurePending, observeNativeExecutionFailure } from
 import { errorText, isTerminal } from "./lifecycle"
 import { runNativeTask } from "./runner"
 import { createNativeTaskControls } from "./task-controls"
+import { createWorkerContinuity } from "./worker-continuity"
 import { createNativeTaskLifecycle } from "./task-lifecycle"
 
 export type NativeTaskCreateInput = {
@@ -208,6 +209,14 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
           await save(task)
           return
         }
+        if (task.replacementStart === "pending") {
+          task.state = "failed"
+          task.error = "The replacement model is no longer available within the original assignment's price and policy bounds. Review the model pool before creating another task."
+          task.result = task.error
+          task.delivery = { status: "pending", attempts: 0 }
+          await save(task)
+          return
+        }
         if (task.sessionID !== undefined) {
           task.state = "interrupted"
           task.error = "The original model assignment is no longer available for this existing session. Resume requires the original assignment."
@@ -297,6 +306,10 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       if (result.state === "failed" && result.error !== undefined) await observeNativeExecutionFailure(task, result.error, { onExecutionFailure: options.onExecutionFailure, save })
       return
     }
+    if (result.state === "failed" && result.error !== undefined && await workerContinuity.observe(task, result.error)) {
+      if (task.state === "failed") await recordOutcome(task)
+      return
+    }
     task.state = result.state
     task.result = result.result ?? (result.error ? `Task failed: ${result.error}` : "Task completed without a text result.")
     if (result.error !== undefined) task.error = result.error
@@ -340,8 +353,8 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     }
   }
 
-  async function recordOutcome(task: NativeTask): Promise<void> {
-    if (task.state === "cancelled" || task.outcomeStatus === "recorded" || task.decisionId === undefined || task.role === undefined || task.model === undefined || !isTerminal(task.state)) return
+  async function recordOutcome(task: NativeTask, state = task.state): Promise<void> {
+    if (task.state === "cancelled" || task.outcomeStatus === "recorded" || task.decisionId === undefined || task.role === undefined || task.model === undefined || !isTerminal(state)) return
     if (task.sessionID !== undefined) {
       try {
         const inspection = await options.runtime.inspect(task.sessionID)
@@ -360,7 +373,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
         model: task.model,
         role: task.role,
         taskKind: task.kind,
-        result: task.state === "succeeded" ? "success" : task.state === "failed" ? "failure" : task.state === "interrupted" ? "timeout" : "unknown",
+        result: state === "succeeded" ? "success" : state === "failed" ? "failure" : state === "interrupted" ? "timeout" : "unknown",
         provenance: "runtime",
         taskId: task.id,
         ...(task.sessionID !== undefined ? { sessionId: task.sessionID } : {}),
@@ -409,6 +422,9 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     finishFromInspection,
     failMissingSession,
   })
+  const workerContinuity = createWorkerContinuity({
+    options, now, save, recordRejectedOutcome: (task) => recordOutcome(task, "failed"),
+  })
   const lifecycle = createNativeTaskLifecycle({
     options,
     now,
@@ -416,6 +432,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     save,
     withTaskLock,
     inPlaceLeases,
+    workerContinuity,
     pump,
     controls,
     retryChildWake,

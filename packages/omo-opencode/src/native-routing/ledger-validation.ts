@@ -45,6 +45,9 @@ function isDecisionRecord(value: Record<string, unknown>): value is Record<strin
     !Array.isArray(request.candidates) || !request.candidates.every(isCandidate) ||
     !Array.isArray(request.knowledge) || !Array.isArray(request.outcomes) || typeof request.instructions !== "string") return false
   if (value.jevCallId !== undefined && (typeof value.jevCallId !== "string" || !value.jevCallId.length)) return false
+  if (value.workerReplacementScope !== undefined && value.workerReplacementScope !== "model" && value.workerReplacementScope !== "provider") return false
+  if (value.workerPriceCeilingUsd !== undefined && (!isObject(value.workerPriceCeilingUsd) ||
+    [value.workerPriceCeilingUsd.input, value.workerPriceCeilingUsd.output].some(rate => typeof rate !== "number" || !Number.isFinite(rate) || rate < 0))) return false
   if (value.jevAttempted !== undefined && typeof value.jevAttempted !== "boolean") return false
   if (value.jevUsage !== undefined && (!isObject(value.jevUsage) || [value.jevUsage.inputTokens, value.jevUsage.outputTokens, value.jevUsage.costUsd].some((amount) => amount !== undefined && (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0)))) return false
   if (value.selected !== undefined) {

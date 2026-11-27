@@ -1,7 +1,7 @@
 import { applyRoute, routeInput } from "./guards"
 import { handleNativeTaskEvent } from "./events"
 import { markNativeExecutionFailurePending } from "./failure-observation"
-import { errorText } from "./lifecycle"
+import { errorText, isTerminal } from "./lifecycle"
 import type { NativeTask, NativeTaskEngineOptions, NativeTaskEvent } from "./types"
 
 type TaskLifecycleOptions = {
@@ -11,6 +11,7 @@ type TaskLifecycleOptions = {
   save: (task: NativeTask) => Promise<NativeTask>
   withTaskLock: <T>(taskID: string, action: () => Promise<T>) => Promise<T>
   inPlaceLeases: Set<string>
+  workerContinuity: ReturnType<typeof import("./worker-continuity").createWorkerContinuity>
   pump: () => Promise<void>
   controls: {
     deliver(taskID: string): Promise<NativeTask>
@@ -66,13 +67,19 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
           await deps.save(current)
         })
       }
+      await deps.withTaskLock(stored.id, async () => deps.workerContinuity.advance(await deps.get(stored.id)))
       const beforeInspect = await deps.get(stored.id)
       await observeFailedTask(beforeInspect)
       const queuedInPlaceResume = beforeInspect.state === "queued" && beforeInspect.resumeInPlace === true
-      const inspectExistingSession = beforeInspect.parentWakeMessage === undefined && (beforeInspect.state === "running" || beforeInspect.state === "waiting_children" || queuedInPlaceResume)
+      const inspectExistingSession = beforeInspect.pendingWorkerFailure === undefined && beforeInspect.parentWakeMessage === undefined && (beforeInspect.state === "running" || beforeInspect.state === "waiting_children" || queuedInPlaceResume)
       if (inspectExistingSession && beforeInspect.sessionID !== undefined) {
         await deps.withTaskLock(stored.id, async () => {
           const current = await deps.get(stored.id)
+          if (current.replacementStart === "pending") {
+            current.state = "queued"
+            await deps.save(current)
+            return
+          }
           const inspection = await deps.options.runtime.inspect(current.sessionID ?? "")
           if (inspection.state === "running") {
             if (current.state === "queued" && current.resumeInPlace === true) deps.inPlaceLeases.add(current.id)
@@ -81,7 +88,9 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
           if (inspection.state === "succeeded") await deps.finishFromInspection(current, { state: "succeeded", result: inspection.result })
           else if (inspection.state === "failed") await deps.finishFromInspection(current, { state: "failed", error: inspection.error, result: inspection.result })
           else if (inspection.state === "missing") await deps.failMissingSession(current)
-          else {
+          else if (current.replacementStart === "issued" && inspection.state === "idle") {
+            await deps.finishFromInspection(current, { state: "failed", error: "Replacement launch could not be confirmed. Inspect the worker session before creating another task." })
+          } else {
             current.state = "interrupted"
             current.resumeInPlace = undefined
             current.waitForTaskID = undefined
@@ -170,6 +179,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       save: deps.save,
       now: deps.now,
       questionTimeoutMs: deps.options.questionTimeoutMs ?? 120_000,
+      observeWorkerRejection: deps.workerContinuity.observe,
       onExecutionFailure: deps.options.onExecutionFailure,
     }))
     const latest = await deps.get(task.id)
@@ -196,6 +206,7 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
     const interrupted: string[] = []
     const recoverableTaskIDs = new Set<string>()
     let retriedFailureObservation = false
+    let retriedWorkerFailure = false
     let retriedAnswer = false
     for (const task of await deps.options.repository.list()) {
       if (task.state === "waiting_question" && task.answerStatus === "pending") {
@@ -208,6 +219,12 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       }
       await deps.withTaskLock(task.id, async () => {
         const current = await deps.get(task.id)
+        if (current.pendingWorkerFailure !== undefined && current.state === "running") {
+          await deps.workerContinuity.advance(current)
+          retriedWorkerFailure = true
+          if (isTerminal(current.state)) recoverableTaskIDs.add(current.id)
+          return
+        }
         if (current.questionDelivery === "pending" || current.questionEscalationStatus === "pending" || current.childrenWakePending || current.dispatchStatus === "pending" || ((current.state === "succeeded" || current.state === "failed") && current.outcomeStatus !== "recorded")) {
           recoverableTaskIDs.add(current.id)
         }
@@ -246,9 +263,11 @@ export function createNativeTaskLifecycle(deps: TaskLifecycleOptions) {
       if (current.questionDelivery === "pending" && current.question !== undefined) await deps.controls.deliverQuestion(current)
       if (current.questionEscalationStatus === "pending") await deliverEscalation(current)
       if (current.childrenWakePending) await deps.retryChildWake(current)
+      if (current.delivery?.status === "pending") await deps.controls.deliver(current.id)
+      if (current.state === "failed" && current.parentTaskID !== undefined) await deps.retryChildWake(await deps.get(current.parentTaskID))
       await deps.withTaskLock(current.id, async () => deps.retryRouterRecords(await deps.get(current.id)))
     }
-    if (retriedFailureObservation || retriedAnswer) await deps.pump()
+    if (retriedFailureObservation || retriedWorkerFailure || retriedAnswer) await deps.pump()
     return interrupted
   }
 

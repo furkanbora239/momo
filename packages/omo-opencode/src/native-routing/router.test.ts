@@ -1001,3 +1001,33 @@ test("only runtime-authorized discovery roots bind startup research without a fa
   allowed = false
   expect((await router.revalidateSelected("discovery", "root-1")).kind).toBe("unavailable")
 })
+
+test("worker replacement respects price, tool, context, pool and account bounds without a second Jev request", async () => {
+  const priced = (id: string, inputPricePerMillion: number, outputPricePerMillion: number, extra: Partial<NativeModelFacts> = {}) =>
+    model(id, { toolCall: true, contextLength: 32_000, priceCurrency: "USD", priceOrigin: "configuration", priceSource: "configuration", inputPricePerMillion, outputPricePerMillion, ...extra })
+  const original = priced("original", 2, 4)
+  const alternate = priced("alternate", 1, 3, { providerID: "other" })
+  const models = [
+    original, alternate, priced("same-account", 0, 0),
+    priced("outside-pool", 0, 0, { providerID: "other" }),
+    priced("unknown-price", 0, 0, { providerID: "other", priceSource: "unknown" }),
+    priced("higher-output", 0.01, 5, { providerID: "other" }),
+    priced("no-tools", 0, 0, { providerID: "other", toolCall: undefined }),
+    priced("short-context", 0, 0, { providerID: "other", contextLength: 8_000 }),
+  ]
+  let jevRequests = 0
+  const bindings = deps({ models, allowed: model => model.id !== "outside-pool", choose: async () => {
+    jevRequests += 1
+    return answer("worker", original)
+  } })
+  const router = createNativeRouter(bindings)
+  await router.route(input({ decisionId: "original", requiredContextLength: 16_000 }))
+  await router.recordDispatch("original", { taskId: "task", sessionId: "first", role: "worker", model: original }, "parent-1")
+  const replacement = await router.selectWorkerReplacement({ decisionId: "original", sessionID: "first", taskID: "task", callerSessionID: "parent-1", excludeProvider: true })
+
+  expect(replacement).toMatchObject({ kind: "selected", decisionId: "task:worker-replacement", model: { providerID: "other", id: "alternate" } })
+  expect(jevRequests).toBe(1)
+  const restarted = createNativeRouter(bindings)
+  models[1] = { ...alternate, inputPricePerMillion: 3 }
+  expect(await restarted.revalidateSelected("task:worker-replacement", "parent-1")).toMatchObject({ kind: "unavailable" })
+})

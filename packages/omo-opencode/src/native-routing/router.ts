@@ -20,6 +20,7 @@ import { candidateFrom, rankUncertainCandidates, refKey, sameModel } from "./can
 import { isJevAnswer } from "./jev-answer-validation"
 import { nativeJevFailureAdmission, nativeJevFailureEvidence, nativeJevFailureNotSent } from "./jev-adapter"
 import { allowedRoles, validateInput } from "./role-policy"
+import { workerPriceCeiling, workerReplacementCandidates } from "./worker-replacement-policy"
 
 export function createNativeRouter(deps: NativeRouterDeps) {
   const config = deps.config ?? {}
@@ -350,13 +351,50 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     })
   }
 
+  async function selectWorkerReplacement(input: {
+    decisionId: string; taskID: string; sessionID: string; callerSessionID: string; excludeProvider: boolean
+  }): Promise<NativeRouteResult> {
+    return exclusive(async () => {
+      await ensureLoaded()
+      const origin = byDecision.get(input.decisionId)
+      if (origin?.request.input.parentSessionID !== input.callerSessionID || origin.request.input.kind !== "task" ||
+          origin.request.input.sourceDecisionID !== undefined || origin.selected?.role !== "worker" ||
+          origin.selected.taskId !== input.taskID || origin.selected.sessionId !== input.sessionID) {
+        return { kind: "unavailable", reason: "The failed worker attempt could not be matched to its recorded assignment." }
+      }
+      const decisionId = `${input.taskID}:worker-replacement`
+      const scope = input.excludeProvider ? "provider" : "model"
+      const existing = byDecision.get(decisionId)
+      if (existing) {
+        if (existing.request.input.sourceDecisionID !== origin.decisionId || existing.request.input.parentSessionID !== input.callerSessionID ||
+            existing.workerReplacementScope !== scope) {
+          throw new Error("Worker replacement decision belongs to another assignment")
+        }
+        return routeResult(existing)
+      }
+      const route = { ...origin.request.input, decisionId, sourceDecisionID: origin.decisionId, requiredRole: "worker" as const }
+      const candidates = workerReplacementCandidates(origin, await snapshot(route), input.excludeProvider)
+      const candidate = candidates[0]
+      if (!candidate) return { kind: "unavailable", reason: "No other available worker model in the active pool meets the original assignment's pricing and capability requirements." }
+      const request = { ...requestFor(route, decisionId, candidates, []), instructions: "Runtime continuity preserves the original role and price ceiling." }
+      await saveNew({
+        ...makeRecord(request, "selected"),
+        jevCallId: undefined,
+        workerReplacementScope: scope,
+        selected: { role: "worker", model: candidate.model, by: "runtime" },
+      })
+      return { kind: "selected", decisionId, role: "worker", model: candidate.model }
+    })
+  }
+
   async function revalidateSelected(decisionId: string, callerSessionID: string): Promise<NativeRouteResult> {
     return exclusive(async () => {
       await ensureLoaded()
       const record = byDecision.get(decisionId)
       if (!record || record.request.input.parentSessionID !== callerSessionID) return { kind: "unavailable", reason: "caller does not own this routing decision" }
       if (record.status !== "selected" || !record.selected) return { kind: "unavailable", reason: "routing decision is not selected" }
-      const choices = await snapshot(record.request.input)
+      const live = await snapshot(record.request.input)
+      const choices = eligibleForRecordedDecision(record, live)
       const snapshots = [...record.candidateSnapshots, { capturedAt: new Date(now()).toISOString(), source: "selection-revalidation" as const, candidates: choices }]
       const candidate = choices.find((item) => item.role === record.selected?.role && sameModel(item.model, record.selected.model))
       if (candidate) {
@@ -396,6 +434,13 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     })
   }
 
+  function eligibleForRecordedDecision(record: NativeDecisionRecord, live: NativeCandidate[]): NativeCandidate[] {
+    if (record.workerReplacementScope === undefined) return live
+    const source = record.request.input.sourceDecisionID
+    const origin = source ? byDecision.get(source) : undefined
+    return origin ? workerReplacementCandidates(origin, live, record.workerReplacementScope === "provider") : []
+  }
+
   async function recordDispatch(decisionId: string, dispatch: NativeDispatchFact, callerSessionID: string): Promise<void> {
     await exclusive(async () => {
       await ensureLoaded()
@@ -407,9 +452,14 @@ export function createNativeRouter(deps: NativeRouterDeps) {
         if (record.selected.taskId === dispatch.taskId && record.selected.sessionId === dispatch.sessionId) return
         throw new Error("routing decision is already assigned to another task or session")
       }
-      const fresh = await snapshot(record.request.input)
-      if (!fresh.some((candidate) => candidate.role === dispatch.role && sameModel(candidate.model, dispatch.model))) throw new Error("selected candidate is no longer available")
-      await setRecord({ ...record, selected: { ...record.selected, taskId: dispatch.taskId, sessionId: dispatch.sessionId } })
+      const fresh = eligibleForRecordedDecision(record, await snapshot(record.request.input))
+      const candidate = fresh.find(item => item.role === dispatch.role && sameModel(item.model, dispatch.model))
+      if (!candidate) throw new Error("selected candidate is no longer available")
+      await setRecord({
+        ...record,
+        workerPriceCeilingUsd: record.workerReplacementScope === undefined ? workerPriceCeiling(record, candidate) : undefined,
+        selected: { ...record.selected, taskId: dispatch.taskId, sessionId: dispatch.sessionId },
+      })
       if (dispatch.role !== "catalog-researcher" && !(await deps.knowledge.get(dispatch.model))?.known) void queueResearch(dispatch.model, { decisionId, rootSessionID: record.request.input.rootSessionID, parentSessionID: record.request.input.parentSessionID, parentRole: record.request.input.parentRole })
     })
   }
@@ -435,7 +485,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     return deps.store.exportLines()
   }
 
-  return { route, bindResearch, recoverResearch, select, revalidateSelected, recordDispatch, recordOutcome, exportLedger, accountant }
+  return { route, bindResearch, recoverResearch, select, selectWorkerReplacement, revalidateSelected, recordDispatch, recordOutcome, exportLedger, accountant }
 }
 
 export type NativeRouter = ReturnType<typeof createNativeRouter>
