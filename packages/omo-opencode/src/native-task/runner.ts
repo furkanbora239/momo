@@ -30,7 +30,7 @@ export async function runNativeTask(
     return
   }
   task.state = "running"
-  task.attempts += 1
+  if (task.replacementStart !== "pending" || task.attempts < 2) task.attempts += 1
   task.lastActivityAt = deps.now()
   task.startedAt ??= deps.now()
   await deps.save(task)
@@ -42,10 +42,21 @@ export async function runNativeTask(
         parentSessionID: task.parentSessionID,
         role: task.role,
         model: task.model,
+        ...(task.failedWorkerAttempt ? { replacement: true as const } : {}),
       })
       task.sessionID = session.sessionID
       await deps.save(task)
+      if (task.replacementStart !== "pending") {
+        await deps.onAllocated(task)
+        await deps.runtime.start({ sessionID: task.sessionID, prompt: buildTaskPrompt(task) })
+        return
+      }
+    }
+    if (task.replacementStart === "pending") {
       await deps.onAllocated(task)
+      if (task.dispatchStatus !== "recorded") throw new Error("Replacement dispatch could not be recorded. Review provider availability before continuing.")
+      task.replacementStart = "issued"
+      await deps.save(task)
       await deps.runtime.start({ sessionID: task.sessionID, prompt: buildTaskPrompt(task) })
       return
     }

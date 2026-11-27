@@ -1,3 +1,4 @@
+import { nativeModelRejectionSummary, parseNativeModelRejection, type NativeModelRejection } from "../native-catalog/model-continuity-evidence"
 import { parseNativeQuotaFailure, type NativeQuotaFailure } from "../native-catalog/model-quota-evidence"
 import { createHash } from "node:crypto"
 import { isMessageNotFoundError, type FormFields, type SessionInfo, type V2Event } from "@opencode/client"
@@ -54,7 +55,7 @@ export function createNativeSessionRuntime(input: {
 
   async function createSession(args: Parameters<NativeTaskRuntime["createSession"]>[0]): Promise<{ sessionID: string }> {
     const api = await client()
-    const sessionID = stableID("ses", args.taskID, 26)
+    const sessionID = stableID("ses", args.replacement ? `replacement:${args.taskID}` : args.taskID, 26)
     const agentID = input.resolveOwnedAgentID(args.role)
     if (agentID === undefined) throw new Error(`No installed momo agent is registered for role ${args.role}`)
     const expected: NativeSessionMetadata = {
@@ -93,7 +94,7 @@ export function createNativeSessionRuntime(input: {
   async function start(args: Parameters<NativeTaskRuntime["start"]>[0]): Promise<void> {
     await ownedSession(args.sessionID)
     const task = await findTaskBySession(input.repository, args.sessionID)
-    const messageID = stableID("msg", `start:${task.id}`, 26)
+    const messageID = startMessageID(task.id, task.failedWorkerAttempt !== undefined)
     const api = await client()
     await admitModelRequest(args.sessionID)
     launchPrompt(api, args.sessionID, args.prompt, messageID, onLaunchError)
@@ -122,10 +123,23 @@ export function createNativeSessionRuntime(input: {
       const result = resultFromMessages(messages)
       if (result.aborted) return { state: "interrupted", ...(usage !== undefined ? { usage } : {}) }
       if (session.outcome === "succeeded") return { state: "succeeded", result: result.text, ...(usage !== undefined ? { usage } : {}) }
-      if (session.outcome === "failed") return { state: "failed", error: result.error, failureID: result.failureID, failureModel: result.failureModel, failureAt: result.failureAt, failureQuota: result.failureQuota, result: result.text, ...(usage !== undefined ? { usage } : {}) }
+      if (session.outcome === "failed" || result.completed && result.error !== undefined) {
+        const metadata = readNativeMetadata(session.metadata?.momoNativeTask)
+        const initialPrompt = metadata && startMessageID(metadata.taskID, false)
+        const tokens = session.tokens
+        const rejectedBeforeWork = session.outcome === "failed" && result.failureRejection !== undefined &&
+          tokens.input === 0 && tokens.output === 0 && tokens.reasoning === 0 && tokens.cache?.read === 0 && tokens.cache?.write === 0 &&
+          messages[0]?.type === "user" && messages[0].id === initialPrompt &&
+          messages[1]?.type === "assistant" && messages[1].id === result.failureID && messages[1].content.length === 0 &&
+          messages.slice(2).every(message => message.type === "idle")
+        return {
+          state: "failed", error: result.error, failureID: result.failureID, failureModel: result.failureModel,
+          failureAt: result.failureAt, failureQuota: result.failureQuota, failureRejection: result.failureRejection,
+          ...(rejectedBeforeWork ? { rejectedBeforeWork: true } : {}), result: result.text, ...(usage !== undefined ? { usage } : {}),
+        }
+      }
       if (session.outcome === "interrupted") return { state: "interrupted", ...(usage !== undefined ? { usage } : {}) }
       if (result.completed) {
-        if (result.error !== undefined) return { state: "failed", error: result.error, failureID: result.failureID, failureModel: result.failureModel, failureAt: result.failureAt, failureQuota: result.failureQuota, result: result.text, ...(usage !== undefined ? { usage } : {}) }
         return { state: "succeeded", result: result.text, ...(usage !== undefined ? { usage } : {}) }
       }
       return { state: "idle", ...(usage !== undefined ? { usage } : {}) }
@@ -408,12 +422,12 @@ function isAnswerValue(value: unknown): value is string | number | boolean | str
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean" || (Array.isArray(value) && value.every((item) => typeof item === "string"))
 }
 
-function resultFromMessages(messages: Awaited<ReturnType<NativeV2Client["session"]["context"]>>): { completed: boolean; text: string; error?: string; failureID?: string; failureModel?: NativeTask["model"]; failureAt?: number; failureQuota?: NativeQuotaFailure; aborted?: boolean } {
+function resultFromMessages(messages: Awaited<ReturnType<NativeV2Client["session"]["context"]>>): { completed: boolean; text: string; error?: string; failureID?: string; failureModel?: NativeTask["model"]; failureAt?: number; failureQuota?: NativeQuotaFailure; failureRejection?: NativeModelRejection; aborted?: boolean } {
   const latest = [...messages].reverse().find((message) => message.type === "assistant")
   if (latest?.type !== "assistant" || latest.time.completed === undefined) return { completed: false, text: "" }
   const text = latest.content.filter((part) => part.type === "text").map((part) => part.text).join("")
-  const error = latest.error === undefined ? undefined : JSON.stringify(latest.error)
-  return { completed: true, text, ...(error !== undefined ? { error, failureID: latest.id, failureModel: latest.model, failureAt: latest.time.completed, failureQuota: parseNativeQuotaFailure(latest.error) } : {}), ...(latest.error?.type === "aborted" ? { aborted: true } : {}) }
+  const error = latest.error === undefined ? undefined : nativeModelRejectionSummary(latest.error) ?? JSON.stringify(latest.error)
+  return { completed: true, text, ...(error !== undefined ? { error, failureID: latest.id, failureModel: latest.model, failureAt: latest.time.completed, failureQuota: parseNativeQuotaFailure(latest.error), failureRejection: parseNativeModelRejection(latest.error) } : {}), ...(latest.error?.type === "aborted" ? { aborted: true } : {}) }
 }
 
 function sessionUsage(session: SessionInfo): { inputTokens: number; outputTokens: number; scope: "session_cumulative" } | undefined {
@@ -454,6 +468,10 @@ function isNotFound(error: unknown): boolean {
   const record = asRecord(error)
   const message = error instanceof Error ? error.message : String(error)
   return record?.status === 404 || record?.statusCode === 404 || /session not found|not found.*session|form not found/i.test(message)
+}
+
+function startMessageID(taskID: string, replacement: boolean): string {
+  return stableID("msg", replacement ? `replacement-start:${taskID}` : `start:${taskID}`, 26)
 }
 
 function stableID(prefix: string, source: string, length: number): string {

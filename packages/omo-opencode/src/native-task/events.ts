@@ -1,3 +1,4 @@
+import { isNativeModelRejectionHint } from "../native-catalog/model-continuity-evidence"
 import { isTerminal } from "./lifecycle"
 import { markNativeExecutionFailurePending, observeNativeExecutionFailure } from "./failure-observation"
 import type { NativeTask, NativeTaskEvent, NativeTaskRepository, NativeTaskRuntime } from "./types"
@@ -12,6 +13,7 @@ export async function handleNativeTaskEvent(
     save: (task: NativeTask) => Promise<NativeTask>
     now: () => number
     questionTimeoutMs: number
+    observeWorkerRejection?: (task: NativeTask, error: string) => Promise<boolean>
     onExecutionFailure?: (task: NativeTask, error: string) => Promise<void>
   },
 ): Promise<void> {
@@ -45,13 +47,16 @@ export async function handleNativeTaskEvent(
       }
       break
     case "execution.failed":
+      if (await deps.observeWorkerRejection?.(task, event.error)) return
       if (await hasOpenChildren(task, deps.repository)) {
         task.state = "waiting_children"
         task.executionOutcome = { state: "failed", error: event.error }
       } else {
         task.state = "failed"
-        task.error = event.error
-        task.result = `Task failed: ${event.error}`
+        task.error = task.failedWorkerAttempt && isNativeModelRejectionHint(event.error)
+          ? `${event.error} The automatic replacement was also rejected. Review provider availability before continuing.`
+          : event.error
+        task.result = `Task failed: ${task.error}`
         task.delivery = { status: "pending", attempts: 0 }
       }
       break
@@ -59,6 +64,7 @@ export async function handleNativeTaskEvent(
       task.state = "interrupted"
       break
     case "tool.started":
+      task.toolStarted = true
       if (!task.activeTools.some((tool) => tool.id === event.toolID)) task.activeTools.push({ id: event.toolID, name: event.toolName, startedAt: deps.now() })
       break
     case "tool.finished":

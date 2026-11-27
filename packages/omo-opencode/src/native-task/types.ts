@@ -59,6 +59,7 @@ export type NativeTaskRouter = {
     role: NativeTaskRole,
     callerSessionID: string,
   ): Promise<NativeRouteResult>
+  selectWorkerReplacement?(input: { decisionId: string; taskID: string; sessionID: string; callerSessionID: string; excludeProvider: boolean }): Promise<NativeRouteResult>
   revalidateSelected?(decisionId: string, callerSessionID: string): Promise<NativeRouteResult>
   recordDispatch?(decisionId: string, dispatch: { taskId: string; sessionId: string; role: NativeTaskRole; model: NativeModelRef }, callerSessionID: string): Promise<void>
   recordOutcome?(decisionId: string, outcome: {
@@ -87,6 +88,15 @@ export type NativeTaskToolActivity = { id: string; name: string; startedAt: numb
 export type NativeTaskUsage = { inputTokens: number; outputTokens: number; scope: "session_cumulative" }
 export type NativeTaskDeliveryReceipt = { status: "admitted" | "delivered" }
 export type NativeTaskDelivery = { receiptVersion?: 2; aggregateTaskID?: string; originalMessageID?: string; status: "pending" | "admitted" | "delivered"; admittedAt?: number; messageID?: string; attemptedAt?: number; deliveredAt?: number; attempts: number; lastError?: string }
+
+export type NativeFailedWorkerAttempt = {
+  model: NativeModelRef
+  sessionID: string
+  decisionId: string
+  failureID: string
+  reason: "rate_limit" | "payment_required"
+  failedAt: number
+}
 
 export type NativeTask = {
   id: string
@@ -120,6 +130,10 @@ export type NativeTask = {
   createdAt: number
   updatedAt: number
   attempts: number
+  pendingWorkerFailure?: { error: string; observedAt: number }
+  failedWorkerAttempt?: NativeFailedWorkerAttempt
+  replacementStart?: "pending" | "issued"
+  toolStarted?: true
   progress?: string
   activeTools: NativeTaskToolActivity[]
   question?: NativeTaskQuestion
@@ -167,9 +181,9 @@ export type NativeTaskRepository = {
 /** Operations implemented directly with OpenCode V2 session and event APIs. */
 export type NativeTaskRuntime = {
   resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string }>
-  createSession(input: { taskID: string; rootSessionID: string; parentSessionID: string; role: NativeTaskRole; model: NativeModelRef }): Promise<{ sessionID: string }>
+  createSession(input: { taskID: string; rootSessionID: string; parentSessionID: string; role: NativeTaskRole; model: NativeModelRef; replacement?: true }): Promise<{ sessionID: string }>
   start(input: { sessionID: string; prompt: string }): Promise<void>
-  inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; failureQuota?: import("../native-catalog/model-quota-evidence").NativeQuotaFailure; usage?: NativeTaskUsage }>
+  inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; rejectedBeforeWork?: true; failureRejection?: import("../native-catalog/model-continuity-evidence").NativeModelRejection; failureQuota?: import("../native-catalog/model-quota-evidence").NativeQuotaFailure; usage?: NativeTaskUsage }>
   resume(input: { taskID: string; sessionID: string }): Promise<void>
   interrupt(input: { sessionID: string }): Promise<void>
   deliver(input: { parentSessionID: string; taskID: string; result: string }): Promise<void | NativeTaskDeliveryReceipt>
