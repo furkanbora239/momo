@@ -130,7 +130,7 @@ try {
     })
     assert.equal(tasks.length, 1, "Exactly one durable task per root")
     const task = tasks[0]!
-    assert.equal(task.state, scenario.status, task.error)
+    assert.equal(task.state, scenario.status, task.error ?? scenario.name)
     assert.equal(task.attempts, scenario.attemptCount)
     const { id: taskID, sessionID, failedWorkerAttempt, error, decisionId } = task
     if (scenario.status === "succeeded") {
