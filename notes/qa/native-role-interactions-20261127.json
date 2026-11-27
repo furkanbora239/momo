@@ -137,5 +137,7 @@
       "groupsGone": true,
       "disposableRootRemoved": true
     }
-  }
+  },
+  "sameChatRetestBundleSHA256": "4c13802d19ee36f7d7ef1de8d6a1c45f730db745e607842db72e4b87f503b495",
+  "sameChatRetestAt": "2026-11-27T12:05:00Z"
 }

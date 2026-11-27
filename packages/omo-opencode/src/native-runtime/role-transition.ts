@@ -12,9 +12,11 @@ export function isTransitionRole(agent: unknown): agent is TransitionRole {
 }
 
 export function nativeRoleTransition(agent: TransitionRole, history: readonly HistoryEntry[]): string | undefined {
+  let sawIdle = false
   for (let index = history.length - 1; index >= 0; index--) {
     const entry = history[index]
-    if (entry.type === "idle") return undefined
+    if (entry.type === "idle") sawIdle = true
+    if (sawIdle && entry.type === "assistant" && entry.agent === agent) return undefined
     if (entry.type !== "agent-switched") continue
     if (entry.agent !== agent || entry.previous === agent || !isTransitionRole(entry.previous)) return undefined
     return `Role changed in this chat from ${entry.previous} to ${agent}. ${roleResponsibilities[agent]} Continue the same objective from the conversation history, preserving prior decisions, work and pending items. Apply the current role's responsibilities and permissions from this turn onward.`

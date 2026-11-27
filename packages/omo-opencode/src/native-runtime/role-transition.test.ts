@@ -11,9 +11,15 @@ test("reports the durable switch while generating the first turn in the new role
 })
 
 test("stops injecting the transition after the first turn in the new role has finished", () => {
-  expect(nativeRoleTransition("momo-worker", [switched, { type: "idle" }, { type: "user" }])).toBeUndefined()
+  expect(nativeRoleTransition("momo-worker", [switched, { type: "assistant", agent: "momo-worker" }, { type: "idle" }, { type: "user" }])).toBeUndefined()
 })
 
 test("leaves switches involving external agents to OpenCode", () => {
   expect(nativeRoleTransition("momo-worker", [{ ...switched, previous: "build" }])).toBeUndefined()
+})
+
+
+test("keeps a switch pending if the outgoing role finishes after selection", () => {
+  const history = [switched, { type: "assistant", agent: "momo-orchestrator" }, { type: "idle" }, { type: "user" }]
+  expect(nativeRoleTransition("momo-worker", history)).toContain(switched.agent)
 })
