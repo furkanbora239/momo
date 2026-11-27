@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "opencodeVersion": "opencode v2.4.2",
+  "bundleSHA256": "b472e9f0e729be896a0acf1bbd679ed6b7bf09ef661bfd4890b06d77dbb469de",
+  "verifiedCases": [
+    "two readonly advisor tasks used distinct models and isolated briefs"
+  ],
+  "models": [
+    "momo-qa-model-2",
+    "momo-qa-model-1"
+  ],
+  "cleanup": {
+    "sandboxRemoved": true,
+    "ownedProcessGroupGone": true,
+    "realDatabaseUnchanged": true
+  },
+  "verification": "Actual local OpenCode service and built native plugin. The local model fixture issues predetermined tool calls, and the local routing fixture supplies Jev responses."
+}

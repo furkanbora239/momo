@@ -28,7 +28,7 @@ export const taskInput = z.discriminatedUnion("action", [
 
 export const consultInput = z.discriminatedUnion("action", [
   ...inspectionInputs, ...discoveryInputs,
-  z.strictObject({ action: z.literal("start"), prompt: z.string().min(1), scope: z.string().optional(), waitMs: z.number().int().min(1_000).max(60_000).optional(), ...viewInput }),
+  z.strictObject({ action: z.literal("start"), prompt: z.string().min(1), differentFromTaskID: z.string().min(1).optional(), scope: z.string().optional(), waitMs: z.number().int().min(1_000).max(60_000).optional(), ...viewInput }),
   z.strictObject({ action: z.literal("select"), taskID: z.string(), decisionId: z.string(), providerID: z.string(), modelID: z.string(), ...viewInput }),
   z.strictObject({ action: z.literal("status"), taskID: z.string(), ...viewInput }),
   z.strictObject({ action: z.literal("wait"), taskID: z.string(), timeoutMs: z.number().int().min(1_000).max(60_000).optional(), ...viewInput }),

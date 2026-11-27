@@ -1,19 +1,18 @@
 import { describe, expect, it } from "bun:test"
 import type { FormDetail, SessionInfo, SessionMessageInfo } from "@opencode/client"
-import type { NativeTask, NativeTaskRepository } from "../native-task/types"
+import type { NativeTask, NativeTaskQuestion, NativeTaskRepository } from "../native-task/types"
 import { taskDetail } from "./task-tool-output"
 import { deliveryMessageID } from "./delivery-message-id"
 import { createNativeSessionRuntime } from "./session-runtime"
 import type { NativeV2Client } from "./v2-service-client"
 
-function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
+function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>, onQuestion?: (question: NativeTaskQuestion) => void) {
   const sessions = new Map<string, SessionInfo>()
   const forms = new Map<string, FormDetail>()
   const inbox = new Map<string, { id: string; sessionID: string; delivery: string }>()
   const calls: Array<{ name: string; input: unknown }> = []
   let promptResponse: Promise<unknown> = Promise.resolve({})
   let afterInboxUpdate: (() => Promise<void>) | undefined
-  let beforeFormCreate: (() => Promise<void>) | undefined
   let activeSessions: Record<string, { type: "running" }> = {}
   let contextMessages: SessionMessageInfo[] = []
   let messageError: Error | undefined
@@ -52,7 +51,7 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
     role: task.role,
     model: task.model,
   }
-  sessions.set("ses_root", makeSession({ id: "ses_root", agent: "orchestrator" }))
+  sessions.set("ses_root", makeSession({ id: "ses_root", agent: "orchestrator", model: { providerID: "momo-qa", id: "root-model" } }))
   sessions.set("ses_child", makeSession({ id: "ses_child", agent: "momo-worker", parentID: "ses_root", metadata: { momoNativeTask: childMetadata } }))
 
   const client = {
@@ -94,7 +93,6 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
         list: async ({ sessionID }: { sessionID: string }) => [...forms.values()].filter((form) => form.sessionID === sessionID),
         create: async (input: unknown) => {
           calls.push({ name: "form.create", input })
-          await beforeFormCreate?.()
           const params = input as Record<string, unknown>
           const form = makeForm(String(params.id), String(params.sessionID), String(params.title), params.metadata as Record<string, unknown> | undefined)
           forms.set(`${form.sessionID}:${form.id}`, form)
@@ -124,11 +122,16 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>) {
       resolveOwnedAgentID: (role) => role === "worker" ? "momo-worker" : "momo-orchestrator",
       verifySessionOwner: async () => undefined,
       beforeModelRequest,
+      onEvent: async (event) => {
+        if (event.type !== "question.asked") return
+        task.state = "waiting_question"
+        task.question = event.question
+        onQuestion?.(event.question)
+      },
       onParentAnswer: async (taskID, questionID, answer, replyingSessionID) => { calls.push({ name: "parent.answer", input: { taskID, questionID, answer, replyingSessionID } }) },
     }),
     setAfterInboxUpdate: (action: (() => Promise<void>) | undefined) => { afterInboxUpdate = action },
     setPromptResponse: (response: Promise<unknown>) => { promptResponse = response },
-    setBeforeFormCreate: (action: (() => Promise<void>) | undefined) => { beforeFormCreate = action },
     setActive: (value: Record<string, { type: "running" }>) => { activeSessions = value },
     setContext: (value: SessionMessageInfo[]) => { contextMessages = value },
     setMessageError: (error: Error) => { messageError = error },
@@ -172,7 +175,7 @@ describe("native V2 session runtime", () => {
   it("persists deterministic child identity and rejects an unowned caller", async () => {
     const h = harness()
     const root = await h.runtime.resolveCaller("ses_root")
-    expect(root).toEqual({ role: "orchestrator", rootSessionID: "ses_root" })
+    expect(root).toEqual({ role: "orchestrator", rootSessionID: "ses_root", model: { providerID: "momo-qa", id: "root-model" } })
     const child = await h.runtime.resolveCaller("ses_child")
     expect(child).toEqual({ role: "worker", rootSessionID: "ses_root" })
     await expect(h.runtime.resolveCaller("ses_unowned")).rejects.toThrow("Session not found")
@@ -288,7 +291,7 @@ describe("native V2 session runtime", () => {
   it("retracts a resolved question notification and ignores a late forwarded answer", async () => {
     const h = harness()
     await h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
-    const forwarded = [...h.forms.values()][0]
+    const forwarded = makeForm("legacy-forwarded", "ses_root", "Question", { momoNativeFormKind: "question", momoNativeTaskID: h.task.id, momoNativeQuestionID: h.task.question!.id })
     expect(h.inbox.size).toBe(1)
     h.task.answer = "accepted"
     h.task.state = "queued"
@@ -300,58 +303,52 @@ describe("native V2 session runtime", () => {
     expect(h.task.answer).toBe("accepted")
   })
 
-  it("creates a managed parent form without bypassing the task scheduler through a synthetic wake", async () => {
+  it("lets the scheduler wake managed parents without forms or synthetic bypass", async () => {
     const h = harness()
     h.task.parentTaskID = "department"
     await h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
-    expect(h.calls.filter((call) => call.name === "form.create")).toHaveLength(1)
+    expect(h.calls.filter((call) => call.name === "form.create")).toHaveLength(0)
     expect(h.calls.filter((call) => call.name === "synthetic")).toHaveLength(0)
   })
 
-  it("creates field-keyed native forms and routes root escalation answers back to the child form", async () => {
+  it("notifies the root model about a direct or escalated question without creating a form", async () => {
     const h = harness()
     await h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
-    const created = h.calls.find((call) => call.name === "form.create")?.input as Record<string, unknown>
-    expect(created).toMatchObject({ sessionID: "ses_root", title: "Which project?", fields: [{ key: "projectName", type: "string" }] })
-    const metadata = created.metadata as Record<string, unknown>
-    expect(metadata).toMatchObject({ momoNativeFormKind: "question", momoNativeTaskID: h.task.id, momoNativeQuestionID: "form_child" })
-    const notification = h.calls.filter((call) => call.name === "synthetic").at(-1)?.input as Record<string, unknown>
-    expect(notification).toMatchObject({ sessionID: "ses_root", resume: true, delivery: "steer", metadata: { momoNativeQuestionNotification: { taskID: h.task.id, questionID: "form_child" } } })
-
-    h.forms.set("ses_child:form_child", makeForm("form_child", "ses_child", "Which project?", { momoNativeFormKind: "question" }))
+    expect(h.calls.find((call) => call.name === "synthetic")?.input).toMatchObject({
+      sessionID: "ses_root", resume: true, delivery: "steer",
+      metadata: { momoNativeQuestionNotification: { taskID: h.task.id, questionID: h.task.question!.id } },
+    })
     h.task.questionEscalated = true
     await h.runtime.escalateQuestion({ rootSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
-    const escalation = [...h.calls].reverse().find((call) => call.name === "form.create")?.input as Record<string, unknown>
-    const escalationID = String(escalation.id)
-    await h.runtime.answer({ sessionID: "ses_child", questionID: "form_child", answer: "momo" })
-    expect(h.calls.find((call) => call.name === "form.reply")?.input).toMatchObject({
-      sessionID: "ses_child", formID: "form_child", answer: { projectName: "momo" },
-    })
-    expect(h.calls.filter((call) => call.name === "form.cancel")).toHaveLength(2)
-    const escalationMetadata = escalation.metadata as Record<string, unknown>
-    h.forms.set(`ses_root:${escalationID}`, makeForm(escalationID, "ses_root", "Which project?", escalationMetadata))
-    expect(await h.runtime.onFormEvent({ id: "form-replied-1", created: 1, type: "form.replied", data: { id: escalationID, sessionID: "ses_root", answer: { projectName: "root-answer" } } })).toBe(true)
-    expect(h.calls.at(-1)).toMatchObject({
-      name: "parent.answer",
-      input: { taskID: h.task.id, questionID: "form_child", answer: { projectName: "root-answer" }, replyingSessionID: "ses_root" },
-    })
+    expect(h.calls.filter((call) => call.name === "synthetic")).toHaveLength(1)
+    expect(h.calls.filter((call) => call.name === "form.create")).toHaveLength(0)
   })
 
-  it("closes a forwarded question form if the parent answers while form creation is in flight", async () => {
+  it("delivers a recovered parent answer exactly once into the same worker session", async () => {
     const h = harness()
-    let releaseCreate: (() => void) | undefined
-    h.setBeforeFormCreate(() => new Promise<void>((resolve) => { releaseCreate = resolve }))
-    const pendingAsk = h.runtime.ask({ parentSessionID: "ses_root", taskID: h.task.id, question: h.task.question! })
-    for (let attempt = 0; attempt < 8 && releaseCreate === undefined; attempt += 1) await Promise.resolve()
-    expect(releaseCreate).toBeDefined()
-    h.task.answer = "parent answered"
-    h.task.state = "queued"
-    releaseCreate?.()
-    await pendingAsk
+    h.task.question = { id: "parent-question", prompt: "Which project?", transport: "parent" }
+    const args = { sessionID: "ses_child", questionID: "parent-question", answer: "momo" }
+    await h.runtime.answer(args)
+    await h.runtime.answer(args)
+    expect(h.calls.filter((call) => call.name === "synthetic").map(call => call.input)).toMatchObject([
+      { sessionID: "ses_child", resume: true, delivery: "steer" },
+    ])
+    expect(h.calls.filter((call) => call.name === "form.reply")).toHaveLength(0)
+  })
 
-    expect(h.calls.some((call) => call.name === "synthetic")).toBe(false)
-    expect(h.calls.filter((call) => call.name === "form.cancel")).toHaveLength(1)
-    expect(h.forms.size).toBe(0)
+  it("resumes the original session if the waiting tool aborts during admission", async () => {
+    const question = Promise.withResolvers<NativeTaskQuestion>()
+    const controller = new AbortController()
+    const h = harness(async () => controller.abort(new Error("service stopped")), question.resolve)
+    h.task.state = "running"
+    const waiting = h.runtime.askParent("ses_child", "Which project?", undefined, controller.signal)
+    const aborted = waiting.then(() => undefined, (error: unknown) => error)
+    const { id } = await question.promise
+    await h.runtime.answer({ sessionID: "ses_child", questionID: id, answer: "momo" })
+    expect(await aborted).toEqual(new Error("service stopped"))
+    expect(h.calls.filter(call => call.name === "synthetic").map(call => call.input)).toMatchObject([
+      { sessionID: "ses_child", resume: true, delivery: "steer" },
+    ])
   })
 
   it("marks forwarded momo forms consumed so parent questions do not re-enter task event mapping", async () => {

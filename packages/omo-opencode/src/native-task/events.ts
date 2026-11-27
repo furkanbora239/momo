@@ -27,6 +27,11 @@ export async function handleNativeTaskEvent(
     await deps.save(task)
     return
   }
+  if (task.state === "waiting_question" && task.question?.transport === "parent"
+    && event.type.startsWith("execution.")) {
+    await deps.save(task)
+    return
+  }
   task.processedEventIDs.push(event.id)
   if (task.processedEventIDs.length > EVENT_HISTORY_LIMIT) task.processedEventIDs.splice(0, task.processedEventIDs.length - EVENT_HISTORY_LIMIT)
   task.lastActivityAt = deps.now()

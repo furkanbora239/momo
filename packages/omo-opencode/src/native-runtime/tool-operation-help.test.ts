@@ -21,8 +21,8 @@ describe("native operation contract", () => {
   })
 
   test("#given a worker or advisor #when discovering restricted tools #then role boundaries remain enforced", () => {
-    expect(describeNativeTool({ tool: "momo_task", role: "worker" }).error?.code).toBe("tool_not_allowed")
-    const worker = describeNativeTool({ tool: "momo_consult", role: "worker" })
+    expect(describeNativeTool({ tool: "momo_task", role: "worker", managed: true }).error?.code).toBe("tool_not_allowed")
+    const worker = describeNativeTool({ tool: "momo_consult", role: "worker", managed: true })
     expect(worker.operations?.map(row => row.action)).toEqual(consultInput.options.map(schema => schema.shape.action.value))
     expect(worker.protocol?.questions.available).toBe(true)
     expect(describeNativeTool({ tool: "momo_consult", role: "advisor" }).error?.code).toBe("tool_not_allowed")

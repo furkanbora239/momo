@@ -30,6 +30,7 @@ export interface NativeRouteInput {
   /** Trusted internal role constraint, intersected with the caller's routing policy. */
   readonly sourceDecisionID?: string
   readonly requiredRole?: NativeRole
+  readonly excludedAdvisors?: readonly NativeModelRef[]
   readonly requiredContextLength?: number
   readonly requiredCapabilities?: readonly string[]
 }

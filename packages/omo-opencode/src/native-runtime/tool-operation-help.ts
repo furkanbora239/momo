@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto"
 import { z } from "zod"
 import type { NativeTaskRole } from "../native-task"
-import { nativeToolAllowed, type NativeAgentID } from "./role-policy"
+import { nativeParentQuestionAllowed, nativeToolAllowed, type NativeAgentID } from "./role-policy"
 import { taskInput, consultInput } from "./tool-operation-inputs"
 
 export type NativeLifecycleTool = "momo_task" | "momo_consult"
@@ -11,7 +11,7 @@ const docs: Record<string, string> = {
   help: "Load this operation index or one current input schema; cache by contractVersion.",
   capabilities: "Inspect current role permissions, consultation availability and question support.",
   create: "Delegate bounded implementation or investigation with scope and acceptance criteria.",
-  start: "Request distilled advice; requires an eligible configured advisor. It does not delegate implementation.",
+  start: "Request distilled advice from an eligible configured advisor. For a second opinion, pass differentFromTaskID for a completed consultation from this session; it excludes that model.",
   list: "Recover owned task IDs. Follow nextOffset until absent; maintenance is opt-in.",
   candidates: "Page current caller choices after awaiting_selection; reuse the task and decision IDs.",
   detail: "Inspect assignment and structured question keys/options before answering.",
@@ -25,7 +25,7 @@ const docs: Record<string, string> = {
 }
 const examples: Partial<Record<NativeLifecycleTool, Record<string, Record<string, unknown>>>> = {
   momo_task: {
-    answer: { action: "answer", taskID: "task-id", questionID: "question-id", answer: { field_key: "chosen_value" }, view: "brief" },
+    answer: { action: "answer", taskID: "task-id", questionID: "question-id", answer: "chosen_value", view: "brief" },
     wait: { action: "wait", taskID: "task-id", timeoutMs: 1000, view: "brief" },
   },
   momo_consult: { start: { action: "start", prompt: "Review the proposed fix and identify the main risk.", view: "brief" } },
@@ -45,15 +45,16 @@ export interface NativeToolHelp {
   protocol?: {
     resultEncoding: string
     decodeOnce: string
-    questions: { available: boolean; askTool: string; answerTool: string; answerAction: string; purpose: string }
+    questions: { available: boolean; askTool?: string; answerTool: string; answerAction: string; purpose: string }
     consultation: { tool: string; action: string; requiresAdvisorPool: boolean; useFor: string }
     monitoring: { view: string; timeoutDoesNotCancel: boolean; retryCreation: boolean; acceptance: string }
   }
 }
 
-export function describeNativeTool(input: { tool: NativeLifecycleTool; role: NativeTaskRole; operation?: string }): NativeToolHelp {
+export function describeNativeTool(input: { tool: NativeLifecycleTool; role: NativeTaskRole; managed?: boolean; operation?: string }): NativeToolHelp {
   const base = { tool: input.tool, contractVersion: nativeToolContractVersion }
   const agent = `momo-${input.role}` as NativeAgentID
+  const askTool = input.managed ? nativeParentQuestionAllowed(agent) ? "momo_ask_parent" : undefined : agent === "momo-orchestrator" ? "question" : undefined
   if (!nativeToolAllowed(agent, input.tool)) return { ...base, error: { code: "tool_not_allowed" }, operations: [] }
   const options = schemas[input.tool].options
   const operations = options.map(schema => ({ action: schema.shape.action.value, description: docs[schema.shape.action.value] }))
@@ -68,8 +69,8 @@ export function describeNativeTool(input: { tool: NativeLifecycleTool; role: Nat
       resultEncoding: "json-string",
       decodeOnce: "JSON.parse(await tools.momo_task(input)) or JSON.parse(await tools.momo_consult(input))",
       questions: {
-        available: input.role !== "catalog-researcher" && input.role !== "advisor",
-        askTool: "question", answerTool: "momo_task", answerAction: "answer",
+        available: askTool !== undefined,
+        askTool, answerTool: "momo_task", answerAction: "answer",
         purpose: "Missing input or a blocker: ask instead of reporting unperformed work as completed.",
       },
       consultation: { tool: "momo_consult", action: "start", requiresAdvisorPool: true, useFor: "Expert advice from a different eligible model." },

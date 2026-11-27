@@ -9,7 +9,7 @@ const candidateSchema = z.object({ role: roleSchema, model: modelSchema }).passt
 const taskSchema = z.object({
   id: z.string().min(1), rootTaskID: z.string().min(1), parentTaskID: z.string().optional(),
   rootSessionID: z.string().min(1), parentSessionID: z.string().min(1), sessionID: z.string().optional(),
-  kind: z.enum(["task", "consultation"]), parentRole: roleSchema, role: roleSchema.optional(), model: modelSchema.optional(),
+  kind: z.enum(["task", "consultation"]), parentRole: roleSchema, role: roleSchema.optional(), model: modelSchema.optional(), excludedAdvisors: z.array(modelSchema).optional(),
   requiredRole: roleSchema.optional(), sourceDecisionID: z.string().optional(), maintenance: z.literal(true).optional(),
   decisionId: z.string().optional(), candidates: z.array(candidateSchema).optional(),
   usage: z.object({ inputTokens: z.number(), outputTokens: z.number(), scope: z.literal("session_cumulative") }).optional(),
@@ -24,7 +24,7 @@ const taskSchema = z.object({
   replacementStart: z.enum(["pending", "issued"]).optional(),
   toolStarted: z.literal(true).optional(),
   activeTools: z.array(z.object({ id: z.string(), name: z.string(), startedAt: z.number() })),
-  question: z.object({ id: z.string(), prompt: z.string(), options: z.array(z.string()).optional(), form: z.record(z.string(), z.unknown()).optional() }).optional(),
+  question: z.object({ id: z.string(), prompt: z.string(), transport: z.literal("parent").optional(), options: z.array(z.string()).optional(), form: z.record(z.string(), z.unknown()).optional() }).optional(),
   questionDelivery: z.enum(["pending", "sent"]).optional(), questionDeadlineAt: z.number().optional(), questionEscalated: z.boolean().optional(),
   answer: z.unknown().optional(), answerStatus: z.enum(["pending", "sent"]).optional(), childrenWakePending: z.boolean().optional(), parentWakeID: z.string().optional(), waitForTaskID: z.string().optional(), resumeInPlace: z.boolean().optional(),
   executionOutcome: z.object({ state: z.enum(["succeeded", "failed"]), result: z.string().optional(), error: z.string().optional() }).optional(),
