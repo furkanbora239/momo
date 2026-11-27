@@ -350,7 +350,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
   }
 
   async function selectWorkerReplacement(input: {
-    decisionId: string; taskID: string; sessionID: string; callerSessionID: string; excludeProvider: boolean
+    decisionId: string; taskID: string; sessionID: string; callerSessionID: string; excludeProvider: boolean; retryOriginal?: true
   }): Promise<NativeRouteResult> {
     return exclusive(async () => {
       await ensureLoaded()
@@ -361,7 +361,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
         return { kind: "unavailable", reason: "The failed worker attempt could not be matched to its recorded assignment." }
       }
       const decisionId = `${input.taskID}:worker-replacement`
-      const scope = input.excludeProvider ? "provider" : "model"
+      const scope = input.retryOriginal ? "retry_original" : input.excludeProvider ? "provider" : "model"
       const existing = byDecision.get(decisionId)
       if (existing) {
         if (existing.request.input.sourceDecisionID !== origin.decisionId || existing.request.input.parentSessionID !== input.callerSessionID ||
@@ -371,9 +371,14 @@ export function createNativeRouter(deps: NativeRouterDeps) {
         return routeResult(existing)
       }
       const route = { ...origin.request.input, decisionId, sourceDecisionID: origin.decisionId, requiredRole: "worker" as const }
-      const candidates = workerReplacementCandidates(origin, await snapshot(route), input.excludeProvider)
+      const candidates = workerReplacementCandidates(origin, await snapshot(route), scope)
       const candidate = candidates[0]
-      if (!candidate) return { kind: "unavailable", reason: "No other available worker model in the active pool meets the original assignment's pricing and capability requirements." }
+      if (!candidate) return {
+        kind: "unavailable",
+        reason: input.retryOriginal
+          ? "The original worker model is still unavailable or exceeds the recorded rates."
+          : "No other available worker model in the active pool meets the original assignment's pricing and capability requirements.",
+      }
       const request = { ...requestFor(route, decisionId, candidates, []), instructions: "Runtime continuity preserves the original role and price ceiling." }
       await saveNew({
         ...makeRecord(request, "selected"),
@@ -436,7 +441,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     if (record.workerReplacementScope === undefined) return live
     const source = record.request.input.sourceDecisionID
     const origin = source ? byDecision.get(source) : undefined
-    return origin ? workerReplacementCandidates(origin, live, record.workerReplacementScope === "provider") : []
+    return origin ? workerReplacementCandidates(origin, live, record.workerReplacementScope) : []
   }
 
   async function recordDispatch(decisionId: string, dispatch: NativeDispatchFact, callerSessionID: string): Promise<void> {

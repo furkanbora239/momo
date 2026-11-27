@@ -2,7 +2,7 @@
 import { parseNativeQuotaFailure } from "./model-quota-evidence"
 
 export type NativeModelRejection =
-  | { kind: "rate_limit"; scope: "model"; retryAfterMs: number }
+  | { kind: "rate_limit"; scope: "model"; retryAfterMs: number; explicitRetryAfter?: true }
   | { kind: "payment_required"; scope: "model" | "provider"; retryAfterMs: number }
 
 const accountBalanceCodes = new Set(["insufficient_balance", "account_balance_exhausted"])
@@ -12,8 +12,10 @@ export function parseNativeModelRejection(value: unknown): NativeModelRejection 
   if (typeof error?.type !== "string" || !error.type.startsWith("provider.")) return undefined
   if (error.status === 429) {
     const wait = error.retryAfterMs
-    const retryAfterMs = typeof wait === "number" && Number.isFinite(wait) && wait > 0 ? Math.min(wait, 86_400_000) : 60_000
-    return { kind: "rate_limit", scope: "model", retryAfterMs }
+    if (typeof wait === "number" && Number.isFinite(wait) && wait > 0) {
+      return { kind: "rate_limit", scope: "model", retryAfterMs: Math.min(wait, 86_400_000), explicitRetryAfter: true }
+    }
+    return { kind: "rate_limit", scope: "model", retryAfterMs: 60_000 }
   }
   if (error.status !== 402) return undefined
   const body = asRecord(error.response)?.body
