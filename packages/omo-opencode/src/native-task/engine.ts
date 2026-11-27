@@ -1,5 +1,5 @@
 import { createNativeTaskID } from "./id"
-import { applyRoute, assertCanCreate, hasCapacity, sameModel } from "./guards"
+import { applyRoute, assertCanCreate, hasCapacity, routeInput, sameModel } from "./guards"
 import type {
   NativeTask,
   NativeTaskEngineOptions,
@@ -18,6 +18,7 @@ export type NativeTaskCreateInput = {
   acceptance?: string
   callerSessionID: string
   kind?: NativeTaskKind
+  differentFromTaskID?: string
 }
 
 export type NativeTaskResearchInput = {
@@ -76,6 +77,15 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     if (parent !== undefined && (parent.state === "waiting_question" || parent.state === "waiting_children")) {
       throw new Error("A task can only spawn while its session is actively running")
     }
+    if (kind === "consultation" && !caller.model) throw new Error("Select a session model before starting an advisor consultation")
+    const excludedAdvisors = kind === "consultation" && caller.model ? [caller.model] : []
+    if (input.differentFromTaskID !== undefined) {
+      const previous = await options.repository.get(input.differentFromTaskID)
+      if (kind !== "consultation" || previous?.parentSessionID !== input.callerSessionID || previous.kind !== "consultation" || previous.state !== "succeeded" || !previous.model) {
+        throw new Error("A second opinion requires a completed consultation from this session")
+      }
+      if (!excludedAdvisors.some(model => sameModel(model, previous.model))) excludedAdvisors.push(previous.model)
+    }
     const id = taskID ?? createNativeTaskID()
     if (taskID) {
       const existing = await options.repository.get(taskID)
@@ -92,6 +102,7 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
       rootSessionID: caller.rootSessionID,
       parentSessionID: input.callerSessionID,
       kind,
+      ...(excludedAdvisors.length ? { excludedAdvisors } : {}),
       parentRole,
       ...(requiredRole !== undefined ? { requiredRole } : {}),
       ...(sourceDecisionID !== undefined ? { sourceDecisionID } : {}),
@@ -112,21 +123,10 @@ export function createNativeTaskEngine(options: NativeTaskEngineOptions) {
     }
     await withTaskLock(id, async () => {
       await save(task)
-      const routeInput = {
-        ...(sourceDecisionID ? { sourceDecisionID } : {}),
-        decisionId: id,
-        prompt: input.prompt,
-        ...(input.scope !== undefined ? { scope: input.scope } : {}),
-        ...(input.acceptance !== undefined ? { acceptance: input.acceptance } : {}),
-        parentRole,
-        ...(requiredRole !== undefined ? { requiredRole } : {}),
-        rootSessionID: task.rootSessionID,
-        parentSessionID: task.parentSessionID,
-        kind,
-      }
+      const assignment = routeInput(task)
       const routed = executor
-        ? await options.router.bindResearch?.(routeInput, executor) ?? { kind: "unavailable" as const, reason: "Router does not support explicit maintenance binding" }
-        : await options.router.route(routeInput)
+        ? await options.router.bindResearch?.({ ...assignment, sourceDecisionID }, executor) ?? { kind: "unavailable" as const, reason: "Router does not support explicit maintenance binding" }
+        : await options.router.route(assignment)
       applyRoute(task, routed)
       await save(task)
     })

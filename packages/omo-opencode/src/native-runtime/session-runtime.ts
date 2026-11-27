@@ -34,8 +34,9 @@ export function createNativeSessionRuntime(input: {
     return clientPromise
   }
 
-  async function resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string }> {
+  async function resolveCaller(sessionID: string): ReturnType<NativeTaskRuntime["resolveCaller"]> {
     const session = await ownedSession(sessionID)
+    const model = session.model && { providerID: session.model.providerID, id: session.model.id }
     const metadata = readNativeMetadata(session.metadata?.momoNativeTask)
     if (metadata !== undefined) {
       const task = await input.repository.get(metadata.taskID)
@@ -44,12 +45,12 @@ export function createNativeSessionRuntime(input: {
       }
       const role = input.resolveOwnedRole(session)
       if (role !== metadata.role) throw new Error("OpenCode child session role does not match its durable assignment")
-      return { role, rootSessionID: metadata.rootSessionID }
+      return { role, rootSessionID: metadata.rootSessionID, ...(model ? { model } : {}) }
     }
     if (session.parentID !== undefined) throw new Error("Untracked OpenCode child sessions cannot create native tasks")
     const role = input.resolveOwnedRole(session)
     if (role === undefined) throw new Error("Only sessions running an installed momo agent can create native tasks")
-    return { role, rootSessionID: session.id }
+    return { role, rootSessionID: session.id, ...(model ? { model } : {}) }
   }
 
   async function createSession(args: Parameters<NativeTaskRuntime["createSession"]>[0]): Promise<{ sessionID: string }> {

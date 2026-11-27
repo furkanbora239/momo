@@ -8,6 +8,39 @@ async function startWorker(harness: ReturnType<typeof createHarness>, callerSess
 }
 
 describe("native task lifecycle", () => {
+  it("requires an owned successful consultation for a second opinion", async () => {
+    const h = createHarness()
+    const caller = { providerID: "test", id: "caller" }
+    const advisor = { providerID: "test", id: "advisor" }
+    const peer = { providerID: "test", id: "peer" }
+    h.runtime.callers.set("root", { role: "orchestrator", rootSessionID: "root", model: caller })
+    h.runtime.callers.set("other-root", { role: "orchestrator", rootSessionID: "other-root", model: caller })
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "initial", role: "advisor", model: advisor })
+    const first = await h.engine.create({ kind: "consultation", prompt: "Initial opinion", callerSessionID: "root" })
+    await expect(h.engine.create({ kind: "consultation", prompt: "Second opinion", callerSessionID: "root", differentFromTaskID: first.id })).rejects.toThrow("completed consultation")
+    await h.engine.onEvent({ id: "first-advice", type: "execution.succeeded", sessionID: first.sessionID ?? "", result: "Recommendation" })
+    await expect(h.engine.create({ kind: "consultation", prompt: "Second opinion", callerSessionID: "other-root", differentFromTaskID: first.id })).rejects.toThrow("completed consultation")
+
+    h.router.routeResult = () => ({ kind: "selected", decisionId: "second", role: "advisor", model: peer })
+    const second = await h.engine.create({ kind: "consultation", prompt: "Second opinion", callerSessionID: "root", differentFromTaskID: first.id })
+    expect(h.router.routeInputs.map(input => input.excludedAdvisors)).toEqual([[caller], [caller, advisor]])
+    expect(second).toMatchObject({ model: peer, excludedAdvisors: [caller, advisor] })
+  })
+
+  it("rejects choosing the new session model on a pending consultation", async () => {
+    const h = createHarness()
+    const original = { providerID: "test", id: "caller" }
+    const candidate = { providerID: "test", id: "candidate" }
+    h.runtime.callers.set("root", { role: "orchestrator", rootSessionID: "root", model: original })
+    h.router.routeResult = () => ({ kind: "awaiting_selection", decisionId: "parked", candidates: [{ role: "advisor", model: candidate }], reason: "Please select" })
+    const pending = await h.engine.create({ kind: "consultation", prompt: "Seek advice", callerSessionID: "root" })
+    h.runtime.callers.set("root", { role: "orchestrator", rootSessionID: "root", model: candidate })
+
+    await expect(h.engine.select(pending.id, "root", candidate, "advisor")).rejects.toThrow("current session model")
+    expect(await h.engine.status(pending.id, "root")).toMatchObject({ state: "awaiting_selection" })
+    expect(h.runtime.starts).toHaveLength(0)
+  })
+
   it("discards an interrupted execution's expired tool lease before resuming its existing session", async () => {
     const h = createHarness({ activeToolTimeoutMs: 100, silenceTimeoutMs: 1000 })
     const task = await startWorker(h)
