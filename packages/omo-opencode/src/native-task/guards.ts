@@ -22,6 +22,9 @@ export function applyRoute(task: NativeTask, result: NativeRouteResult): void {
     : task.kind === "consultation"
     ? task.parentRole !== "advisor" && result.role === "advisor"
     : isValidRoutedRole(task.kind, result.role) && mayCreateChildRole(task.parentRole, result.role)
+  if (task.excludedAdvisors?.some(model => sameModel(result.model, model))) {
+    return applyRoute(task, { kind: "unavailable", reason: "Consultation requires a distinct advisor model" })
+  }
   if (!permitted) {
     task.state = "failed"
     task.error = `Routing policy rejected role ${result.role} for ${task.parentRole}.`
@@ -46,6 +49,7 @@ export function routeInput(task: NativeTask) {
     rootSessionID: task.rootSessionID,
     parentSessionID: task.parentSessionID,
     kind: task.kind,
+    ...(task.excludedAdvisors ? { excludedAdvisors: task.excludedAdvisors } : {}),
   }
 }
 

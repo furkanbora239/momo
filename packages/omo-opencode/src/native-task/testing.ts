@@ -46,7 +46,7 @@ export class FakeNativeTaskRouter implements NativeTaskRouter {
 }
 
 export class FakeNativeTaskRuntime implements NativeTaskRuntime {
-  readonly callers = new Map<string, { role: import("./types").NativeTaskRole; rootSessionID: string }>()
+  readonly callers = new Map<string, Awaited<ReturnType<NativeTaskRuntime["resolveCaller"]>>>()
   readonly starts: Array<{ taskID: string; role: string; prompt: string }> = []
   readonly resumes: Array<{ taskID: string; sessionID: string }> = []
   readonly interrupts: string[] = []
@@ -62,7 +62,7 @@ export class FakeNativeTaskRuntime implements NativeTaskRuntime {
   answerAction?: () => Promise<void>
   escalationAction?: () => Promise<void>
   askAction?: () => Promise<void>
-  async resolveCaller(sessionID: string): Promise<{ role: import("./types").NativeTaskRole; rootSessionID: string }> {
+  async resolveCaller(sessionID: string): ReturnType<NativeTaskRuntime["resolveCaller"]> {
     return this.callers.get(sessionID) ?? { role: "orchestrator", rootSessionID: sessionID }
   }
   async createSession(input: Parameters<NativeTaskRuntime["createSession"]>[0]): Promise<{ sessionID: string }> {

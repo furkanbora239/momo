@@ -20,3 +20,9 @@ test("advisor cannot discover consultation as executable and headless research c
   expect((await readNativeToolCapabilities({ ...options, agent: "momo-advisor" })).consultation).toMatchObject({ enabled: false, reason: "role_denied", models: [] })
   expect((await readNativeToolCapabilities({ ...options, agent: "momo-catalog-researcher" })).questions.supported).toBe(false)
 })
+
+test("consultation is unavailable when only the session model is configured", async () => {
+  const callerModel = { providerID: "p", id: "caller" }
+  const result = await readNativeToolCapabilities({ agent: "momo-orchestrator", advisors: [callerModel], callerModel, available: [{ ...callerModel, available: true }], isAllowed: () => true })
+  expect(result.consultation).toMatchObject({ enabled: false, reason: "no_distinct_advisor", configuredCount: 1, eligibleCount: 0, models: [] })
+})

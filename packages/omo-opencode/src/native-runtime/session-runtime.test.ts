@@ -51,7 +51,7 @@ function harness(beforeModelRequest?: (session: SessionInfo) => Promise<void>, o
     role: task.role,
     model: task.model,
   }
-  sessions.set("ses_root", makeSession({ id: "ses_root", agent: "orchestrator" }))
+  sessions.set("ses_root", makeSession({ id: "ses_root", agent: "orchestrator", model: { providerID: "momo-qa", id: "root-model" } }))
   sessions.set("ses_child", makeSession({ id: "ses_child", agent: "momo-worker", parentID: "ses_root", metadata: { momoNativeTask: childMetadata } }))
 
   const client = {
@@ -175,7 +175,7 @@ describe("native V2 session runtime", () => {
   it("persists deterministic child identity and rejects an unowned caller", async () => {
     const h = harness()
     const root = await h.runtime.resolveCaller("ses_root")
-    expect(root).toEqual({ role: "orchestrator", rootSessionID: "ses_root" })
+    expect(root).toEqual({ role: "orchestrator", rootSessionID: "ses_root", model: { providerID: "momo-qa", id: "root-model" } })
     const child = await h.runtime.resolveCaller("ses_child")
     expect(child).toEqual({ role: "worker", rootSessionID: "ses_root" })
     await expect(h.runtime.resolveCaller("ses_unowned")).rejects.toThrow("Session not found")

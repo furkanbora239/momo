@@ -93,6 +93,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       if (input.requiredContextLength !== undefined && facts.contextLength === undefined) continue
       if (input.requiredCapabilities?.some((capability) => !facts.capabilities?.includes(capability))) continue
       if (advisorConsultation) {
+        if (input.excludedAdvisors?.some(model => sameModel(model, facts))) continue
         if (!advisorModels().some((model) => sameModel(model, facts))) continue
         if (deps.pool.isConsultationAllowed && !await deps.pool.isConsultationAllowed(facts)) continue
       }
@@ -145,7 +146,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       candidates,
       knowledge: [...knownFacts.values()],
       outcomes,
-      instructions: "Choose the least expensive model that is demonstrably adequate for the full task. Consider all connected candidates: free models for trivial work, retain sufficiently capable premium options. Unknown prices are unknown, never free. Unknown abilities are unverified. Respect task-vs-consultation kind and role/depth constraints. Select lane=department only when a planner, executor, or reviewer lead should coordinate worker children; otherwise use direct. Candidate keys are role|providerID/modelID. Return probabilities over plausible candidate keys.",
+      instructions: "Choose the least expensive model that is demonstrably adequate for the full task. Consider all connected candidates: free models for trivial work, retain sufficiently capable premium options. Unknown prices are unknown, never free. Unknown abilities are unverified. Respect task-vs-consultation kind and role/depth constraints. Select lane=department only when a planner, executor, or reviewer lead should coordinate worker children; otherwise use direct. Candidate keys are role|providerID/modelID. Return probabilities over plausible candidate keys." + (input.kind === "consultation" ? " For advice, match the decision and requested perspective to documented reasoning or domain capabilities and advisory outcomes. Price does not establish capability." : ""),
     }
   }
 
@@ -183,6 +184,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
       left.parentRole === right.parentRole && left.rootSessionID === right.rootSessionID &&
       left.parentSessionID === right.parentSessionID && left.kind === right.kind &&
       left.requiredRole === right.requiredRole &&
+      JSON.stringify(left.excludedAdvisors ?? []) === JSON.stringify(right.excludedAdvisors ?? []) &&
       left.requiredContextLength === right.requiredContextLength &&
       JSON.stringify(left.requiredCapabilities ?? []) === JSON.stringify(right.requiredCapabilities ?? [])
   }
@@ -229,7 +231,7 @@ export function createNativeRouter(deps: NativeRouterDeps) {
     }
     const candidates = await snapshot(input)
     if (candidates.length === 0) {
-      const reason = input.kind === "consultation" ? "consultation pool has no eligible available models" : "no eligible available models"
+      const reason = input.excludedAdvisors ? "consultation pool has no distinct eligible available advisor" : input.kind === "consultation" ? "consultation pool has no eligible available models" : "no eligible available models"
       const request = requestFor(input, decisionId, candidates, await deps.outcomes.list())
       await saveNew(makeRecord(request, "unavailable", reason))
       return { kind: "unavailable", decisionId, reason }

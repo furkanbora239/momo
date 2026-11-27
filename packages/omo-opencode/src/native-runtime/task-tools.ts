@@ -237,7 +237,10 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
         if (role === undefined || !nativeToolAllowed(role, "momo_task")) throw new Error("This momo role cannot create tasks")
         const input = taskInput.parse(rawInput)
         if (input.action === "help") return response(describeNativeTool({ tool: "momo_task", role: roleByAgentID.get(role)!, operation: input.operation, managed: (await ctx.session.get({ sessionID: tool.sessionID })).metadata?.momoNativeTask !== undefined }))
-        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, managed: (await ctx.session.get({ sessionID: tool.sessionID })).metadata?.momoNativeTask !== undefined, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
+        if (input.action === "capabilities") {
+          const caller = await ctx.session.get({ sessionID: tool.sessionID })
+          return response(await readNativeToolCapabilities({ agent: role, managed: caller.metadata?.momoNativeTask !== undefined, callerModel: caller.model, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
+        }
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "task", input))
         if (input.action === "create") {
           const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, acceptance: input.acceptance, callerSessionID: tool.sessionID, kind: "task" })
@@ -268,10 +271,13 @@ export async function registerNativeTools(ctx: Plugin.Context, activeOwnedIDs: R
         if (role === undefined || !nativeToolAllowed(role, "momo_consult")) throw new Error("This momo role cannot consult an advisor")
         const input = consultInput.parse(rawInput)
         if (input.action === "help") return response(describeNativeTool({ tool: "momo_consult", role: roleByAgentID.get(role)!, operation: input.operation, managed: (await ctx.session.get({ sessionID: tool.sessionID })).metadata?.momoNativeTask !== undefined }))
-        if (input.action === "capabilities") return response(await readNativeToolCapabilities({ agent: role, managed: (await ctx.session.get({ sessionID: tool.sessionID })).metadata?.momoNativeTask !== undefined, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
+        if (input.action === "capabilities") {
+          const caller = await ctx.session.get({ sessionID: tool.sessionID })
+          return response(await readNativeToolCapabilities({ agent: role, managed: caller.metadata?.momoNativeTask !== undefined, callerModel: caller.model, advisors: advisorPool.read(), available: await catalog.catalog.listAvailable(), isAllowed: async model => await catalog.pool.isAllowed(model) && (await catalog.pool.isConsultationAllowed?.(model) ?? true) }))
+        }
         if (input.action === "list") return response(await listTasksForCaller(repository, tool.sessionID, "consultation", input))
         if (input.action === "start") {
-          const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, callerSessionID: tool.sessionID, kind: "consultation" })
+          const created = await nativeEngine.create({ prompt: input.prompt, scope: input.scope, callerSessionID: tool.sessionID, kind: "consultation", differentFromTaskID: input.differentFromTaskID })
           return response(taskToolView(input.waitMs === undefined ? created : await nativeEngine.wait(created.id, tool.sessionID, input.waitMs), input.view, tool.sessionID))
         }
         const task = await taskForCaller(repository, input.taskID, tool.sessionID, "consultation")
