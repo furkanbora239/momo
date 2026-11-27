@@ -1,4 +1,5 @@
 import type { Plugin } from "@opencode/plugin"
+import { isTransitionRole, nativeRoleTransition } from "./role-transition"
 import { filterNativeContextTools, nativeActionEffect, ownedAgentID, type NativeAgentID } from "./role-policy"
 
 export async function registerNativePermissions(ctx: Plugin.Context, activeOwnedIDs: ReadonlySet<string>): Promise<() => Promise<void>> {
@@ -10,8 +11,14 @@ export async function registerNativePermissions(ctx: Plugin.Context, activeOwned
     const effect = nativePermissionEffect(role, event.action)
     if (effect !== undefined) event.effect = effect
   })
-  const contextRegistration = await ctx.session.hook("context", (event) => {
+  const contextRegistration = await ctx.session.hook("context", async (event) => {
     filterNativeContextTools(event.agent, event.tools, activeOwnedIDs)
+    if (!activeOwnedIDs.has(event.agent) || !isTransitionRole(event.agent)) return
+    const session = await ctx.session.get({ sessionID: event.sessionID })
+    if (session.parentID !== undefined) return
+    const history = await ctx.session.context({ sessionID: event.sessionID })
+    const transition = nativeRoleTransition(event.agent, history)
+    if (transition !== undefined) event.system.push({ type: "text", text: transition })
   })
   const executionRegistration = await ctx.tool.hook("execute.before", (event) => {
     const role = activeOwnedIDs.has(event.agent) ? ownedAgentID(event.agent) : undefined
