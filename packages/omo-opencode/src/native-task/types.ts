@@ -40,6 +40,7 @@ export type NativeRouteInput = {
   parentRole: NativeTaskRole
   requiredRole?: NativeTaskRole
   sourceDecisionID?: string
+  excludedAdvisors?: readonly NativeModelRef[]
   rootSessionID: string
   parentSessionID: string
   kind: NativeTaskKind
@@ -110,6 +111,7 @@ export type NativeTask = {
   role?: NativeTaskRole
   requiredRole?: NativeTaskRole
   sourceDecisionID?: string
+  excludedAdvisors?: readonly NativeModelRef[]
   maintenance?: true
   model?: NativeModelRef
   dispatchStatus?: "pending" | "recorded"
@@ -180,7 +182,7 @@ export type NativeTaskRepository = {
 
 /** Operations implemented directly with OpenCode V2 session and event APIs. */
 export type NativeTaskRuntime = {
-  resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string }>
+  resolveCaller(sessionID: string): Promise<{ role: NativeTaskRole; rootSessionID: string; model?: NativeModelRef }>
   createSession(input: { taskID: string; rootSessionID: string; parentSessionID: string; role: NativeTaskRole; model: NativeModelRef; replacement?: true }): Promise<{ sessionID: string }>
   start(input: { sessionID: string; prompt: string }): Promise<void>
   inspect(sessionID: string): Promise<{ state: "running" | "idle" | "interrupted" | "succeeded" | "failed" | "missing"; result?: string; error?: string; failureID?: string; failureModel?: NativeModelRef; failureAt?: number; rejectedBeforeWork?: true; failureRejection?: import("../native-catalog/model-continuity-evidence").NativeModelRejection; failureQuota?: import("../native-catalog/model-quota-evidence").NativeQuotaFailure; usage?: NativeTaskUsage }>

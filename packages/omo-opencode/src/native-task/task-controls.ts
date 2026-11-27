@@ -1,6 +1,6 @@
 import { errorText, isTerminal } from "./lifecycle"
 import { createNativeChildBatchDelivery } from "./child-batch-delivery"
-import { applyRoute } from "./guards"
+import { applyRoute, sameModel } from "./guards"
 import type { NativeModelRef, NativeTask, NativeTaskEngineOptions, NativeTaskRole, NativeTaskDeliveryReceipt } from "./types"
 
 type TaskControlsOptions = {
@@ -29,6 +29,9 @@ export function createNativeTaskControls(deps: TaskControlsOptions) {
       const task = await deps.get(taskID)
       if (task.state !== "awaiting_selection" || task.decisionId === undefined) throw new Error("Task is not awaiting selection")
       authorizeTask(task, callerSessionID, false)
+      if (task.kind === "consultation" && sameModel(model, (await deps.options.runtime.resolveCaller(callerSessionID)).model)) {
+        throw new Error("Select an advisor distinct from the current session model")
+      }
       const routed = await deps.options.router.select(task.decisionId, model, role, callerSessionID)
       if (routed.kind === "awaiting_selection") {
         task.decisionId = routed.decisionId

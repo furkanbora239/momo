@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { proveNativeRoutingAccounting } from "./native-routing-accounting-proof"
 import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
-import { existsSync, realpathSync } from "node:fs"
+import { existsSync, readdirSync, readlinkSync, realpathSync } from "node:fs"
 import { spawn, execFileSync } from "node:child_process"
 import { createServer as createNetServer } from "node:net"
 import { createServer as createHttpServer, type ServerResponse } from "node:http"
@@ -23,7 +23,8 @@ const accountingOnly = process.env.MOMO_NATIVE_ACCOUNTING_ONLY === "1"
 const routingOnly = process.env.MOMO_NATIVE_ROUTING_ONLY === "1" || accountingOnly
 const probabilityMass = Number(process.env.MOMO_NATIVE_PROBABILITY_MASS ?? "1")
 if (!Number.isFinite(probabilityMass) || probabilityMass < 0 || probabilityMass > 1) throw new Error("Probability mass must be finite and between zero and one")
-const modelCount = Number(process.env.MOMO_NATIVE_MODEL_COUNT ?? "1")
+const advisorOnly = process.env.MOMO_NATIVE_ADVISOR_ONLY === "1"
+const modelCount = Number(process.env.MOMO_NATIVE_MODEL_COUNT ?? (routingOnly ? "1" : "3"))
 if (!Number.isInteger(modelCount) || modelCount < 1) throw new Error("Model count must be a positive integer")
 const fixtureModels = Array.from({ length: modelCount }, (_, index) => ({ providerID: "momo-qa", id: index === 0 ? "momo-qa-model" : `momo-qa-model-${index}` }))
 
@@ -190,6 +191,19 @@ function ownedServiceDatabasePaths(pid: number): string[] {
   })
   const databasePaths = new Set<string>()
   for (const candidatePID of pids) {
+    if (process.platform === "linux") {
+      const directory = `/proc/${candidatePID}/fd`
+      if (!existsSync(directory)) continue
+      for (const fd of readdirSync(directory)) {
+        try {
+          const target = readlinkSync(path.join(directory, fd))
+          if (/\.db(?:-(?:wal|shm))?$/.test(target)) databasePaths.add(target)
+        } catch (error) {
+          if (!(error instanceof Error) || !("code" in error) || error.code !== "ENOENT") throw error
+        }
+      }
+      continue
+    }
     const output = execFileSync("lsof", ["-Fn", "-p", String(candidatePID)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
     for (const line of output.split("\n")) {
       if (!line.startsWith("n") || !/\.db(?:-(?:wal|shm))?$/.test(line.slice(1))) continue
@@ -278,7 +292,11 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
     const isDepartmentManager = promptText.includes("MOMO_DEPT_WORK") && !hasAnyToolReply
     const isParallelRoot = /MOMO_NATIVE_ACCEPTANCE_PARALLEL_\d+/.test(promptText)
     const isSharedParallelRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_SHARED_PARALLEL")
-    const isConsultRoot = /MOMO_NATIVE_ACCEPTANCE_CONSULT_[a-z-]+/.test(promptText)
+    const isAdviceDiscussion = promptText.includes("MOMO_ADVISOR_DISCUSSION_ROOT")
+    const isConsultRoot = isAdviceDiscussion || /MOMO_NATIVE_ACCEPTANCE_CONSULT_[a-z-]+/.test(promptText)
+    const consultationCode = isAdviceDiscussion
+      ? `const policy=JSON.parse(await tools.momo_consult({action:"capabilities"}));if(policy.consultation.eligibleCount!==2)throw new Error("Missing distinct advisors"); const initial=JSON.parse(await tools.momo_consult({action:"start",prompt:"MOMO_ADVISOR_INDEPENDENT_FIRST",waitMs:60000}));if(initial.state!=="succeeded")throw new Error("First opinion did not complete"); const second=JSON.parse(await tools.momo_consult({action:"start",prompt:"MOMO_ADVISOR_INDEPENDENT_SECOND",differentFromTaskID:initial.id,waitMs:60000}));if(second.state!=="succeeded")throw new Error("Second opinion did not complete");return {first:initial.id,second:second.id}`
+      : 'return await tools.momo_consult({action:"start",prompt:"MOMO_CONSULT_WORK",waitMs:60000})'
     const isPermissionRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_PERMISSION")
     const isManualCreate = !hasToolReply && promptText.includes("MOMO_NATIVE_ACCEPTANCE_SELECT_CREATE") && canUseCodeMode
     const isCLIRoot = promptText.includes("MOMO_NATIVE_ACCEPTANCE_CLI_ASYNC")
@@ -308,7 +326,7 @@ async function startFixture(): Promise<{ modelPort: number; jevPort: number }> {
       : isPermissionRoot && !hasToolReply && last?.role === "user" && canUseCodeMode
       ? { tool_calls: [{ index: 0, id: "call_native_permission_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: `return await import("node:fs").then((fs) => fs.writeFileSync(${JSON.stringify(deniedMarker)}, "bypass"))` }) } }] }
       : createConsult
-      ? { tool_calls: [{ index: 0, id: "call_native_consult_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: 'return await tools.momo_consult({action:"start",prompt:"MOMO_CONSULT_WORK",waitMs:60000})' }) } }] }
+      ? { tool_calls: [{ index: 0, id: "call_native_consult_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: consultationCode }) } }] }
       : createTask
         ? { tool_calls: [{ index: 0, id: "call_native_task_acceptance", type: "function", function: { name: "execute", arguments: JSON.stringify({ code: isAccountingRoot ? accountingCode : isManualCreate ? manualSelectionCode : isSharedParallelRoot ? sharedParallelCode : `return await tools.momo_task({action:"create",prompt:"${childPrompt}"${isCLIRoot || isQuestionRoot || isQuestionDepartment || isEscalationRoot ? "" : ",waitMs:60000"}})` }) } }] }
       : { content: text })
@@ -399,7 +417,7 @@ async function main(): Promise<void> {
     await mkdir(path.join(qaHome, ".omo", "native"), { recursive: true })
     await writeFile(path.join(qaHome, ".omo", "native", "catalog-knowledge.json"), JSON.stringify({ version: 1, entries: Object.fromEntries(fixtureModels.map((model) => [`${model.providerID}/${model.id}`, { ...model, summary: "Verified isolated fixture model", sources: ["https://fixture.invalid/models"], researchedAt: new Date().toISOString() }])) }), { mode: 0o600 })
   }
-  await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: coreAccounting === "no-send" ? "momo-qa-unbound-manager" : "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1, ...(accountingOnly ? { budget: { monthly_cap_usd: 0.000001 } } : {}) }, advisor_models: [{ providerID: "momo-qa", id: "momo-qa-model" }] } } }, null, 2)}\n`, { mode: 0o600 })
+  await writeFile(path.join(root, ".omo", "omo.jsonc"), `${JSON.stringify({ "[opencode]": { manager: { jev: { provider_id: coreAccounting === "no-send" ? "momo-qa-unbound-manager" : "momo-qa", base_url: `http://127.0.0.1:${jevPort}/jev/v1`, model: "jev-1.13", max_attempts: 1, ...(accountingOnly ? { budget: { monthly_cap_usd: 0.000001 } } : {}) }, advisor_models: fixtureModels } } }, null, 2)}\n`, { mode: 0o600 })
   await writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify({ "$schema": "https://opencode.ai/config.json", plugins: [`file:${pluginDir}`], model: "momo-qa/momo-qa-model", agent: "momo-orchestrator" }, null, 2)}\n`, { mode: 0o600 })
   servicePort = await freePort()
   opencode = spawn(opencodeBinary, ["serve", "--service", "--hostname", "127.0.0.1", "--port", String(servicePort)], { cwd: root, detached: true, env: isolatedEnv({ MOMO_QA_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`, MOMO_QA_PERMISSION_LOG: permissionLog, MOMO_QA_MODEL_COUNT: String(modelCount) }), stdio: ["ignore", "pipe", "pipe"] })
@@ -443,7 +461,30 @@ async function main(): Promise<void> {
     result = { status: "passed", opencodeVersion: version, pluginEntry, disposableRoot: root, serviceDatabasePaths, serviceDatabaseChecks, modelCount, accounting, verifiedCases }
     return
   }
+  const readTasks = async (rootSessionID: string): Promise<unknown[]> => {
+    stage = `read native task rpc for ${rootSessionID}`
+    const response = await client.rpc.call({ rpcID: "momo.native", method: "tasks", input: { rootSessionID }, location: { directory: root } })
+    const envelope = response as { output?: unknown }
+    const payload = (envelope.output ?? response) as { tasks?: unknown[] }
+    return payload?.tasks ?? []
+  }
   const session = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
+  if (advisorOnly) {
+    stage = "distinct advisor opinions"
+    await client.session.prompt({ sessionID: session.id, text: "Choose a reversible alternative for a proposed destructive migration. MOMO_ADVISOR_DISCUSSION_ROOT" })
+    await client.session.wait({ sessionID: session.id })
+    const tasks = await readTasks(session.id) as { parentSessionID: string; model?: { id: string }; state: string; kind: string; role?: string; prompt: string }[]
+    const ids = tasks.map((task) => task.model?.id)
+    if (tasks.length !== 2 || new Set(ids).size !== 2 || ids.includes("momo-qa-model") || tasks.some(task => task.state !== "succeeded" || task.kind !== "consultation" || task.role !== "advisor" || task.parentSessionID !== session.id)) throw new Error(`Expected two completed opinions from distinct advisors: ${JSON.stringify(tasks)}`)
+    const requests = (await readFile(modelLog, "utf8")).trim().split("\n").map(line => JSON.parse(line) as { model: string; messages: unknown[] })
+    for (const task of tasks) {
+      const request = requests.find(row => row.model === task.model?.id && JSON.stringify(row.messages).includes(task.prompt))
+      if (!request || JSON.stringify(request.messages).includes("MOMO_ADVISOR_DISCUSSION_ROOT")) throw new Error("Advisor did not receive an isolated brief")
+    }
+    verifiedCases.push("two readonly advisor tasks used distinct models and isolated briefs")
+    result = { status: "passed", opencodeVersion: version, verifiedCases, models: ids }
+    return
+  }
   stage = "direct task completion"
   await client.session.prompt({ sessionID: session.id, text: "Run a native task for the acceptance request, then report its final status: MOMO_NATIVE_ACCEPTANCE_CHILD" })
   await client.session.wait({ sessionID: session.id })
@@ -517,13 +558,6 @@ async function main(): Promise<void> {
   const advisorSession = await client.session.create({ location: { directory: root }, agent: "momo-advisor", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   await client.session.prompt({ sessionID: advisorSession.id, text: "Attempt a nested consultation probe: MOMO_NATIVE_ACCEPTANCE_CONSULT_advisor" })
   await client.session.wait({ sessionID: advisorSession.id })
-  const readTasks = async (rootSessionID: string): Promise<unknown[]> => {
-    stage = `read native task rpc for ${rootSessionID}`
-    const response = await client.rpc.call({ rpcID: "momo.native", method: "tasks", input: { rootSessionID }, location: { directory: root } })
-    const envelope = response as { output?: unknown }
-    const payload = (envelope.output ?? response) as { tasks?: unknown[] }
-    return payload?.tasks ?? []
-  }
   stage = "default async department child question and parent answer"
   const questionSession = await client.session.create({ location: { directory: root }, agent: "momo-orchestrator", model: { providerID: "momo-qa", id: "momo-qa-model" } })
   await client.session.prompt({ sessionID: questionSession.id, text: "Create a department asynchronously and answer its worker's question through momo_task without asking the root user: MOMO_NATIVE_ACCEPTANCE_QUESTION_ROOT" })
