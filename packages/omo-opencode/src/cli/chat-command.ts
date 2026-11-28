@@ -13,14 +13,16 @@ interface ChatDependencies {
   readonly interactive: boolean
   readonly chooseModel: (models: readonly string[]) => Promise<string | undefined>
   readonly capture: (args: readonly string[], directory: string) => Promise<string>
-  readonly open: (args: readonly string[], directory: string) => Promise<number>
+  readonly open: (sessionID: string, args: readonly string[], directory: string) => Promise<number>
 }
 
-function runOpenCode(args: readonly string[], directory: string, interactive: boolean) {
+function runOpenCode(args: readonly string[], directory: string, freshChatID?: string) {
   return new Promise<{ output: string; code: number }>((resolve, reject) => {
     const child = spawn(process.env.MOMO_NATIVE_OPENCODE_BIN ?? "opencode", args, {
       cwd: directory,
-      stdio: interactive ? "inherit" : ["ignore", "pipe", "inherit"],
+      stdio: freshChatID ? "inherit" : ["ignore", "pipe", "inherit"],
+      // The TUI opens by ID, so plugins can distinguish this launch from resuming an existing chat.
+      env: freshChatID ? { ...process.env, MOMO_NATIVE_FRESH_CHAT_ID: freshChatID } : undefined,
     })
     let output = ""
     child.stdout?.setEncoding("utf8").on("data", (chunk: string) => { output += chunk })
@@ -42,12 +44,12 @@ const defaults: ChatDependencies = {
     return isCancel(choice) ? undefined : choice
   },
   async capture(args, directory) {
-    const { output, code } = await runOpenCode(args, directory, false)
+    const { output, code } = await runOpenCode(args, directory)
     if (code !== 0) throw new Error(`OpenCode ${args[0]} exited with status ${code}`)
     return output
   },
-  async open(args, directory) {
-    return (await runOpenCode(args, directory, true)).code
+  async open(sessionID, args, directory) {
+    return (await runOpenCode(["--session", sessionID, ...args], directory, sessionID)).code
   },
 }
 
@@ -86,7 +88,7 @@ export async function openChat(
   }
 
   const promptArgs = options.prompt === undefined ? [] : ["--prompt", options.prompt]
-  return deps.open(["--session", session.id, ...serverArgs, ...promptArgs], location.directory)
+  return deps.open(session.id, [...serverArgs, ...promptArgs], location.directory)
 }
 
 export function configureChatCommand(program: Command): void {

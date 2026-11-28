@@ -14,7 +14,7 @@ function fixture(choice?: string) {
       const { model } = JSON.parse(args.at(-1) ?? "{}")
       return JSON.stringify({ data: { id: "ses_chosen", model } })
     }),
-    open: mock(async (_args: readonly string[], _directory: string) => 0),
+    open: mock(async (_sessionID: string, _args: readonly string[], _directory: string) => 0),
   }
 }
 
@@ -32,7 +32,7 @@ describe("openChat", () => {
         location: { directory }, model: { providerID: "fixture", id: "organization/beta" },
       })], directory],
     ])
-    expect(deps.open).toHaveBeenCalledWith(["--session", "ses_chosen", "--server", server, "--prompt", "hello"], directory)
+    expect(deps.open).toHaveBeenCalledWith("ses_chosen", ["--server", server, "--prompt", "hello"], directory)
   })
 
   test("cancelling the picker creates no session and sends no startup prompt", async () => {
@@ -49,7 +49,7 @@ describe("openChat", () => {
     await openChat(directory, { model: "fixture/alpha" }, deps)
 
     expect(deps.chooseModel).not.toHaveBeenCalled()
-    expect(deps.open).toHaveBeenCalledWith(["--session", "ses_chosen"], directory)
+    expect(deps.open).toHaveBeenCalledWith("ses_chosen", [], directory)
   })
 
   test("an unavailable explicit model cannot fall back or start a chat", async () => {
